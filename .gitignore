@@ -1,0 +1,22 @@
+*.jl.cov
+*.jl.mem
+
+# Specific files/directories
+notes/
+temp/
+work/
+
+# Backup files
+*~
+
+# Automatically generated files:
+deps/deps.jl
+doc/*.aux
+doc/*.bbl
+doc/*.blg
+doc/*.brf
+doc/*.log
+doc/*.out
+doc/*.pdf
+doc/*.synctex.gz
+test/*.out
