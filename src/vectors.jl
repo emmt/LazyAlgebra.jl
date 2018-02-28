@@ -571,11 +571,11 @@ function vupdate!(y::AbstractArray{Ty,N},
     return _vupdate!(y, convert(Tx, alpha), x)
 end
 
-# This version is to use pure Julia code.
+# Pure Julia implementation.
 function _vupdate!(y::AbstractArray{Ty,N},
-                        alpha::Real,
-                        x::AbstractArray{Tx,N}) where {Ty<:AbstractFloat,
-                                                       Tx<:AbstractFloat,N}
+                   alpha::Real,
+                   x::AbstractArray{Tx,N}) where {Ty<:AbstractFloat,
+                                                  Tx<:AbstractFloat,N}
     if indices(x) != indices(y)
         throw(DimensionMismatch("`x` and `y` must have the same indices"))
     end
@@ -681,15 +681,15 @@ end
 # Pure Julia code implementations.
 
 function _apply!(y::AbstractArray{<:Real},
-                      ::Type{Direct},
-                      A::AbstractArray{<:Real},
-                      x::AbstractArray{<:Real},
-                      clr::Bool = true)
+                 ::Type{Direct},
+                 A::AbstractArray{<:Real},
+                 x::AbstractArray{<:Real},
+                 overwrite::Bool = true)
     if indices(A) != (indices(y)..., indices(x)...)
         throw(DimensionMismatch("`x` and/or `y` have indices incompatible with `A`"))
     end
     # Loop through the coefficients of A assuming column-major storage order.
-    clr && vzero!(y)
+    overwrite && vzero!(y)
     I, J = CartesianRange(indices(y)), CartesianRange(indices(x))
     @inbounds for j in J
         @simd for i in I
@@ -700,17 +700,17 @@ function _apply!(y::AbstractArray{<:Real},
 end
 
 function _apply!(y::AbstractArray{Ty},
-                      ::Type{Adjoint},
-                      A::AbstractArray{Ta},
-                      x::AbstractArray{Tx}) where {Ta<:Real, Tx<:Real, Ty<:Real}
+                 ::Type{Adjoint},
+                 A::AbstractArray{Ta},
+                 x::AbstractArray{Tx}) where {Ta<:Real, Tx<:Real, Ty<:Real}
     return _apply!(promote_type(Ty, Ta, Tx), y, Adjoint, A, x)
 end
 
 function _apply!(::Type{T},
-                      y::AbstractArray{<:Real},
-                      ::Type{Adjoint},
-                      A::AbstractArray{<:Real},
-                      x::AbstractArray{<:Real}) where {T<:Real}
+                 y::AbstractArray{<:Real},
+                 ::Type{Adjoint},
+                 A::AbstractArray{<:Real},
+                 x::AbstractArray{<:Real}) where {T<:Real}
     if indices(A) != (indices(x)..., indices(y)...)
         throw(DimensionMismatch("`x` and/or `y` have indices incompatible with `A`"))
     end
