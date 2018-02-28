@@ -35,6 +35,7 @@ export
     vcopy,
     vcreate,
     vdot,
+    vfill!,
     vnorm1,
     vnorm2,
     vnorminf,

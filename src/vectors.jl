@@ -143,6 +143,27 @@ vcopy(x) = vcopy!(vcreate(x), x)
 
 #------------------------------------------------------------------------------
 
+
+"""
+```julia
+vfill!(x, α) -> x
+```
+
+sets all elements of `x` with the scalar value `α` and return `x`.
+
+Also see [`vzero!`](@ref).
+
+"""
+function vfill!(x::AbstractArray{T,N}, alpha::T) where {T<:AbstractFloat,N}
+    @inbounds @simd for i in eachindex(x)
+        x[i] = alpha
+    end
+    return x
+end
+
+vfill!(x::DenseArray{T,N}, alpha::Real) = where {T<:AbstractFloat,N}
+    vfill!(x, T(alpha))
+
 """
 
 ```julia
@@ -151,8 +172,10 @@ vzero!(A) -> A
 
 fills `A` with zeros and returns it.
 
+Also see [`vfill!`](@ref).
+
 """
-vzero!(A::AbstractArray{T,N}) where {T, N} = fill!(A, zero(T))
+vzero!(A::AbstractArray{T,N}) where {T,N} = fill!(A, zero(T))
 
 """
 ```julia
