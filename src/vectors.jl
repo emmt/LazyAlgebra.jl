@@ -111,15 +111,48 @@ vcreate(x::AbstractArray{T,N}) where {T,N} = similar(x, float(T))
 #------------------------------------------------------------------------------
 
 """
+```julia
+vcopy!(dst, src) -> dst
+```
+
+copies the contents of `src` into `dst` and returns `dst`.  This function
+checks that the copy makes sense (for instance, the `copy!` operation does not
+check that the source and destination have the same dimensions).
+
+Also see [`copy!`](@ref), [`vcopy`](@ref).
+
+"""
+function vcopy!(dst::AbstractArray{Td,N},
+                src::AbstractArray{Ts,N}) where {Td, Ts, N}
+    @assert indices(dst) == indices(src)
+    copy!(dst, src)
+end
+
+"""
+```julia
+vcopy(x)
+```
+
+yields a fresh copy of the *vector* `x`.  If `x` is is an array, the element
+type of the result is a floating-point type.
+
+Also see [`copy`](@ref), [`vcopy!`](@ref), [`vcreate!`](@ref).
+
+"""
+vcopy(x) = vcopy!(vcreate(x), x)
+
+#------------------------------------------------------------------------------
+
+"""
 
 ```julia
-zerofill!(A) -> A
+vzero!(A) -> A
 ```
 
 fills `A` with zeros and returns it.
 
 """
-zerofill!(A::AbstractArray{T,N}) where {T, N} = fill!(A, zero(T))
+vzero!(A::AbstractArray{T,N}) where {T, N} = fill!(A, zero(T))
 
 """
 ```julia
@@ -136,7 +169,7 @@ function vscale!(dst::AbstractArray{Td,N},
                                                   Ts<:AbstractFloat,N}
     @assert indices(src) == indices(dst)
     if alpha == 0
-        zerofill!(dst)
+        vzero!(dst)
     elseif alpha == -1
         @inbounds @simd for i in eachindex(dst, src)
             dst[i] = -src[i]
@@ -319,7 +352,7 @@ function julia_apply!(y::AbstractArray{<:Real},
         throw(DimensionMismatch("`x` and/or `y` have indices incompatible with `A`"))
     end
     # Loop through the coefficients of A assuming column-major storage order.
-    clr && zerofill!(y)
+    clr && vzero!(y)
     I, J = CartesianRange(indices(y)), CartesianRange(indices(x))
     @inbounds for j in J
         @simd for i in I
