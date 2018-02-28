@@ -452,6 +452,8 @@ end
 #--- INNER PRODUCT ------------------------------------------------------------
 
 """
+### Inner product
+
 ```julia
 vdot([T,] [w,] x, y)
 ```
@@ -470,6 +472,14 @@ with `sel` a selection of indices to restrict the computation of the inner
 product to some selected elements.  This yields the sum of `x[i]*y[i]` for all
 `i ∈ sel`.
 
+If the arguments are complex, they are considered as vectors of pairs of reals
+and the result is:
+
+```julia
+vdot(x, y) = x[1].re*y[1].re + x[1].im*y[1].im +
+             x[2].re*y[2].re + x[2].im*y[2].im + ...
+```
+
 """
 function vdot(::Type{T},
               x::AbstractArray{<:Real,N},
@@ -482,24 +492,17 @@ function vdot(x::AbstractArray{Tx,N},
     return vdot(float(promote_type(Tx, Ty)), x, y)
 end
 
-# Pure Julia implementation.
-
-function _vdot(::Type{T},
-               x::AbstractArray{<:Real,N},
-               y::AbstractArray{<:Real,N})::T where {T<:AbstractFloat, N}
-    if indices(x) != indices(y)
-        throw(DimensionMismatch("`x` and `y` must have the same indices"))
-    end
-    local s::T = zero(T)
-    @inbounds @simd for i in eachindex(x, y)
-        s += x[i]*y[i]
-    end
-    return s
+function vdot(::Type{T},
+              x::AbstractArray{Complex{<:Real},N},
+              y::AbstractArray{Complex{<:Real},N}) where {T<:Real, N}
+    return _vdot(T, x, y)
 end
 
-function _vdot(x::AbstractArray{Tx,N},
-               y::AbstractArray{Ty,N}) where {Tx<:Real, Ty<:Real, N}
-    return _vdot(float(promote_type(Tx, Ty)), x, y)
+# Note that we cannot use union here because we want that both be real or both
+# be complex.
+function vdot(x::AbstractArray{Complex{Tx},N},
+              y::AbstractArray{Complex{Ty},N}) where {Tx<:Real, Ty<:Real, N}
+    return vdot(float(promote_type(Tx, Ty)), x, y)
 end
 
 function vdot(::Type{T},
@@ -519,6 +522,27 @@ end
 function vdot(w::AbstractArray{Tw,N},
               x::AbstractArray{Tx,N},
               y::AbstractArray{Ty,N}) where {Tw<:Real, Tx<:Real, Ty<:Real, N}
+    return vdot(float(promote_type(Tw, Tx, Ty)), w, x, y)
+end
+
+function vdot(::Type{T},
+              w::AbstractArray{<:Real,N},
+              x::AbstractArray{Complex{<:Real},N},
+              y::AbstractArray{Complex{<:Real},N})::T where {T<:AbstractFloat,N}
+    if !(indices(w) == indices(x) == indices(y))
+        throw(DimensionMismatch("`w`, `x` and `y` must have the same indices"))
+    end
+    local s::T = zero(T)
+    @inbounds @simd for i in eachindex(w, x, y)
+        s += (x[i].re*y[i].re + x[i].im*y[i].im)*w[i]
+    end
+    return s
+end
+
+function vdot(w::AbstractArray{Tw,N},
+              x::AbstractArray{Complex{Tx},N},
+              y::AbstractArray{Complex{Ty},N}) where {Tw<:Real, Tx<:Real,
+                                                      Ty<:Real, N}
     return vdot(float(promote_type(Tw, Tx, Ty)), w, x, y)
 end
 
@@ -545,6 +569,69 @@ function vdot(sel::AbstractVector{Int},
               x::DenseArray{Tx,N},
               y::DenseArray{Ty,N}) where {Tx<:Real,Ty<:Real,N}
     return vdot(float(promote_type(Tx, Ty)), sel, x, y)
+end
+
+function vdot(::Type{T},
+              sel::AbstractVector{Int},
+              x::DenseArray{Complex{<:Real},N},
+              y::DenseArray{Complex{<:Real},N})::T where {T<:AbstractFloat,N}
+    if size(y) != size(x)
+        throw(DimensionMismatch("`x` and `y` must have same dimensions"))
+    end
+    local s::T = zero(T)
+    const n = length(x)
+    @inbounds @simd for i in eachindex(sel)
+        j = sel[i]
+        1 ≤ j ≤ n || throw(BoundsError())
+        s += x[j].re*y[j].re + x[j].im*y[j].im
+    end
+    return s
+end
+
+function vdot(sel::AbstractVector{Int},
+              x::DenseArray{Complex{Tx},N},
+              y::DenseArray{Complex{Ty},N}) where {Tx<:Real,Ty<:Real,N}
+    return vdot(float(promote_type(Tx, Ty)), sel, x, y)
+end
+
+
+# Pure Julia implementations (there may exist a faster BLAS counterpart).
+
+function _vdot(::Type{T},
+               x::AbstractArray{<:Real,N},
+               y::AbstractArray{<:Real,N})::T where {T<:AbstractFloat, N}
+    if indices(x) != indices(y)
+        throw(DimensionMismatch("`x` and `y` must have the same indices"))
+    end
+    local s::T = zero(T)
+    @inbounds @simd for i in eachindex(x, y)
+        s += x[i]*y[i]
+    end
+    return s
+end
+
+function _vdot(x::AbstractArray{Tx,N},
+               y::AbstractArray{Ty,N}) where {Tx<:Real, Ty<:Real, N}
+    return _vdot(float(promote_type(Tx, Ty)), x, y)
+end
+
+function _vdot(::Type{T},
+               x::AbstractArray{Complex{<:Real},N},
+               y::AbstractArray{Complex{<:Real},N})::T where {T<:AbstractFloat,
+                                                              N}
+    if indices(x) != indices(y)
+        throw(DimensionMismatch("`x` and `y` must have the same indices"))
+    end
+    local s::T = zero(T)
+    @inbounds @simd for i in eachindex(x, y)
+        s += x[i].re*y[i].re + x[i].im*y[i].im
+    end
+    return s
+end
+
+function _vdot(x::AbstractArray{Complex{Tx},N},
+               y::AbstractArray{Complex{Ty},N}) where {Tx<:Real, Ty<:Real, N}
+    return _vdot(float(promote_type(Tx, Ty)), x, y)
 end
 
 #--- VECTOR UPDATE ------------------------------------------------------------
