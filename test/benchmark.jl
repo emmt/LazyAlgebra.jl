@@ -4,6 +4,7 @@ module MockAlgebraBenchmarks
 
 using BenchmarkTools
 using MockAlgebra
+import MockAlgebra: vdot
 
 vdot(::Type{Val{:BLAS}}, x, y) =
     MockAlgebra.blas_vdot(x,y)
@@ -160,5 +161,9 @@ function testdot(_dims::Integer...)
     println("\\hline")
     println("\\end{tabular}")
 end
+
+norminf(x::AbstractArray) = ((xmn, xmx) = extrema(x); return max(-xmn, xmx))
+norm1(x::AbstractArray) = sum(abs.(x))
+norm2(x::AbstractArray) = sum(abs2.(x))
 
 end

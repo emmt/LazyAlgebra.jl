@@ -1,7 +1,11 @@
 #
-# vops.jl -
+# vectors.jl -
 #
-# Vectorized operations for linera algebra.
+# Implement basic operations for *vectors*.  Here arrays of any rank are
+# considered as *vectors*, the only requirements are that, when combining
+# *vectors*, they have the same type and dimensions.  These methods are
+# intended to be used for numerical optimization and thus, for now,
+# elements must be real (not complex).
 #
 #-------------------------------------------------------------------------------
 #
@@ -10,6 +14,85 @@
 #
 # Copyright (c) 2017-2018 Éric Thiébaut.
 #
+
+"""
+```julia
+vnorm2([T,] v)
+```
+
+yields the Euclidean (L2) norm of `v`.  The floating point type of the result
+can be imposed by optional argument `T`.  Also see [`vnorm1`](@ref) and
+[`vnorminf`](@ref).
+
+"""
+function vnorm2(::Type{T},
+                v::AbstractArray{<:Real,N}) where {T<:AbstractFloat,N}
+    local s::T = zero(T)
+    @inbounds @simd for i in eachindex(v)
+        s += v[i]*v[i]
+    end
+    return sqrt(s)
+end
+
+vnorm2(v::AbstractArray{T,N}) where {T<:AbstractFloat,N} = vnorm2(T, v)
+vnorm2(v::AbstractArray{T,N}) where {T<:Real,N} = vnorm2(float(T), x)
+vnorm2(x) = sqrt(vdot(x, x))
+vnorm2(::Type{T}, x) where {T<:AbstractFloat} = sqrt(vdot(T, x, x))
+
+"""
+```julia
+vnorm1([T,] v)
+```
+
+yields the L1 norm of `v`, that is the sum of the absolute values of its
+elements.  The floating point type of the result can be imposed by optional
+argument `T`.  Also see [`vnorm2`](@ref) and [`vnorminf`](@ref).
+
+"""
+function vnorm1(::Type{T},
+                v::AbstractArray{<:Real,N}) where {T<:AbstractFloat,N}
+    local s::T = zero(T)
+    @inbounds @simd for i in eachindex(v)
+        s += abs(v[i])
+    end
+    return s
+end
+
+vnorm1(v::AbstractArray{T,N}) where {T<:AbstractFloat,N} = vnorm1(T, v)
+vnorm1(v::AbstractArray{T,N}) where {T<:Real,N} = vnorm1(float(T), x)
+
+
+"""
+```julia
+vnorminf([T,] v)
+```
+
+yields the infinite norm of `v`, that is the maximum absolute value of its
+elements.  The floating point type of the result can be imposed by optional
+argument `T`.  Also see [`vnorm1`](@ref) and [`vnorm2`](@ref).
+
+"""
+function vnorminf(::Type{F},
+                  v::AbstractArray{T,N}) where {F<:AbstractFloat,T<:Real,N}
+    local s::T = zero(T)
+    @inbounds @simd for i in eachindex(v)
+        s = max(s, abs(v[i]))
+    end
+    return F(s)
+end
+function vnorminf(::Type{F},
+                  v::AbstractArray{T,N}) where {F<:AbstractFloat,T<:Unsigned,N}
+    local s::T = zero(T)
+    @inbounds @simd for i in eachindex(v)
+        s = max(s, v[i])
+    end
+    return F(s)
+end
+
+vnorminf(v::AbstractArray{T,N}) where {T<:AbstractFloat,N} = vnorminf(T, v)
+vnorminf(v::AbstractArray{T,N}) where {T<:Real,N} = vnorminf(float(T), x)
+
+#------------------------------------------------------------------------------
 
 """
 ```julia

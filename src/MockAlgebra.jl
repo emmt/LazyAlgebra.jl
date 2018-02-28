@@ -31,6 +31,9 @@ export
     output_size,
     output_ndims,
     is_applicable_in_place,
+    vnorm1,
+    vnorm2,
+    vnorminf,
     vdot,
     vupdate!,
     vcopy!,
@@ -58,7 +61,7 @@ const USE_BLAS_GEMV = true
 
 include("types.jl")
 include("blas.jl")
-include("vops.jl")
+include("vectors.jl")
 include("operators.jl")
 include("conjgrad.jl")
 
