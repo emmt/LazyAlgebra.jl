@@ -119,7 +119,7 @@ copies the contents of `src` into `dst` and returns `dst`.  This function
 checks that the copy makes sense (for instance, the `copy!` operation does not
 check that the source and destination have the same dimensions).
 
-Also see [`copy!`](@ref), [`vcopy`](@ref).
+Also see [`copy!`](@ref), [`vcopy`](@ref), [`vswap!`](@ref).
 
 """
 function vcopy!(dst::AbstractArray{Td,N},
@@ -141,8 +141,40 @@ Also see [`copy`](@ref), [`vcopy!`](@ref), [`vcreate!`](@ref).
 """
 vcopy(x) = vcopy!(vcreate(x), x)
 
-#------------------------------------------------------------------------------
+"""
+```julia
+vswap!(x, y)
+```
 
+exchanges the contents of `x` and `y` (which must have the same type and size
+if they are arrays).
+
+Also see [`vcopy!`](@ref).
+
+"""
+function vswap!(x::DenseArray{T,N}, y::DenseArray{T,N}) where {T,N}
+    if pointer(x) != pointer(y)
+        @assert indices(x) == indices(y)
+        @inbounds @simd for i in eachindex(x, y)
+            temp = x[i]
+            x[i] = y[i]
+            y[i] = temp
+        end
+    end
+    return nothing
+end
+
+function vswap!(x::AbstractArray{T,N}, y::AbstractArray{T,N}) where {T,N}
+    @assert indices(x) == indices(y)
+    @inbounds @simd for i in eachindex(x, y)
+        temp = x[i]
+        x[i] = y[i]
+        y[i] = temp
+    end
+    return nothing
+end
+
+#------------------------------------------------------------------------------
 
 """
 ```julia
@@ -161,7 +193,7 @@ function vfill!(x::AbstractArray{T,N}, alpha::T) where {T<:AbstractFloat,N}
     return x
 end
 
-vfill!(x::DenseArray{T,N}, alpha::Real) = where {T<:AbstractFloat,N}
+vfill!(x::DenseArray{T,N}, alpha::Real) where {T<:AbstractFloat,N} =
     vfill!(x, T(alpha))
 
 """

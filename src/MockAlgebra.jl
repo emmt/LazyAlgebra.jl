@@ -40,6 +40,7 @@ export
     vnorm2,
     vnorminf,
     vscale!,
+    vswap!,
     vupdate!,
     vzero!,
     LinearOperator,
