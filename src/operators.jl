@@ -32,7 +32,7 @@ InverseAdjoint(A::Inverse{T}) where {T<:LinearOperator} = Adjoint{T}(A.op)
 Base.ctranspose(A::LinearOperator) = Adjoint(A)
 Base.inv(A::LinearOperator) = Inverse(A)
 
-# Automatically undecorate operator for common methods.
+# Automatically unveils operator for common methods.
 for (T1, T2, T3) in ((:Direct,         :Adjoint,        :Adjoint),
                      (:Direct,         :Inverse,        :Inverse),
                      (:Direct,         :InverseAdjoint, :InverseAdjoint),
@@ -59,6 +59,7 @@ for (T1, T2, T3) in ((:Direct,         :Adjoint,        :Adjoint),
         is_applicable_in_place(::Type{$T1}, A::$T2, x) =
             is_applicable_in_place($T3, A.op, x)
     end
+
 end
 
 # Specialize methods for self-adjoint operators so that only `Direct` and
@@ -85,71 +86,70 @@ for (T1, T2) in ((:Adjoint, :Direct),
 end
 
 # Basic methods:
-function input_type end
-function input_eltype end
-function input_size end
-function input_ndims end
-function output_type end
-function output_eltype end
-function output_size end
-function output_ndims end
-doc"""
-The calls:
+"""
+```julia
+input_type([Op=Direct,] A)
+output_type([Op=Direct,] A)
+```
 
-    input_type(A)
-    output_type(A)
+yield the (preferred) types of the input and output arguments of the operation
+`Op` with operator `A`.  If `A` operates on Julia arrays, the element type,
+list of dimensions, `i`-th dimension and number of dimensions for the input and
+output are given by:
 
-yield the (preferred) types of the input and output arguments of the operator
-`A`.  If `A` operates on Julia arrays, the element type, list of dimensions,
-`i`-th dimension and number of dimensions for the input and output are given
-by:
-
-    input_eltype(A)                output_eltype(A)
-    input_size([Op,] A)            output_size([Op,] A)
-    input_size([Op,] A, i)         output_size([Op,] A, i)
-    input_ndims([Op,] A)           output_ndims([Op,] A)
+    input_eltype([Op=Direct,] A)          output_eltype([Op=Direct,] A)
+    input_size([Op=Direct,] A)            output_size([Op=Direct,] A)
+    input_size([Op=Direct,] A, i)         output_size([Op=Direct,] A, i)
+    input_ndims([Op=Direct,] A)           output_ndims([Op=Direct,] A)
 
 Only `input_size(A)` and `output_size(A)` have to be implemented.
 
-Also see: [`vcreate`](@ref).
+Also see: [`vcreate`](@ref), [`apply!`](@ref), [`LinearOperator`](@ref),
+[`Operations`](@ref).
 
-""" input_type
-@doc @doc(input_type) input_eltype
-@doc @doc(input_type) input_size
-@doc @doc(input_type) input_ndims
-@doc @doc(input_type) output_type
-@doc @doc(input_type) output_eltype
-@doc @doc(input_type) output_size
-@doc @doc(input_type) output_ndims
+"""
+function input_type end
 
-# Provide methods for the different operations.
 for sfx in (:size, :eltype, :ndims, :type),
-    pfx in (:output, :input),
-    Op in (Direct, Adjoint, Inverse, InverseAdjoint)
+    pfx in (:output, :input)
 
     fn1 = Symbol(pfx, "_", sfx)
-    fn2 = Symbol(Op == Adjoint || Op == Inverse ?
-                 (pfx == :output ? :input : :output) : pfx, "_", sfx)
 
-    #println("$fn1($Op) -> $fn2")
+    for Op in (Direct, Adjoint, Inverse, InverseAdjoint)
 
-    @eval begin
+         fn2 = Symbol(Op == Adjoint || Op == Inverse ?
+                     (pfx == :output ? :input : :output) : pfx, "_", sfx)
 
-        if $(Op != Direct)
-            $fn1(A::$Op{<:LinearOperator}) = $fn2(A.op)
-        end
+        #println("$fn1($Op) -> $fn2")
 
-        $fn1(::Type{$Op}, A::LinearOperator) = $fn2(A)
+        # Provide basic methods for the different operations and for tagged
+        # operators.
+        @eval begin
 
-        if $(sfx == :size)
             if $(Op != Direct)
-                $fn1(A::$Op{<:LinearOperator}, dim...) =
-                    $fn2(A.op, dim...)
+                $fn1(A::$Op{<:LinearOperator}) = $fn2(A.op)
             end
-            $fn1(::Type{$Op}, A::LinearOperator, dim...) =
-                $fn2(A, dim...)
+
+            $fn1(::Type{$Op}, A::LinearOperator) = $fn2(A)
+
+            if $(sfx == :size)
+                if $(Op != Direct)
+                    $fn1(A::$Op{<:LinearOperator}, dim...) =
+                        $fn2(A.op, dim...)
+                end
+                $fn1(::Type{$Op}, A::LinearOperator, dim...) =
+                    $fn2(A, dim...)
+            end
         end
     end
+
+    # Link documentation for the basic methods.
+    @eval begin
+        if $(fn1 != :input_type)
+            @doc @doc(:input_type) $fn1
+        end
+    end
+
 end
 
 # Provide default methods for `$(sfx)_size(A, dim...)` and `$(sfx)_ndims(A)`.
@@ -288,7 +288,8 @@ NonuniformScaling(A)
 ```
 
 creates a nonuniform scaling linear operator whose effects is to apply
-elementwsie multiplication of its argument by the scaling factors `A`.
+elementwise multiplication of its argument by the scaling factors `A`.
+This operator can be thought as a *diagonal* operator.
 
 """
 struct NonuniformScaling{T} <: LinearOperator
@@ -336,13 +337,9 @@ function apply!(y::AbstractArray{<:AbstractFloat,N},
 end
 
 function vcreate(::Type{<:Operations},
-                   A::NonuniformScaling{<:AbstractArray{Ta,N}},
-                   x::AbstractArray{Tx,N}
-                   ) where {
-                       Ta <: AbstractFloat,
-                       Tx <: AbstractFloat,
-                       N
-                   }
+                 A::NonuniformScaling{<:AbstractArray{Ta,N}},
+                 x::AbstractArray{Tx,N}) where {Ta<:AbstractFloat,
+                                                Tx<:AbstractFloat, N}
     @assert indices(x) == indices(A.scl)
     T = promote_type(Ta, Tx)
     return similar(Array{T}, indices(A.scl))
@@ -397,8 +394,8 @@ function apply!(y::AbstractArray{<:AbstractFloat},
 end
 
 function vcreate(::Type{Op},
-                   A::GeneralMatrix{<:AbstractArray{<:AbstractFloat}},
-                   x::AbstractArray{<:AbstractFloat}) where {Op<:Operations}
+                 A::GeneralMatrix{<:AbstractArray{<:AbstractFloat}},
+                 x::AbstractArray{<:AbstractFloat}) where {Op<:Operations}
     return vcreate(Op, A.arr, x)
 end
 
