@@ -205,36 +205,83 @@ Also see [`vfill!`](@ref).
 """
 vzero!(A::AbstractArray{T,N}) where {T,N} = fill!(A, zero(T))
 
+#------------------------------------------------------------------------------
+
 """
 ```julia
 vscale!(dst, α, src) -> dst
 ```
 
-overwrites `dst` with `α*src` and returns `dst`.  Computations are done at
-the numerical precision of `src`.
+overwrites `dst` with `α*src` and returns `dst`.  Computations are done at the
+numerical precision of `src`.  The source argument may be omitted to perform
+*in-place* scaling:
+
+```julia
+vscale!(x, α) -> x
+```
+
+which overwrites `x` with `α*x` and returns `x`.
+
+Also see [`vscale`](@ref).
 
 """
 function vscale!(dst::AbstractArray{Td,N},
                  alpha::Real,
                  src::AbstractArray{Ts,N}) where {Td<:AbstractFloat,
                                                   Ts<:AbstractFloat,N}
-    @assert indices(src) == indices(dst)
-    if alpha == 0
+    if indices(dst) != indices(src)
+        throw(DimensionMismatch("`dst` and `src` must have the same indices"))
+    end
+    if alpha == zero(alpha)
         vzero!(dst)
-    elseif alpha == -1
+    elseif alpha == -one(alpha)
         @inbounds @simd for i in eachindex(dst, src)
             dst[i] = -src[i]
         end
-    elseif alpha == 1
+    elseif alpha == one(alpha)
         copy!(dst, src)
     else
-        α = convert(Ts, alpha)
+        const α = convert(Ts, alpha)
         @inbounds @simd for i in eachindex(dst, src)
             dst[i] = α*src[i]
         end
     end
     return dst
 end
+
+function vscale!(x::AbstractArray{T,N}, alpha::Real) where {T<:AbstractFloat,N}
+    if alpha == zero(alpha)
+        vzero!(x)
+    elseif alpha == -one(alpha)
+        @inbounds @simd for i in eachindex(x)
+            x[i] = -x[i]
+        end
+    elseif alpha != one(alpha)
+        const α = T(alpha)
+        @inbounds @simd for i in eachindex(x)
+            x[i] *= α
+        end
+    end
+    return x
+end
+
+# In place scaling for other *vector* types.
+vscale!(x, alpha::Real) = vscale!(x, alpha, x)
+
+
+"""
+```julia
+vscale(α, x)
+```
+
+yields a new *vector* whose elements are those of `x` multiplied by the scalar
+`α`.
+
+Also see [`vscale!`](@ref), [`vcopy`](@ref).
+
+"""
+vscale(alpha::Real, x) =
+    alpha == one(alpha) ? vcopy(x) : vscale!(vcreate(x), alpha, x)
 
 #--- INNER PRODUCT ------------------------------------------------------------
 
