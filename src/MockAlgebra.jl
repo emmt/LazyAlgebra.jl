@@ -31,6 +31,8 @@ export
     output_ndims,
     is_applicable_in_place,
     conjgrad!,
+    vcombine!,
+    vcombine,
     vcopy!,
     vcopy,
     vcreate,

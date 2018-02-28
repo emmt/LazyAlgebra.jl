@@ -268,7 +268,6 @@ end
 # In place scaling for other *vector* types.
 vscale!(x, alpha::Real) = vscale!(x, alpha, x)
 
-
 """
 ```julia
 vscale(α, x)
@@ -338,6 +337,114 @@ function vproduct!(dst::DenseArray{<:AbstractFloat,N},
         j = sel[i]
         1 ≤ j ≤ n || throw(BoundsError())
         dst[j] = x[j]*y[j]
+    end
+    return dst
+end
+
+#------------------------------------------------------------------------------
+
+"""
+### Linear combination of arrays
+
+```julia
+vcombine(α, x [, β, y]) -> dst
+```
+
+yields the linear combination `dst = α*x` or `dst = α*x + β*y`.
+
+To avoid allocating the result, the destination array `dst` can be specified
+with the in-place version of the method:
+
+```julia
+vcombine!(dst, α, x [, β, y]) -> dst
+```
+
+The code is optimized for some specific values of the coefficients `α` and `β`.
+For instance, if `α` (resp. `β`) is zero, then the contents of `x` (resp. `y`)
+is not used.
+
+The source(s) and the destination can be the same.  For instance, the two
+following lines of code produce the same result:
+
+```julia
+vcombine!(dst, 1, dst, α, x)
+vupdate!(dst, α, x)
+```
+
+and the following statements also yield the same result:
+
+ ```julia
+vcombine!(dst, α, x)
+vscale!(dst, α, x)
+```
+
+"""
+vcombine(alpha::Real, x) = vscale(alpha, x)
+
+vcombine(alpha::Real, x::V, beta::Real, y::V) where {V} =
+    vcombine!(vcreate(x), alpha, x, beta, y)
+
+vcombine!(dst::V, alpha::Real, x::V) where {V} = vscale!(dst, alpha, x)
+
+@doc @doc(vcombine) vcombine!
+
+function vcombine!(dst::AbstractArray{<:AbstractFloat,N},
+                   alpha::Real,
+                   x::AbstractArray{Tx,N},
+                   beta::Real,
+                   y::AbstractArray{Ty,N}) where {Tx<:AbstractFloat,
+                                                  Ty<:AbstractFloat,N}
+    @assert indices(dst) == indices(x) == indices(y)
+    if alpha == zero(alpha)
+        vscale!(dst, beta, y)
+    elseif beta == zero(beta)
+        vscale!(dst, alpha, x)
+    elseif alpha == one(alpha)
+        if beta == one(beta)
+            @inbounds @simd for i in eachindex(dst, x, y)
+                dst[i] = x[i] + y[i]
+            end
+        elseif beta == -one(beta)
+            @inbounds @simd for i in eachindex(dst, x, y)
+                dst[i] = x[i] - y[i]
+            end
+        else
+            const β = Ty(beta)
+            @inbounds @simd for i in eachindex(dst, x, y)
+                dst[i] = x[i] + β*y[i]
+            end
+        end
+    elseif alpha == -one(alpha)
+        if beta == one(beta)
+            @inbounds @simd for i in eachindex(dst, x, y)
+                dst[i] = y[i] - x[i]
+            end
+        elseif beta == -one(beta)
+            @inbounds @simd for i in eachindex(dst, x, y)
+                dst[i] = -x[i] - y[i]
+            end
+        else
+            const β = Ty(beta)
+            @inbounds @simd for i in eachindex(dst, x, y)
+                dst[i] = β*y[i] - x[i]
+            end
+        end
+    else
+        const α = Tx(alpha)
+        if beta == one(beta)
+            @inbounds @simd for i in eachindex(dst, x, y)
+                dst[i] = α*x[i] + y[i]
+            end
+        elseif beta == -one(beta)
+            @inbounds @simd for i in eachindex(dst, x, y)
+                dst[i] = α*x[i] - y[i]
+            end
+        else
+            const β = Ty(beta)
+            @inbounds @simd for i in eachindex(dst, x, y)
+                dst[i] = α*x[i] + β*y[i]
+            end
+        end
     end
     return dst
 end
