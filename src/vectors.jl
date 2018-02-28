@@ -96,19 +96,19 @@ vnorminf(v::AbstractArray{T,N}) where {T<:Real,N} = vnorminf(float(T), x)
 
 """
 ```julia
-vcopy!(dst, src) -> dst
+vcreate(x)
 ```
 
-copies values from source `src` to destination `dst` and returns `dst`.  This
-function insures that the copy makes sense (for instance, the `copy!` operation
-does not check that the source and destination have the same dimensions).
+yields a new variable instance similar to `x`.  If `x` is an array, the
+element type of the result is a floating-point type.
+
+Also see [`similar`](@ref).
 
 """
-function vcopy!(dst::AbstractArray{Td,N},
-                src::AbstractArray{Ts,N}) where {Td, Ts, N}
-    @assert indices(dst) == indices(src)
-    copy!(dst, src)
-end
+vcreate(x::AbstractArray{T,N}) where {T<:AbstractFloat,N} = similar(x, T)
+vcreate(x::AbstractArray{T,N}) where {T,N} = similar(x, float(T))
+
+#------------------------------------------------------------------------------
 
 """
 
@@ -270,7 +270,7 @@ end
 function apply(::Type{Op},
                A::AbstractArray{<:Real},
                x::AbstractArray{<:Real}) where {Op<:Operations}
-    return apply!(newresult(Op, A, x), Op, A, x)
+    return apply!(vcreate(Op, A, x), Op, A, x)
 end
 
 # By default, use pure Julia code for the generalized matrix-vector product.
@@ -281,7 +281,7 @@ function apply!(y::AbstractArray{<:Real},
     return julia_apply!(y, Op, A, x)
 end
 
-function newresult(::Type{Direct},
+function vcreate(::Type{Direct},
                    A::AbstractArray{Ta,Na},
                    x::AbstractArray{Tx,Nx}) where {Ta<:AbstractFloat, Na,
                                                    Tx<:AbstractFloat, Nx}
@@ -294,7 +294,7 @@ function newresult(::Type{Direct},
     return similar(Array{Ty}, inds[1:Ny])
 end
 
-function newresult(::Type{Adjoint},
+function vcreate(::Type{Adjoint},
                    A::AbstractArray{Ta,Na},
                    x::AbstractArray{Tx,Nx}) where {Ta<:AbstractFloat, Na,
                                                    Tx<:AbstractFloat, Nx}

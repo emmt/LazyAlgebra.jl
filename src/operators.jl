@@ -53,8 +53,8 @@ for (T1, T2, T3) in ((:Direct,         :Adjoint,        :Adjoint),
         apply(::Type{$T1}, A::$T2, x) =
             apply($T3, A.op, x)
 
-        newresult(::Type{$T1}, A::$T2, x) =
-            newresult($T3, A.op, x)
+        vcreate(::Type{$T1}, A::$T2, x) =
+            vcreate($T3, A.op, x)
 
         is_applicable_in_place(::Type{$T1}, A::$T2, x) =
             is_applicable_in_place($T3, A.op, x)
@@ -75,8 +75,8 @@ for (T1, T2) in ((:Adjoint, :Direct),
         apply(::Type{$T1}, A::SelfAdjointOperator, x) =
             apply($T2, A, x)
 
-        newresult(::Type{$T1}, A::SelfAdjointOperator, x) =
-            newresult($T2, A, x)
+        vcreate(::Type{$T1}, A::SelfAdjointOperator, x) =
+            vcreate($T2, A, x)
 
         is_applicable_in_place(::Type{$T1}, A::SelfAdjointOperator, x) =
             is_applicable_in_place($T2, A, x)
@@ -111,7 +111,7 @@ by:
 
 Only `input_size(A)` and `output_size(A)` have to be implemented.
 
-Also see: [`newresult`](@ref).
+Also see: [`vcreate`](@ref).
 
 """ input_type
 @doc @doc(input_type) input_eltype
@@ -190,13 +190,13 @@ Julia methods are provided so that `apply(A', x)` automatically calls
 `apply(Adjoint, A, x)` so the shorter syntax may be used without any
 performances impact.
 
-See also: [`LinearOperator`](@ref), [`apply!`](@ref), [`newresult`](@ref).
+See also: [`LinearOperator`](@ref), [`apply!`](@ref), [`vcreate`](@ref).
 
 """
 apply(A::LinearOperator, x) = apply(Direct, A, x)
 
 apply(::Type{Op}, A::LinearOperator, x) where {Op <: Operations} =
-    apply!(newresult(Op, A, x), Op, A, x)
+    apply!(vcreate(Op, A, x), Op, A, x)
 
 """
 ```julia
@@ -208,13 +208,13 @@ arguments other than `y` have the same meaning as for the [`apply`](@ref)
 method.  The result may have been allocated by:
 
 ```julia
-y = newresult([Op,] A, x)
+y = vcreate([Op,] A, x)
 ```
 
 The method `apply!(y, Op, A, x)` should be implemented by linear operators for
 any supported operations `Op`.
 
-See also: [`LinearOperator`](@ref), [`apply`](@ref), [`newresult`](@ref).
+See also: [`LinearOperator`](@ref), [`apply`](@ref), [`vcreate`](@ref).
 
 """
 apply!(y, A::LinearOperator, x) = apply!(y, Direct, A, x)
@@ -222,7 +222,7 @@ apply!(y, A::LinearOperator, x) = apply!(y, Direct, A, x)
 
 """
 ```julia
-newresult([Op,] A, x) -> y
+vcreate([Op,] A, x) -> y
 ```
 
 yields a new instance `y` suitable for storing the result of applying operator
@@ -230,13 +230,13 @@ yields a new instance `y` suitable for storing the result of applying operator
 used to specify how `A` is to be applied as explained in the documentation of
 the [`apply`](@ref) method.
 
-The method `newresult(Op, A, x)` should be implemented by linear operators
+The method `vcreate(Op, A, x)` should be implemented by linear operators
 for any supported operations `Op`.
 
 See also: [`LinearOperator`](@ref), [`apply`](@ref).
 
 """
-newresult(A::LinearOperator, x) = newresult(Direct, A, x)
+vcreate(A::LinearOperator, x) = vcreate(Direct, A, x)
 
 """
 ```julia
@@ -277,7 +277,7 @@ apply(::Type{<:Operations}, ::Identity, x) = x
 
 apply!(y, ::Type{<:Operations}, ::Identity, x) = vcopy!(y, x)
 
-newresult(::Type{<:Operations}, ::Identity, x) = similar(x)
+vcreate(::Type{<:Operations}, ::Identity, x) = similar(x)
 
 #------------------------------------------------------------------------------
 # NON-UNIFORM SCALING
@@ -335,7 +335,7 @@ function apply!(y::AbstractArray{<:AbstractFloat,N},
     return y
 end
 
-function newresult(::Type{<:Operations},
+function vcreate(::Type{<:Operations},
                    A::NonuniformScaling{<:AbstractArray{Ta,N}},
                    x::AbstractArray{Tx,N}
                    ) where {
@@ -396,10 +396,10 @@ function apply!(y::AbstractArray{<:AbstractFloat},
     return apply!(y, Op, A.arr, x)
 end
 
-function newresult(::Type{Op},
+function vcreate(::Type{Op},
                    A::GeneralMatrix{<:AbstractArray{<:AbstractFloat}},
                    x::AbstractArray{<:AbstractFloat}) where {Op<:Operations}
-    return newresult(Op, A.arr, x)
+    return vcreate(Op, A.arr, x)
 end
 
 #------------------------------------------------------------------------------
@@ -438,7 +438,7 @@ allocate a new object to store the result of applying the operator, it is
 sufficient to implement the method:
 
 ```julia
-newresult(::Type{Direct}, H::HalfHessian{typeof(A)}, x::T)
+vcreate(::Type{Direct}, H::HalfHessian{typeof(A)}, x::T)
 ```
 
 See also: [`LinearOperator`][@ref).

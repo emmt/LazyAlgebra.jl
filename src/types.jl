@@ -42,7 +42,7 @@ Assuming the type of `A` inherits from `LinearOperator`, then:
 The following methods should be implemented for a linear operator `A`:
 
 ```julia
-newresult(Op, A, x) -> y
+vcreate(Op, A, x) -> y
 apply!(y, Op, A, x) -> y
 ```
 
@@ -52,7 +52,7 @@ Optionally, methods `Op(A)` may be extended, *e.g.* to throw exceptions if
 operation`Op` is forbidden (or not implemented).  By default, all these
 operations are assumed possible.
 
-See also: [`apply`](@ref), [`apply!`](@ref), [`newresult`](@ref),
+See also: [`apply`](@ref), [`apply!`](@ref), [`vcreate`](@ref),
           [`is_applicable_in_place`](@ref), [`SelfAdjointOperator`](@ref),
           [`Direct`](@ref), [`Adjoint`](@ref), [`Inverse`](@ref),
           [`InverseAdjoint`](@ref).
