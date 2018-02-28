@@ -39,6 +39,8 @@ export
     vnorm1,
     vnorm2,
     vnorminf,
+    vproduct!,
+    vproduct,
     vscale!,
     vscale,
     vswap!,

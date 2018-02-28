@@ -283,6 +283,65 @@ Also see [`vscale!`](@ref), [`vcopy`](@ref).
 vscale(alpha::Real, x) =
     alpha == one(alpha) ? vcopy(x) : vscale!(vcreate(x), alpha, x)
 
+#------------------------------------------------------------------------------
+
+"""
+### Elementwise multiplication
+
+```julia
+vproduct(x, y) -> z
+```
+
+yields the elementwise multiplication of `x` by `y`.  To avoid allocating the
+result, the destination array `dst` can be specified with the in-place version
+of the method:
+
+```julia
+vproduct!(x, y) -> x
+```
+
+which overwrites `x` with the elementwise multiplication of `x` by `y`.
+
+Another destination than `x` can be provided:
+
+```julia
+vproduct!(dst, [sel,] x, y) -> dst
+```
+
+where `sel` is an optional selection of indices to which apply the operation.
+
+
+"""
+vproduct(x::V, y::V) where {V} = vproduct!(vcreate(x), x, y)
+
+vproduct!(dst::V, src::V) where {V} = vproduct!(dst, dst, src)
+
+@doc @doc(vproduct) vproduct!
+
+function vproduct!(dst::AbstractArray{<:AbstractFloat,N},
+                   x::AbstractArray{<:AbstractFloat,N},
+                   y::AbstractArray{<:AbstractFloat,N}) where {N}
+    @assert indices(dst) == indices(x) == indices(y)
+    @inbounds @simd for i in eachindex(dst, x, y)
+        dst[i] = x[i]*y[i]
+    end
+    return dst
+end
+
+function vproduct!(dst::DenseArray{<:AbstractFloat,N},
+                   sel::AbstractVector{Int},
+                   x::DenseArray{<:AbstractFloat,N},
+                   y::DenseArray{<:AbstractFloat,N}) where {N}
+    @assert size(dst) == size(x) == size(y)
+    const n = length(dst)
+    @inbounds @simd for i in eachindex(sel)
+        j = sel[i]
+        1 ≤ j ≤ n || throw(BoundsError())
+        dst[j] = x[j]*y[j]
+    end
+    return dst
+end
+
 #--- INNER PRODUCT ------------------------------------------------------------
 
 """
