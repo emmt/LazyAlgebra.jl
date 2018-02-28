@@ -152,20 +152,16 @@ if they are arrays).
 Also see [`vcopy!`](@ref).
 
 """
-function vswap!(x::DenseArray{T,N}, y::DenseArray{T,N}) where {T,N}
-    if pointer(x) != pointer(y)
-        @assert indices(x) == indices(y)
-        @inbounds @simd for i in eachindex(x, y)
-            temp = x[i]
-            x[i] = y[i]
-            y[i] = temp
-        end
-    end
-    return nothing
-end
+vswap!(x::DenseArray{T,N}, y::DenseArray{T,N}) where {T,N} =
+    pointer(x) != pointer(y) && _vswap!(x, y)
 
-function vswap!(x::AbstractArray{T,N}, y::AbstractArray{T,N}) where {T,N}
-    @assert indices(x) == indices(y)
+vswap!(x::AbstractArray{T,N}, y::AbstractArray{T,N}) where {T,N} =
+    _vswap!(x, y)
+
+function _vswap!(x::AbstractArray{T,N}, y::AbstractArray{T,N}) where {T,N}
+    if indices(x) != indices(y)
+        throw(DimensionMismatch("`x` and `y` must have the same indices"))
+    end
     @inbounds @simd for i in eachindex(x, y)
         temp = x[i]
         x[i] = y[i]
@@ -291,8 +287,8 @@ end
 
 function vdot(w::AbstractArray{Tw,N},
               x::AbstractArray{Tx,N},
-              y::AbstractArray{Ty,N}) where {Tw <: Real, Tx <: Real,
-                                             Ty <: Real, N}
+              y::AbstractArray{Ty,N}) where {Tw<:Real, Tx<:Real,
+                                             Ty<:Real, N}
     if !(indices(w) == indices(x) == indices(y))
         throw(DimensionMismatch("`w`, `x` and `y` must have the same indices"))
     end
@@ -322,28 +318,81 @@ end
 
 """
 ```julia
-vupdate!(y, α, x)
+vupdate!(y, [sel,] α, x) -> y
 ```
-overwrites `y` with `α*x + y` and returns `y`.
+
+overwrites `y` with `α*x + y` and returns `y`.  The code is optimized for some
+specific values of the multiplier `α`.  For instance, if `α` is zero, then `y`
+is left unchanged without using `x`.  Computations are performed at the
+numerical precision of `x`.
+
+Optional argument `sel` is a selection of indices to which apply the operation.
+Note that if an index is repeated, the operation will be performed several
+times at this location.
 
 """
-function vupdate!(y::AbstractArray{T,N},
+function vupdate!(y::AbstractArray{Ty,N},
                   alpha::Real,
-                  x::AbstractArray{T,N}) where {T <: AbstractFloat, N}
-    return julia_vupdate!(y, convert(T, alpha), x)
+                  x::AbstractArray{Tx,N}) where {Ty<:AbstractFloat,
+                                                 Tx<:AbstractFloat,N}
+    return julia_vupdate!(y, convert(Tx, alpha), x)
 end
 
 # This version is to use pure Julia code.
 function julia_vupdate!(y::AbstractArray{Ty,N},
-                        alpha::Ta,
-                        x::AbstractArray{Tx,N}
-                        ) where {Ty <: AbstractFloat, Ta <: Real,
-                                Tx <: AbstractFloat, N}
+                        alpha::Real,
+                        x::AbstractArray{Tx,N}) where {Ty<:AbstractFloat,
+                                                       Tx<:AbstractFloat,N}
     if indices(x) != indices(y)
         throw(DimensionMismatch("`x` and `y` must have the same indices"))
     end
-    @inbounds @simd for i in eachindex(x, y)
-        y[i] += alpha*x[i]
+    if alpha == one(alpha)
+        @inbounds @simd for i in eachindex(y, x)
+            y[i] += x[i]
+        end
+    elseif alpha == -one(alpha)
+        @inbounds @simd for i in eachindex(y, x)
+            y[i] -= x[i]
+        end
+    elseif alpha != zero(alpha)
+        const α = Tx(alpha)
+        @inbounds @simd for i in eachindex(y, x)
+            y[i] += α*x[i]
+        end
+    end
+    return y
+end
+
+function vupdate!(y::DenseArray{Ty,N},
+                  sel::AbstractVector{Int},
+                  alpha::Real,
+                  x::DenseArray{Tx,N}) where {Ty<:AbstractFloat,
+                                              Tx<:AbstractFloat,N}
+    if size(x) != size(y)
+        throw(DimensionMismatch("`x` and `y` must have the same dimensions"))
+    end
+    if alpha == one(alpha)
+        const n = length(x)
+        @inbounds @simd for i in eachindex(sel)
+            j = sel[i]
+            1 ≤ j ≤ n || throw(BoundsError())
+            dst[j] += x[j]
+        end
+    elseif alpha == -one(alpha)
+        const n = length(x)
+        @inbounds @simd for i in eachindex(sel)
+            j = sel[i]
+            1 ≤ j ≤ n || throw(BoundsError())
+            dst[j] -= x[j]
+        end
+    elseif alpha != zero(alpha)
+        const n = length(x)
+        const α = Tx(alpha)
+        @inbounds @simd for i in eachindex(sel)
+            j = sel[i]
+            1 ≤ j ≤ n || throw(BoundsError())
+            dst[j] += α*x[j]
+        end
     end
     return y
 end
@@ -370,9 +419,9 @@ function apply!(y::AbstractArray{<:Real},
 end
 
 function vcreate(::Type{Direct},
-                   A::AbstractArray{Ta,Na},
-                   x::AbstractArray{Tx,Nx}) where {Ta<:AbstractFloat, Na,
-                                                   Tx<:AbstractFloat, Nx}
+                 A::AbstractArray{Ta,Na},
+                 x::AbstractArray{Tx,Nx}) where {Ta<:AbstractFloat, Na,
+                                                 Tx<:AbstractFloat, Nx}
     inds = indices(A)
     Ny = Na - Nx
     if Nx ≥ Na || indices(x) != inds[Ny+1:end]
@@ -383,9 +432,9 @@ function vcreate(::Type{Direct},
 end
 
 function vcreate(::Type{Adjoint},
-                   A::AbstractArray{Ta,Na},
-                   x::AbstractArray{Tx,Nx}) where {Ta<:AbstractFloat, Na,
-                                                   Tx<:AbstractFloat, Nx}
+                 A::AbstractArray{Ta,Na},
+                 x::AbstractArray{Tx,Nx}) where {Ta<:AbstractFloat, Na,
+                                                 Tx<:AbstractFloat, Nx}
     inds = indices(A)
     Ny = Na - Nx
     if Nx ≥ Na || indices(x) != inds[1:Nx]
