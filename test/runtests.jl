@@ -6,7 +6,7 @@ using Base.Test
 using MockAlgebra
 
 check(::Type{T}, nops::Integer, a::Real, b::Real) where {T<:AbstractFloat} =
-    isapprox(a, b, rtol=sqrt(nops)*eps(T), atol=0)
+    isapprox(a, b, rtol=2*sqrt(nops)*eps(T), atol=0)
 
 # Note that with low precision floating-point sucha as Float16, the level of
 # requirement has to be lowered.
@@ -30,6 +30,17 @@ for T in (Float64, Float32, Float16)
     @assert check(T,  3, vdot([1 + 0im],[0 + 1im]), 0)
     @assert check(T, 3n, vdot(w, x, y), sum(w.*x.*y))
     @assert check(T, 2m, vdot(i, x, y), sum(x[i].*y[i]))
+
+    A = RankOneOperator(w,w)
+    B = RankOneOperator(w,y)
+    C = SymmetricRankOneOperator(w)
+
+    println("A⋅x:  ", extrema(A*x - sum(w.*x)*w))
+    println("A'⋅x: ", extrema(A'*x - sum(w.*x)*w))
+    println("B⋅x:  ", extrema(B*x - sum(y.*x)*w))
+    println("B'⋅x: ", extrema(B'*x - sum(w.*x)*y))
+    println("C⋅x:  ", extrema(C*x - sum(w.*x)*w))
+    println("C'⋅x: ", extrema(C'*x - sum(w.*x)*w))
 end
 
 end

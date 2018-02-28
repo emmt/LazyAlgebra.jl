@@ -62,6 +62,8 @@ export
     GeneralMatrix,
     HalfHessian,
     Identity,
+    RankOneOperator,
+    SymmetricRankOneOperator,
     NonuniformScaling,
     SingularSystem
 

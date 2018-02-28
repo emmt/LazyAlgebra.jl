@@ -346,6 +346,98 @@ function vcreate(::Type{<:Operations},
 end
 
 #------------------------------------------------------------------------------
+# RANK-1 OPERATORS
+
+"""
+
+A `RankOneOperator` is defined by two *vectors* `u` and `v` and created by:
+
+```julia
+A = RankOneOperator(u, v)
+```
+
+and behaves as if `A = u⋅v'`; that is:
+
+```julia
+A*x  = vscale(vdot(v, x)), u)
+A'*x = vscale(vdot(u, x)), v)
+```
+
+See also: [`SymmetricRankOneOperator`](@ref), [`LinearOperator`](@ref),
+          [`apply!`](@ref), [`vcreate`](@ref).
+
+"""
+struct RankOneOperator{U,V} <: LinearOperator
+    u::U
+    v::V
+end
+
+apply!(y, ::Type{Direct}, A::RankOneOperator, x) =
+    vscale!(y, vdot(A.v, x), A.u)
+
+apply!(y, ::Type{Adjoint}, A::RankOneOperator, x) =
+    vscale!(y, vdot(A.u, x), A.v)
+
+vcreate(::Type{Direct}, A::RankOneOperator, x) = vcreate(A.v)
+
+vcreate(::Type{Adjoint}, A::RankOneOperator, x) = vcreate(A.u)
+
+input_type(A::RankOneOperator{U,V}) where {U,V} = V
+input_ndims(A::RankOneOperator) = ndims(A.v)
+input_size(A::RankOneOperator) = size(A.v)
+input_size(A::RankOneOperator, d...) = size(A.v, d...)
+input_eltype(A::RankOneOperator) = eltype(A.v)
+
+output_type(A::RankOneOperator{U,V}) where {U,V} = U
+output_ndims(A::RankOneOperator) = ndims(A.u)
+output_size(A::RankOneOperator) = size(A.u)
+output_size(A::RankOneOperator, d...) = size(A.u, d...)
+output_eltype(A::RankOneOperator) = eltype(A.u)
+
+"""
+
+A `SymmetricRankOneOperator` is defined by a *vector* `u` and created by:
+
+```julia
+A = SymmetricRankOneOperator(u)
+```
+
+and behaves as if `A = u⋅u'`; that is:
+
+```julia
+A*x = A'*x = vscale(vdot(u, x)), u)
+```
+
+See also: [`RankOneOperator`](@ref), [`LinearOperator`](@ref),
+          [`SelfAdjointOperator`](@ref) [`apply!`](@ref), [`vcreate`](@ref).
+
+"""
+struct SymmetricRankOneOperator{U} <: SelfAdjointOperator
+    u::U
+end
+
+is_applicable_in_place(::SymmetricRankOneOperator) = true
+
+apply!(y, ::Type{Direct}, A::SymmetricRankOneOperator, x) =
+    vscale!(y, vdot(A.u, x), A.u)
+
+vcreate(::Type{Direct}, A::SymmetricRankOneOperator, x) =
+    vcreate(A.u)
+
+input_type(A::SymmetricRankOneOperator{U}) where {U} = U
+input_ndims(A::SymmetricRankOneOperator) = ndims(A.u)
+input_size(A::SymmetricRankOneOperator) = size(A.u)
+input_size(A::SymmetricRankOneOperator, d...) = size(A.u, d...)
+input_eltype(A::SymmetricRankOneOperator) = eltype(A.u)
+
+# FIXME: this should be automatically done for SelfAdjointOperators?
+output_type(A::SymmetricRankOneOperator{U}) where {U} = U
+output_ndims(A::SymmetricRankOneOperator) = ndims(A.u)
+output_size(A::SymmetricRankOneOperator) = size(A.u)
+output_size(A::SymmetricRankOneOperator, d...) = size(A.u, d...)
+output_eltype(A::SymmetricRankOneOperator) = eltype(A.u)
+
+#------------------------------------------------------------------------------
 # GENERALIZED MATRIX
 
 """
