@@ -30,7 +30,7 @@ InverseAdjoint(A::Inverse{T}) where {T<:LinearOperator} = Adjoint{T}(A.op)
 
 # Manage to have A' and inv(A) adds the correct decoration:
 Base.ctranspose(A::LinearOperator) = Adjoint(A)
-inv(A::LinearOperator) = Inverse(A)
+Base.inv(A::LinearOperator) = Inverse(A)
 
 # Automatically undecorate operator for common methods.
 for (T1, T2, T3) in ((:Direct,         :Adjoint,        :Adjoint),

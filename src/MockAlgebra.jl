@@ -15,7 +15,11 @@ isdefined(Base, :__precompile__) && __precompile__(true)
 
 module MockAlgebra
 
-import Base: *, \, inv, convert
+import Base: *, \
+
+if isdefined(Base, :apply)
+    import Base: apply
+end
 
 export
     apply,
