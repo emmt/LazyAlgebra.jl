@@ -363,12 +363,7 @@ function apply!(y::AbstractArray{<:AbstractFloat,N},
                 ::Type{<:Union{Direct,Adjoint}},
                 A::NonuniformScalingOperator{<:AbstractArray{<:AbstractFloat,N}},
                 x::AbstractArray{<:AbstractFloat,N}) where {N}
-    @assert indices(y) == indices(A.scl)
-    @assert indices(x) == indices(A.scl)
-    @inbounds @simd for i in eachindex(x, A.scl, x)
-        y[i] = A.scl[i]*x[i]
-    end
-    return y
+    return vproduct!(y, A.scl, x)
 end
 
 function apply!(y::AbstractArray{<:AbstractFloat,N},
