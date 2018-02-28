@@ -64,7 +64,8 @@ export
     Identity,
     RankOneOperator,
     SymmetricRankOneOperator,
-    NonuniformScaling,
+    UniformScalingOperator,
+    NonuniformScalingOperator,
     SingularSystem
 
 # The following constants are to decide whether or not use BLAS routines

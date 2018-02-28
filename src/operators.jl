@@ -280,41 +280,88 @@ apply!(y, ::Type{<:Operations}, ::Identity, x) = vcopy!(y, x)
 vcreate(::Type{<:Operations}, ::Identity, x) = similar(x)
 
 #------------------------------------------------------------------------------
+# UNIFORM SCALING
+
+"""
+```julia
+UniformScalingOperator(α)
+```
+
+creates a uniform scaling linear operator whose effects is to multiply its
+argument by the scalar `α`.
+
+See also: [`NonuniformScalingOperator`](@ref).
+
+"""
+struct UniformScalingOperator <: SelfAdjointOperator
+    α::Float64
+end
+
+is_applicable_in_place(::Type{<:Operations}, ::UniformScalingOperator, x) = true
+
+isinvertible(A::UniformScalingOperator) = (isfinite(A.α) && A.α != 0.0)
+
+ensureinvertible(A::UniformScalingOperator) =
+    isinvertible(A) || throw(
+        SingularSystem("Uniform scaling operator is singular"))
+
+function Base.inv(A::UniformScalingOperator)
+    ensureinvertible(A)
+    return UniformScalingOperator(1.0/A.α)
+end
+
+apply!(y, ::Type{<:Union{Direct,Adjoint}}, A::UniformScalingOperator, x) =
+    vscale!(y, A.α, x)
+
+function apply!(y, ::Type{<:Union{Inverse,InverseAdjoint}},
+                A::UniformScalingOperator, x)
+    ensureinvertible(A)
+    return vscale!(y, 1.0/A.α, x)
+end
+
+function vcreate(::Type{<:Operations},
+                 A::UniformScalingOperator,
+                 x::AbstractArray{T,N}) where {T<:Real,N}
+    return similar(Array{float(T)}, indices(x))
+end
+
+vcreate(::Type{<:Operations}, A::UniformScalingOperator, x) =
+    vcreate(x)
+
+#------------------------------------------------------------------------------
 # NON-UNIFORM SCALING
 
 """
 ```julia
-NonuniformScaling(A)
+NonuniformScalingOperator(A)
 ```
 
 creates a nonuniform scaling linear operator whose effects is to apply
 elementwise multiplication of its argument by the scaling factors `A`.
 This operator can be thought as a *diagonal* operator.
 
+See also: [`UniformScalingOperator`](@ref).
+
 """
-struct NonuniformScaling{T} <: LinearOperator
+struct NonuniformScalingOperator{T} <: SelfAdjointOperator
     scl::T
 end
 
-is_applicable_in_place(::Type{<:Operations}, ::NonuniformScaling, x) = true
+is_applicable_in_place(::Type{<:Operations}, ::NonuniformScalingOperator, x) = true
 
-Adjoint(A::NonuniformScaling{<:AbstractArray{<:AbstractFloat}}) = A
-InverseAdjoint(A::NonuniformScaling{<:AbstractArray{<:AbstractFloat}}) =
-    Inverse(A)
-
-function Base.inv(A::NonuniformScaling{<:AbstractArray{T,N}}
+function Base.inv(A::NonuniformScalingOperator{<:AbstractArray{T,N}}
                   ) where {T<:AbstractFloat, N}
     q = A.scl
     r = similar(q)
     @inbounds @simd for i in eachindex(q, r)
         r[i] = one(T)/q[i]
     end
-    return NonuniformScaling(r)
+    return NonuniformScalingOperator(r)
 end
 
 function apply!(y::AbstractArray{<:AbstractFloat,N},
                 ::Type{<:Union{Direct,Adjoint}},
-                A::NonuniformScaling{<:AbstractArray{<:AbstractFloat,N}},
+                A::NonuniformScalingOperator{<:AbstractArray{<:AbstractFloat,N}},
                 x::AbstractArray{<:AbstractFloat,N}) where {N}
     @assert indices(y) == indices(A.scl)
     @assert indices(x) == indices(A.scl)
@@ -326,7 +373,7 @@ end
 
 function apply!(y::AbstractArray{<:AbstractFloat,N},
                 ::Type{<:Union{Inverse,InverseAdjoint}},
-                A::NonuniformScaling{<:AbstractArray{<:AbstractFloat,N}},
+                A::NonuniformScalingOperator{<:AbstractArray{<:AbstractFloat,N}},
                 x::AbstractArray{<:AbstractFloat,N}) where {N}
     @assert indices(y) == indices(A.scl)
     @assert indices(x) == indices(A.scl)
@@ -337,7 +384,7 @@ function apply!(y::AbstractArray{<:AbstractFloat,N},
 end
 
 function vcreate(::Type{<:Operations},
-                 A::NonuniformScaling{<:AbstractArray{Ta,N}},
+                 A::NonuniformScalingOperator{<:AbstractArray{Ta,N}},
                  x::AbstractArray{Tx,N}) where {Ta<:AbstractFloat,
                                                 Tx<:AbstractFloat, N}
     @assert indices(x) == indices(A.scl)
@@ -416,7 +463,7 @@ struct SymmetricRankOneOperator{U} <: SelfAdjointOperator
     u::U
 end
 
-is_applicable_in_place(::SymmetricRankOneOperator) = true
+is_applicable_in_place(::Type{<:Operations}, ::SymmetricRankOneOperator) = true
 
 apply!(y, ::Type{Direct}, A::SymmetricRankOneOperator, x) =
     vscale!(y, vdot(A.u, x), A.u)

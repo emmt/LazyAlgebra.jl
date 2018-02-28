@@ -12,6 +12,9 @@ check(::Type{T}, nops::Integer, a::Real, b::Real) where {T<:AbstractFloat} =
 # requirement has to be lowered.
 n1, n2 = 12, 7
 for T in (Float64, Float32, Float16)
+    println("")
+    println("Type = $T")
+    println("==============")
     w = randn(T, 2,n1,n2)
     i = find(v -> v > 0, w)
     x = randn(T, 2,n1,n2)
@@ -41,6 +44,19 @@ for T in (Float64, Float32, Float16)
     println("B'⋅x: ", extrema(B'*x - sum(w.*x)*y))
     println("C⋅x:  ", extrema(C*x - sum(w.*x)*w))
     println("C'⋅x: ", extrema(C'*x - sum(w.*x)*w))
+    println()
+
+    S = NonuniformScalingOperator(w)
+    println("S⋅x:  ", extrema(S*x - w.*x))
+    println("S'⋅x: ", extrema(S'*x - w.*x))
+
+    alpha = sqrt(2)
+    U = UniformScalingOperator(alpha)
+    println("U⋅x:  ", extrema(U*x - alpha*x))
+    println("U'⋅x: ", extrema(U'*x - alpha*x))
+    println("U\\x:  ", extrema(U\x - (1/alpha)*x))
+    println("U'\\x: ", extrema(U'\x - (1/alpha)*x))
+
 end
 
 end
