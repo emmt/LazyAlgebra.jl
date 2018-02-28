@@ -483,25 +483,26 @@ vdot(x, y) = x[1].re*y[1].re + x[1].im*y[1].im +
 """
 function vdot(::Type{T},
               x::AbstractArray{<:Real,N},
-              y::AbstractArray{<:Real,N}) where {T<:Real, N}
+              y::AbstractArray{<:Real,N}) where {T<:AbstractFloat,N}
     return _vdot(T, x, y)
 end
 
 function vdot(x::AbstractArray{Tx,N},
-              y::AbstractArray{Ty,N}) where {Tx<:Real, Ty<:Real, N}
+              y::AbstractArray{Ty,N}) where {Tx<:Real,Ty<:Real,N}
     return vdot(float(promote_type(Tx, Ty)), x, y)
 end
 
 function vdot(::Type{T},
-              x::AbstractArray{Complex{<:Real},N},
-              y::AbstractArray{Complex{<:Real},N}) where {T<:Real, N}
+              x::AbstractArray{Complex{Tx},N},
+              y::AbstractArray{Complex{Ty},N}) where {T<:AbstractFloat,
+                                                      Tx<:Real,Ty<:Real,N}
     return _vdot(T, x, y)
 end
 
 # Note that we cannot use union here because we want that both be real or both
 # be complex.
 function vdot(x::AbstractArray{Complex{Tx},N},
-              y::AbstractArray{Complex{Ty},N}) where {Tx<:Real, Ty<:Real, N}
+              y::AbstractArray{Complex{Ty},N}) where {Tx<:Real,Ty<:Real,N}
     return vdot(float(promote_type(Tx, Ty)), x, y)
 end
 
@@ -521,14 +522,15 @@ end
 
 function vdot(w::AbstractArray{Tw,N},
               x::AbstractArray{Tx,N},
-              y::AbstractArray{Ty,N}) where {Tw<:Real, Tx<:Real, Ty<:Real, N}
+              y::AbstractArray{Ty,N}) where {Tw<:Real,Tx<:Real,Ty<:Real,N}
     return vdot(float(promote_type(Tw, Tx, Ty)), w, x, y)
 end
 
 function vdot(::Type{T},
               w::AbstractArray{<:Real,N},
-              x::AbstractArray{Complex{<:Real},N},
-              y::AbstractArray{Complex{<:Real},N})::T where {T<:AbstractFloat,N}
+              x::AbstractArray{Complex{Tx},N},
+              y::AbstractArray{Complex{Ty},N})::T where {T<:AbstractFloat,
+                                                         Tx<:Real,Ty<:Real,N}
     if !(indices(w) == indices(x) == indices(y))
         throw(DimensionMismatch("`w`, `x` and `y` must have the same indices"))
     end
@@ -541,8 +543,8 @@ end
 
 function vdot(w::AbstractArray{Tw,N},
               x::AbstractArray{Complex{Tx},N},
-              y::AbstractArray{Complex{Ty},N}) where {Tw<:Real, Tx<:Real,
-                                                      Ty<:Real, N}
+              y::AbstractArray{Complex{Ty},N}) where {Tw<:Real,
+                                                      Tx<:Real,Ty<:Real,N}
     return vdot(float(promote_type(Tw, Tx, Ty)), w, x, y)
 end
 
@@ -573,8 +575,9 @@ end
 
 function vdot(::Type{T},
               sel::AbstractVector{Int},
-              x::DenseArray{Complex{<:Real},N},
-              y::DenseArray{Complex{<:Real},N})::T where {T<:AbstractFloat,N}
+              x::AbstractArray{Complex{Tx},N},
+              y::AbstractArray{Complex{Ty},N})::T where {T<:AbstractFloat,
+                                                         Tx<:Real,Ty<:Real,N}
     if size(y) != size(x)
         throw(DimensionMismatch("`x` and `y` must have same dimensions"))
     end
@@ -616,9 +619,9 @@ function _vdot(x::AbstractArray{Tx,N},
 end
 
 function _vdot(::Type{T},
-               x::AbstractArray{Complex{<:Real},N},
-               y::AbstractArray{Complex{<:Real},N})::T where {T<:AbstractFloat,
-                                                              N}
+               x::AbstractArray{Complex{Tx},N},
+               y::AbstractArray{Complex{Ty},N})::T where {T<:AbstractFloat,
+                                                          Tx<:Real,Ty<:Real,N}
     if indices(x) != indices(y)
         throw(DimensionMismatch("`x` and `y` must have the same indices"))
     end
