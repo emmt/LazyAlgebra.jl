@@ -26,7 +26,7 @@ can be imposed by optional argument `T`.  Also see [`vnorm1`](@ref) and
 
 """
 function vnorm2(::Type{T},
-                v::AbstractArray{<:Real,N}) where {T<:AbstractFloat,N}
+                v::AbstractArray{<:Real,N})::T where {T<:AbstractFloat,N}
     local s::T = zero(T)
     @inbounds @simd for i in eachindex(v)
         s += v[i]*v[i]
@@ -50,7 +50,7 @@ argument `T`.  Also see [`vnorm2`](@ref) and [`vnorminf`](@ref).
 
 """
 function vnorm1(::Type{T},
-                v::AbstractArray{<:Real,N}) where {T<:AbstractFloat,N}
+                v::AbstractArray{<:Real,N})::T where {T<:AbstractFloat,N}
     local s::T = zero(T)
     @inbounds @simd for i in eachindex(v)
         s += abs(v[i])
@@ -72,21 +72,21 @@ elements.  The floating point type of the result can be imposed by optional
 argument `T`.  Also see [`vnorm1`](@ref) and [`vnorm2`](@ref).
 
 """
-function vnorminf(::Type{F},
-                  v::AbstractArray{T,N}) where {F<:AbstractFloat,T<:Real,N}
+function vnorminf(::Type{T},
+                  v::AbstractArray{<:Real,N})::T where {T<:AbstractFloat,N}
     local s::T = zero(T)
     @inbounds @simd for i in eachindex(v)
         s = max(s, abs(v[i]))
     end
-    return F(s)
+    return s
 end
-function vnorminf(::Type{F},
-                  v::AbstractArray{T,N}) where {F<:AbstractFloat,T<:Unsigned,N}
+function vnorminf(::Type{T},
+                  v::AbstractArray{<:Unsigned,N})::T where {T<:AbstractFloat,N}
     local s::T = zero(T)
     @inbounds @simd for i in eachindex(v)
         s = max(s, v[i])
     end
-    return F(s)
+    return s
 end
 
 vnorminf(v::AbstractArray{T,N}) where {T<:AbstractFloat,N} = vnorminf(T, v)
@@ -460,11 +460,21 @@ yields the inner product of `x` and `y`; that is, the sum of `x[i]*y[i]` or, if
 `w` is specified, the sum of `w[i]*x[i]*y[i]`, for all indices `i`.  Optional
 argument `T` is the floating point type of the result.
 
+Another possibility is:
+
+```julia
+vdot([T,] sel, x, y)
+```
+
+with `sel` a selection of indices to restrict the computation of the inner
+product to some selected elements.  This yields the sum of `x[i]*y[i]` for all
+`i ∈ sel`.
+
 """
 function vdot(::Type{T},
               x::AbstractArray{<:Real,N},
               y::AbstractArray{<:Real,N}) where {T<:Real, N}
-    return julia_vdot(T, x, y)
+    return _vdot(T, x, y)
 end
 
 function vdot(x::AbstractArray{Tx,N},
@@ -472,12 +482,14 @@ function vdot(x::AbstractArray{Tx,N},
     return vdot(float(promote_type(Tx, Ty)), x, y)
 end
 
-function julia_vdot(x::AbstractArray{Tx,N},
-                    y::AbstractArray{Ty,N}) where {Tx<:Real, Ty<:Real, N}
+# Pure Julia implementation.
+
+function _vdot(::Type{T},
+               x::AbstractArray{<:Real,N},
+               y::AbstractArray{<:Real,N})::T where {T<:AbstractFloat, N}
     if indices(x) != indices(y)
         throw(DimensionMismatch("`x` and `y` must have the same indices"))
     end
-    T = float(promote_type(Tx, Ty))$
     local s::T = zero(T)
     @inbounds @simd for i in eachindex(x, y)
         s += x[i]*y[i]
@@ -485,27 +497,18 @@ function julia_vdot(x::AbstractArray{Tx,N},
     return s
 end
 
-function julia_vdot(::Type{T},
-                    x::AbstractArray{<:Real,N},
-                    y::AbstractArray{<:Real,N}) where {T<:AbstractFloat, N}
-    if indices(x) != indices(y)
-        throw(DimensionMismatch("`x` and `y` must have the same indices"))
-    end
-    s = zero(T)
-    @inbounds @simd for i in eachindex(x, y)
-        s += convert(T, x[i])*convert(T, y[i])
-    end
-    return s
+function _vdot(x::AbstractArray{Tx,N},
+               y::AbstractArray{Ty,N}) where {Tx<:Real, Ty<:Real, N}
+    return _vdot(float(promote_type(Tx, Ty)), x, y)
 end
 
-function vdot(w::AbstractArray{Tw,N},
-              x::AbstractArray{Tx,N},
-              y::AbstractArray{Ty,N}) where {Tw<:Real, Tx<:Real,
-                                             Ty<:Real, N}
+function vdot(::Type{T},
+              w::AbstractArray{<:Real,N},
+              x::AbstractArray{<:Real,N},
+              y::AbstractArray{<:Real,N})::T where {T<:AbstractFloat,N}
     if !(indices(w) == indices(x) == indices(y))
         throw(DimensionMismatch("`w`, `x` and `y` must have the same indices"))
     end
-    T = float(promote_type(Tw, Tx, Ty))
     local s::T = zero(T)
     @inbounds @simd for i in eachindex(w, x, y)
         s += w[i]*x[i]*y[i]
@@ -513,18 +516,35 @@ function vdot(w::AbstractArray{Tw,N},
     return s
 end
 
+function vdot(w::AbstractArray{Tw,N},
+              x::AbstractArray{Tx,N},
+              y::AbstractArray{Ty,N}) where {Tw<:Real, Tx<:Real, Ty<:Real, N}
+    return vdot(float(promote_type(Tw, Tx, Ty)), w, x, y)
+end
+
+# FIXME: extend to other types of arrays and Cartesian indices.
+
 function vdot(::Type{T},
-              w::AbstractArray{<:Real,N},
-              x::AbstractArray{<:Real,N},
-              y::AbstractArray{<:Real,N}) where {T<:AbstractFloat, N}
-    if !(indices(w) == indices(x) == indices(y))
-        throw(DimensionMismatch("`w`, `x` and `y` must have the same indices"))
+              sel::AbstractVector{Int},
+              x::DenseArray{<:Real,N},
+              y::DenseArray{<:Real,N})::T where {T<:AbstractFloat,N}
+    if size(y) != size(x)
+        throw(DimensionMismatch("`x` and `y` must have same dimensions"))
     end
-    s = zero(T)
-    @inbounds @simd for i in eachindex(w, x, y)
-        s += convert(T, w[i])*convert(T, x[i])*convert(T, y[i])
+    local s::T = zero(T)
+    const n = length(x)
+    @inbounds @simd for i in eachindex(sel)
+        j = sel[i]
+        1 ≤ j ≤ n || throw(BoundsError())
+        s += x[j]*y[j]
     end
     return s
+end
+
+function vdot(sel::AbstractVector{Int},
+              x::DenseArray{Tx,N},
+              y::DenseArray{Ty,N}) where {Tx<:Real,Ty<:Real,N}
+    return vdot(float(promote_type(Tx, Ty)), sel, x, y)
 end
 
 #--- VECTOR UPDATE ------------------------------------------------------------
@@ -548,11 +568,11 @@ function vupdate!(y::AbstractArray{Ty,N},
                   alpha::Real,
                   x::AbstractArray{Tx,N}) where {Ty<:AbstractFloat,
                                                  Tx<:AbstractFloat,N}
-    return julia_vupdate!(y, convert(Tx, alpha), x)
+    return _vupdate!(y, convert(Tx, alpha), x)
 end
 
 # This version is to use pure Julia code.
-function julia_vupdate!(y::AbstractArray{Ty,N},
+function _vupdate!(y::AbstractArray{Ty,N},
                         alpha::Real,
                         x::AbstractArray{Tx,N}) where {Ty<:AbstractFloat,
                                                        Tx<:AbstractFloat,N}
@@ -589,14 +609,14 @@ function vupdate!(y::DenseArray{Ty,N},
         @inbounds @simd for i in eachindex(sel)
             j = sel[i]
             1 ≤ j ≤ n || throw(BoundsError())
-            dst[j] += x[j]
+            y[j] += x[j]
         end
     elseif alpha == -one(alpha)
         const n = length(x)
         @inbounds @simd for i in eachindex(sel)
             j = sel[i]
             1 ≤ j ≤ n || throw(BoundsError())
-            dst[j] -= x[j]
+            y[j] -= x[j]
         end
     elseif alpha != zero(alpha)
         const n = length(x)
@@ -604,7 +624,7 @@ function vupdate!(y::DenseArray{Ty,N},
         @inbounds @simd for i in eachindex(sel)
             j = sel[i]
             1 ≤ j ≤ n || throw(BoundsError())
-            dst[j] += α*x[j]
+            y[j] += α*x[j]
         end
     end
     return y
@@ -628,7 +648,7 @@ function apply!(y::AbstractArray{<:Real},
                 ::Type{Op},
                 A::AbstractArray{<:Real},
                 x::AbstractArray{<:Real}) where {Op<:Union{Adjoint,Direct}}
-    return julia_apply!(y, Op, A, x)
+    return _apply!(y, Op, A, x)
 end
 
 function vcreate(::Type{Direct},
@@ -660,7 +680,7 @@ end
 
 # Pure Julia code implementations.
 
-function julia_apply!(y::AbstractArray{<:Real},
+function _apply!(y::AbstractArray{<:Real},
                       ::Type{Direct},
                       A::AbstractArray{<:Real},
                       x::AbstractArray{<:Real},
@@ -679,14 +699,14 @@ function julia_apply!(y::AbstractArray{<:Real},
     return y
 end
 
-function julia_apply!(y::AbstractArray{Ty},
+function _apply!(y::AbstractArray{Ty},
                       ::Type{Adjoint},
                       A::AbstractArray{Ta},
                       x::AbstractArray{Tx}) where {Ta<:Real, Tx<:Real, Ty<:Real}
-    return julia_apply!(promote_type(Ty, Ta, Tx), y, Adjoint, A, x)
+    return _apply!(promote_type(Ty, Ta, Tx), y, Adjoint, A, x)
 end
 
-function julia_apply!(::Type{T},
+function _apply!(::Type{T},
                       y::AbstractArray{<:Real},
                       ::Type{Adjoint},
                       A::AbstractArray{<:Real},
