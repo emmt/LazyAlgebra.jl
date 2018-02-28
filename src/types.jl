@@ -113,7 +113,7 @@ const AdjointInverse = InverseAdjoint
 
 `Operations` is the union of the possible ways to apply a linear operator:
 `Direct`, `Adjoint`, `Inverse` and `InverseAdjoint` (or its alias
-`AdjointInverse).
+`AdjointInverse`).
 
 See also: [`LinearOperator`](@ref), [`apply`](@ref), [`Direct`](@ref),
           [`Adjoint`](@ref).
