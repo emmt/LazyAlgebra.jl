@@ -50,24 +50,30 @@ function conjgrad!(x, A, b, x0,
                    p = vcreate(x), q = vcreate(x), r = vcreate(x);
                    maxiter::Integer = min(50, length(b)),
                    quiet::Bool = false,
-                   strict::Bool = true) where {T<:AbstractFloat,N}
+                   strict::Bool = true)
+    # Declare typed local scalars to make sure their type is stable.
+    local alpha::Float64, beta::Float64, gamma::Float64, epsilon::Float64
+    local rho::Float64, rhoprev::Float64
+
     # Initialization.
     vcopy!(x, x0)
     if maxiter < 1
         return x
     end
-    xnorm2 = vdot(x, x) # FIXME: use countnz(x)?
-    if xnorm2 > 0
+    if vnorm2(x) > 0
+        # Compute r = b - A⋅x.
         vcombine!(r, 1, b, -1, apply!(r, A, x))
     else
+        # Save applying A since x = 0.
         vcopy!(r, b)
     end
-    rho = zero(xnorm2) # to make sure the type of rho is stable
+    epsilon = 0.0
+    rho = 0.0
     k = 1
     while true
         rhoprev = rho
         rho = vdot(r, r)
-        if rho ≤ 0
+        if rho ≤ epsilon
             break
         end
         if k == 1
@@ -78,7 +84,7 @@ function conjgrad!(x, A, b, x0,
         end
         apply!(q, A, p)
         gamma = vdot(p, q)
-        if gamma ≤ 0
+        if gamma ≤ 0.0
             strict && throw(NonPositiveDefinite("in conjugate gradient"))
             quiet || warn("matrix is not positive definite")
             break
