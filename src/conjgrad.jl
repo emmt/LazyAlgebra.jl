@@ -46,20 +46,11 @@ Keyword `quiet` can be set to a boolean value (default is `false`) to specify
 whether or not to print warning messages.
 
 """
-function conjgrad!(x::AbstractArray{T,N},
-                   A,
-                   b::AbstractArray{T,N},
-                   x0::AbstractArray{<:Real,N},
-                   p::AbstractArray{T,N} = similar(x),
-                   q::AbstractArray{T,N} = similar(x),
-                   r::AbstractArray{T,N} = similar(x);
+function conjgrad!(x, A, b, x0,
+                   p = vcreate(x), q = vcreate(x), r = vcreate(x);
                    maxiter::Integer = min(50, length(b)),
                    quiet::Bool = false,
-                   strict::Bool = true
-                   ) where {T<:AbstractFloat,N}
-    # Check that all arrays have the same size (for x0 this is done by vcopy!).
-    @assert indices(x) == indices(b) == indices(p) == indices(q) == indices(r)
-
+                   strict::Bool = true) where {T<:AbstractFloat,N}
     # Initialization.
     vcopy!(x, x0)
     if maxiter < 1
@@ -67,10 +58,7 @@ function conjgrad!(x::AbstractArray{T,N},
     end
     xnorm2 = vdot(x, x) # FIXME: use countnz(x)?
     if xnorm2 > 0
-        apply!(r, A, x)
-        @inbounds @simd for i in eachindex(b, r)
-            r[i] = b[i] - r[i]
-        end
+        vcombine!(r, 1, b, -1, apply!(r, A, x))
     else
         copy!(r, b)
     end
@@ -85,10 +73,8 @@ function conjgrad!(x::AbstractArray{T,N},
         if k == 1
             copy!(p, r)
         else
-            beta = convert(T, rho/rhoprev)
-            @inbounds @simd for i in eachindex(p, r)
-                p[i] = r[i] + beta*p[i]
-            end
+            beta = rho/rhoprev
+            vcombine!(p, beta, p, +1, r)
         end
         apply!(q, A, p)
         gamma = vdot(p, q)
