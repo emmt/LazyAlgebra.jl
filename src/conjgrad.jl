@@ -60,7 +60,7 @@ function conjgrad!(x, A, b, x0,
     if xnorm2 > 0
         vcombine!(r, 1, b, -1, apply!(r, A, x))
     else
-        copy!(r, b)
+        vcopy!(r, b)
     end
     rho = zero(xnorm2) # to make sure the type of rho is stable
     k = 1
@@ -71,7 +71,7 @@ function conjgrad!(x, A, b, x0,
             break
         end
         if k == 1
-            copy!(p, r)
+            vcopy!(p, r)
         else
             beta = rho/rhoprev
             vcombine!(p, beta, p, +1, r)
