@@ -250,7 +250,7 @@ function vscale!(dst::AbstractArray{Td,N},
             dst[i] = -src[i]
         end
     elseif α == one(α)
-        copy!(dst, src)
+        vcopy!(dst, src)
     else
         const alpha = convert(Ts, α)
         @inbounds @simd for i in eachindex(dst, src)
@@ -283,15 +283,19 @@ vscale!(α::Real, x) = vscale!(x, α, x)
 ```julia
 vscale(α, x)
 ```
+or
+```julia
+vscale(x, α)
+```
 
-yields a new *vector* whose elements are those of `x` multiplied by the scalar
+yield a new *vector* whose elements are those of `x` multiplied by the scalar
 `α`.
 
-Also see [`vscale!`](@ref), [`vcopy`](@ref).
+Also see [`vscale!`](@ref), [`vcreate`](@ref).
 
 """
-vscale(alpha::Real, x) =
-    alpha == one(alpha) ? vcopy(x) : vscale!(vcreate(x), alpha, x)
+vscale(α::Real, x) = vscale!(vcreate(x), α, x)
+vscale(x, α::Real) = vscale(α, x)
 
 #------------------------------------------------------------------------------
 
