@@ -217,56 +217,67 @@ numerical precision of `src`.  The source argument may be omitted to perform
 *in-place* scaling:
 
 ```julia
-vscale!(x, α) -> x
+vscale!(α, x) -> x
 ```
 
-which overwrites `x` with `α*x` and returns `x`.
+overwrites `x` with `α*x` and returns `x`.
+
+Methods are provided by default so that the order of the factor `α` and the
+source vector may be reversed:
+
+```julia
+vscale!(dst, src, α) -> dst
+vscale!(x, α) -> x
+```
 
 Also see [`vscale`](@ref).
 
 """
+vscale!(x, α::Real) = vscale!(α, x)
+vscale!(dst, src, α::Real) = vscale!(dst, α, src)
+
 function vscale!(dst::AbstractArray{Td,N},
-                 alpha::Real,
+                 α::Real,
                  src::AbstractArray{Ts,N}) where {Td<:AbstractFloat,
                                                   Ts<:AbstractFloat,N}
     if indices(dst) != indices(src)
         throw(DimensionMismatch("`dst` and `src` must have the same indices"))
     end
-    if alpha == zero(alpha)
+    if α == zero(α)
         vzero!(dst)
-    elseif alpha == -one(alpha)
+    elseif α == -one(α)
         @inbounds @simd for i in eachindex(dst, src)
             dst[i] = -src[i]
         end
-    elseif alpha == one(alpha)
+    elseif α == one(α)
         copy!(dst, src)
     else
-        const α = convert(Ts, alpha)
+        const alpha = convert(Ts, α)
         @inbounds @simd for i in eachindex(dst, src)
-            dst[i] = α*src[i]
+            dst[i] = alpha*src[i]
         end
     end
     return dst
 end
 
-function vscale!(x::AbstractArray{T,N}, alpha::Real) where {T<:AbstractFloat,N}
-    if alpha == zero(alpha)
+function vscale!(α::Real, x::AbstractArray{T,N}) where {T<:AbstractFloat,N}
+    if α == zero(α)
         vzero!(x)
-    elseif alpha == -one(alpha)
+    elseif α == -one(α)
         @inbounds @simd for i in eachindex(x)
             x[i] = -x[i]
         end
-    elseif alpha != one(alpha)
-        const α = T(alpha)
+    elseif α != one(α)
+        const alpha = T(α)
         @inbounds @simd for i in eachindex(x)
-            x[i] *= α
+            x[i] *= alpha
         end
     end
     return x
 end
 
 # In place scaling for other *vector* types.
-vscale!(x, alpha::Real) = vscale!(x, alpha, x)
+vscale!(α::Real, x) = vscale!(x, α, x)
 
 """
 ```julia
