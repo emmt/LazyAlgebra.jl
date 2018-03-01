@@ -220,7 +220,8 @@ numerical precision of `src`.  The source argument may be omitted to perform
 vscale!(α, x) -> x
 ```
 
-overwrites `x` with `α*x` and returns `x`.
+overwrites `x` with `α*x` and returns `x`.  The convention is that the result
+is zero-filled if `α=0` (whatever the values in the source).
 
 Methods are provided by default so that the order of the factor `α` and the
 source vector may be reversed:
@@ -240,21 +241,23 @@ function vscale!(dst::AbstractArray{Td,N},
                  α::Real,
                  src::AbstractArray{Ts,N}) where {Td<:AbstractFloat,
                                                   Ts<:AbstractFloat,N}
-    if indices(dst) != indices(src)
-        throw(DimensionMismatch("`dst` and `src` must have the same indices"))
-    end
     if α == zero(α)
         vzero!(dst)
-    elseif α == -one(α)
-        @inbounds @simd for i in eachindex(dst, src)
-            dst[i] = -src[i]
-        end
     elseif α == one(α)
         vcopy!(dst, src)
     else
-        const alpha = convert(Ts, α)
-        @inbounds @simd for i in eachindex(dst, src)
-            dst[i] = alpha*src[i]
+        if indices(dst) != indices(src)
+            throw(DimensionMismatch("`dst` and `src` must have the same indices"))
+        end
+        if α == -one(α)
+            @inbounds @simd for i in eachindex(dst, src)
+                dst[i] = -src[i]
+            end
+        else
+            const alpha = convert(Ts, α)
+            @inbounds @simd for i in eachindex(dst, src)
+                dst[i] = alpha*src[i]
+            end
         end
     end
     return dst
