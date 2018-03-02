@@ -591,10 +591,14 @@ function _apply!(y::AbstractArray{<:Real},
     end
     # Loop through the coefficients of A assuming column-major storage order.
     overwrite && vzero!(y)
+    T = promote_type(eltype(A), eltype(x))
     I, J = CartesianRange(indices(y)), CartesianRange(indices(x))
     @inbounds for j in J
-        @simd for i in I
-            y[i] += A[i,j]*x[j]
+        xj = convert(T, x[j])
+        if xj != zero(xj)
+            @simd for i in I
+                y[i] += A[i,j]*xj
+            end
         end
     end
     return y
