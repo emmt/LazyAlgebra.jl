@@ -1,9 +1,9 @@
-isdefined(:MockAlgebra) || include("../src/MockAlgebra.jl")
+isdefined(:LazyAlgebra) || include("../src/LazyAlgebra.jl")
 
-module MockAlgebraTests
+module LazyAlgebraTests
 
 using Base.Test
-using MockAlgebra
+using LazyAlgebra
 
 check(::Type{T}, nops::Integer, a::Real, b::Real) where {T<:AbstractFloat} =
     isapprox(a, b, rtol=2*sqrt(nops)*eps(T), atol=0)

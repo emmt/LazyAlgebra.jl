@@ -1,13 +1,13 @@
-isdefined(:MockAlgebra) || include("../src/MockAlgebra.jl")
+isdefined(:LazyAlgebra) || include("../src/LazyAlgebra.jl")
 
-module MockAlgebraBenchmarks
+module LazyAlgebraBenchmarks
 
 using BenchmarkTools
-using MockAlgebra
-import MockAlgebra: vdot
+using LazyAlgebra
+import LazyAlgebra: vdot
 
 vdot(::Type{Val{:BLAS}}, x, y) =
-    MockAlgebra.blas_vdot(x,y)
+    LazyAlgebra.blas_vdot(x,y)
 
 vdot(::Type{Val{:Julia}}, x, y) =
     dot(reshape(x, length(x)), reshape(y, length(y)))

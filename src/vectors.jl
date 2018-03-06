@@ -9,7 +9,7 @@
 #
 #-------------------------------------------------------------------------------
 #
-# This file is part of the MockAlgebra package released under the MIT "Expat"
+# This file is part of the LazyAlgebra package released under the MIT "Expat"
 # license.
 #
 # Copyright (c) 2017-2018 Éric Thiébaut.

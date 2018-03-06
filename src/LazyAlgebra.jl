@@ -1,11 +1,11 @@
 #
-# MockAlgebra.jl -
+# LazyAlgebra.jl -
 #
 # A simple linear algebra system.
 #
 #-------------------------------------------------------------------------------
 #
-# This file is part of the MockAlgebra package released under the MIT "Expat"
+# This file is part of the LazyAlgebra package released under the MIT "Expat"
 # license.
 #
 # Copyright (c) 2017-2018 Éric Thiébaut.
@@ -13,7 +13,7 @@
 
 isdefined(Base, :__precompile__) && __precompile__(true)
 
-module MockAlgebra
+module LazyAlgebra
 
 import Base: *, \
 
