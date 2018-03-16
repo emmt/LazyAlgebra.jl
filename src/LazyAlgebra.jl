@@ -15,11 +15,7 @@ isdefined(Base, :__precompile__) && __precompile__(true)
 
 module LazyAlgebra
 
-import Base: *, \
-
-if isdefined(Base, :apply)
-    import Base: apply
-end
+isdefined(Base, :apply) && import Base: apply
 
 export
     apply,
@@ -33,6 +29,7 @@ export
     output_eltype,
     output_size,
     output_ndims,
+    lineartype,
     is_applicable_in_place,
     conjgrad!,
     vcombine!,
@@ -52,21 +49,24 @@ export
     vswap!,
     vupdate!,
     vzero!,
-    LinearOperator,
-    SelfAdjointOperator,
-    Direct,
     Adjoint,
-    Inverse,
     AdjointInverse,
-    InverseAdjoint,
+    Direct,
     GeneralMatrix,
     HalfHessian,
     Identity,
-    RankOneOperator,
-    SymmetricRankOneOperator,
-    UniformScalingOperator,
+    Inverse,
+    InverseAdjoint,
+    Linear,
+    LinearOperator,
+    NonLinear,
     NonuniformScalingOperator,
-    SingularSystem
+    RankOneOperator,
+    Scalar,
+    SelfAdjointOperator,
+    SingularSystem,
+    SymmetricRankOneOperator,
+    UniformScalingOperator
 
 # The following constants are to decide whether or not use BLAS routines
 # whenever possible.
@@ -75,6 +75,7 @@ const USE_BLAS_AXPY = true
 const USE_BLAS_GEMV = true
 
 include("types.jl")
+include("rules.jl")
 include("blas.jl")
 include("vectors.jl")
 include("operators.jl")

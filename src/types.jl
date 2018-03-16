@@ -25,40 +25,102 @@ Base.showerror(io::IO, err::NonPositiveDefinite) =
 
 """
 
-Abstract type `LinearOperator` is introduced to extend the notion of
-*matrices* and *vectors*.
+A `Scalar` is used to represent multipliers or scaling factors when combining
+mappings.  For now, scalars are reals.
 
-Assuming the type of `A` inherits from `LinearOperator`, then:
+"""
+const Scalar = Float64
 
-* `A*x` yields the result of applying the operator `A` to `x`;
+"""
 
-* `A'*x` yields the result of applying the adjoint of the operator `A` to `x`;
+A `Mapping` is any function between two variables spaces.  Assuming upper case
+Latin letters denote mappings, lower case Latin letters denote variables, and
+Greek letters denote scalars, then:
 
-* `A\\x` yields the result of applying the inverse of operator `A` to `x`;
+* `A*x` or `A⋅x` yields the result of applying the mapping `A` to `x`;
+
+* `A\\x` yields the result of applying the inverse of `A` to `x`;
+
+Simple constructions are allowed for any kind of mappings and can be used to
+create new instances of mappings which behave correctly.  For instance:
+
+* `B = α*A` (where `α` is a real) is a mapping which behaves as `A` times `α`;
+  that is `B⋅x` yields the same result as `α*(A⋅x)`.
+
+* `C = A + B + ...` is a mapping which behaves as the sum of the mappings `A`,
+  `B`, ...; that is `C⋅x` yields the same result as `A⋅x + B⋅x + ...`.
+
+* `C = A*B` or `C = A⋅B` is a mapping which behaves as the composition of the
+  mappings `A` and `B`; that is `C⋅x` yields the same result as `A⋅(B.x)`.  As
+  for the sum of mappings, there may be an arbitrary number of mappings in a
+  composition; for example, if `D = A*B*C` then `D⋅x` yields the same result as
+  `A⋅(B⋅(C⋅x))`.
+
+* `C = A\\B` is a mapping such that `C⋅x` yields the same result as `A\\(B⋅x)`.
+
+* `C = A/B` is a mapping such that `C⋅x` yields the same result as `A⋅(B\\x)`.
+
+These constructions can be combined to build up more complex mappings.  For
+example:
+
+* `D = A*(B + C)` is a mapping such that `C⋅x` yields the same result as
+  `A⋅(B⋅x + C⋅x)`.
+
+A `LinearOperator` is any linear mapping between two spaces.  This abstract
+subtype of `Mapping` is introduced to extend the notion of *matrices* and
+*vectors*.  Assuming the type of `A` inherits from `LinearOperator`, then:
+
+* `A'⋅x` and `A'*x` yields the result of applying the adjoint of the operator
+  `A` to `x`;
 
 * `A'\\x` yields the result of applying the adjoint of the inverse of operator
   `A` to `x`.
 
-The following methods should be implemented for a linear operator `A`:
+* `B = A'` is a mapping such that `B⋅x` yields the same result as `A'⋅x`.
+
+The following methods should be implemented for a mapping `A` of specific type
+`M <: Mapping`:
 
 ```julia
-vcreate(Op, A, x) -> y
-apply!(y, Op, A, x) -> y
+vcreate(::Type{P}, A::M, x) -> y
+apply!(α::Scalar, ::Type{P}, A::M, x, β::Scalar, y) -> y
 ```
 
-for any supported operation `Op` among `Direct`, `Adjoint`, `Inverse` and
-`InverseAdjoint`.  See the documentation of these methods for explanations.
-Optionally, methods `Op(A)` may be extended, *e.g.* to throw exceptions if
-operation`Op` is forbidden (or not implemented).  By default, all these
-operations are assumed possible.
+for any supported operation `P ∈ Operations` (`Direct`, `Adjoint`, `Inverse`
+and/or `InverseAdjoint`).  See the documentation of these methods for
+explanations.  Optionally, methods `P(A)` may be extended, *e.g.* to throw
+exceptions if operation `P` is forbidden (or not implemented).  By default, all
+these operations are assumed possible (except `Adjoint` and `InverseAdjoint`
+for a nonlinear mapping).
 
 See also: [`apply`](@ref), [`apply!`](@ref), [`vcreate`](@ref),
-          [`is_applicable_in_place`](@ref), [`SelfAdjointOperator`](@ref),
-          [`Direct`](@ref), [`Adjoint`](@ref), [`Inverse`](@ref),
-          [`InverseAdjoint`](@ref).
+          [`lineartype`](@ref), [`is_applicable_in_place`](@ref),
+          [`Scalar`](@ref), [`Direct`](@ref), [`Adjoint`](@ref),
+          [`Inverse`](@ref), [`InverseAdjoint`](@ref).
 
 """
-abstract type LinearOperator end
+abstract type Mapping end
+
+abstract type LinearOperator <: Mapping end
+@doc @doc(Mapping) LinearOperator
+
+"""
+
+The linear trait indicates whether a mapping is linear or not.  Abstract type
+`LinearType` has two concrete singleton subtypes: `Linear` for linear mappings
+and `Nonlinear` for other mappings.
+
+See also: [`lineartype`](@ref).
+
+"""
+abstract type LinearType end
+
+for T in (:Nonlinear, :Linear)
+    @eval begin
+        struct $T <: LinearType end
+        @doc @doc(LinearType) $T
+    end
+end
 
 """
 
@@ -84,30 +146,54 @@ struct Direct; end
 """
 
 Types `Adjoint`, `Inverse` and `InverseAdjoint` are used to *decorate* the
-conjugate transpose and/or inverse of any linear operator.  The `ctranspose`
-method is extended, so that in the code, it is sufficient (and more readable)
-to write `A'` instead of `Adjoint`.  `AdjointInverse` is just an alias for
-`InverseAdjoint`.
+conjugate transpose and/or inverse of mappings and linear operators.  The
+`ctranspose` method is extended, so that in the code, it is sufficient (and
+more readable) to write `A'` instead of `Adjoint`.  `AdjointInverse` is just an
+alias for `InverseAdjoint`.  Note that the adjoint only makes sense for linear
+operators.
 
 See also: [`LinearOperator`](@ref), [`apply`](@ref), [`Operations`](@ref).
 
 """
-struct Adjoint{T <: LinearOperator} <: LinearOperator
+struct Adjoint{T<:Mapping} <: LinearOperator
+    op::T
+    # The inner constructors make sure that the argument is a linear operator.
+    Adjoint{T}(A::T) where {T<:LinearOperator} = new{T}(A)
+    function Adjoint{T}(A::T) where {T<:Mapping}
+        if lineartype(A) != Linear
+            error("taking the adjoint of non-linear mappings is not allowed")
+        end
+        return new{T}(A)
+    end
+end
+
+# Outer constructor must be provided.
+Adjoint(A::T) where {T<:Mapping} = Adjoint{T}(A)
+
+struct Inverse{T<:Mapping} <: Mapping
     op::T
 end
 
-struct Inverse{T <: LinearOperator} <: LinearOperator
-    op::T
+for T in (:Inverse, :InverseAdjoint, :AdjointInverse)
+    @eval @doc @doc(Adjoint) $T
 end
-@doc @doc(Adjoint) Inverse
 
-struct InverseAdjoint{T <: LinearOperator} <: LinearOperator
+struct InverseAdjoint{T<:LinearOperator} <: LinearOperator
     op::T
+    # The inner constructors make sure that the argument is a linear operator.
+    InverseAdjoint{T}(A::T) where {T<:LinearOperator} = new{T}(A)
+    function InverseAdjoint{T}(A::T) where {T<:Mapping}
+        if lineartype(A) != Linear
+            error("taking the inverse adjoint of non-linear mappings is not allowed")
+        end
+        return new{T}(A)
+    end
 end
-@doc @doc(Adjoint) InverseAdjoint
 
-const AdjointInverse = InverseAdjoint
-@doc @doc(InverseAdjoint) AdjointInverse
+# Outer constructor must be provided.
+InverseAdjoint(A::T) where {T<:Mapping} = Adjoint{T}(A)
+
+const AdjointInverse{T} = InverseAdjoint{T}
 
 """
 
@@ -120,3 +206,23 @@ See also: [`LinearOperator`](@ref), [`apply`](@ref), [`Direct`](@ref),
 
 """
 const Operations = Union{Direct,Adjoint,Inverse,InverseAdjoint}
+
+# A `Scaled` mapping is used to represent a mappings times a scalar, it should
+# be used directly.
+struct Scaled{T<:Mapping} <: Mapping
+    sc::Scalar
+    op::T
+end
+
+# A `Sum` is used to represent an arbitrary sum of mappings, it should be used
+# directly.
+struct Sum{T<:Tuple{Vararg{Mapping}}} <: Mapping
+    ops::T
+end
+
+# A `Composition` is used to represent an arbitrary composition of mappings, it
+# should be used directly.
+struct Composition{T<:Tuple{Vararg{Mapping}}} <: Mapping
+    ops::T
+end
+

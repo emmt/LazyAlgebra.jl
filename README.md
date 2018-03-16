@@ -10,16 +10,21 @@ processing) involve essentially linear operations on the considered variables.
 `LazyAlgebra` provides a framework to implement these kind of numerical methods
 independently of the specific type of the variables.
 
-Two concepts are central to `LazyAlgebra`:
+`LazyAlgebra` also provides a flexible and extensible framework for creating
+complex mappings and linear operators to operate on the variables.
+
+A few concepts are central to `LazyAlgebra`:
 * *vectors* represent the variables of interest and can be anything provided a
   few methods are implemented for their specific type;
-* *linear operators* are any linear mapping between such vectors.
+* *mappings* are any functions between such vectors;
+* *linear operators* are linear mappings.
 
-
-* duck-typing
-* *lazy* evaluation;
-* efficient memory allocation;
-
+`LazyAlgebra` features:
+* flexible and extensible framework for creating complex mappings and linear
+  operators;
+* *lazy* evaluation of the mappings;
+* *lazy* assumptions when combining mappings;
+* efficient memory allocation by avoiding temporaries;
 
 (https://en.wikipedia.org/wiki/Vector_space)
 
@@ -37,53 +42,54 @@ elements between two objects of the same kind (they can be two arrays but they
 must have the same dimensions and complex valued elements are considere as pair
 of reals).
 
-The various operations that should be implemented for a *vector* are:
 
-* compute the inner product of two vectors of the same kind (`vdot` method);
-* create a vector of a given kind (`vcreate` method);
-* copy a vector (`vcopy!` and `vcopy` methods);
-* fill a vector with a given value (`vfill!` method);
-* exchange the contents of two vectors (`vswap!` method);
-* multiply a vector by a scalar (`vscale` and `vscale!` methods);
-* linearly combine several vectors (`vcombine!` and `vcombine` methods).
+## Mappings and linear operators
 
-Derived methods are:
-* compute the Euclidean norm of a vector (`vnorm2` method, based on `vdot` by
-  default);
-* update a vector by a scaled step (`vupdate!` method, based on `vcombine!` by
-  default);
-* erase a vector (`vzero!`method based on `vfill!` by default);
+A `Mapping` is any function between two variables spaces.  Assuming upper case
+Latin letters denote *mappings*, lower case Latin letters denote *variables*,
+and Greek letters denote *scalars*, then:
 
-Other methods which may be required by some packages:
-* compute the L-1 norm of a vector (`vnorm1` method);
-* compute the L-∞ norm of a vector (`vnorminf` method);
+* `A*x` or `A⋅x` yields the result of applying the mapping `A` to `x`;
 
+* `A\\x` yields the result of applying the inverse of `A` to `x`;
 
-methods that must be implemented (`V` represent the vector type):
+Simple constructions are allowed for any kind of mappings and can be used to
+create new instances of mappings which behave correctly.  For instance:
 
-```julia
-vscale!(dst::V, alpha::Real, x::V) -> dst
-```
+* `B = α*A` (where `α` is a real) is a mapping which behaves as `A` times `α`;
+  that is `B⋅x` yields the same result as `α*(A⋅x)`.
 
-methods that may be implemented:
+* `C = A + B + ...` is a mapping which behaves as the sum of the mappings `A`,
+  `B`, ...; that is `C⋅x` yields the same result as `A⋅x + B⋅x + ...`.
 
-```julia
-vscale!(alpha::Real, x::V) -> x
-```
+* `C = A*B` or `C = A⋅B` is a mapping which behaves as the composition of the
+  mappings `A` and `B`; that is `C⋅x` yields the same result as `A⋅(B.x)`.  As
+  for the sum of mappings, there may be an arbitrary number of mappings in a
+  composition; for example, if `D = A*B*C` then `D⋅x` yields the same result as
+  `A⋅(B⋅(C⋅x))`.
 
-For linear operators:
+* `C = A\\B` is a mapping such that `C⋅x` yields the same result as `A\\(B⋅x)`.
 
-implement:
-```julia
-apply!(β::Real, y, α::Real, P::Type{<:Operations}, A::T, x) -> y
-```
-or at least:
-```julia
-apply!(y, ::Type{P}, A::T, x) -> y
-```
-for `T<:Operator` and the supported operations `P<:Operations`.
+* `C = A/B` is a mapping such that `C⋅x` yields the same result as `A⋅(B\\x)`.
 
-and
-```julia
-vcreate(P::Type{P}, A::T, x) -> y
-```
+These constructions can be combined to build up more complex mappings.  For
+example:
+
+* `D = A*(B + C)` is a mapping such that `C⋅x` yields the same result as
+  `A⋅(B⋅x + C⋅x)`.
+
+A `LinearOperator` is any linear mapping between two spaces.  This abstract
+subtype of `Mapping` is introduced to extend the notion of *matrices* and
+*vectors*.  Assuming the type of `A` inherits from `LinearOperator`, then:
+
+* `A'⋅x` and `A'*x` yields the result of applying the adjoint of the operator
+  `A` to `x`;
+
+* `A'\\x` yields the result of applying the adjoint of the inverse of operator
+  `A` to `x`.
+
+* `B = A'` is a mapping such that `B⋅x` yields the same result as `A'⋅x`.
+
+`LazyAlgebra` provides a number of mappings and linear operators.  Creating
+new primitive mapping types (not by combining existing mappings as explained
+above) is explained [here](doc/mappings.md).
