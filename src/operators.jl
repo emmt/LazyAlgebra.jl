@@ -325,7 +325,7 @@ function apply!(α::Scalar,
             end
         end
     elseif α == zero(α)
-        vscale!(β, y)
+        vscale!(y, β)
     elseif α == -one(α)
         if β == zero(β)
             @inbounds @simd for i in eachindex(w, x, y)
@@ -398,7 +398,7 @@ function apply!(α::Scalar,
             end
         end
     elseif α == zero(α)
-        vscale!(β, y)
+        vscale!(y, β)
     elseif α == -one(α)
         if β == zero(β)
             @inbounds @simd for i in eachindex(w, x, y)
@@ -483,7 +483,7 @@ function apply!(α::Scalar, ::Type{Direct}, A::RankOneOperator, x,
                 β::Scalar, y)
     if α == zero(α)
         # Lazily assume that y has correct type, dimensions, etc.
-        vscale!(β, y)
+        vscale!(y, β)
     else
         vcombine!(y, α*vdot(A.v, x), A.u, β, y)
     end
@@ -494,7 +494,7 @@ function apply!(α::Scalar, ::Type{Adjoint}, A::RankOneOperator, x,
                 β::Scalar, y)
     if α == zero(α)
         # Lazily assume that y has correct type, dimensions, etc.
-        vscale!(β, y)
+        vscale!(y, β)
     else
         vcombine!(y, α*vdot(A.u, x), A.v, β, y)
     end
@@ -545,7 +545,7 @@ function apply!(α::Scalar, ::Type{P}, A::SymmetricRankOneOperator, x,
                 β::Scalar, y) where {P<:Union{Direct,Adjoint}}
     if α == zero(α)
         # Lazily assume that y has correct type, dimensions, etc.
-        vscale!(β, y)
+        vscale!(y, β)
     else
         vcombine!(y, α*vdot(A.u, x), A.u, β, y)
     end
@@ -703,7 +703,7 @@ function _apply!(α::Scalar,
                  β::Scalar,
                  y::AbstractArray{Ty}) where {Ta<:Real, Tx<:Real, Ty<:Real}
     if β != one(β)
-        vscale!(y, β, y)
+        vscale!(y, β)
     end
     if α != zero(α)
         # Loop through the coefficients of A assuming column-major storage
@@ -737,7 +737,7 @@ function _apply!(α::Scalar,
                  β::Scalar,
                  y::AbstractArray{Ty}) where {Ta<:Real, Tx<:Real, Ty<:Real}
     if α == zero(α)
-        vscale!(y, β, y)
+        vscale!(y, β)
     else
         # Loop through the coefficients of A assuming column-major storage
         # order.
