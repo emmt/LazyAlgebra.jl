@@ -22,7 +22,7 @@ manipulate the variables via a small number of vectorized methods:
   argument `T` is the floating-point type of the result.
 
 * `vnorminf([T,]x)` L-∞ norm of `x`, that is the maximal absolute values of the
-  components of `x`..  Optional argument `T` is the floating-point type of the
+  components of `x`.  Optional argument `T` is the floating-point type of the
   result
 
 * `vcreate(x)` yields a new variable instance similar to `x`.  If `x` is an
@@ -35,7 +35,8 @@ manipulate the variables via a small number of vectorized methods:
 * `vswap!(x,y)` exchanges the contents of `x` and `y` (which must have the same
   type and size if they are arrays).
 
-* `vfill!` sets all elements of `x` with the scalar value `α` and return `x`.
+* `vfill!(x,α)` sets all elements of `x` with the scalar value `α` and return
+  `x`.
 
 * `vzero!(x)`fills `x` with zeros and returns it.
 
@@ -85,17 +86,19 @@ methods specialized for this kind of variables.
 
 The various operations that should be implemented for a *vector* are:
 
-* compute the inner product of two vectors of the same kind (`vdot` method);
-* create a vector of a given kind (`vcreate` method);
-* copy a vector (`vcopy!`);
-* fill a vector with a given value (`vfill!` method);
-* exchange the contents of two vectors (`vswap!` method);
-* multiply a vector by a scalar (`vscale!` methods);
-* linearly combine several vectors (`vcombine!` methods).
+* compute the inner product of two vectors of the same kind (`vdot(x,y)`
+  method);
+* create a vector of a given kind (`vcreate(x)` method);
+* copy a vector (`vcopy!(dst,src)`);
+* fill a vector with a given value (`vfill!(x,α)` method);
+* exchange the contents of two vectors (`vswap!(x,y)` method);
+* linearly combine several vectors (`vcombine!(dst,α,x,β,y)` method).
 
 Derived methods are:
 * compute the Euclidean norm of a vector (`vnorm2` method, based on `vdot` by
   default);
+* multiply a vector by a scalar (`vscale!(dst,α,src)` method, based on
+  `vcombine!` by default);
 * update a vector by a scaled step (`vupdate!` method, based on `vcombine!` by
   default);
 * erase a vector (`vzero!` method based on `vfill!` by default);
