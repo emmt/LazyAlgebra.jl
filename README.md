@@ -45,13 +45,15 @@ of reals).
 
 ## Mappings and linear operators
 
-A `Mapping` is any function between two variables spaces.  Assuming upper case
-Latin letters denote *mappings*, lower case Latin letters denote *variables*,
-and Greek letters denote *scalars*, then:
+### General mappings
+
+A `Mapping` can be any function between two variables spaces.  Assuming upper
+case Latin letters denote *mappings*, lower case Latin letters denote
+*variables*, and Greek letters denote *scalars*, then:
 
 * `A*x` or `A⋅x` yields the result of applying the mapping `A` to `x`;
 
-* `A\\x` yields the result of applying the inverse of `A` to `x`;
+* `A\x` yields the result of applying the inverse of `A` to `x`;
 
 Simple constructions are allowed for any kind of mappings and can be used to
 create new instances of mappings which behave correctly.  For instance:
@@ -68,9 +70,9 @@ create new instances of mappings which behave correctly.  For instance:
   composition; for example, if `D = A*B*C` then `D⋅x` yields the same result as
   `A⋅(B⋅(C⋅x))`.
 
-* `C = A\\B` is a mapping such that `C⋅x` yields the same result as `A\\(B⋅x)`.
+* `C = A\B` is a mapping such that `C⋅x` yields the same result as `A\(B⋅x)`.
 
-* `C = A/B` is a mapping such that `C⋅x` yields the same result as `A⋅(B\\x)`.
+* `C = A/B` is a mapping such that `C⋅x` yields the same result as `A⋅(B\x)`.
 
 These constructions can be combined to build up more complex mappings.  For
 example:
@@ -78,14 +80,17 @@ example:
 * `D = A*(B + C)` is a mapping such that `C⋅x` yields the same result as
   `A⋅(B⋅x + C⋅x)`.
 
-A `LinearOperator` is any linear mapping between two spaces.  This abstract
+
+### Linear operators
+
+A `LinearOperator` can be any linear mapping between two spaces.  This abstract
 subtype of `Mapping` is introduced to extend the notion of *matrices* and
 *vectors*.  Assuming the type of `A` inherits from `LinearOperator`, then:
 
 * `A'⋅x` and `A'*x` yields the result of applying the adjoint of the operator
   `A` to `x`;
 
-* `A'\\x` yields the result of applying the adjoint of the inverse of operator
+* `A'\x` yields the result of applying the adjoint of the inverse of operator
   `A` to `x`.
 
 * `B = A'` is a mapping such that `B⋅x` yields the same result as `A'⋅x`.
