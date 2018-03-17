@@ -34,8 +34,6 @@ function vnorm2(::Type{T},
     return sqrt(s)
 end
 
-vnorm2(v::AbstractArray{T,N}) where {T<:AbstractFloat,N} = vnorm2(T, v)
-vnorm2(v::AbstractArray{T,N}) where {T<:Real,N} = vnorm2(float(T), x)
 vnorm2(x) = sqrt(vdot(x, x))
 vnorm2(::Type{T}, x) where {T<:AbstractFloat} = sqrt(vdot(T, x, x))
 
@@ -58,10 +56,6 @@ function vnorm1(::Type{T},
     return s
 end
 
-vnorm1(v::AbstractArray{T,N}) where {T<:AbstractFloat,N} = vnorm1(T, v)
-vnorm1(v::AbstractArray{T,N}) where {T<:Real,N} = vnorm1(float(T), x)
-
-
 """
 ```julia
 vnorminf([T,] v)
@@ -80,6 +74,7 @@ function vnorminf(::Type{T},
     end
     return s
 end
+
 function vnorminf(::Type{T},
                   v::AbstractArray{<:Unsigned,N})::T where {T<:AbstractFloat,N}
     local s::T = zero(T)
@@ -89,8 +84,12 @@ function vnorminf(::Type{T},
     return s
 end
 
-vnorminf(v::AbstractArray{T,N}) where {T<:AbstractFloat,N} = vnorminf(T, v)
-vnorminf(v::AbstractArray{T,N}) where {T<:Real,N} = vnorminf(float(T), x)
+for norm in (:vnorm2, :vnorm1, :vnorminf)
+    @eval begin
+        $norm(v::AbstractArray{T,N}) where {T<:AbstractFloat,N} = $norm(T, v)
+        $norm(v::AbstractArray{T,N}) where {T<:Real,N} = $norm(float(T), x)
+    end
+end
 
 #------------------------------------------------------------------------------
 
@@ -116,8 +115,9 @@ vcopy!(dst, src) -> dst
 ```
 
 copies the contents of `src` into `dst` and returns `dst`.  This function
-checks that the copy makes sense (for instance, the `copy!` operation does not
-check that the source and destination have the same dimensions).
+checks that the copy makes sense (for instance, for array arguments, the
+`copy!` operation does not check that the source and destination have the same
+dimensions).
 
 Also see [`copy!`](@ref), [`vcopy`](@ref), [`vswap!`](@ref).
 
@@ -195,10 +195,10 @@ vfill!(x::DenseArray{T,N}, alpha::Real) where {T<:AbstractFloat,N} =
 """
 
 ```julia
-vzero!(A) -> A
+vzero!(x) -> x
 ```
 
-fills `A` with zeros and returns it.
+fills `x` with zeros and returns it.
 
 Also see [`vfill!`](@ref).
 
@@ -314,24 +314,14 @@ result, the destination array `dst` can be specified with the in-place version
 of the method:
 
 ```julia
-vproduct!(x, y) -> x
-```
-
-which overwrites `x` with the elementwise multiplication of `x` by `y`.
-
-Another destination than `x` can be provided:
-
-```julia
 vproduct!(dst, [sel,] x, y) -> dst
 ```
 
-where `sel` is an optional selection of indices to which apply the operation.
-
+which overwrites `dst` with the elementwise multiplication of `x` by `y`.
+Optional argument `sel` is a selection of indices to which apply the operation.
 
 """
 vproduct(x::V, y::V) where {V} = vproduct!(vcreate(x), x, y)
-
-vproduct!(dst::V, src::V) where {V} = vproduct!(dst, dst, src)
 
 @doc @doc(vproduct) vproduct!
 
@@ -350,36 +340,118 @@ function vproduct!(dst::DenseArray{<:AbstractFloat,N},
                    x::DenseArray{<:AbstractFloat,N},
                    y::DenseArray{<:AbstractFloat,N}) where {N}
     @assert size(dst) == size(x) == size(y)
-    const n = length(dst)
+    jmin, jmax = extrema(sel)
+    1 ≤ jmin ≤ jmax ≤ length(dst) || throw(BoundsError())
     @inbounds @simd for i in eachindex(sel)
         j = sel[i]
-        1 ≤ j ≤ n || throw(BoundsError())
         dst[j] = x[j]*y[j]
     end
     return dst
 end
 
+#--- VECTOR UPDATE ------------------------------------------------------------
+
+"""
+```julia
+vupdate!(y, [sel,] α, x) -> y
+```
+
+overwrites `y` with `α*x + y` and returns `y`.  The code is optimized for some
+specific values of the multiplier `α`.  For instance, if `α` is zero, then `y`
+is left unchanged without using `x`.  Computations are performed at the
+numerical precision of `x`.
+
+Optional argument `sel` is a selection of indices to which apply the operation.
+Note that if an index is repeated, the operation will be performed several
+times at this location.
+
+See also: [`vscale!`](@ref), [`vcombine!](@ref).
+
+"""
+function vupdate!(y::AbstractArray{Ty,N},
+                  alpha::Real,
+                  x::AbstractArray{Tx,N}) where {Ty<:AbstractFloat,
+                                                 Tx<:AbstractFloat,N}
+    return _vupdate!(y, convert(Tx, alpha), x)
+end
+
+# Pure Julia implementation.
+function _vupdate!(y::AbstractArray{Ty,N},
+                   alpha::Real,
+                   x::AbstractArray{Tx,N}) where {Ty<:AbstractFloat,
+                                                  Tx<:AbstractFloat,N}
+    if indices(x) != indices(y)
+        throw(DimensionMismatch("`x` and `y` must have the same indices"))
+    end
+    if alpha == one(alpha)
+        @inbounds @simd for i in eachindex(y, x)
+            y[i] += x[i]
+        end
+    elseif alpha == -one(alpha)
+        @inbounds @simd for i in eachindex(y, x)
+            y[i] -= x[i]
+        end
+    elseif alpha != zero(alpha)
+        const α = Tx(alpha)
+        @inbounds @simd for i in eachindex(y, x)
+            y[i] += α*x[i]
+        end
+    end
+    return y
+end
+
+function vupdate!(y::DenseArray{Ty,N},
+                  sel::AbstractVector{Int},
+                  alpha::Real,
+                  x::DenseArray{Tx,N}) where {Ty<:AbstractFloat,
+                                              Tx<:AbstractFloat,N}
+    if size(x) != size(y)
+        throw(DimensionMismatch("`x` and `y` must have the same dimensions"))
+    end
+    jmin, jmax = extrema(sel)
+    1 ≤ jmin ≤ jmax ≤ length(x) || throw(BoundsError())
+    if alpha == one(alpha)
+        @inbounds @simd for i in eachindex(sel)
+            j = sel[i]
+            y[j] += x[j]
+        end
+    elseif alpha == -one(alpha)
+        @inbounds @simd for i in eachindex(sel)
+            j = sel[i]
+            y[j] -= x[j]
+        end
+    elseif alpha != zero(alpha)
+        const α = Tx(alpha)
+        @inbounds @simd for i in eachindex(sel)
+            j = sel[i]
+            y[j] += α*x[j]
+        end
+    end
+    return y
+end
+
 #------------------------------------------------------------------------------
+# LINEAR COMBINATION
 
 """
 ### Linear combination of arrays
 
 ```julia
-vcombine(α, x [, β, y]) -> dst
+vcombine(α, x, β, y) -> dst
 ```
 
-yields the linear combination `dst = α*x` or `dst = α*x + β*y`.
+yields the linear combination `dst = α*x + β*y`.
 
 To avoid allocating the result, the destination array `dst` can be specified
 with the in-place version of the method:
 
 ```julia
-vcombine!(dst, α, x [, β, y]) -> dst
+vcombine!(dst, α, x, β, y) -> dst
 ```
 
 The code is optimized for some specific values of the coefficients `α` and `β`.
-For instance, if `α` (resp. `β`) is zero, then the contents of `x` (resp. `y`)
-is not used.
+For instance, if `α` (resp. `β`) is zero, then the prior contents of `x`
+(resp. `y`) is not used.
 
 The source(s) and the destination can be the same.  For instance, the two
 following lines of code produce the same result:
@@ -389,22 +461,11 @@ vcombine!(dst, 1, dst, α, x)
 vupdate!(dst, α, x)
 ```
 
-and the following statements also yield the same result:
-
- ```julia
-vcombine!(dst, α, x)
-vscale!(dst, α, x)
-```
+See also: [`vscale!`](@ref), [`vupdate!](@ref).
 
 """
-vcombine(alpha::Real, x) = vscale(alpha, x)
-
 vcombine(alpha::Real, x::V, beta::Real, y::V) where {V} =
     vcombine!(vcreate(x), alpha, x, beta, y)
-
-vcombine!(dst::V, alpha::Real, x::V) where {V} = vscale!(dst, alpha, x)
-
-@doc @doc(vcombine) vcombine!
 
 function vcombine!(dst::AbstractArray{<:AbstractFloat,N},
                    alpha::Real,
@@ -466,6 +527,8 @@ function vcombine!(dst::AbstractArray{<:AbstractFloat,N},
     end
     return dst
 end
+
+@doc @doc(vcombine) vcombine!
 
 #--- INNER PRODUCT ------------------------------------------------------------
 
@@ -575,11 +638,11 @@ function vdot(::Type{T},
     if size(y) != size(x)
         throw(DimensionMismatch("`x` and `y` must have same dimensions"))
     end
+    jmin, jmax = extrema(sel)
+    1 ≤ jmin ≤ jmax ≤ length(x) || throw(BoundsError())
     local s::T = zero(T)
-    const n = length(x)
     @inbounds @simd for i in eachindex(sel)
         j = sel[i]
-        1 ≤ j ≤ n || throw(BoundsError())
         s += x[j]*y[j]
     end
     return s
@@ -599,11 +662,11 @@ function vdot(::Type{T},
     if size(y) != size(x)
         throw(DimensionMismatch("`x` and `y` must have same dimensions"))
     end
+    jmin, jmax = extrema(sel)
+    1 ≤ jmin ≤ jmax ≤ length(x) || throw(BoundsError())
     local s::T = zero(T)
-    const n = length(x)
     @inbounds @simd for i in eachindex(sel)
         j = sel[i]
-        1 ≤ j ≤ n || throw(BoundsError())
         s += x[j].re*y[j].re + x[j].im*y[j].im
     end
     return s
@@ -653,87 +716,4 @@ end
 function _vdot(x::AbstractArray{Complex{Tx},N},
                y::AbstractArray{Complex{Ty},N}) where {Tx<:Real, Ty<:Real, N}
     return _vdot(float(promote_type(Tx, Ty)), x, y)
-end
-
-#--- VECTOR UPDATE ------------------------------------------------------------
-
-"""
-```julia
-vupdate!(y, [sel,] α, x) -> y
-```
-
-overwrites `y` with `α*x + y` and returns `y`.  The code is optimized for some
-specific values of the multiplier `α`.  For instance, if `α` is zero, then `y`
-is left unchanged without using `x`.  Computations are performed at the
-numerical precision of `x`.
-
-Optional argument `sel` is a selection of indices to which apply the operation.
-Note that if an index is repeated, the operation will be performed several
-times at this location.
-
-"""
-function vupdate!(y::AbstractArray{Ty,N},
-                  alpha::Real,
-                  x::AbstractArray{Tx,N}) where {Ty<:AbstractFloat,
-                                                 Tx<:AbstractFloat,N}
-    return _vupdate!(y, convert(Tx, alpha), x)
-end
-
-# Pure Julia implementation.
-function _vupdate!(y::AbstractArray{Ty,N},
-                   alpha::Real,
-                   x::AbstractArray{Tx,N}) where {Ty<:AbstractFloat,
-                                                  Tx<:AbstractFloat,N}
-    if indices(x) != indices(y)
-        throw(DimensionMismatch("`x` and `y` must have the same indices"))
-    end
-    if alpha == one(alpha)
-        @inbounds @simd for i in eachindex(y, x)
-            y[i] += x[i]
-        end
-    elseif alpha == -one(alpha)
-        @inbounds @simd for i in eachindex(y, x)
-            y[i] -= x[i]
-        end
-    elseif alpha != zero(alpha)
-        const α = Tx(alpha)
-        @inbounds @simd for i in eachindex(y, x)
-            y[i] += α*x[i]
-        end
-    end
-    return y
-end
-
-function vupdate!(y::DenseArray{Ty,N},
-                  sel::AbstractVector{Int},
-                  alpha::Real,
-                  x::DenseArray{Tx,N}) where {Ty<:AbstractFloat,
-                                              Tx<:AbstractFloat,N}
-    if size(x) != size(y)
-        throw(DimensionMismatch("`x` and `y` must have the same dimensions"))
-    end
-    if alpha == one(alpha)
-        const n = length(x)
-        @inbounds @simd for i in eachindex(sel)
-            j = sel[i]
-            1 ≤ j ≤ n || throw(BoundsError())
-            y[j] += x[j]
-        end
-    elseif alpha == -one(alpha)
-        const n = length(x)
-        @inbounds @simd for i in eachindex(sel)
-            j = sel[i]
-            1 ≤ j ≤ n || throw(BoundsError())
-            y[j] -= x[j]
-        end
-    elseif alpha != zero(alpha)
-        const n = length(x)
-        const α = Tx(alpha)
-        @inbounds @simd for i in eachindex(sel)
-            j = sel[i]
-            1 ≤ j ≤ n || throw(BoundsError())
-            y[j] += α*x[j]
-        end
-    end
-    return y
 end
