@@ -97,23 +97,28 @@ The various operations that should be implemented for a *vector* are:
 Derived methods are:
 * compute the Euclidean norm of a vector (`vnorm2` method, based on `vdot` by
   default);
-* multiply a vector by a scalar (`vscale!(dst,α,src)` method, based on
-  `vcombine!` by default);
-* update a vector by a scaled step (`vupdate!` method, based on `vcombine!` by
-  default);
-* erase a vector (`vzero!` method based on `vfill!` by default);
-* `vscale`, resp. `vcopy`, is implemented with `vscale!`, resp. `vcopy!`, and
-  `vcreate`.
+* multiply a vector by a scalar: `vscale!(dst,α,src)` and/or `vscale!(α,x)`
+  methods (based on `vcombine!` by default);
+* update a vector by a scaled step: `vupdate!(y,α,x)` method (based on
+  `vcombine!` by default) and, for some constrained optimization methods,
+  `vupdate!(y,sel,α,x)` method;
+* erase a vector: `vzero!(x)` method (based on `vfill!` by default);
+* `vscale` and `vcopy` methods are implemented with `vcreate` and
+  respectively`vscale!` and `vcopy!`.
 
 Other methods which may be required by some packages:
-* compute the L-1 norm of a vector (`vnorm1` method);
-* compute the L-∞ norm of a vector (`vnorminf` method);
+* compute the L-1 norm of a vector: `vnorm1(x)` method;
+* compute the L-∞ norm of a vector: `vnorminf(x)` method;
 
 
-methods that must be implemented (`V` represent the vector type):
+Methods that must be implemented (`V` represent the vector type):
 
 ```julia
-vscale!(dst::V, alpha::Real, x::V) -> dst
+vdot(::Type{T}, x::Tx, y::Ty) :: T where {T<:AbstractFloat,Tx,Ty}
+```
+
+```julia
+vscale!(dst::V, alpha::Real, src::V) -> dst
 ```
 
 methods that may be implemented:
@@ -122,19 +127,17 @@ methods that may be implemented:
 vscale!(alpha::Real, x::V) -> x
 ```
 
-For linear operators:
+For mappings and linear operators (see
+[Implementation of new mappings](mappings.md) for details), implement:
 
-implement:
 ```julia
-apply!(β::Real, y, α::Real, P::Type{<:Operations}, A::T, x) -> y
+apply!(α::Scalar, P::Type{<:Operations}, A::Ta, x::Tx, β::Scalar, y::Ty) -> y
 ```
-or at least:
-```julia
-apply!(y, ::Type{P}, A::T, x) -> y
-```
-for `T<:Operator` and the supported operations `P<:Operations`.
 
 and
+
 ```julia
-vcreate(P::Type{P}, A::T, x) -> y
+vcreate(P::Type{P}, A::Ta, x::Tx) -> y
 ```
+
+for `Ta<:Mapping` and the supported operations `P<:Operations`.
