@@ -66,14 +66,14 @@ example:
 * `D = A*(B + C)` is a mapping such that `C⋅x` yields the same result as
   `A⋅(B⋅x + C⋅x)`.
 
-A `LinearOperator` is any linear mapping between two spaces.  This abstract
+A `LinearMapping` is any linear mapping between two spaces.  This abstract
 subtype of `Mapping` is introduced to extend the notion of *matrices* and
-*vectors*.  Assuming the type of `A` inherits from `LinearOperator`, then:
+*vectors*.  Assuming the type of `A` inherits from `LinearMapping`, then:
 
-* `A'⋅x` and `A'*x` yields the result of applying the adjoint of the operator
+* `A'⋅x` and `A'*x` yields the result of applying the adjoint of the mapping
   `A` to `x`;
 
-* `A'\\x` yields the result of applying the adjoint of the inverse of operator
+* `A'\\x` yields the result of applying the adjoint of the inverse of mapping
   `A` to `x`.
 
 * `B = A'` is a mapping such that `B⋅x` yields the same result as `A'⋅x`.
@@ -101,8 +101,8 @@ See also: [`apply`](@ref), [`apply!`](@ref), [`vcreate`](@ref),
 """
 abstract type Mapping end
 
-abstract type LinearOperator <: Mapping end
-@doc @doc(Mapping) LinearOperator
+abstract type LinearMapping <: Mapping end
+@doc @doc(Mapping) LinearMapping
 
 """
 
@@ -124,21 +124,21 @@ end
 
 """
 
-Abstract type `SelfAdjointOperator` is to be inherited by linear operators
-whose adjoint is equal to themself.  Such operators only need to implement
+Abstract type `SelfAdjointOperator` is to be inherited by linear mappings
+whose adjoint is equal to themself.  Such mappings only need to implement
 methods for the `Direct` and `Inverse` operations (if applicable).
 
-See also: [`LinearOperator`](@ref).
+See also: [`LinearMapping`](@ref).
 
 """
-abstract type SelfAdjointOperator <: LinearOperator end
+abstract type SelfAdjointOperator <: LinearMapping end
 
 """
 
-Type `Direct` is a singleton type to indicate that a linear operator should
+Type `Direct` is a singleton type to indicate that a linear mapping should
 be directly applied.  This type is part of the union `Operations`.
 
-See also: [`LinearOperator`](@ref), [`apply`](@ref), [`Operations`](@ref).
+See also: [`LinearMapping`](@ref), [`apply`](@ref), [`Operations`](@ref).
 
 """
 struct Direct; end
@@ -151,15 +151,15 @@ mapping to indicate the conjugate transpose and/or inverse of the mapping.  The
 recommended) to write `A'` instead of `Adjoint(A)`.  Furthermore, `A'` or
 `ctranspose(A)` may be able to perform some simplications resulting in improved
 efficiency.  `AdjointInverse` is just an alias for `InverseAdjoint`.  Note that
-the adjoint only makes sense for linear operators.
+the adjoint only makes sense for linear mappings.
 
-See also: [`LinearOperator`](@ref), [`apply`](@ref), [`Operations`](@ref).
+See also: [`LinearMapping`](@ref), [`apply`](@ref), [`Operations`](@ref).
 
 """
-struct Adjoint{T<:Mapping} <: LinearOperator
+struct Adjoint{T<:Mapping} <: LinearMapping
     op::T
-    # The inner constructors make sure that the argument is a linear operator.
-    Adjoint{T}(A::T) where {T<:LinearOperator} = new{T}(A)
+    # The inner constructors make sure that the argument is a linear mapping.
+    Adjoint{T}(A::T) where {T<:LinearMapping} = new{T}(A)
     function Adjoint{T}(A::T) where {T<:Mapping}
         if lineartype(A) != Linear
             error("taking the adjoint of non-linear mappings is not allowed")
@@ -175,10 +175,10 @@ struct Inverse{T<:Mapping} <: Mapping
     op::T
 end
 
-struct InverseAdjoint{T<:LinearOperator} <: LinearOperator
+struct InverseAdjoint{T<:LinearMapping} <: LinearMapping
     op::T
-    # The inner constructors make sure that the argument is a linear operator.
-    InverseAdjoint{T}(A::T) where {T<:LinearOperator} = new{T}(A)
+    # The inner constructors make sure that the argument is a linear mapping.
+    InverseAdjoint{T}(A::T) where {T<:LinearMapping} = new{T}(A)
     function InverseAdjoint{T}(A::T) where {T<:Mapping}
         if lineartype(A) != Linear
             error("taking the inverse adjoint of non-linear mappings is not allowed")
@@ -198,11 +198,11 @@ end
 
 """
 
-`Operations` is the union of the possible ways to apply a linear operator:
+`Operations` is the union of the possible ways to apply a linear mapping:
 `Direct`, `Adjoint`, `Inverse` and `InverseAdjoint` (or its alias
 `AdjointInverse`).
 
-See also: [`LinearOperator`](@ref), [`apply`](@ref), [`Direct`](@ref),
+See also: [`LinearMapping`](@ref), [`apply`](@ref), [`Direct`](@ref),
           [`Adjoint`](@ref).
 
 """

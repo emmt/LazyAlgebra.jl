@@ -58,7 +58,7 @@ export
     Inverse,
     InverseAdjoint,
     Linear,
-    LinearOperator,
+    LinearMapping,
     NonLinear,
     NonuniformScalingOperator,
     RankOneOperator,

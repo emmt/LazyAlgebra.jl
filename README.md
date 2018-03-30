@@ -11,17 +11,16 @@ processing) involve essentially linear operations on the considered variables.
 independently of the specific type of the variables.
 
 `LazyAlgebra` also provides a flexible and extensible framework for creating
-complex mappings and linear operators to operate on the variables.
+complex mappings and linear mappings to operate on the variables.
 
 A few concepts are central to `LazyAlgebra`:
 * *vectors* represent the variables of interest and can be anything provided a
   few methods are implemented for their specific type;
 * *mappings* are any functions between such vectors;
-* *linear operators* are linear mappings.
+* *linear mappings* behave linearly with respect to their arguments.
 
 `LazyAlgebra` features:
-* flexible and extensible framework for creating complex mappings and linear
-  operators;
+* flexible and extensible framework for creating complex mappings;
 * *lazy* evaluation of the mappings;
 * *lazy* assumptions when combining mappings;
 * efficient memory allocation by avoiding temporaries;
@@ -43,7 +42,7 @@ must have the same dimensions and complex valued elements are considere as pair
 of reals).
 
 
-## Mappings and linear operators
+## Mappings
 
 ### General mappings
 
@@ -81,20 +80,20 @@ example:
   `A⋅(B⋅x + C⋅x)`.
 
 
-### Linear operators
+### Linear mappings
 
-A `LinearOperator` can be any linear mapping between two spaces.  This abstract
+A `LinearMapping` can be any linear mapping between two spaces.  This abstract
 subtype of `Mapping` is introduced to extend the notion of *matrices* and
-*vectors*.  Assuming the type of `A` inherits from `LinearOperator`, then:
+*vectors*.  Assuming the type of `A` inherits from `LinearMapping`, then:
 
-* `A'⋅x` and `A'*x` yields the result of applying the adjoint of the operator
+* `A'⋅x` and `A'*x` yields the result of applying the adjoint of the mapping
   `A` to `x`;
 
-* `A'\x` yields the result of applying the adjoint of the inverse of operator
+* `A'\x` yields the result of applying the adjoint of the inverse of mapping
   `A` to `x`.
 
 * `B = A'` is a mapping such that `B⋅x` yields the same result as `A'⋅x`.
 
-`LazyAlgebra` provides a number of mappings and linear operators.  Creating
-new primitive mapping types (not by combining existing mappings as explained
-above) is explained [here](doc/mappings.md).
+`LazyAlgebra` provides a number of mappings.  Creating new primitive mapping
+types (not by combining existing mappings as explained above) is explained
+[here](doc/mappings.md).

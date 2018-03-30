@@ -1,7 +1,7 @@
 #
 # operators.jl -
 #
-# Methods for linear operators.
+# Methods for linear mappings.
 #
 #-------------------------------------------------------------------------------
 #
@@ -12,22 +12,22 @@
 #
 
 Inverse(A::Inverse) = A.op
-Inverse(A::Adjoint{T}) where {T<:LinearOperator} = InverseAdjoint{T}(A.op)
-Inverse(A::InverseAdjoint{T}) where {T<:LinearOperator} = Adjoint{T}(A.op)
+Inverse(A::Adjoint{T}) where {T<:LinearMapping} = InverseAdjoint{T}(A.op)
+Inverse(A::InverseAdjoint{T}) where {T<:LinearMapping} = Adjoint{T}(A.op)
 
 Adjoint(A::Adjoint) = A.op
-Adjoint(A::Inverse{T}) where {T<:LinearOperator} = InverseAdjoint{T}(A.op)
-Adjoint(A::InverseAdjoint{T}) where {T<:LinearOperator} = Inverse{T}(A.op)
+Adjoint(A::Inverse{T}) where {T<:LinearMapping} = InverseAdjoint{T}(A.op)
+Adjoint(A::InverseAdjoint{T}) where {T<:LinearMapping} = Inverse{T}(A.op)
 
 InverseAdjoint(A::InverseAdjoint) = A.op
-InverseAdjoint(A::Adjoint{T}) where {T<:LinearOperator} = Inverse{T}(A.op)
-InverseAdjoint(A::Inverse{T}) where {T<:LinearOperator} = Adjoint{T}(A.op)
+InverseAdjoint(A::Adjoint{T}) where {T<:LinearMapping} = Inverse{T}(A.op)
+InverseAdjoint(A::Inverse{T}) where {T<:LinearMapping} = Adjoint{T}(A.op)
 
 # Manage to have A' and inv(A) adds the correct decoration:
-Base.ctranspose(A::LinearOperator) = Adjoint(A)
-Base.inv(A::LinearOperator) = Inverse(A)
+Base.ctranspose(A::LinearMapping) = Adjoint(A)
+Base.inv(A::LinearMapping) = Inverse(A)
 
-# Automatically unveils operator for common methods.
+# Automatically unveils mapping for common methods.
 for (T1, T2, T3) in ((:Direct,         :Adjoint,        :Adjoint),
                      (:Direct,         :Inverse,        :Inverse),
                      (:Direct,         :InverseAdjoint, :InverseAdjoint),
@@ -57,7 +57,7 @@ for (T1, T2, T3) in ((:Direct,         :Adjoint,        :Adjoint),
 
 end
 
-# Specialize methods for self-adjoint operators so that only `Direct` and
+# Specialize methods for self-adjoint mappings so that only `Direct` and
 # `Inverse` operations need to be implemented.
 Adjoint(A::SelfAdjointOperator) = A
 InverseAdjoint(A::SelfAdjointOperator) = Inverse(A)
@@ -88,7 +88,7 @@ output_type([P=Direct,] A)
 ```
 
 yield the (preferred) types of the input and output arguments of the operation
-`P` with operator `A`.  If `A` operates on Julia arrays, the element type,
+`P` with mapping `A`.  If `A` operates on Julia arrays, the element type,
 list of dimensions, `i`-th dimension and number of dimensions for the input and
 output are given by:
 
@@ -99,7 +99,7 @@ output are given by:
 
 Only `input_size(A)` and `output_size(A)` have to be implemented.
 
-Also see: [`vcreate`](@ref), [`apply!`](@ref), [`LinearOperator`](@ref),
+Also see: [`vcreate`](@ref), [`apply!`](@ref), [`LinearMapping`](@ref),
 [`Operations`](@ref).
 
 """
@@ -118,21 +118,21 @@ for sfx in (:size, :eltype, :ndims, :type),
         #println("$fn1($P) -> $fn2")
 
         # Provide basic methods for the different operations and for tagged
-        # operators.
+        # mappings.
         @eval begin
 
             if $(P != Direct)
-                $fn1(A::$P{<:LinearOperator}) = $fn2(A.op)
+                $fn1(A::$P{<:LinearMapping}) = $fn2(A.op)
             end
 
-            $fn1(::Type{$P}, A::LinearOperator) = $fn2(A)
+            $fn1(::Type{$P}, A::LinearMapping) = $fn2(A)
 
             if $(sfx == :size)
                 if $(P != Direct)
-                    $fn1(A::$P{<:LinearOperator}, dim...) =
+                    $fn1(A::$P{<:LinearMapping}, dim...) =
                         $fn2(A.op, dim...)
                 end
-                $fn1(::Type{$P}, A::LinearOperator, dim...) =
+                $fn1(::Type{$P}, A::LinearMapping, dim...) =
                     $fn2(A, dim...)
             end
         end
@@ -153,11 +153,11 @@ for pfx in (:input, :output)
     pfx_ndims = Symbol(pfx, "_ndims")
     @eval begin
 
-        $pfx_ndims(A::LinearOperator) = length($pfx_size(A))
+        $pfx_ndims(A::LinearMapping) = length($pfx_size(A))
 
-        $pfx_size(A::LinearOperator, dim) = $pfx_size(A)[dim]
+        $pfx_size(A::LinearMapping, dim) = $pfx_size(A)[dim]
 
-        function $pfx_size(A::LinearOperator, dim...)
+        function $pfx_size(A::LinearMapping, dim...)
             dims = $pfx_size(A)
             ntuple(i -> dims[dim[i]], length(dim))
         end
@@ -171,15 +171,15 @@ end
 is_applicable_in_place([P,] A, x)
 ```
 
-yields whether operator `A` is applicable *in-place* for performing operation
+yields whether mapping `A` is applicable *in-place* for performing operation
 `P` with argument `x`, that is with the result stored into the argument `x`.
 This can be used to spare allocating ressources.
 
-See also: [`LinearOperator`](@ref), [`apply!`](@ref).
+See also: [`LinearMapping`](@ref), [`apply!`](@ref).
 
 """
-is_applicable_in_place(::Type{<:Operations}, A::LinearOperator, x) = false
-is_applicable_in_place(A::LinearOperator, x) =
+is_applicable_in_place(::Type{<:Operations}, A::LinearMapping, x) = false
+is_applicable_in_place(A::LinearMapping, x) =
     is_applicable_in_place(Direct, A, x)
 
 #------------------------------------------------------------------------------
@@ -190,8 +190,8 @@ is_applicable_in_place(A::LinearOperator, x) =
 Identity()
 ```
 
-yields the identity linear operator.  Beware that the purpose of this operator
-is to be as efficient as possible, hence the result of applying this operator
+yields the identity linear mapping.  Beware that the purpose of this mapping
+is to be as efficient as possible, hence the result of applying this mapping
 may be the same as the input argument.
 
 """
@@ -216,7 +216,7 @@ vcreate(::Type{<:Operations}, ::Identity, x) = similar(x)
 UniformScalingOperator(α)
 ```
 
-creates a uniform scaling linear operator whose effects is to multiply its
+creates a uniform scaling linear mapping whose effects is to multiply its
 argument by the scalar `α`.
 
 See also: [`NonuniformScalingOperator`](@ref).
@@ -267,9 +267,9 @@ vcreate(::Type{<:Operations}, A::UniformScalingOperator, x) =
 NonuniformScalingOperator(A)
 ```
 
-creates a nonuniform scaling linear operator whose effects is to apply
+creates a nonuniform scaling linear mapping whose effects is to apply
 elementwise multiplication of its argument by the scaling factors `A`.
-This operator can be thought as a *diagonal* operator.
+This mapping can be thought as a *diagonal* operator.
 
 See also: [`UniformScalingOperator`](@ref).
 
@@ -465,11 +465,11 @@ A*x  = vscale(vdot(v, x)), u)
 A'*x = vscale(vdot(u, x)), v)
 ```
 
-See also: [`SymmetricRankOneOperator`](@ref), [`LinearOperator`](@ref),
+See also: [`SymmetricRankOneOperator`](@ref), [`LinearMapping`](@ref),
           [`apply!`](@ref), [`vcreate`](@ref).
 
 """
-struct RankOneOperator{U,V} <: LinearOperator
+struct RankOneOperator{U,V} <: LinearMapping
     u::U
     v::V
 end
@@ -526,7 +526,7 @@ and behaves as if `A = u⋅u'`; that is:
 A*x = A'*x = vscale(vdot(u, x)), u)
 ```
 
-See also: [`RankOneOperator`](@ref), [`LinearOperator`](@ref),
+See also: [`RankOneOperator`](@ref), [`LinearMapping`](@ref),
           [`SelfAdjointOperator`](@ref) [`apply!`](@ref), [`vcreate`](@ref).
 
 """
@@ -574,7 +574,7 @@ output_eltype(A::SymmetricRankOneOperator) = eltype(A.u)
 GeneralMatrix(A)
 ```
 
-creates a linear operator given a multi-dimensional array `A` whose interest is
+creates a linear mapping given a multi-dimensional array `A` whose interest is
 to generalize the definition of the matrix-vector product without calling
 `reshape` to change the dimensions.
 
@@ -590,7 +590,7 @@ the dimensions of `x` match the leading dimension of `A` and yields a result
 See also: [`reshape`](@ref).
 
 """
-struct GeneralMatrix{T<:AbstractArray} <: LinearOperator
+struct GeneralMatrix{T<:AbstractArray} <: LinearMapping
     arr::T
 end
 
@@ -766,7 +766,7 @@ end
 
 """
 
-`HalfHessian(A)` is a container to be interpreted as the linear operator
+`HalfHessian(A)` is a container to be interpreted as the linear mapping
 representing the second derivatives (times 1/2) of some objective function at
 some point both represented by `A` (which can be anything).  Given `H =
 HalfHessian(A)`, the contents `A` is retrieved by `contents(H)`.
@@ -784,7 +784,7 @@ H = D'⋅D
 ```
 
 As the half-Hessian is symmetric, a single method `apply!` has to be
-implemented to apply the direct and adjoint of the operator, the signature of
+implemented to apply the direct and adjoint of the mapping, the signature of
 the method is:
 
 ```julia
@@ -793,14 +793,14 @@ apply!(y::T, ::Type{Direct}, H::HalfHessian{typeof(A)}, x::T)
 
 where `y` is overwritten by the result of applying `H` (or its adjoint) to the
 argument `x`.  Here `T` is the relevant type of the variables.  Similarly, to
-allocate a new object to store the result of applying the operator, it is
+allocate a new object to store the result of applying the mapping, it is
 sufficient to implement the method:
 
 ```julia
 vcreate(::Type{Direct}, H::HalfHessian{typeof(A)}, x::T)
 ```
 
-See also: [`LinearOperator`][@ref).
+See also: [`LinearMapping`][@ref).
 
 """
 struct HalfHessian{T} <: SelfAdjointOperator

@@ -1,7 +1,7 @@
 #
 # rules.jl -
 #
-# Implement rules for basic operations involving operators.
+# Implement rules for basic operations involving mappings.
 #
 #-------------------------------------------------------------------------------
 #
@@ -21,12 +21,12 @@ Base.length(A::Composition) = length(A.ops)
 lineartype(A)
 ```
 
-yields the linear type of a operator (or mapping) `A`, that is one of `Linear`
-or `NonLinear` which are singleton types.
+yields the linear type of mapping `A`, that is one of `Linear` or `NonLinear`
+which are singleton types.
 
 """
-lineartype(::LinearOperator) = Linear
-lineartype(::Scaled{<:LinearOperator}) = Linear
+lineartype(::LinearMapping) = Linear
+lineartype(::Scaled{<:LinearMapping}) = Linear
 lineartype(A::Union{Scaled,Inverse}) = lineartype(A.op)
 lineartype(::Mapping) = Nonlinear # anything else is non-linear
 function lineartype(A::Union{Sum,Composition})
@@ -109,7 +109,7 @@ Optional parameter `P` can be used to specify how `A` is to be applied:
 
 Note that not all operations may be implemented by the different types of
 mappings and `Adjoint` and `InverseAdjoint` may only be applicable for linear
-operators.
+mappings.
 
 Julia methods are provided so that `apply(A', x)` automatically calls
 `apply(Adjoint, A, x)` so the shorter syntax may be used without performances
@@ -211,7 +211,7 @@ for (T, expr) in ((:Direct, :(α*A.sc)),
 end
 
 # Implemention of the `apply!(α,P,A,x,β,y)` method for a the adjoint of a linear
-# operator.
+# mapping.
 for (T1, T2) in ((:Direct, :Adjoint),
                  (:Adjoint, :Direct),
                  (:Inverse, :InverseAdjoint),
@@ -254,7 +254,7 @@ end
 # mappings.
 function apply!(α::Scalar, ::Type{P}, A::Composition, x,
                 β::Scalar, y) where {P<:Union{Direct,InverseAdjoint}}
-    # Apply operators in order.
+    # Apply mappings in order.
     n = length(A)
     if n > 1
         apply!(α, P, A.ops[1], _apply(P, A, x, 2, n), β, y)
@@ -268,7 +268,7 @@ end
 
 function apply!(α::Scalar, ::Type{P}, A::Composition, x,
                 β::Scalar, y) where {P<:Union{Adjoint,Inverse}}
-    # Apply operators in reverse order.
+    # Apply mappings in reverse order.
     n = length(A)
     if n > 1
         apply!(α, P, A.ops[n], _apply(P, A, x, n - 1, n), β, y)
@@ -309,10 +309,10 @@ yields a new instance `y` suitable for storing the result of applying mapping
 specify how `A` is to be applied as explained in the documentation of the
 [`apply`](@ref) method.
 
-The method `vcreate(::Type{P}, A, x)` should be implemented by linear operators
+The method `vcreate(::Type{P}, A, x)` should be implemented by linear mappings
 for any supported operations `P` and argument type for `x`.
 
 See also: [`Mapping`](@ref), [`apply`](@ref).
 
 """
-vcreate(A::LinearOperator, x) = vcreate(Direct, A, x)
+vcreate(A::LinearMapping, x) = vcreate(Direct, A, x)

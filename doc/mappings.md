@@ -5,7 +5,7 @@ now primitive mapping types (not by combining existing mappings) and benefit
 from the `LazyAlgebra` infrastruture, you have to:
 
 * create a new type derived from `Mapping` or one of its abstract subtypes such
-  as `LinearOperator` or `SelfAdjointOperator`;
+  as `LinearMapping` or `SelfAdjointOperator`;
 
 * implement at least two methods `vcreate` and `apply!` specialized for the new
   mapping type.  The former method is to create a new output variable suitable
@@ -58,7 +58,7 @@ The following example implements a simple sparse linear operator which is able
 to operate on multi-dimensional arrays (the so-called *variables*):
 
 ```julia
-struct SparseOperator{T<:AbstractFloat,M,N} <: LinearOperator
+struct SparseOperator{T<:AbstractFloat,M,N} <: LinearMapping
     outdims::NTuple{M,Int}
     inpdims::NTuple{N,Int}
     A::Vector{T}
