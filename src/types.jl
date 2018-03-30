@@ -145,12 +145,13 @@ struct Direct; end
 
 """
 
-Types `Adjoint`, `Inverse` and `InverseAdjoint` are used to *decorate* the
-conjugate transpose and/or inverse of mappings and linear operators.  The
+Types `Adjoint`, `Inverse` and `InverseAdjoint` are used to *decorate* a
+mapping to indicate the conjugate transpose and/or inverse of the mapping.  The
 `ctranspose` method is extended, so that in the code, it is sufficient (and
-more readable) to write `A'` instead of `Adjoint`.  `AdjointInverse` is just an
-alias for `InverseAdjoint`.  Note that the adjoint only makes sense for linear
-operators.
+recommended) to write `A'` instead of `Adjoint(A)`.  Furthermore, `A'` or
+`ctranspose(A)` may be able to perform some simplications resulting in improved
+efficiency.  `AdjointInverse` is just an alias for `InverseAdjoint`.  Note that
+the adjoint only makes sense for linear operators.
 
 See also: [`LinearOperator`](@ref), [`apply`](@ref), [`Operations`](@ref).
 
@@ -174,10 +175,6 @@ struct Inverse{T<:Mapping} <: Mapping
     op::T
 end
 
-for T in (:Inverse, :InverseAdjoint, :AdjointInverse)
-    @eval @doc @doc(Adjoint) $T
-end
-
 struct InverseAdjoint{T<:LinearOperator} <: LinearOperator
     op::T
     # The inner constructors make sure that the argument is a linear operator.
@@ -195,6 +192,10 @@ InverseAdjoint(A::T) where {T<:Mapping} = Adjoint{T}(A)
 
 const AdjointInverse{T} = InverseAdjoint{T}
 
+for T in (:Inverse, :InverseAdjoint, :AdjointInverse)
+    @eval @doc @doc(Adjoint) $T
+end
+
 """
 
 `Operations` is the union of the possible ways to apply a linear operator:
@@ -207,22 +208,37 @@ See also: [`LinearOperator`](@ref), [`apply`](@ref), [`Direct`](@ref),
 """
 const Operations = Union{Direct,Adjoint,Inverse,InverseAdjoint}
 
-# A `Scaled` mapping is used to represent a mappings times a scalar, it should
-# be used directly.
+"""
+
+A `Scaled` mapping is used to represent a mappings times a scalar, it should
+not be used directly.  Use the `*` operator (with a scalar left operand)
+instead as it may be able to make some simplifications resulting in improved
+efficiency.
+
+"""
 struct Scaled{T<:Mapping} <: Mapping
     sc::Scalar
     op::T
 end
 
-# A `Sum` is used to represent an arbitrary sum of mappings, it should be used
-# directly.
+"""
+
+A `Sum` is used to represent an arbitrary sum of mappings, it should not be
+used directly.  Use the `+` operator instead as it may be able to make some
+simplifications resulting in improved efficiency.
+
+"""
 struct Sum{T<:Tuple{Vararg{Mapping}}} <: Mapping
     ops::T
 end
 
-# A `Composition` is used to represent an arbitrary composition of mappings, it
-# should be used directly.
+"""
+
+A `Composition` is used to represent an arbitrary composition of mappings, it
+should be used directly.  Use the `.` or `*` operators instead as they may be
+able to make some simplifications resulting in improved efficiency.
+
+"""
 struct Composition{T<:Tuple{Vararg{Mapping}}} <: Mapping
     ops::T
 end
-
