@@ -13,7 +13,6 @@
 
 import Base: *, ⋅, +, -, \, /, ctranspose, inv, A_mul_B!
 
-
 Base.length(A::Sum) = length(A.ops)
 Base.length(A::Composition) = length(A.ops)
 
@@ -28,7 +27,7 @@ or `NonLinear` which are singleton types.
 """
 lineartype(::LinearOperator) = Linear
 lineartype(::Scaled{<:LinearOperator}) = Linear
-lineartype(A::Scaled) = lineartype(A.op)
+lineartype(A::Union{Scaled,Inverse}) = lineartype(A.op)
 lineartype(::Mapping) = Nonlinear # anything else is non-linear
 function lineartype(A::Union{Sum,Composition})
     @inbounds for i in 1:length(A)
@@ -53,25 +52,22 @@ is_nonlinear(x) = ! is_linear(x)
 +(A::Mapping, B::Mapping) = Sum((A, B))
 
 # Left scalar muliplication of a mapping.
-*(alpha::Real, A::Mapping) = convert(Scalar, alpha)*A
 *(alpha::Real, A::Scaled) = (alpha*A.sc)*A.op
-*(alpha::Scalar, A::Mapping) = Scaled(alpha, A)
+*(alpha::Real, A::T) where {T<:Mapping} =
+    (alpha == one(alpha) ? A : Scaled{T}(alpha, A))
 
-# Composition of mappings.
-*(A::Composition, B::Mapping) = Composition((A.ops..., B))
-⋅(A::Composition, B::Mapping) = Composition((A.ops..., B))
-*(A::Composition, B::Composition) = Composition((A.ops..., B.ops...))
-⋅(A::Composition, B::Composition) = Composition((A.ops..., B.ops...))
-*(A::Mapping, B::Composition) = Composition((A, B.ops...))
-⋅(A::Mapping, B::Composition) = Composition((A, B.ops...))
-*(A::Mapping, B::Mapping) = Composition((A, B))
-⋅(A::Mapping, B::Mapping) = Composition((A, B))
+# Composition of mappings and right muliplication of a mapping by a vector.
+for op in (:*, :⋅)
+    @eval begin
+        $op(A::Composition, B::Mapping) = Composition((A.ops..., B))
+        $op(A::Composition, B::Composition) = Composition((A.ops..., B.ops...))
+        $op(A::Mapping, B::Composition) = Composition((A, B.ops...))
+        $op(A::Mapping, B::Mapping) = Composition((A, B))
+        $op(A::Mapping, x::AbstractArray) = apply(A, x)
+    end
+end
 
-# Right vector muliplication.
-*(A::Mapping, x) = apply(A, x)
-⋅(A::Mapping, x) = apply(A, x)
-
-\(A::Mapping, x) = apply(Inverse, A, x)
+\(A::Mapping, x::AbstractArray) = apply(Inverse, A, x)
 \(A::Mapping, B::Mapping) = inv(A)*B
 /(A::Mapping, B::Mapping) = A*inv(B)
 
@@ -105,18 +101,19 @@ apply([P,] A, x) -> y
 yields the result `y` of applying mapping `A` to the argument `x`.
 Optional parameter `P` can be used to specify how `A` is to be applied:
 
-* `Direct` to apply `A`, this is the default operation;
-* `Adjoint` to apply the adjoint of `A`, that is `A'`;
-* `Inverse` to apply the inverse of `A`;
-* `InverseAdjoint` or `AdjointInverse` to apply the inverse of `A'`.
+* `Direct` (the default) to apply `A` and yield `y = A⋅x`;
+* `Adjoint` to apply the adjoint of `A` and yield `y = A'⋅x`;
+* `Inverse` to apply the inverse of `A` and yield `y = A\x`;
+* `InverseAdjoint` or `AdjointInverse` to apply the inverse of `A'` and
+  yield `y = A'\x`.
 
 Note that not all operations may be implemented by the different types of
 mappings and `Adjoint` and `InverseAdjoint` may only be applicable for linear
 operators.
 
 Julia methods are provided so that `apply(A', x)` automatically calls
-`apply(Adjoint, A, x)` so the shorter syntax may be used without any
-performances impact.
+`apply(Adjoint, A, x)` so the shorter syntax may be used without performances
+impact.
 
 See also: [`Mapping`](@ref), [`apply!`](@ref), [`vcreate`](@ref).
 
@@ -137,15 +134,14 @@ mapping `A` to apply.  The convention is that the prior contents of `y` is not
 used at all if `β = 0` so `y` does not need to be properly initialized in that
 case.
 
-The order of arguments can be changed:
+The order of arguments can be changed and the same result as above is obtained
+with:
 
 ```julia
 apply!([β = 0,] y, [α = 1,] [P = Direct,] A::Mapping, x) -> y
 ```
 
-yields the same result.
-
-The result may have been allocated by:
+The result `y` may have been allocated by:
 
 ```julia
 y = vcreate([Op,] A, x)
@@ -320,4 +316,3 @@ See also: [`Mapping`](@ref), [`apply`](@ref).
 
 """
 vcreate(A::LinearOperator, x) = vcreate(Direct, A, x)
-

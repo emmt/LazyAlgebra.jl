@@ -11,11 +11,6 @@
 # Copyright (c) 2017-2018 Éric Thiébaut.
 #
 
-# Note that we extend the meaning of * and \ only for linear operators (not for
-# arrays using the generalized matrix-vector dot product).
-(*)(A::LinearOperator, x) = apply(Direct, A, x)
-(\)(A::LinearOperator, x) = apply(Inverse, A, x)
-
 Inverse(A::Inverse) = A.op
 Inverse(A::Adjoint{T}) where {T<:LinearOperator} = InverseAdjoint{T}(A.op)
 Inverse(A::InverseAdjoint{T}) where {T<:LinearOperator} = Adjoint{T}(A.op)
