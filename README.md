@@ -127,20 +127,20 @@ it is invertible.  It is however, possible to prevent this by extended the
 of `A`:
 
 ```julia
-Base.inv(::NonInvertibleMapping) = error("non-invertible mapping")
+Base.inv(::SomeNonInvertibleMapping) = error("non-invertible mapping")
 ```
 
-where `NonInvertibleMapping <: Mapping` is the type of `A`.
+where `SomeNonInvertibleMapping <: Mapping` is the type of `A`.
 
-Another example of simplifications is:
+Other example of simplifications:
 
 ```julia
 B = 3A
 C = 7B'
 ```
 
-yields mappings `B` and `C` such that `B*x ≡ 3*(A*x)` and `C*x ≡ 21*(A*x)` for
-any *vector* `x`.  That is `C*x` is evaluated as `21*(A*x)` not as
+where mappings `B` and `C` are such that `B*x ≡ 3*(A*x)` and `C*x ≡ 21*(A*x)`
+for any *vector* `x`.  That is `C*x` is evaluated as `21*(A*x)` not as
 `7*(3*(A*x))` thanks to simplifications occurring at the contruction of the
 mapping `C`.
 
@@ -150,11 +150,11 @@ and `C` are mappings, the following simplications will occur:
 
 ```julia
 (A + B + 3C)' ≡ (A' + B' + 3C')
-(A*B*(3C))' ≡ (3C'*A'*B')
+(A*B*(3C))'   ≡ (3C'*A'*B')
 inv(A*B*(3C)) ≡ (((1/3)*inv(C))*inv(A)*inv(B))
 ```
 
 Note the necessary parentheses around `3C` in the last examples above to
 overcome the associative rule applied by Julia.  Otherwise, `A*B*3C` is
-interpreted as `(A*(B*3))*C`; that is, apply `B` to `3`, apply `A` to this
-result and right multiply by `C`.
+interpreted as `((A*B)*3)*C`; that is, compose `A` and `B`, apply `A*B` to `3`
+and right multiply the result by `C`.
