@@ -1,3 +1,7 @@
+* Add rules so that: `(αA)⋅(βB)` automatically yields `((αβ)A)⋅B` when `A` is a
+  linear mapping.  This cannot easily propagate to have, *e.g.*
+  `(αA)⋅(βB)⋅(γC)` automatically yields `((αβγ)A)⋅B⋅C` when `A` and `B` are
+  linear mappings.
 
 * Beware that not all diagonal mappings are self-adjoint and for some mapping
   this may depends on the settings (*e.g.* a diagonal mapping is self adjoint
