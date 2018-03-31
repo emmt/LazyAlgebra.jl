@@ -24,6 +24,8 @@ Adjoint(::Union{Adjoint,Inverse,InverseAdjoint,Scaled,Sum,Composition}) =
 InverseAdjoint(::Union{Adjoint,Inverse,InverseAdjoint,Scaled,Sum,Composition}) =
     error("use `inv(A')`, `inv(A)'`, `inv(ctranspose(A))` or `ctranspose(inv(A))` instead of `InverseAdjoint(A)` or `AdjointInverse(A)")
 
+# Extend the `length` method to yield the number of components of a sum or
+# composition of mappings.
 Base.length(A::Sum) = length(A.ops)
 Base.length(A::Composition) = length(A.ops)
 
@@ -57,10 +59,10 @@ is_nonlinear(x) = ! is_linear(x)
 +(A::Mapping) = A
 
 # Sum of mappings.
-+(A::Sum, B::Mapping) = Sum((A.ops..., B))
-+(A::Mapping, B::Sum) = Sum((A, B.ops...))
-+(A::Sum, B::Sum) = Sum((A.ops..., B.ops...))
-+(A::Mapping, B::Mapping) = Sum((A, B))
++(A::Sum, B::Mapping) = Sum(A.ops..., B)
++(A::Mapping, B::Sum) = Sum(A, B.ops...)
++(A::Sum, B::Sum) = Sum(A.ops..., B.ops...)
++(A::Mapping, B::Mapping) = Sum(A, B)
 
 # Left scalar muliplication of a mapping.
 *(alpha::Real, A::Scaled) = (alpha*A.sc)*A.op
@@ -70,15 +72,15 @@ is_nonlinear(x) = ! is_linear(x)
 # Composition of mappings and right muliplication of a mapping by a vector.
 for op in (:*, :⋅)
     @eval begin
-        $op(A::Composition, B::Mapping) = Composition((A.ops..., B))
-        $op(A::Composition, B::Composition) = Composition((A.ops..., B.ops...))
-        $op(A::Mapping, B::Composition) = Composition((A, B.ops...))
-        $op(A::Mapping, B::Mapping) = Composition((A, B))
-        $op(A::Mapping, x::AbstractArray) = apply(A, x)
+        $op(A::Composition, B::Mapping) = Composition(A.ops..., B)
+        $op(A::Composition, B::Composition) = Composition(A.ops..., B.ops...)
+        $op(A::Mapping, B::Composition) = Composition(A, B.ops...)
+        $op(A::Mapping, B::Mapping) = Composition(A, B)
+        $op(A::Mapping, x::T) where {T} = apply(A, x)
     end
 end
 
-\(A::Mapping, x::AbstractArray) = apply(Inverse, A, x)
+\(A::Mapping, x::T) where {T} = apply(Inverse, A, x)
 \(A::Mapping, B::Mapping) = inv(A)*B
 /(A::Mapping, B::Mapping) = A*inv(B)
 

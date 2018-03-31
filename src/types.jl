@@ -241,6 +241,7 @@ struct Sum{T<:Tuple{Vararg{Mapping}}} <: Mapping
     end
 end
 Sum(ops::T) where {T<:Tuple{Vararg{Mapping}}} = Sum{T}(ops)
+Sum(ops::Mapping...) = Sum(ops)
 
 """
 
@@ -261,3 +262,4 @@ struct Composition{T<:Tuple{Vararg{Mapping}}} <: Mapping
     end
 end
 Composition(ops::T) where {T<:Tuple{Vararg{Mapping}}} = Composition{T}(ops)
+Composition(ops::Mapping...) = Composition(ops)
