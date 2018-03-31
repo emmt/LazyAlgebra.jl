@@ -8,7 +8,10 @@ vectors used in [linear algebra](https://en.wikipedia.org/wiki/Linear_algebra).
 Many numerical methods (*e.g.* in numerical optimization or digital signal
 processing) involve essentially linear operations on the considered variables.
 `LazyAlgebra` provides a framework to implement these kind of numerical methods
-independently of the specific type of the variables.
+independently of the specific type of the variables.  This is exploited in
+[OptimPackNextGen](https://github.com/emmt/OptimPackNextGen.jl) package, an
+attempt to provide all optimization algorithms of
+[OptimPack](https://github.com/emmt/OptimPack) in pure Julia.
 
 `LazyAlgebra` also provides a flexible and extensible framework for creating
 complex mappings and linear mappings to operate on the variables.
@@ -76,8 +79,8 @@ create new instances of mappings which behave correctly.  For instance:
 These constructions can be combined to build up more complex mappings.  For
 example:
 
-* `D = A*(B + C)` is a mapping such that `C⋅x` yields the same result as
-  `A⋅(B⋅x + C⋅x)`.
+* `D = A*(B + 3C)` is a mapping such that `D⋅x` yields the same result as
+  `A⋅(B⋅x + 3*C⋅x)`.
 
 
 ### Linear mappings
@@ -97,3 +100,61 @@ subtype of `Mapping` is introduced to extend the notion of *matrices* and
 `LazyAlgebra` provides a number of mappings.  Creating new primitive mapping
 types (not by combining existing mappings as explained above) is explained
 [here](doc/mappings.md).
+
+
+### Automatic simplifications
+
+An important feature of `LazyAlgebra` framework for mappings is that a *number
+of simplifications are automatically made at contruction time*.  For instance,
+assuming `A` is a mapping:
+
+```julia
+B = A'
+C = B'
+```
+
+yields `C` which is just a reference to `A`.  Likely
+
+```julia
+D = inv(A)
+E = inv(D)
+```
+
+yields `E` which is another reference to `A`.  Note that following the
+principles of laziness, `inv(inv(A))` just yields `A` assuming by default that
+it is invertible.  It is however, possible to prevent this by extended the
+`Base.inv` method so as to throw an exception when applied to the specific type
+of `A`:
+
+```julia
+Base.inv(::NonInvertibleMapping) = error("non-invertible mapping")
+```
+
+where `NonInvertibleMapping <: Mapping` is the type of `A`.
+
+Another example of simplifications is:
+
+```julia
+B = 3A
+C = 7B'
+```
+
+yields mappings `B` and `C` such that `B*x ≡ 3*(A*x)` and `C*x ≡ 21*(A*x)` for
+any *vector* `x`.  That is `C*x` is evaluated as `21*(A*x)` not as
+`7*(3*(A*x))` thanks to simplifications occurring at the contruction of the
+mapping `C`.
+
+Using the `≡` to denote in the right-hand side the actual construction made by
+`LazyAlgebra` for the expression in the left-hand side and assuming `A`, `B`
+and `C` are mappings, the following simplications will occur:
+
+```julia
+(A + B + 3C)' ≡ (A' + B' + 3C')
+(A*B*(3C))' ≡ (3C'*A'*B')
+inv(A*B*(3C)) ≡ (((1/3)*inv(C))*inv(A)*inv(B))
+```
+
+Note the necessary parentheses around `3C` in the last examples above to
+overcome the associative rule applied by Julia.  Otherwise, `A*B*3C` is
+interpreted as `(A*(B*3))*C`; that is, apply `B` to `3`, apply `A` to this
+result and right multiply by `C`.
