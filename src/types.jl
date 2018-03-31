@@ -1,7 +1,7 @@
 #
 # types.jl -
 #
-# Type definitions for linear algebra.
+# Type definitions and (some) constructors for linear algebra.
 #
 #-------------------------------------------------------------------------------
 #
@@ -177,7 +177,8 @@ end
 
 struct InverseAdjoint{T<:LinearMapping} <: LinearMapping
     op::T
-    # The inner constructors make sure that the argument is a linear mapping.
+
+    # The inner constructors ensure that the argument is a linear mapping.
     InverseAdjoint{T}(A::T) where {T<:LinearMapping} = new{T}(A)
     function InverseAdjoint{T}(A::T) where {T<:Mapping}
         if lineartype(A) != Linear
@@ -230,7 +231,16 @@ simplifications resulting in improved efficiency.
 """
 struct Sum{T<:Tuple{Vararg{Mapping}}} <: Mapping
     ops::T
+
+    # The inner constructor ensures that the number of arguments is at least 2.
+    function Sum{T}(ops::T) where {T<:Tuple{Vararg{Mapping}}}
+        if length(ops) < 2
+            error("a sum of mappings has at least 2 components")
+        end
+        return new{T}(ops)
+    end
 end
+Sum(ops::T) where {T<:Tuple{Vararg{Mapping}}} = Sum{T}(ops)
 
 """
 
@@ -241,4 +251,13 @@ able to make some simplifications resulting in improved efficiency.
 """
 struct Composition{T<:Tuple{Vararg{Mapping}}} <: Mapping
     ops::T
+
+    # The inner constructor ensures that the number of arguments is at least 2.
+    function Composition{T}(ops::T) where {T<:Tuple{Vararg{Mapping}}}
+        if length(ops) < 2
+            error("a composition of mappings has at least 2 components")
+        end
+        return new{T}(ops)
+    end
 end
+Composition(ops::T) where {T<:Tuple{Vararg{Mapping}}} = Composition{T}(ops)

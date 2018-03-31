@@ -268,23 +268,17 @@ for (T1, T2) in ((:Adjoint, :Direct),
 end
 
 # Implementation of the `vcreate(P,A,x)` and `apply!(α,P,A,x,β,y)` and methods
-# for a sum of mappings.
+# for a sum of mappings.  Note that `Sum` instances are warranted to have at
+# least 2 components.
 
-function vcreate(::Type{P}, A::Sum, x) where {P<:Union{Direct,Adjoint}}
-    @assert length(A) > 0
-    return vcreate(P, A.ops[1], x)
-end
+vcreate(::Type{P}, A::Sum, x) where {P<:Union{Direct,Adjoint}} =
+    vcreate(P, A.ops[1], x)
 
 function apply!(α::Scalar, ::Type{P}, A::Sum, x,
                 β::Scalar, y) where {P<:Union{Direct,Adjoint}}
-    n = length(A)
-    if n == 0
-        vscale!(β, y)
-    else
-        for i in 1:n
-            apply!(α, P, A.ops[i], x, β, y)
-            β = one(Scalar)
-        end
+    for i in 1:length(A)
+        apply!(α, P, A.ops[i], x, β, y)
+        β = one(Scalar)
     end
     return y
 end
@@ -304,47 +298,26 @@ end
 
 # Implementation of the `apply!(α,P,A,x,β,y)` method for a composition of
 # mappings.  There is no possible `vcreate(P,A,x)` method for a composition so
-# we directly extend the `apply(P,A,x)` method.
+# we directly extend the `apply(P,A,x)` method.  Note that `Composition`
+# instances are warranted to have at least 2 components.
 
-function apply(::Type{P}, A::Composition,
-               x) where {P<:Union{Direct,InverseAdjoint}}
-    @assert length(A) > 0
-    n = length(A)
-    return _apply(P, A, x, 1, n)
-end
+apply(::Type{P}, A::Composition, x) where {P<:Union{Direct,InverseAdjoint}} =
+    _apply(P, A, x, 1, length(A))
 
 function apply!(α::Scalar, ::Type{P}, A::Composition, x,
                 β::Scalar, y) where {P<:Union{Direct,InverseAdjoint}}
-    n = length(A)
-    if n > 1
-        # Apply mappings in order.
-        apply!(α, P, A.ops[1], _apply(P, A, x, 2, n), β, y)
-    elseif n == 1
-        apply!(α, P, A.ops[1], x, β, y)
-    else
-        vscale!(β, y)
-    end
-    return y
+    # Apply mappings in order.
+    return apply!(α, P, A.ops[1], _apply(P, A, x, 2, length(A)), β, y)
 end
 
-function apply(::Type{P}, A::Composition, x) where {P<:Union{Adjoint,Inverse}}
-    @assert length(A) > 0
-    n = length(A)
-    return _apply(P, A, x, n, n)
-end
+apply(::Type{P}, A::Composition, x) where {P<:Union{Adjoint,Inverse}} =
+    (n = length(A); _apply(P, A, x, n, n))
 
 function apply!(α::Scalar, ::Type{P}, A::Composition, x,
                 β::Scalar, y) where {P<:Union{Adjoint,Inverse}}
     # Apply mappings in reverse order.
     n = length(A)
-    if n > 1
-        apply!(α, P, A.ops[n], _apply(P, A, x, n - 1, n), β, y)
-    elseif n == 1
-        apply!(α, P, A.ops[1], x, β, y)
-    else
-        vscale!(β, y)
-    end
-    return y
+    return apply!(α, P, A.ops[n], _apply(P, A, x, n - 1, n), β, y)
 end
 
 function _apply(::Type{P}, A::Composition, x,
