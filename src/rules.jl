@@ -13,6 +13,8 @@
 
 import Base: *, ⋅, +, -, \, /, ctranspose, inv, A_mul_B!
 
+const UnsupportedInverseOfSumOfMappings = "automatic dispatching of the inverse of a sum of mappings is not supported"
+
 # As a general rule, do not use the constructors of decorated types directly
 # but use `A'` or `ctranspose(A)` instead of `Adjoint(A)`, `inv(A)` instead of
 # `Inverse(A)`, etc.  This is somewhat enforced by the following constructors
@@ -101,6 +103,7 @@ inv(A::Adjoint) = InverseAdjoint(A.op)
 inv(A::Inverse) = A.op
 inv(A::InverseAdjoint) = ctranpose(A.op)
 inv(A::Scaled) = (one(Scalar)/A.sc)*inv(A.op)
+inv(A::Sum) = error(UnsupportedInverseOfSumOfMappings)
 function inv(A::Composition)
     n = length(A)
     Composition(ntuple(i -> inv(A.ops[n + 1 - i]), n))
@@ -284,8 +287,6 @@ function apply!(α::Scalar, ::Type{P}, A::Sum, x,
     end
     return y
 end
-
-const UnsupportedInverseOfSumOfMappings = "automatic dispatching of the inverse of a sum of mappings is not supported"
 
 vcreate(::Type{P}, A::Sum, x) where {P<:Union{Inverse,InverseAdjoint}} =
     error(UnsupportedInverseOfSumOfMappings)
