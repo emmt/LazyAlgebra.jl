@@ -13,6 +13,17 @@
 
 import Base: *, ⋅, +, -, \, /, ctranspose, inv, A_mul_B!
 
+# As a general rule, do not use the constructors of decorated types directly
+# but use `A'` or `ctranspose(A)` instead of `Adjoint(A)`, `inv(A)` instead of
+# `Inverse(A)`, etc.  This is somewhat enforced by the following constructors
+# which systematically throw an error.
+Inverse(::Union{Adjoint,Inverse,InverseAdjoint,Scaled,Sum,Composition}) =
+    error("use `inv(A)` instead of `Inverse(A)`")
+Adjoint(::Union{Adjoint,Inverse,InverseAdjoint,Scaled,Sum,Composition}) =
+    error("use `A'` or `ctranspose(A)` instead of `Adjoint(A)`")
+InverseAdjoint(::Union{Adjoint,Inverse,InverseAdjoint,Scaled,Sum,Composition}) =
+    error("use `inv(A')`, `inv(A)'`, `inv(ctranspose(A))` or `ctranspose(inv(A))` instead of `InverseAdjoint(A)` or `AdjointInverse(A)")
+
 Base.length(A::Sum) = length(A.ops)
 Base.length(A::Composition) = length(A.ops)
 
@@ -103,9 +114,9 @@ Optional parameter `P` can be used to specify how `A` is to be applied:
 
 * `Direct` (the default) to apply `A` and yield `y = A⋅x`;
 * `Adjoint` to apply the adjoint of `A` and yield `y = A'⋅x`;
-* `Inverse` to apply the inverse of `A` and yield `y = A\x`;
+* `Inverse` to apply the inverse of `A` and yield `y = A\\x`;
 * `InverseAdjoint` or `AdjointInverse` to apply the inverse of `A'` and
-  yield `y = A'\x`.
+  yield `y = A'\\x`.
 
 Note that not all operations may be implemented by the different types of
 mappings and `Adjoint` and `InverseAdjoint` may only be applicable for linear
@@ -210,53 +221,103 @@ for (T, expr) in ((:Direct, :(α*A.sc)),
         apply!($expr, $T, A.op, x, β, y)
 end
 
-# Implemention of the `apply!(α,P,A,x,β,y)` method for a the adjoint of a linear
-# mapping.
-for (T1, T2) in ((:Direct, :Adjoint),
-                 (:Adjoint, :Direct),
-                 (:Inverse, :InverseAdjoint),
+# Implemention of the `apply!(α,P,A,x,β,y)` and `vcreate(P,A,x)` methods for
+# the various decorations of a mapping so as to automativcally unveil the
+# embedded mapping.
+for (T1, T2, T3) in ((:Direct,         :Adjoint,        :Adjoint),
+                     (:Adjoint,        :Adjoint,        :Direct),
+                     (:Inverse,        :Adjoint,        :InverseAdjoint),
+                     (:InverseAdjoint, :Adjoint,        :Inverse),
+                     (:Direct,         :Inverse,        :Inverse),
+                     (:Adjoint,        :Inverse,        :InverseAdjoint),
+                     (:Inverse,        :Inverse,        :Direct),
+                     (:InverseAdjoint, :Inverse,        :Adjoint),
+                     (:Direct,         :InverseAdjoint, :InverseAdjoint),
+                     (:Adjoint,        :InverseAdjoint, :Inverse),
+                     (:Inverse,        :InverseAdjoint, :Adjoint),
+                     (:InverseAdjoint, :InverseAdjoint, :Direct))
+    @eval begin
+
+        apply!(α::Scalar, ::Type{$T1}, A::$T2, x, β::Scalar, y) =
+            apply!(α, $T3, A.op, x, β, y)
+
+        vcreate(::Type{$T1}, A::$T2, x) =
+            vcreate($T3, A.op, x)
+
+        is_applicable_in_place(::Type{$T1}, A::$T2, x) =
+            is_applicable_in_place($T3, A.op, x)
+    end
+end
+
+# Specialize methods for self-adjoint mappings so that only `Direct` and
+# `Inverse` operations need to be implemented.
+for (T1, T2) in ((:Adjoint, :Direct),
                  (:InverseAdjoint, :Inverse))
-    @eval apply!(α::Scalar, ::Type{$T1}, A::Adjoint, x, β::Scalar, y) =
-        apply!(α, $T2, A.op, x, β, y)
+    @eval begin
+
+        apply!(α::Scalar, ::Type{$T1}, A::SelfAdjointOperator, x, β::Scalar, y) =
+            apply!(α, $T2, A, x, β, y)
+
+        vcreate(::Type{$T1}, A::SelfAdjointOperator, x) =
+            vcreate($T2, A, x)
+
+        is_applicable_in_place(::Type{$T1}, A::SelfAdjointOperator, x) =
+            is_applicable_in_place($T2, A, x)
+
+    end
 end
 
-# Implemention of the `apply!(α,P,A,x,β,y)` method for the inverse of a
-# mapping.
-for (T1, T2) in ((:Direct, :Inverse),
-                 (:Adjoint, :InverseAdjoint),
-                 (:Inverse, :Direct),
-                 (:InverseAdjoint, :Adjoint))
-    @eval apply!(α::Scalar, ::Type{$T1}, A::Inverse, x, β::Scalar, y) =
-        apply!(α, $T2, A.op, x, β, y)
+# Implementation of the `vcreate(P,A,x)` and `apply!(α,P,A,x,β,y)` and methods
+# for a sum of mappings.
+
+function vcreate(::Type{P}, A::Sum, x) where {P<:Union{Direct,Adjoint}}
+    @assert length(A) > 0
+    return vcreate(P, A.ops[1], x)
 end
 
-# Implementation of the `apply!(α,P,A,x,β,y)` method for a sum of mappings.
 function apply!(α::Scalar, ::Type{P}, A::Sum, x,
                 β::Scalar, y) where {P<:Union{Direct,Adjoint}}
     n = length(A)
     if n == 0
         vscale!(β, y)
     else
-        apply!(α, P, A.ops[1], x, β, y)
-        for i in 2:n
-            apply!(α, P, A.ops[i], x, one(Scalar), y)
+        for i in 1:n
+            apply!(α, P, A.ops[i], x, β, y)
+            β = one(Scalar)
         end
     end
     return y
 end
 
+const UnsupportedInverseOfSumOfMappings = "automatic dispatching of the inverse of a sum of mappings is not supported"
+
+vcreate(::Type{P}, A::Sum, x) where {P<:Union{Inverse,InverseAdjoint}} =
+    error(UnsupportedInverseOfSumOfMappings)
+
+apply(::Type{P}, A::Sum, x) where {P<:Union{Inverse,InverseAdjoint}} =
+    error(UnsupportedInverseOfSumOfMappings)
+
 function apply!(α::Scalar, ::Type{P}, A::Sum, x,
                 β::Scalar, y) where {P<:Union{Inverse,InverseAdjoint}}
-    error("automatic dispatching of the inverse of a sum of mappings is not supported")
+    error(UnsupportedInverseOfSumOfMappings)
 end
 
 # Implementation of the `apply!(α,P,A,x,β,y)` method for a composition of
-# mappings.
+# mappings.  There is no possible `vcreate(P,A,x)` method for a composition so
+# we directly extend the `apply(P,A,x)` method.
+
+function apply(::Type{P}, A::Composition,
+               x) where {P<:Union{Direct,InverseAdjoint}}
+    @assert length(A) > 0
+    n = length(A)
+    return _apply(P, A, x, 1, n)
+end
+
 function apply!(α::Scalar, ::Type{P}, A::Composition, x,
                 β::Scalar, y) where {P<:Union{Direct,InverseAdjoint}}
-    # Apply mappings in order.
     n = length(A)
     if n > 1
+        # Apply mappings in order.
         apply!(α, P, A.ops[1], _apply(P, A, x, 2, n), β, y)
     elseif n == 1
         apply!(α, P, A.ops[1], x, β, y)
@@ -264,6 +325,12 @@ function apply!(α::Scalar, ::Type{P}, A::Composition, x,
         vscale!(β, y)
     end
     return y
+end
+
+function apply(::Type{P}, A::Composition, x) where {P<:Union{Adjoint,Inverse}}
+    @assert length(A) > 0
+    n = length(A)
+    return _apply(P, A, x, n, n)
 end
 
 function apply!(α::Scalar, ::Type{P}, A::Composition, x,

@@ -11,75 +11,6 @@
 # Copyright (c) 2017-2018 Éric Thiébaut.
 #
 
-Inverse(A::Inverse) = A.op
-Inverse(A::Adjoint{T}) where {T<:LinearMapping} = InverseAdjoint{T}(A.op)
-Inverse(A::InverseAdjoint{T}) where {T<:LinearMapping} = Adjoint{T}(A.op)
-
-Adjoint(A::Adjoint) = A.op
-Adjoint(A::Inverse{T}) where {T<:LinearMapping} = InverseAdjoint{T}(A.op)
-Adjoint(A::InverseAdjoint{T}) where {T<:LinearMapping} = Inverse{T}(A.op)
-
-InverseAdjoint(A::InverseAdjoint) = A.op
-InverseAdjoint(A::Adjoint{T}) where {T<:LinearMapping} = Inverse{T}(A.op)
-InverseAdjoint(A::Inverse{T}) where {T<:LinearMapping} = Adjoint{T}(A.op)
-
-# Manage to have A' and inv(A) adds the correct decoration:
-Base.ctranspose(A::LinearMapping) = Adjoint(A)
-Base.inv(A::LinearMapping) = Inverse(A)
-
-# Automatically unveils mapping for common methods.
-for (T1, T2, T3) in ((:Direct,         :Adjoint,        :Adjoint),
-                     (:Direct,         :Inverse,        :Inverse),
-                     (:Direct,         :InverseAdjoint, :InverseAdjoint),
-                     (:Adjoint,        :Adjoint,        :Direct),
-                     (:Adjoint,        :Inverse,        :InverseAdjoint),
-                     (:Adjoint,        :InverseAdjoint, :Inverse),
-                     (:Inverse,        :Adjoint,        :InverseAdjoint),
-                     (:Inverse,        :Inverse,        :Direct),
-                     (:Inverse,        :InverseAdjoint, :Adjoint),
-                     (:InverseAdjoint, :Adjoint,        :Inverse),
-                     (:InverseAdjoint, :Inverse,        :Adjoint),
-                     (:InverseAdjoint, :InverseAdjoint, :Direct))
-    @eval begin
-
-        apply!(y, ::Type{$T1}, A::$T2, x) =
-            apply!(y, $T3, A.op, x)
-
-        apply(::Type{$T1}, A::$T2, x) =
-            apply($T3, A.op, x)
-
-        vcreate(::Type{$T1}, A::$T2, x) =
-            vcreate($T3, A.op, x)
-
-        is_applicable_in_place(::Type{$T1}, A::$T2, x) =
-            is_applicable_in_place($T3, A.op, x)
-    end
-
-end
-
-# Specialize methods for self-adjoint mappings so that only `Direct` and
-# `Inverse` operations need to be implemented.
-Adjoint(A::SelfAdjointOperator) = A
-InverseAdjoint(A::SelfAdjointOperator) = Inverse(A)
-for (T1, T2) in ((:Adjoint, :Direct),
-                 (:InverseAdjoint, :Inverse))
-    @eval begin
-
-        apply!(y, ::Type{$T1}, A::SelfAdjointOperator, x) =
-            apply!(y, $T2, A, x)
-
-        apply(::Type{$T1}, A::SelfAdjointOperator, x) =
-            apply($T2, A, x)
-
-        vcreate(::Type{$T1}, A::SelfAdjointOperator, x) =
-            vcreate($T2, A, x)
-
-        is_applicable_in_place(::Type{$T1}, A::SelfAdjointOperator, x) =
-            is_applicable_in_place($T2, A, x)
-
-    end
-end
-
 # Basic methods:
 """
 ```julia
@@ -206,7 +137,7 @@ apply(::Type{<:Operations}, ::Identity, x) = x
 apply!(α::Scalar, ::Type{<:Operations}, ::Identity, x, β::Scalar, y) =
     vcombine!(y, α, x, β, y)
 
-vcreate(::Type{<:Operations}, ::Identity, x) = similar(x)
+vcreate(::Type{<:Operations}, ::Identity, x) = vcreate(x)
 
 #------------------------------------------------------------------------------
 # UNIFORM SCALING
