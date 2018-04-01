@@ -182,15 +182,15 @@ sets all elements of `x` with the scalar value `α` and return `x`.
 Also see [`vzero!`](@ref).
 
 """
-function vfill!(x::AbstractArray{T,N}, alpha::T) where {T<:AbstractFloat,N}
+function vfill!(x::AbstractArray{T,N}, α::T) where {T<:AbstractFloat,N}
     @inbounds @simd for i in eachindex(x)
-        x[i] = alpha
+        x[i] = α
     end
     return x
 end
 
-vfill!(x::DenseArray{T,N}, alpha::Real) where {T<:AbstractFloat,N} =
-    vfill!(x, T(alpha))
+vfill!(x::AbstractArray{T,N}, α::Real) where {T<:AbstractFloat,N} =
+    vfill!(x, convert(T, α))
 
 """
 
@@ -213,8 +213,8 @@ vscale!(dst, α, src) -> dst
 ```
 
 overwrites `dst` with `α*src` and returns `dst`.  Computations are done at the
-numerical precision of `src`.  The source argument may be omitted to perform
-*in-place* scaling:
+numerical precision of `promote_type(eltype(src),eltype(dst))`.  The source
+argument may be omitted to perform *in-place* scaling:
 
 ```julia
 vscale!(α, x) -> x
@@ -234,8 +234,15 @@ vscale!(x, α) -> x
 Also see [`vscale`](@ref).
 
 """
-vscale!(x, α::Real) = vscale!(α, x)
-vscale!(dst, src, α::Real) = vscale!(dst, α, src)
+vscale!(x::T, α::Real) where {T} = vscale!(α, x)
+vscale!(dst::D, src::S, α::Real) where {D,S} = vscale!(dst, α, src)
+
+function vscale!(dst::AbstractArray{Td,N},
+                 α::Irrational,
+                 src::AbstractArray{Ts,N}) where {Td<:AbstractFloat,
+                                                  Ts<:AbstractFloat,N}
+    return vscale!(dst, convert(promote_type(Td, Ts), α), src)
+end
 
 function vscale!(dst::AbstractArray{Td,N},
                  α::Real,
@@ -254,7 +261,7 @@ function vscale!(dst::AbstractArray{Td,N},
                 dst[i] = -src[i]
             end
         else
-            const alpha = convert(Ts, α)
+            const alpha = convert(promote_type(Td, Ts), α)
             @inbounds @simd for i in eachindex(dst, src)
                 dst[i] = alpha*src[i]
             end
@@ -271,7 +278,7 @@ function vscale!(α::Real, x::AbstractArray{T,N}) where {T<:AbstractFloat,N}
             x[i] = -x[i]
         end
     elseif α != one(α)
-        const alpha = T(α)
+        const alpha = convert(T, α)
         @inbounds @simd for i in eachindex(x)
             x[i] *= alpha
         end
@@ -280,7 +287,7 @@ function vscale!(α::Real, x::AbstractArray{T,N}) where {T<:AbstractFloat,N}
 end
 
 # In place scaling for other *vector* types.
-vscale!(α::Real, x) = vscale!(x, α, x)
+vscale!(α::Real, x::T) where {T} = vscale!(x, α, x)
 
 """
 ```julia
