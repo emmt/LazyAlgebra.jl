@@ -43,28 +43,26 @@ for sfx in (:size, :eltype, :ndims, :type),
 
     for P in (Direct, Adjoint, Inverse, InverseAdjoint)
 
-         fn2 = Symbol(P == Adjoint || P == Inverse ?
+        fn2 = Symbol(P == Adjoint || P == Inverse ?
                      (pfx == :output ? :input : :output) : pfx, "_", sfx)
 
-        #println("$fn1($P) -> $fn2")
+        T = (P == Adjoint || P == InverseAdjoint ? LinearMapping : Mapping)
 
         # Provide basic methods for the different operations and for tagged
         # mappings.
         @eval begin
 
             if $(P != Direct)
-                $fn1(A::$P{<:LinearMapping}) = $fn2(A.op)
+                $fn1(A::$P{<:$T}) = $fn2(A.op)
             end
 
-            $fn1(::Type{$P}, A::LinearMapping) = $fn2(A)
+            $fn1(::Type{$P}, A::$T) = $fn2(A)
 
             if $(sfx == :size)
                 if $(P != Direct)
-                    $fn1(A::$P{<:LinearMapping}, dim...) =
-                        $fn2(A.op, dim...)
+                    $fn1(A::$P{<:$T}, dim...) = $fn2(A.op, dim...)
                 end
-                $fn1(::Type{$P}, A::LinearMapping, dim...) =
-                    $fn2(A, dim...)
+                $fn1(::Type{$P}, A::$T, dim...) = $fn2(A, dim...)
             end
         end
     end
@@ -84,11 +82,11 @@ for pfx in (:input, :output)
     pfx_ndims = Symbol(pfx, "_ndims")
     @eval begin
 
-        $pfx_ndims(A::LinearMapping) = length($pfx_size(A))
+        $pfx_ndims(A::Mapping) = length($pfx_size(A))
 
-        $pfx_size(A::LinearMapping, dim) = $pfx_size(A)[dim]
+        $pfx_size(A::Mapping, dim) = $pfx_size(A)[dim]
 
-        function $pfx_size(A::LinearMapping, dim...)
+        function $pfx_size(A::Mapping, dim...)
             dims = $pfx_size(A)
             ntuple(i -> dims[dim[i]], length(dim))
         end
@@ -109,8 +107,8 @@ This can be used to spare allocating ressources.
 See also: [`LinearMapping`](@ref), [`apply!`](@ref).
 
 """
-is_applicable_in_place(::Type{<:Operations}, A::LinearMapping, x) = false
-is_applicable_in_place(A::LinearMapping, x) =
+is_applicable_in_place(::Type{<:Operations}, A::Mapping, x) = false
+is_applicable_in_place(A::Mapping, x) =
     is_applicable_in_place(Direct, A, x)
 
 #------------------------------------------------------------------------------
