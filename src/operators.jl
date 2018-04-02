@@ -152,12 +152,12 @@ See also: [`NonuniformScalingOperator`](@ref).
 
 """
 struct UniformScalingOperator <: SelfAdjointOperator
-    α::Float64
+    α::Scalar
 end
 
 is_applicable_in_place(::Type{<:Operations}, ::UniformScalingOperator, x) = true
 
-isinvertible(A::UniformScalingOperator) = (isfinite(A.α) && A.α != 0.0)
+isinvertible(A::UniformScalingOperator) = (isfinite(A.α) && A.α != zero(Scalar))
 
 ensureinvertible(A::UniformScalingOperator) =
     isinvertible(A) || throw(
@@ -165,7 +165,7 @@ ensureinvertible(A::UniformScalingOperator) =
 
 function Base.inv(A::UniformScalingOperator)
     ensureinvertible(A)
-    return UniformScalingOperator(1.0/A.α)
+    return UniformScalingOperator(one(Scalar)/A.α)
 end
 
 function apply!(α::Scalar, ::Type{<:Union{Direct,Adjoint}},
