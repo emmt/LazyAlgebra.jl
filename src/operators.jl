@@ -222,13 +222,15 @@ end
 
 function apply!(α::Scalar,
                 ::Type{<:Union{Direct,Adjoint}},
-                A::NonuniformScalingOperator{<:AbstractArray{<:AbstractFloat,N}},
-                x::AbstractArray{<:AbstractFloat,N},
+                W::NonuniformScalingOperator{<:AbstractArray{Tw,N}},
+                x::AbstractArray{Tx,N},
                 β::Scalar,
-                y::AbstractArray{<:AbstractFloat,N}) where {N}
-    w = A.scl
+                y::AbstractArray{Ty,N}) where {Tw<:AbstractFloat,
+                                               Tx<:AbstractFloat,
+                                               Ty<:AbstractFloat,N}
+    w = W.scl
     @assert indices(w) == indices(x) == indices(y)
-    T = promote_type(eltype(w), eltype(x), eltype(y))
+    T = promote_type(Tw, Tx, Ty)
     if α == one(α)
         if β == zero(β)
             @inbounds @simd for i in eachindex(w, x, y)
@@ -236,7 +238,7 @@ function apply!(α::Scalar,
             end
         elseif β == one(β)
             @inbounds @simd for i in eachindex(w, x, y)
-                y[i] = w[i]*x[i] + y[i]
+                y[i] += w[i]*x[i]
             end
         elseif β == -one(β)
             @inbounds @simd for i in eachindex(w, x, y)
@@ -257,7 +259,7 @@ function apply!(α::Scalar,
             end
         elseif β == one(β)
             @inbounds @simd for i in eachindex(w, x, y)
-                y[i] = y[i] - w[i]*x[i]
+                y[i] -= w[i]*x[i]
             end
         elseif β == -one(β)
             @inbounds @simd for i in eachindex(w, x, y)
@@ -277,7 +279,7 @@ function apply!(α::Scalar,
             end
         elseif β == one(β)
             @inbounds @simd for i in eachindex(w, x, y)
-                y[i] = alpha*w[i]*x[i] + y[i]
+                y[i] += alpha*w[i]*x[i]
             end
         elseif β == -one(β)
             @inbounds @simd for i in eachindex(w, x, y)
@@ -295,13 +297,15 @@ end
 
 function apply!(α::Scalar,
                 ::Type{<:Union{Inverse,InverseAdjoint}},
-                A::NonuniformScalingOperator{<:AbstractArray{<:AbstractFloat,N}},
-                x::AbstractArray{<:AbstractFloat,N},
+                W::NonuniformScalingOperator{<:AbstractArray{Tw,N}},
+                x::AbstractArray{Tx,N},
                 β::Scalar,
-                y::AbstractArray{<:AbstractFloat,N}) where {N}
-    w = A.scl
+                y::AbstractArray{Ty,N}) where {Tw<:AbstractFloat,
+                                               Tx<:AbstractFloat,
+                                               Ty<:AbstractFloat,N}
+    w = W.scl
     @assert indices(w) == indices(x) == indices(y)
-    T = promote_type(eltype(w), eltype(x), eltype(y))
+    T = promote_type(Tw, Tx, Ty)
     if α == one(α)
         if β == zero(β)
             @inbounds @simd for i in eachindex(w, x, y)
@@ -309,7 +313,7 @@ function apply!(α::Scalar,
             end
         elseif β == one(β)
             @inbounds @simd for i in eachindex(w, x, y)
-                y[i] = x[i]/w[i] + y[i]
+                y[i] += x[i]/w[i]
             end
         elseif β == -one(β)
             @inbounds @simd for i in eachindex(w, x, y)
@@ -330,7 +334,7 @@ function apply!(α::Scalar,
             end
         elseif β == one(β)
             @inbounds @simd for i in eachindex(w, x, y)
-                y[i] = y[i] - x[i]/w[i]
+                y[i] -= x[i]/w[i]
             end
         elseif β == -one(β)
             @inbounds @simd for i in eachindex(w, x, y)
@@ -350,7 +354,7 @@ function apply!(α::Scalar,
             end
         elseif β == one(β)
             @inbounds @simd for i in eachindex(w, x, y)
-                y[i] = alpha*x[i]/w[i] + y[i]
+                y[i] += alpha*x[i]/w[i]
             end
         elseif β == -one(β)
             @inbounds @simd for i in eachindex(w, x, y)
@@ -367,12 +371,12 @@ function apply!(α::Scalar,
 end
 
 function vcreate(::Type{<:Operations},
-                 A::NonuniformScalingOperator{<:AbstractArray{Ta,N}},
-                 x::AbstractArray{Tx,N}) where {Ta<:AbstractFloat,
+                 W::NonuniformScalingOperator{<:AbstractArray{Tw,N}},
+                 x::AbstractArray{Tx,N}) where {Tw<:AbstractFloat,
                                                 Tx<:AbstractFloat, N}
-    inds = indices(A.scl)
+    inds = indices(W.scl)
     @assert indices(x) == inds
-    T = promote_type(Ta, Tx)
+    T = promote_type(Tw, Tx)
     return similar(Array{T}, inds)
 end
 
