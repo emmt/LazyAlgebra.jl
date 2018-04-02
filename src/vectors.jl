@@ -241,7 +241,7 @@ function vscale!(dst::AbstractArray{Td,N},
                  α::Irrational,
                  src::AbstractArray{Ts,N}) where {Td<:AbstractFloat,
                                                   Ts<:AbstractFloat,N}
-    return vscale!(dst, convert(promote_type(Td, Ts), α), src)
+    return vscale!(dst, promote_scalar(Td, Ts, α), src)
 end
 
 function vscale!(dst::AbstractArray{Td,N},
@@ -261,7 +261,7 @@ function vscale!(dst::AbstractArray{Td,N},
                 dst[i] = -src[i]
             end
         else
-            const alpha = convert(promote_type(Td, Ts), α)
+            const alpha = promote_scalar(Td, Ts, α)
             @inbounds @simd for i in eachindex(dst, src)
                 dst[i] = alpha*src[i]
             end
@@ -366,7 +366,7 @@ vupdate!(y, [sel,] α, x) -> y
 overwrites `y` with `α*x + y` and returns `y`.  The code is optimized for some
 specific values of the multiplier `α`.  For instance, if `α` is zero, then `y`
 is left unchanged without using `x`.  Computations are performed at the
-numerical precision of `x`.
+numerical precision of `promote_type(eltype(x),eltype(y))`.
 
 Optional argument `sel` is a selection of indices to which apply the operation.
 Note that if an index is repeated, the operation will be performed several
@@ -376,10 +376,17 @@ See also: [`vscale!`](@ref), [`vcombine!](@ref).
 
 """
 function vupdate!(y::AbstractArray{Ty,N},
+                  alpha::Irrational,
+                  x::AbstractArray{Tx,N}) where {Ty<:AbstractFloat,
+                                                 Tx<:AbstractFloat,N}
+    return vupdate!(y, promote_scalar(Tx, Ty, alpha), x)
+end
+
+function vupdate!(y::AbstractArray{Ty,N},
                   alpha::Real,
                   x::AbstractArray{Tx,N}) where {Ty<:AbstractFloat,
                                                  Tx<:AbstractFloat,N}
-    return _vupdate!(y, convert(Tx, alpha), x)
+    return _vupdate!(y, alpha, x)
 end
 
 # Pure Julia implementation.
@@ -399,12 +406,20 @@ function _vupdate!(y::AbstractArray{Ty,N},
             y[i] -= x[i]
         end
     elseif alpha != zero(alpha)
-        const α = Tx(alpha)
+        const α = promote_scalar(Tx, Ty, alpha)
         @inbounds @simd for i in eachindex(y, x)
             y[i] += α*x[i]
         end
     end
     return y
+end
+
+function vupdate!(y::DenseArray{Ty,N},
+                  sel::AbstractVector{Int},
+                  alpha::Irrational,
+                  x::DenseArray{Tx,N}) where {Ty<:AbstractFloat,
+                                              Tx<:AbstractFloat,N}
+    return vupdate!(y, sel, promote_scalar(Tx, Ty, alpha), x)
 end
 
 function vupdate!(y::DenseArray{Ty,N},
@@ -428,7 +443,7 @@ function vupdate!(y::DenseArray{Ty,N},
             y[j] -= x[j]
         end
     elseif alpha != zero(alpha)
-        const α = Tx(alpha)
+        const α = promote_scalar(Tx, Ty, alpha)
         @inbounds @simd for i in eachindex(sel)
             j = sel[i]
             y[j] += α*x[j]
@@ -474,11 +489,31 @@ See also: [`vscale!`](@ref), [`vupdate!](@ref).
 vcombine(alpha::Real, x::V, beta::Real, y::V) where {V} =
     vcombine!(vcreate(x), alpha, x, beta, y)
 
-function vcombine!(dst::AbstractArray{<:AbstractFloat,N},
+# Deal with irrational multiplier(s).
+for (T1, T2) in ((Irrational, Real),
+                 (Real, Irrational),
+                 (Irrational, Irrational))
+    @eval begin
+        function vcombine!(dst::AbstractArray{Td,N},
+                           alpha::$T1,
+                           x::AbstractArray{Tx,N},
+                           beta::$T2,
+                           y::AbstractArray{Ty,N}) where {Td<:AbstractFloat,
+                                                          Tx<:AbstractFloat,
+                                                          Ty<:AbstractFloat,N}
+            vcombine!(dst,
+                      promote_scalar(Td, Tx, Ty, alpha), x,
+                      promote_scalar(Td, Tx, Ty, beta), y)
+        end
+    end
+end
+
+function vcombine!(dst::AbstractArray{Td,N},
                    alpha::Real,
                    x::AbstractArray{Tx,N},
                    beta::Real,
-                   y::AbstractArray{Ty,N}) where {Tx<:AbstractFloat,
+                   y::AbstractArray{Ty,N}) where {Td<:AbstractFloat,
+                                                  Tx<:AbstractFloat,
                                                   Ty<:AbstractFloat,N}
     @assert indices(dst) == indices(x) == indices(y)
     if alpha == zero(alpha)
@@ -495,7 +530,7 @@ function vcombine!(dst::AbstractArray{<:AbstractFloat,N},
                 dst[i] = x[i] - y[i]
             end
         else
-            const β = Ty(beta)
+            const β = promote_scalar(Td, Tx, Ty, beta)
             @inbounds @simd for i in eachindex(dst, x, y)
                 dst[i] = x[i] + β*y[i]
             end
@@ -510,13 +545,13 @@ function vcombine!(dst::AbstractArray{<:AbstractFloat,N},
                 dst[i] = -x[i] - y[i]
             end
         else
-            const β = Ty(beta)
+            const β = promote_scalar(Td, Tx, Ty, beta)
             @inbounds @simd for i in eachindex(dst, x, y)
                 dst[i] = β*y[i] - x[i]
             end
         end
     else
-        const α = Tx(alpha)
+        const α = promote_scalar(Td, Tx, Ty, alpha)
         if beta == one(beta)
             @inbounds @simd for i in eachindex(dst, x, y)
                 dst[i] = α*x[i] + y[i]
@@ -526,7 +561,7 @@ function vcombine!(dst::AbstractArray{<:AbstractFloat,N},
                 dst[i] = α*x[i] - y[i]
             end
         else
-            const β = Ty(beta)
+            const β = promote_scalar(Td, Tx, Ty, beta)
             @inbounds @simd for i in eachindex(dst, x, y)
                 dst[i] = α*x[i] + β*y[i]
             end

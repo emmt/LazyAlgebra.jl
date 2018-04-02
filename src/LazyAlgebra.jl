@@ -77,6 +77,7 @@ const USE_BLAS_GEMV = true
 include("types.jl")
 include("rules.jl")
 include("blas.jl")
+include("utils.jl")
 include("vectors.jl")
 include("operators.jl")
 include("conjgrad.jl")
