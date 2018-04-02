@@ -15,8 +15,8 @@ import Base: *, ⋅, +, -, \, /, ctranspose, inv, A_mul_B!
 
 const UnsupportedInverseOfSumOfMappings = "automatic dispatching of the inverse of a sum of mappings is not supported"
 
-# As a general rule, do not use the constructors of decorated types directly
-# but use `A'` or `ctranspose(A)` instead of `Adjoint(A)`, `inv(A)` instead of
+# As a general rule, do not use the constructors of tagged types directly but
+# use `A'` or `ctranspose(A)` instead of `Adjoint(A)`, `inv(A)` instead of
 # `Inverse(A)`, etc.  This is somewhat enforced by the following constructors
 # which systematically throw an error.
 Inverse(::Union{Adjoint,Inverse,InverseAdjoint,Scaled,Sum,Composition}) =
@@ -203,6 +203,17 @@ apply!(::Type{P}, A::Mapping, x, β::Real, y) where {P<:Operations} =
 apply!(α::Real, ::Type{P}, A::Mapping, x, β::Real, y) where {P<:Operations} =
     apply!(convert(Scalar, α), P, A, x, convert(Scalar, β), y)
 
+# This one is needed to avoid infinite loop.
+function apply!(α::Scalar, ::Type{P}, A::Mapping, x,
+                β::Scalar, y) where {P<:Operations}
+    op = (P == Direct ? "direct" :
+          P == Adjoint ? "adjoint" :
+          P == Inverse ? "inverse" :
+          P == InverseAdjoint ? "inverse-adjoint" : string(P))
+    error("apply $op is not implemented for mapping $(typeof(A))")
+end
+
+
 # Change order of arguments.
 apply!(y, A::Mapping, x) = apply!(A, x, y)
 apply!(y, ::Type{P}, A::Mapping, x) where {P<:Operations} =
@@ -255,7 +266,7 @@ for (T1, T2, T3) in ((:Direct,         :Adjoint,        :Adjoint),
 end
 
 # Specialize methods for self-adjoint mappings so that only `Direct` and
-# `Inverse` operations need to be implemented.
+# `Inverse` operations have to be implemented.
 for (T1, T2) in ((:Adjoint, :Direct),
                  (:InverseAdjoint, :Inverse))
     @eval begin

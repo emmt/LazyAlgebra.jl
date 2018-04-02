@@ -125,7 +125,7 @@ end
 """
 
 Abstract type `SelfAdjointOperator` is to be inherited by linear mappings
-whose adjoint is equal to themself.  Such mappings only need to implement
+whose adjoint is equal to themself.  Such mappings must only implement
 methods for the `Direct` and `Inverse` operations (if applicable).
 
 See also: [`LinearMapping`](@ref).
