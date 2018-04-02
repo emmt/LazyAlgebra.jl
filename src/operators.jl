@@ -168,12 +168,12 @@ function Base.inv(A::UniformScalingOperator)
     return UniformScalingOperator(one(Scalar)/A.α)
 end
 
-function apply!(α::Scalar, ::Type{<:Union{Direct,Adjoint}},
+function apply!(α::Scalar, ::Type{Direct},
                 A::UniformScalingOperator, x, β::Scalar, y)
     return vcombine!(y, α*A.α, x, β, y)
 end
 
-function apply!(α::Scalar, ::Type{<:Union{Inverse,InverseAdjoint}},
+function apply!(α::Scalar, ::Type{Inverse},
                 A::UniformScalingOperator, x, β::Scalar, y)
     ensureinvertible(A)
     return vcombine!(y, α/A.α, x, β, y)
@@ -221,7 +221,7 @@ function Base.inv(A::NonuniformScalingOperator{<:AbstractArray{T,N}}
 end
 
 function apply!(α::Scalar,
-                ::Type{<:Union{Direct,Adjoint}},
+                ::Type{Direct},
                 W::NonuniformScalingOperator{<:AbstractArray{Tw,N}},
                 x::AbstractArray{Tx,N},
                 β::Scalar,
@@ -245,7 +245,7 @@ function apply!(α::Scalar,
                 y[i] = w[i]*x[i] - y[i]
             end
         else
-            beta = convert(T, β)
+            const beta = convert(T, β)
             @inbounds @simd for i in eachindex(w, x, y)
                 y[i] = w[i]*x[i] + beta*y[i]
             end
@@ -266,13 +266,13 @@ function apply!(α::Scalar,
                 y[i] = -w[i]*x[i] - y[i]
             end
         else
-            beta = convert(T, β)
+            const beta = convert(T, β)
             @inbounds @simd for i in eachindex(w, x, y)
                 y[i] = beta*y[i] - w[i]*x[i]
             end
         end
     else
-        alpha = convert(T, β)
+        const alpha = convert(T, α)
         if β == zero(β)
             @inbounds @simd for i in eachindex(w, x, y)
                 y[i] = alpha*w[i]*x[i]
@@ -286,7 +286,7 @@ function apply!(α::Scalar,
                 y[i] = alpha*w[i]*x[i] - y[i]
             end
         else
-            beta = convert(T, β)
+            const beta = convert(T, β)
             @inbounds @simd for i in eachindex(w, x, y)
                 y[i] = alpha*w[i]*x[i] + beta*y[i]
             end
@@ -296,7 +296,8 @@ function apply!(α::Scalar,
 end
 
 function apply!(α::Scalar,
-                ::Type{<:Union{Inverse,InverseAdjoint}},
+                #::Type{<:Union{Inverse,InverseAdjoint}},
+                ::Type{Inverse},
                 W::NonuniformScalingOperator{<:AbstractArray{Tw,N}},
                 x::AbstractArray{Tx,N},
                 β::Scalar,
@@ -320,7 +321,7 @@ function apply!(α::Scalar,
                 y[i] = x[i]/w[i] - y[i]
             end
         else
-            beta = convert(T, β)
+            const beta = convert(T, β)
             @inbounds @simd for i in eachindex(w, x, y)
                 y[i] = x[i]/w[i] + beta*y[i]
             end
@@ -341,13 +342,13 @@ function apply!(α::Scalar,
                 y[i] = -x[i]/w[i] - y[i]
             end
         else
-            beta = convert(T, β)
+            const beta = convert(T, β)
             @inbounds @simd for i in eachindex(w, x, y)
                 y[i] = beta*y[i] - x[i]/w[i]
             end
         end
     else
-        alpha = convert(T, β)
+        const alpha = convert(T, α)
         if β == zero(β)
             @inbounds @simd for i in eachindex(w, x, y)
                 y[i] = alpha*x[i]/w[i]
@@ -361,7 +362,7 @@ function apply!(α::Scalar,
                 y[i] = alpha*x[i]/w[i] - y[i]
             end
         else
-            beta = convert(T, β)
+            const beta = convert(T, β)
             @inbounds @simd for i in eachindex(w, x, y)
                 y[i] = alpha*x[i]/w[i] + beta*y[i]
             end
@@ -469,8 +470,8 @@ end
 
 is_applicable_in_place(::Type{<:Operations}, ::SymmetricRankOneOperator) = true
 
-function apply!(α::Scalar, ::Type{P}, A::SymmetricRankOneOperator, x,
-                β::Scalar, y) where {P<:Union{Direct,Adjoint}}
+function apply!(α::Scalar, ::Type{Direct}, A::SymmetricRankOneOperator, x,
+                β::Scalar, y)
     if α == zero(α)
         # Lazily assume that y has correct type, dimensions, etc.
         vscale!(y, β)
@@ -480,8 +481,7 @@ function apply!(α::Scalar, ::Type{P}, A::SymmetricRankOneOperator, x,
     return y
 end
 
-function vcreate(::Type{P}, A::SymmetricRankOneOperator,
-                 x) where {P<:Union{Direct,Adjoint}}
+function vcreate(::Type{Direct}, A::SymmetricRankOneOperator, x)
     # Lazily assume that x has correct type, dimensions, etc.
     vcreate(A.u)
 end
