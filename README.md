@@ -22,12 +22,6 @@ A few concepts are central to `LazyAlgebra`:
 * *mappings* are any functions between such vectors;
 * *linear mappings* behave linearly with respect to their arguments.
 
-`LazyAlgebra` features:
-* flexible and extensible framework for creating complex mappings;
-* *lazy* evaluation of the mappings;
-* *lazy* assumptions when combining mappings;
-* efficient memory allocation by avoiding temporaries;
-
 (https://en.wikipedia.org/wiki/Vector_space)
 
 Similar Julia packages:
@@ -46,6 +40,13 @@ of reals).
 
 
 ## Mappings
+
+`LazyAlgebra` features:
+* flexible and extensible framework for creating complex mappings;
+* *lazy* evaluation of the mappings;
+* *lazy* assumptions when combining mappings;
+* efficient memory allocation by avoiding temporaries.
+
 
 ### General mappings
 
@@ -96,10 +97,6 @@ subtype of `Mapping` is introduced to extend the notion of *matrices* and
   `A` to `x`.
 
 * `B = A'` is a mapping such that `B⋅x` yields the same result as `A'⋅x`.
-
-`LazyAlgebra` provides a number of mappings.  Creating new primitive mapping
-types (not by combining existing mappings as explained above) is explained
-[here](doc/mappings.md).
 
 
 ### Automatic simplifications
@@ -158,3 +155,13 @@ Note the necessary parentheses around `3C` in the last examples above to
 overcome the associative rule applied by Julia.  Otherwise, `A*B*3C` is
 interpreted as `((A*B)*3)*C`; that is, compose `A` and `B`, apply `A*B` to `3`
 and right multiply the result by `C`.
+
+
+### Creating new mappings
+
+`LazyAlgebra` provides a number of simple mappings.  Creating new primitive
+mapping types (not by combining existing mappings as explained above) which
+benefit from the `LazyAlgebra` framework is as simple as declaring a new
+mapping subtype of `Mapping` (or one of its abstract subtypes) and extending
+two methods `vcreate` and `apply!` specialized for the new mapping type.  More
+mode details, see [here](doc/mappings.md).
