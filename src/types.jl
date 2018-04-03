@@ -147,6 +147,28 @@ abstract type SelfAdjointOperator <: LinearMapping end
 
 """
 
+Abstract type `Endomorphism` is to be inherited by nonlinear mappings
+whose input and output spaces are the same.  Such mappings must only extend
+`vcreate` method for the signature `vcreate(::Type{<:Endomorphism}`.
+
+See also: [`Mapping`](@ref), [`is_endomorphism`](@ref).
+
+"""
+abstract type Endomorphism <: Mapping end
+
+"""
+
+Abstract type `LinearEndomorphism` is to be inherited by linear mappings
+whose input and output spaces are the same.  Such mappings must only extend
+`vcreate` method for the signature `vcreate(::Type{<:LinearEndomorphism}`.
+
+See also: [`LinearMapping`](@ref), [`is_endomorphism`](@ref).
+
+"""
+abstract type LinearEndomorphism <: LinearMapping end
+
+"""
+
 Type `Direct` is a singleton type to indicate that a linear mapping should
 be directly applied.  This type is part of the union `Operations`.
 

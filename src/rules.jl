@@ -56,6 +56,9 @@ end
 is_linear(x) = (lineartype(x) == Linear)
 is_nonlinear(x) = ! is_linear(x)
 
+is_endomorphism(x) = false
+is_endomorphism(::Union{Endomorphism,LinearEndomorphism}) = true
+
 # Unary minus and unary plus.
 -(A::Mapping) = -1*A
 +(A::Mapping) = A
@@ -379,3 +382,5 @@ See also: [`Mapping`](@ref), [`apply`](@ref).
 
 """
 vcreate(A::Mapping, x) = vcreate(Direct, A, x)
+vcreate(::Type{<:Operations}, A::Union{Endomorphism,LinearEndomorphism}, x) =
+    vcreate(A, x)
