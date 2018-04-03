@@ -17,24 +17,25 @@ const I = LazyAlgebra.Identity()
         A = RankOneOperator(w, w)
         B = RankOneOperator(w, y)
         C = SymmetricRankOneOperator(w)
-        @test approxsame(n, A*x , sum(w.*x)*w)
-        @test approxsame(n, A'*x, sum(w.*x)*w)
-        @test approxsame(n, B*x , sum(y.*x)*w)
-        @test approxsame(n, B'*x, sum(w.*x)*y)
-        @test approxsame(n, C*x , sum(w.*x)*w)
-        @test approxsame(n, C'*x, sum(w.*x)*w)
+        rtol = sqrt(eps(T))
+        @test rtol ≥ maxrelabsdif(A*x , sum(w.*x)*w)
+        @test rtol ≥ maxrelabsdif(A'*x, sum(w.*x)*w)
+        @test rtol ≥ maxrelabsdif(B*x , sum(y.*x)*w)
+        @test rtol ≥ maxrelabsdif(B'*x, sum(w.*x)*y)
+        @test rtol ≥ maxrelabsdif(C*x , sum(w.*x)*w)
+        @test rtol ≥ maxrelabsdif(C'*x, sum(w.*x)*w)
     end
 
     @testset "Uniform scaling ($T)" for T in (Float16, Float32, Float64)
         x = randn(T, dims)
         y = randn(T, dims)
         γ = sqrt(2)
-        ϵ = eps(T)
         U = UniformScalingOperator(γ)
-        @test approxsame(2, U*x, γ*x)
-        @test approxsame(2, U'*x, γ*x)
-        @test approxsame(2, U\x, (1/γ)*x)
-        @test approxsame(2, U'\x, (1/γ)*x)
+        rtol = sqrt(eps(T))
+        @test rtol ≥ maxrelabsdif(U*x, γ*x)
+        @test rtol ≥ maxrelabsdif(U'*x, γ*x)
+        @test rtol ≥ maxrelabsdif(U\x, (1/γ)*x)
+        @test rtol ≥ maxrelabsdif(U'\x, (1/γ)*x)
         for α in (0, 1, -1,  2.71, π),
             β in (0, 1, -1, -1.33, φ)
             for P in (Direct, Adjoint)
@@ -48,7 +49,7 @@ const I = LazyAlgebra.Identity()
         end
     end
 
-    @testset "Scaling operators ($T)" for T in (Float16, Float32, Float64)
+    @testset "Non-uniform scaling ($T)" for T in (Float16, Float32, Float64)
         w = randn(T, dims)
         x = randn(T, dims)
         y = randn(T, dims)
@@ -56,9 +57,9 @@ const I = LazyAlgebra.Identity()
         qx = x./w
         z = vcreate(y)
         S = NonuniformScalingOperator(w)
-        ϵ = eps(T)
-        @test approxsame(2, S*x, wx)
-        @test approxsame(2, S'*x, wx)
+        rtol = sqrt(eps(T))
+        @test rtol ≥ maxrelabsdif(S*x, wx)
+        @test rtol ≥ maxrelabsdif(S'*x, wx)
         for α in (0, 1, -1,  2.71, π),
             β in (0, 1, -1, -1.33, φ)
             for P in (Direct, Adjoint)
@@ -72,5 +73,28 @@ const I = LazyAlgebra.Identity()
         end
     end
 
+    rows, cols = (2,3,4), (5,6)
+    nrows, ncols = prod(rows), prod(cols)
+    @testset "Generalized matrices ($T)" for T in (Float32, Float64)
+        A = randn(T, rows..., cols...)
+        x = randn(T, cols)
+        y = randn(T, rows)
+        G = GeneralMatrix(A)
+        rtol = sqrt(eps(T))
+        mA = reshape(A, nrows, ncols)
+        vx = reshape(x, ncols)
+        vy = reshape(y, nrows)
+        Gx = G*x
+        Gpy = G'*y
+        @test rtol ≥ maxrelabsdif(Gx,  reshape(mA*vx, rows))
+        @test rtol ≥ maxrelabsdif(Gpy, reshape(mA'*vy, cols))
+        for α in (0, 1, -1,  2.71, π),
+            β in (0, 1, -1, -1.33, φ)
+            @test rtol ≥ maxrelabsdif(apply!(α, Direct, G, x, β, vcopy(y)),
+                                      T(α)*Gx + T(β)*y)
+            @test rtol ≥ maxrelabsdif(apply!(α, Adjoint, G, y, β, vcopy(x)),
+                                      T(α)*Gpy + T(β)*x)
+        end
+    end
 
 end
