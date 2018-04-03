@@ -209,13 +209,9 @@ apply!(α::Real, ::Type{P}, A::Mapping, x, β::Real, y) where {P<:Operations} =
     apply!(convert(Scalar, α), P, A, x, convert(Scalar, β), y)
 
 # This one is needed to avoid infinite loop.
-function apply!(α::Scalar, ::Type{P}, A::Mapping, x,
-                β::Scalar, y) where {P<:Operations}
-    op = (P == Direct ? "direct" :
-          P == Adjoint ? "adjoint" :
-          P == Inverse ? "inverse" :
-          P == InverseAdjoint ? "inverse-adjoint" : string(P))
-    error("apply $op is not implemented for mapping $(typeof(A))")
+function apply!(::Scalar, ::Type{P}, ::Type{T}, x,
+                ::Scalar, y) where {P<:Operations, T<:Mapping}
+    unimplemented(P, T)
 end
 
 

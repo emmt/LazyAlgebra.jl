@@ -23,6 +23,18 @@ end
 Base.showerror(io::IO, err::NonPositiveDefinite) =
     print(io, "non-positive definite operator ($(err.msg))")
 
+struct UnimplementedOperation <: Exception
+    msg::String
+end
+Base.showerror(io::IO, err::UnimplementedOperation) =
+    print(io, err.msg)
+
+struct UnimplementedMethod <: Exception
+    msg::String
+end
+Base.showerror(io::IO, err::UnimplementedMethod) =
+    print(io, err.msg)
+
 """
 
 A `Scalar` is used to represent multipliers or scaling factors when combining

@@ -4,6 +4,15 @@
 # Implement non-specific methods for mappings.
 #
 
+function unimplemented(::Type{P}, ::Type{T}) where {P<:Operations, T<:Mapping}
+    throw(UnimplementedOperation("unimplemented operation `$P` for mapping $T"))
+end
+
+function unimplemented(func::Union{AbstractString,Symbol},
+                       ::Type{T}) where {T<:Mapping}
+    throw(UnimplementedMethod("unimplemented method `$func` for mapping $T"))
+end
+
 """
 ```julia
 input_type([P=Direct,] A)
@@ -87,11 +96,8 @@ for pfx in (:input, :output)
 end
 
 for f in (:input_eltype, :output_eltype, :input_size, :output_size)
-    @eval $f(::T) where {T<:Mapping} = unimplemented_method($(string(f)), T)
+    @eval $f(::T) where {T<:Mapping} = unimplemented($(string(f)), T)
 end
-
-unimplemented_method(func::Union{AbstractString,Symbol}, ::Type{T}) where {T} =
-    error("method `$func` not implemented by this mapping ($T)")
 
 """
 ```julia
