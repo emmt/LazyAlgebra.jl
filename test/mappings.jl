@@ -10,7 +10,7 @@ const I = LazyAlgebra.Identity()
     dims = (3,4,5)
     n = prod(dims)
 
-    @testset "Rank 1 operators ($T)" for T in (Float16, Float32, Float64)
+    @testset "Rank 1 operators ($T)" for T in (Float32, Float64)
         w = randn(T, dims)
         x = randn(T, dims)
         y = randn(T, dims)
@@ -26,7 +26,7 @@ const I = LazyAlgebra.Identity()
         @test C'*x ≈ sum(w.*x)*w atol=atol rtol=rtol norm=vnorm2
     end
 
-    @testset "Uniform scaling ($T)" for T in (Float16, Float32, Float64)
+    @testset "Uniform scaling ($T)" for T in (Float32, Float64)
         x = randn(T, dims)
         y = randn(T, dims)
         γ = sqrt(2)
@@ -49,7 +49,7 @@ const I = LazyAlgebra.Identity()
         end
     end
 
-    @testset "Non-uniform scaling ($T)" for T in (Float16, Float32, Float64)
+    @testset "Non-uniform scaling ($T)" for T in (Float32, Float64)
         w = randn(T, dims)
         x = randn(T, dims)
         y = randn(T, dims)
