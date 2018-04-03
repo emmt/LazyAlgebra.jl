@@ -1,7 +1,7 @@
 #
-# operators.jl -
+# mappings.jl -
 #
-# Methods for linear mappings.
+# Provide basic mappings.
 #
 #-------------------------------------------------------------------------------
 #
@@ -10,106 +10,6 @@
 #
 # Copyright (c) 2017-2018 Éric Thiébaut.
 #
-
-# Basic methods:
-"""
-```julia
-input_type([P=Direct,] A)
-output_type([P=Direct,] A)
-```
-
-yield the (preferred) types of the input and output arguments of the operation
-`P` with mapping `A`.  If `A` operates on Julia arrays, the element type,
-list of dimensions, `i`-th dimension and number of dimensions for the input and
-output are given by:
-
-    input_eltype([P=Direct,] A)          output_eltype([P=Direct,] A)
-    input_size([P=Direct,] A)            output_size([P=Direct,] A)
-    input_size([P=Direct,] A, i)         output_size([P=Direct,] A, i)
-    input_ndims([P=Direct,] A)           output_ndims([P=Direct,] A)
-
-Only `input_size(A)` and `output_size(A)` have to be implemented.
-
-Also see: [`vcreate`](@ref), [`apply!`](@ref), [`LinearMapping`](@ref),
-[`Operations`](@ref).
-
-"""
-function input_type end
-
-for sfx in (:size, :eltype, :ndims, :type),
-    pfx in (:output, :input)
-
-    fn1 = Symbol(pfx, "_", sfx)
-
-    for P in (Direct, Adjoint, Inverse, InverseAdjoint)
-
-        fn2 = Symbol(P == Adjoint || P == Inverse ?
-                     (pfx == :output ? :input : :output) : pfx, "_", sfx)
-
-        T = (P == Adjoint || P == InverseAdjoint ? LinearMapping : Mapping)
-
-        # Provide basic methods for the different operations and for tagged
-        # mappings.
-        @eval begin
-
-            if $(P != Direct)
-                $fn1(A::$P{<:$T}) = $fn2(A.op)
-            end
-
-            $fn1(::Type{$P}, A::$T) = $fn2(A)
-
-            if $(sfx == :size)
-                if $(P != Direct)
-                    $fn1(A::$P{<:$T}, dim...) = $fn2(A.op, dim...)
-                end
-                $fn1(::Type{$P}, A::$T, dim...) = $fn2(A, dim...)
-            end
-        end
-    end
-
-    # Link documentation for the basic methods.
-    @eval begin
-        if $(fn1 != :input_type)
-            @doc @doc(:input_type) $fn1
-        end
-    end
-
-end
-
-# Provide default methods for `$(sfx)_size(A, dim...)` and `$(sfx)_ndims(A)`.
-for pfx in (:input, :output)
-    pfx_size = Symbol(pfx, "_size")
-    pfx_ndims = Symbol(pfx, "_ndims")
-    @eval begin
-
-        $pfx_ndims(A::Mapping) = length($pfx_size(A))
-
-        $pfx_size(A::Mapping, dim) = $pfx_size(A)[dim]
-
-        function $pfx_size(A::Mapping, dim...)
-            dims = $pfx_size(A)
-            ntuple(i -> dims[dim[i]], length(dim))
-        end
-
-    end
-end
-
-
-"""
-```julia
-is_applicable_in_place([P,] A, x)
-```
-
-yields whether mapping `A` is applicable *in-place* for performing operation
-`P` with argument `x`, that is with the result stored into the argument `x`.
-This can be used to spare allocating ressources.
-
-See also: [`LinearMapping`](@ref), [`apply!`](@ref).
-
-"""
-is_applicable_in_place(::Type{<:Operations}, A::Mapping, x) = false
-is_applicable_in_place(A::Mapping, x) =
-    is_applicable_in_place(Direct, A, x)
 
 #------------------------------------------------------------------------------
 # IDENTITY
