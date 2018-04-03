@@ -1,6 +1,7 @@
 # Lazy algebra framework
 
 [![License](http://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat)](LICENSE.md)
+[![Build Status](https://travis-ci.org/emmt/LazyAlgebra.jl.svg?branch=master)](https://travis-ci.org/emmt/LazyAlgebra.jl)
 
 `LazyAlgebra` is a Julia package to generalize the notion of matrices and
 vectors used in [linear algebra](https://en.wikipedia.org/wiki/Linear_algebra).
