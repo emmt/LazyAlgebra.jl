@@ -86,6 +86,12 @@ for pfx in (:input, :output)
     end
 end
 
+for f in (:input_eltype, :output_eltype, :input_size, :output_size)
+    @eval $f(::T) where {T<:Mapping} = unimplemented_method($(string(f)), T)
+end
+
+unimplemented_method(func::Union{AbstractString,Symbol}, ::Type{T}) where {T} =
+    error("method `$func` not implemented by this mapping ($T)")
 
 """
 ```julia
