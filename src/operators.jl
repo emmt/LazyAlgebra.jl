@@ -601,7 +601,7 @@ function vcreate(::Type{P},
     inds = indices(A)
     Ny = Na - Nx
     if Nx ≥ Na || indices(x) != inds[Ny+1:end]
-        throw(DimensionMismatch("the dimensions of `x` do not match the trailing dimensions of `A`"))
+        throw(DimensionMismatch("the indices of `x` do not match the trailing indices of `A`"))
     end
     Ty = promote_type(Ta, Tx)
     return similar(Array{Ty}, inds[1:Ny])
@@ -615,10 +615,10 @@ function vcreate(::Type{P},
     inds = indices(A)
     Ny = Na - Nx
     if Nx ≥ Na || indices(x) != inds[1:Nx]
-        throw(DimensionMismatch("the dimensions of `x` do not match the leading dimensions of `A`"))
+        throw(DimensionMismatch("the indices of `x` do not match the leading indices of `A`"))
     end
     Ty = promote_type(Ta, Tx)
-    return similar(Array{Ty}, inds[Ny+1:end])
+    return similar(Array{Ty}, inds[Nx+1:end])
 end
 
 
