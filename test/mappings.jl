@@ -1,7 +1,7 @@
 #
 # mappings.jl -
 #
-# Tests for mappings.
+# Tests for basic mappings.
 #
 
 const I = LazyAlgebra.Identity()
@@ -17,13 +17,13 @@ const I = LazyAlgebra.Identity()
         A = RankOneOperator(w, w)
         B = RankOneOperator(w, y)
         C = SymmetricRankOneOperator(w)
-        rtol = sqrt(eps(T))
-        @test rtol ≥ maxrelabsdif(A*x , sum(w.*x)*w)
-        @test rtol ≥ maxrelabsdif(A'*x, sum(w.*x)*w)
-        @test rtol ≥ maxrelabsdif(B*x , sum(y.*x)*w)
-        @test rtol ≥ maxrelabsdif(B'*x, sum(w.*x)*y)
-        @test rtol ≥ maxrelabsdif(C*x , sum(w.*x)*w)
-        @test rtol ≥ maxrelabsdif(C'*x, sum(w.*x)*w)
+        atol, rtol = zero(T), sqrt(eps(T))
+        @test A*x  ≈ sum(w.*x)*w atol=atol rtol=rtol norm=vnorm2
+        @test A'*x ≈ sum(w.*x)*w atol=atol rtol=rtol norm=vnorm2
+        @test B*x  ≈ sum(y.*x)*w atol=atol rtol=rtol norm=vnorm2
+        @test B'*x ≈ sum(w.*x)*y atol=atol rtol=rtol norm=vnorm2
+        @test C*x  ≈ sum(w.*x)*w atol=atol rtol=rtol norm=vnorm2
+        @test C'*x ≈ sum(w.*x)*w atol=atol rtol=rtol norm=vnorm2
     end
 
     @testset "Uniform scaling ($T)" for T in (Float16, Float32, Float64)
@@ -31,20 +31,20 @@ const I = LazyAlgebra.Identity()
         y = randn(T, dims)
         γ = sqrt(2)
         U = UniformScalingOperator(γ)
-        rtol = sqrt(eps(T))
-        @test rtol ≥ maxrelabsdif(U*x, γ*x)
-        @test rtol ≥ maxrelabsdif(U'*x, γ*x)
-        @test rtol ≥ maxrelabsdif(U\x, (1/γ)*x)
-        @test rtol ≥ maxrelabsdif(U'\x, (1/γ)*x)
+        atol, rtol = zero(T), sqrt(eps(T))
+        @test U*x  ≈ γ*x     atol=atol rtol=rtol norm=vnorm2
+        @test U'*x ≈ γ*x     atol=atol rtol=rtol norm=vnorm2
+        @test U\x  ≈ (1/γ)*x atol=atol rtol=rtol norm=vnorm2
+        @test U'\x ≈ (1/γ)*x atol=atol rtol=rtol norm=vnorm2
         for α in (0, 1, -1,  2.71, π),
             β in (0, 1, -1, -1.33, φ)
             for P in (Direct, Adjoint)
-                @test 0 == maxrelabsdif(apply!(α, P, U, x, β, vcopy(y)),
-                                        T(α*γ)*x + T(β)*y)
+                @test apply!(α, P, U, x, β, vcopy(y)) ≈
+                    T(α*γ)*x + T(β)*y atol=atol rtol=rtol norm=vnorm2
             end
             for P in (Inverse, InverseAdjoint)
-                @test 0 == maxrelabsdif(apply!(α, P, U, x, β, vcopy(y)),
-                                        T(α/γ)*x + T(β)*y)
+                @test apply!(α, P, U, x, β, vcopy(y)) ≈
+                    T(α/γ)*x + T(β)*y atol=atol rtol=rtol norm=vnorm2
             end
         end
     end
@@ -57,18 +57,18 @@ const I = LazyAlgebra.Identity()
         qx = x./w
         z = vcreate(y)
         S = NonuniformScalingOperator(w)
-        rtol = sqrt(eps(T))
-        @test rtol ≥ maxrelabsdif(S*x, wx)
-        @test rtol ≥ maxrelabsdif(S'*x, wx)
+        atol, rtol = zero(T), sqrt(eps(T))
+        @test S*x  ≈ wx atol=atol rtol=rtol norm=vnorm2
+        @test S'*x ≈ wx atol=atol rtol=rtol norm=vnorm2
         for α in (0, 1, -1,  2.71, π),
             β in (0, 1, -1, -1.33, φ)
             for P in (Direct, Adjoint)
-                @test 0 == maxrelabsdif(apply!(α, P, S, x, β, vcopy(y)),
-                                        T(α)*w.*x + T(β)*y)
+                @test apply!(α, P, S, x, β, vcopy(y)) ≈
+                    T(α)*w.*x + T(β)*y atol=atol rtol=rtol norm=vnorm2
             end
             for P in (Inverse, InverseAdjoint)
-                @test 0 == maxrelabsdif(apply!(α, P, S, x, β, vcopy(y)),
-                                        T(α)*x./w + T(β)*y)
+                @test apply!(α, P, S, x, β, vcopy(y)) ≈
+                    T(α)*x./w + T(β)*y atol=atol rtol=rtol norm=vnorm2
             end
         end
     end
@@ -80,20 +80,20 @@ const I = LazyAlgebra.Identity()
         x = randn(T, cols)
         y = randn(T, rows)
         G = GeneralMatrix(A)
-        rtol = sqrt(eps(T))
+        atol, rtol = zero(T), sqrt(eps(T))
         mA = reshape(A, nrows, ncols)
         vx = reshape(x, ncols)
         vy = reshape(y, nrows)
         Gx = G*x
         Gpy = G'*y
-        @test rtol ≥ maxrelabsdif(Gx,  reshape(mA*vx, rows))
-        @test rtol ≥ maxrelabsdif(Gpy, reshape(mA'*vy, cols))
+        @test Gx  ≈ reshape(mA*vx,  rows) atol=atol rtol=rtol norm=vnorm2
+        @test Gpy ≈ reshape(mA'*vy, cols) atol=atol rtol=rtol norm=vnorm2
         for α in (0, 1, -1,  2.71, π),
             β in (0, 1, -1, -1.33, φ)
-            @test rtol ≥ maxrelabsdif(apply!(α, Direct, G, x, β, vcopy(y)),
-                                      T(α)*Gx + T(β)*y)
-            @test rtol ≥ maxrelabsdif(apply!(α, Adjoint, G, y, β, vcopy(x)),
-                                      T(α)*Gpy + T(β)*x)
+            @test apply!(α, Direct, G, x, β, vcopy(y)) ≈
+                T(α)*Gx + T(β)*y atol=atol rtol=rtol norm=vnorm2
+            @test apply!(α, Adjoint, G, y, β, vcopy(x)) ≈
+                T(α)*Gpy + T(β)*x atol=atol rtol=rtol norm=vnorm2
         end
     end
 

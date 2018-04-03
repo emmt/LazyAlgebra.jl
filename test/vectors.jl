@@ -1,5 +1,4 @@
 #
-#
 # vectors.jl -
 #
 # Tests for vectorized operations.
@@ -23,10 +22,10 @@
     @testset "vupdate ($T)" for T in (Float16, Float32, Float64)
         a = randn(T, dims)
         d = randn(T, dims)
+        atol, rtol = zero(T), sqrt(eps(T))
         for α in (0, -1, 1, π, 2.71)
-            # FIXME: tighten this tolerance
-            ϵ = sqrt(eps(T))*(maximum(abs.(a)) + abs(α)*maximum(abs.(d)))
-            @test maxrelabsdif(vupdate!(vcopy(a),α,d), a + T(α)*d) ≤ ϵ
+            @test vupdate!(vcopy(a),α,d) ≈
+                a + T(α)*d atol=atol rtol=rtol norm=vnorm2
         end
     end
     @testset "vproduct ($T)" for T in (Float16, Float32, Float64)
