@@ -1,7 +1,19 @@
+* Use more extensively BLAS subroutines.
+
+* Add tests for rules.
+
+* Extend basic methods for `Base.LinAlg.UniformScaling` and rename
+  `UniformScalingOperator` and `NonuniformScalingOperator` as `UniformScaling`
+  and `NonuniformScaling`?
+
 * Add rules so that: `(αA)⋅(βB)` automatically yields `((αβ)A)⋅B` when `A` is a
   linear mapping.  This cannot easily propagate to have, *e.g.*
   `(αA)⋅(βB)⋅(γC)` automatically yields `((αβγ)A)⋅B⋅C` when `A` and `B` are
-  linear mappings.
+  linear mappings.  Perhaps this could be solved with some `simplify(...)`
+  method to be applied to constructed mappings.
+
+* Add rules so that: `A*B` yields `αB` when `A` is a uniform mapping of
+  parameter `α`.
 
 * Beware that not all diagonal mappings are self-adjoint and for some mapping
   this may depends on the settings (*e.g.* a diagonal mapping is self adjoint
@@ -21,8 +33,6 @@ DiagonalOperator(u) = NonuniformScalingOperator(u)
 
 * Concrete implementation of mappings on arrays is not consistent for
   complex valued arrays.
-
-* Use more extensively BLAS subroutines.
 
 * Rewrite `apply!` to allow for optimized combination to do `y = α*Op(A)⋅x +
   β*y` (as in LAPACK and optimized if scalars have values 0, ±1):
