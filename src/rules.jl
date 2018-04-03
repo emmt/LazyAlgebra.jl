@@ -66,21 +66,21 @@ is_nonlinear(x) = ! is_linear(x)
 +(A::Sum, B::Sum) = Sum(A.ops..., B.ops...)
 +(A::Mapping, B::Mapping) = Sum(A, B)
 
+# Dot operator involving a mapping acts a s the multiply operator.
+⋅(α::Real, B::Mapping) = α*B
+⋅(A::Mapping, b::T) where {T} = A*b
+
 # Left scalar muliplication of a mapping.
 *(alpha::Real, A::Scaled) = (alpha*A.sc)*A.op
 *(alpha::Real, A::T) where {T<:Mapping} =
     (alpha == one(alpha) ? A : Scaled{T}(alpha, A))
 
 # Composition of mappings and right muliplication of a mapping by a vector.
-for op in (:*, :⋅)
-    @eval begin
-        $op(A::Composition, B::Mapping) = Composition(A.ops..., B)
-        $op(A::Composition, B::Composition) = Composition(A.ops..., B.ops...)
-        $op(A::Mapping, B::Composition) = Composition(A, B.ops...)
-        $op(A::Mapping, B::Mapping) = Composition(A, B)
-        $op(A::Mapping, x::T) where {T} = apply(A, x)
-    end
-end
+*(A::Composition, B::Mapping) = Composition(A.ops..., B)
+*(A::Composition, B::Composition) = Composition(A.ops..., B.ops...)
+*(A::Mapping, B::Composition) = Composition(A, B.ops...)
+*(A::Mapping, B::Mapping) = Composition(A, B)
+*(A::Mapping, x::T) where {T} = apply(A, x)
 
 \(A::Mapping, x::T) where {T} = apply(Inverse, A, x)
 \(A::Mapping, B::Mapping) = inv(A)*B
@@ -229,13 +229,21 @@ apply!(β::Real, y, α::Real, A::Mapping, x) = apply!(α, A, x, β, y)
 apply!(β::Real, y, α::Real, ::Type{P}, A::Mapping, x) where {P<:Operations} =
     apply!(α, P, A, x, β, y)
 
-# Implemention of the `apply!(α,P,A,x,β,y)` method for a scaled mapping.
-for (T, expr) in ((:Direct, :(α*A.sc)),
+# Implemention of the `apply!(α,P,A,x,β,y)` and `vcreate(P,A,x)` methods for a
+# scaled mapping.
+for (P, expr) in ((:Direct, :(α*A.sc)),
                   (:Adjoint, :(α*conj(A.sc))),
                   (:Inverse, :(α/A.sc)),
                   (:InverseAdjoint, :(α/conj(A.sc))))
-    @eval apply!(α::Scalar, ::Type{$T}, A::Scaled, x, β::Scalar, y) =
-        apply!($expr, $T, A.op, x, β, y)
+    @eval begin
+
+        vcreate(::Type{$P}, A::Scaled, x) =
+            vcreate($P, A.op, x)
+
+        apply!(α::Scalar, ::Type{$P}, A::Scaled, x, β::Scalar, y) =
+            apply!($expr, $P, A.op, x, β, y)
+
+    end
 end
 
 # Implemention of the `apply!(α,P,A,x,β,y)` and `vcreate(P,A,x)` methods for
@@ -370,4 +378,4 @@ for any supported operations `P` and argument type for `x`.
 See also: [`Mapping`](@ref), [`apply`](@ref).
 
 """
-vcreate(A::LinearMapping, x) = vcreate(Direct, A, x)
+vcreate(A::Mapping, x) = vcreate(Direct, A, x)

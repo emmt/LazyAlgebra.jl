@@ -25,10 +25,17 @@ may be the same as the input argument.
 
 """
 struct Identity <: SelfAdjointOperator; end
+const I = Identity()
+const Identities = Union{Identity,Adjoint{Identity},Inverse{Identity},
+                         InverseAdjoint{Identity}}
 
 is_applicable_in_place(::Type{<:Operations}, ::Identity, x) = true
 
-Base.inv(A::Identity) = A
+Base.inv(::Identities) = I
+Base.ctranspose(::Identities) = I
+*(::Identities, A::Mapping) = A
+*(A::Mapping, ::Identities) = A
+*(::Identities, ::Identities) = I
 
 apply(::Type{<:Operations}, ::Identity, x) = x
 
