@@ -11,7 +11,7 @@ processing) involve essentially linear operations on the considered variables.
 `LazyAlgebra` provides a framework to implement these kind of numerical methods
 independently of the specific type of the variables.  This is exploited in
 [OptimPackNextGen](https://github.com/emmt/OptimPackNextGen.jl) package, an
-attempt to provide all optimization algorithms of
+attempt to provide most optimization algorithms of
 [OptimPack](https://github.com/emmt/OptimPack) in pure Julia.
 
 `LazyAlgebra` also provides a flexible and extensible framework for creating
