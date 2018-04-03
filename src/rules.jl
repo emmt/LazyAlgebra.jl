@@ -187,6 +187,11 @@ apply!(A::Mapping, x, β::Real, y) =
 apply!(α::Real, A::Mapping, x, β::Real, y) =
     apply!(convert(Scalar, α), Direct, A, x, convert(Scalar, β), y)
 
+# Extend `A_mul_B!` so that are no needs to extend `Ac_mul_B` `Ac_mul_Bc`,
+# etc. to have `A'*x`, `A*B*C*x`, etc. yield the expected result.
+A_mul_B!(y::Ty, A::Mapping, x::Tx) where {Tx,Ty} =
+    apply!(one(Scalar), Direct, A, x, zero(Scalar), y)
+
 # Only the method with signature:
 #
 #     apply!(α::Scalar, ::Type{P}, A::MappingType, x,
