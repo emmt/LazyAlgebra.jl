@@ -104,15 +104,17 @@ See also: [`UniformScalingOperator`](@ref).
 
 """
 struct NonuniformScalingOperator{T} <: SelfAdjointOperator
-    scl::T
+    diag::T
 end
 
 is_applicable_in_place(::Type{<:Operations}, ::NonuniformScalingOperator, x) =
     true
 
+Base.diag(A::NonuniformScalingOperator) = A.diag
+
 function Base.inv(A::NonuniformScalingOperator{<:AbstractArray{T,N}}
                   ) where {T<:AbstractFloat, N}
-    q = A.scl
+    q = A.diag
     r = similar(q)
     @inbounds @simd for i in eachindex(q, r)
         r[i] = one(T)/q[i]
@@ -128,7 +130,7 @@ function apply!(α::Scalar,
                 y::AbstractArray{Ty,N}) where {Tw<:AbstractFloat,
                                                Tx<:AbstractFloat,
                                                Ty<:AbstractFloat,N}
-    w = W.scl
+    w = W.diag
     @assert indices(w) == indices(x) == indices(y)
     T = promote_type(Tw, Tx, Ty)
     if α == one(α)
@@ -204,7 +206,7 @@ function apply!(α::Scalar,
                 y::AbstractArray{Ty,N}) where {Tw<:AbstractFloat,
                                                Tx<:AbstractFloat,
                                                Ty<:AbstractFloat,N}
-    w = W.scl
+    w = W.diag
     @assert indices(w) == indices(x) == indices(y)
     T = promote_type(Tw, Tx, Ty)
     if α == one(α)
@@ -275,7 +277,7 @@ function vcreate(::Type{<:Operations},
                  W::NonuniformScalingOperator{<:AbstractArray{Tw,N}},
                  x::AbstractArray{Tx,N}) where {Tw<:AbstractFloat,
                                                 Tx<:AbstractFloat, N}
-    inds = indices(W.scl)
+    inds = indices(W.diag)
     @assert indices(x) == inds
     T = promote_type(Tw, Tx)
     return similar(Array{T}, inds)
