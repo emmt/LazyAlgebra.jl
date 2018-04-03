@@ -15,6 +15,17 @@ end
 
 """
 ```julia
+contents(C)
+```
+
+yields the contents of the container `C`.  A *container* is any type which
+implements the `contents` method.
+
+"""
+contents(H::Union{Hessian,HalfHessian}) = H.obj
+
+"""
+```julia
 input_type([P=Direct,] A)
 output_type([P=Direct,] A)
 ```

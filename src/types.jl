@@ -275,3 +275,98 @@ struct Composition{T<:Tuple{Vararg{Mapping}}} <: Mapping
 end
 Composition(ops::T) where {T<:Tuple{Vararg{Mapping}}} = Composition{T}(ops)
 Composition(ops::Mapping...) = Composition(ops)
+
+"""
+
+`Hessian(A)` is a container to be interpreted as the linear mapping
+representing the second derivatives of some objective function at some point
+both represented by `A` (which can be anything).  Given `H = Hessian(A)`, the
+contents `A` is retrieved by `contents(H)`.
+
+For a simple quadratic objective function like:
+
+```
+f(x) = ‖D⋅x‖²
+```
+
+the Hessian is:
+
+```
+H = 2 D'⋅D
+```
+
+As the Hessian is symmetric, a single method `apply!` has to be implemented to
+apply the direct and adjoint of the mapping, the signature of the method is:
+
+```julia
+apply!(α::Scalar, ::Type{Direct}, H::Hessian{typeof(A)}, x::T,
+       β::Scalar, y::T)
+```
+
+where `y` is overwritten by `α*H*x + β*y` with `H*x` the result of applying `H`
+(or its adjoint) to the argument `x`.  Here `T` is the relevant type of the
+variables.
+
+To allocate a new object to store the result of applying the mapping to `x`,
+the default method is `vcreate(x)`.  If this is not suitable, it is sufficient
+to implement the specific method:
+
+```julia
+vcreate(::Type{Direct}, H::Hessian{typeof(A)}, x::T)
+```
+
+See also: [`apply!`](@ref), [`vcreate`](@ref), [`LinearMapping`][@ref),
+          [`SelfAdjointOperator`][@ref), [`HalfHessian`][@ref).
+
+"""
+struct Hessian{T} <: SelfAdjointOperator
+    obj::T
+end
+
+"""
+
+`HalfHessian(A)` is a container to be interpreted as the linear mapping
+representing the second derivatives (times 1/2) of some objective function at
+some point both represented by `A` (which can be anything).  Given `H =
+HalfHessian(A)`, the contents `A` is retrieved by `contents(H)`.
+
+For a simple quadratic objective function like:
+
+```
+f(x) = ‖D⋅x‖²
+```
+
+the half-Hessian is:
+
+```
+H = D'⋅D
+```
+
+As the half-Hessian is symmetric, a single method `apply!` has to be
+implemented to apply the direct and adjoint of the mapping, the signature of
+the method is:
+
+```julia
+apply!(α::Scalar, ::Type{Direct}, H::HalfHessian{typeof(A)}, x::T,
+       β::Scalar, y::T)
+```
+
+where `y` is overwritten by `α*H*x + β*y` with `H*x` the result of applying `H`
+(or its adjoint) to the argument `x`.  Here `T` is the relevant type of the
+variables.
+
+To allocate a new object to store the result of applying the mapping to `x`,
+the default method is `vcreate(x)`.  If this is not suitable, it is sufficient
+to implement the specific method:
+
+```julia
+vcreate(::Type{Direct}, H::HalfHessian{typeof(A)}, x::T)
+```
+
+See also: [`apply!`](@ref), [`vcreate`](@ref), [`LinearMapping`][@ref),
+          [`SelfAdjointOperator`][@ref), [`Hessian`][@ref).
+
+"""
+struct HalfHessian{T} <: SelfAdjointOperator
+    obj::T
+end

@@ -640,58 +640,8 @@ function _apply!(α::Scalar,
 end
 
 #------------------------------------------------------------------------------
-# HALF HESSIAN
+# HESSIAN AND HALF HESSIAN
 
-"""
-
-`HalfHessian(A)` is a container to be interpreted as the linear mapping
-representing the second derivatives (times 1/2) of some objective function at
-some point both represented by `A` (which can be anything).  Given `H =
-HalfHessian(A)`, the contents `A` is retrieved by `contents(H)`.
-
-For a simple quadratic objective function like:
-
-```
-f(x) = ‖D⋅x‖²
-```
-
-the half-Hessian is:
-
-```
-H = D'⋅D
-```
-
-As the half-Hessian is symmetric, a single method `apply!` has to be
-implemented to apply the direct and adjoint of the mapping, the signature of
-the method is:
-
-```julia
-apply!(y::T, ::Type{Direct}, H::HalfHessian{typeof(A)}, x::T)
-```
-
-where `y` is overwritten by the result of applying `H` (or its adjoint) to the
-argument `x`.  Here `T` is the relevant type of the variables.  Similarly, to
-allocate a new object to store the result of applying the mapping, it is
-sufficient to implement the method:
-
-```julia
-vcreate(::Type{Direct}, H::HalfHessian{typeof(A)}, x::T)
-```
-
-See also: [`LinearMapping`][@ref).
-
-"""
-struct HalfHessian{T} <: SelfAdjointOperator
-    obj::T
-end
-
-"""
-```julia
-contents(C)
-```
-
-yields the contents of the container `C`.  A *container* is any type which
-implements the `contents` method.
-
-"""
-contents(H::HalfHessian) = H.obj
+# Default method for allocating the result for Hessian and HalfHessian linear
+# mappings.
+vcreate(::Type{Direct}, ::Union{Hessian,HalfHessian}, x) = vcreate(x)
