@@ -122,6 +122,49 @@ function Base.inv(A::NonuniformScalingOperator{<:AbstractArray{T,N}}
     return NonuniformScalingOperator(r)
 end
 
+for pfx in (:input, :output)
+    @eval begin
+
+        function $(Symbol(pfx,"_type"))(
+            ::NonuniformScalingOperator{<:AbstractArray{T,N}}
+        ) where {T, N}
+            return Array{T,N}
+        end
+
+        function $(Symbol(pfx,"_eltype"))(
+            ::NonuniformScalingOperator{<:AbstractArray{T,N}}
+        ) where {T<:AbstractFloat, N}
+            return T
+        end
+
+        function $(Symbol(pfx,"_eltype"))(
+            ::NonuniformScalingOperator{<:AbstractArray{T,N}}
+        ) where {T, N}
+            return float(T)
+        end
+
+        function $(Symbol(pfx,"_size"))(
+            A::NonuniformScalingOperator{<:AbstractArray}
+        )
+            return size(A.diag)
+        end
+
+        function $(Symbol(pfx,"_size"))(
+            A::NonuniformScalingOperator{<:AbstractArray},
+            args...
+        )
+            return size(A.diag, args...)
+        end
+
+        function $(Symbol(pfx,"_ndims"))(
+            ::NonuniformScalingOperator{<:AbstractArray{T,N}}
+        ) where {T, N}
+            return N
+        end
+
+    end
+end
+
 function apply!(α::Scalar,
                 ::Type{Direct},
                 W::NonuniformScalingOperator{<:AbstractArray{Tw,N}},
