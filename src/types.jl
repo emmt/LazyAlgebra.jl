@@ -149,7 +149,7 @@ abstract type SelfAdjointOperator <: LinearMapping end
 
 Abstract type `Endomorphism` is to be inherited by nonlinear mappings
 whose input and output spaces are the same.  Such mappings must only extend
-`vcreate` method for the signature `vcreate(::Type{<:Endomorphism}`.
+`vcreate` method for the signature `vcreate(::Type{<:Endomorphism}, x)`.
 
 See also: [`Mapping`](@ref), [`is_endomorphism`](@ref).
 

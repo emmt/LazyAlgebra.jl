@@ -44,7 +44,7 @@ manipulate the variables via a small number of vectorized methods:
   convention is that, if `α = 0`, then `dst` is filled with zeros whatever the
   contents of `src`.
 
-* `vscale!(α,x)` and `vscale!(x,α)` overwrite `x` with `α*x` and returns `x`.
+* `vscale!(x,α)` and `vscale!(α,x)` overwrite `x` with `α*x` and returns `x`.
   The convention is that, if `α = 0`, then `x` is filled with zeros whatever
   its prior contents.
 
@@ -97,7 +97,7 @@ The various operations that should be implemented for a *vector* are:
 Derived methods are:
 * compute the Euclidean norm of a vector (`vnorm2` method, based on `vdot` by
   default);
-* multiply a vector by a scalar: `vscale!(dst,α,src)` and/or `vscale!(α,x)`
+* multiply a vector by a scalar: `vscale!(dst,α,src)` and/or `vscale!(x,α)`
   methods (based on `vcombine!` by default);
 * update a vector by a scaled step: `vupdate!(y,α,x)` method (based on
   `vcombine!` by default) and, for some constrained optimization methods,

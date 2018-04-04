@@ -14,15 +14,40 @@ function unimplemented(func::Union{AbstractString,Symbol},
 end
 
 """
+# Containers and Marked Objects
+
+Julia typing system can be exploited to "mark" some object instances so that
+they are seen as another specific type.  For instance, this feature is used to
+mark linear operators as being transposed (so that they behave as their
+adjoint) or inverted (so that they behave as their inverse).
+
+These marked objects have a single member: the object that is marked.  This
+single member can be retrieved by the `contents` method.  The following piece
+of code shows the idea:
+
+
+```julia
+struct MarkedType{T}
+    data::T
+end
+MarkedType(obj::T) where {T} = MarkedType{T}(obj)
+contents(obj::MarkedType) = obj.data
+```
+
+More generally, the `contents` method can be used to retrieve the contents of a
+"container" object:
+
 ```julia
 contents(C)
 ```
 
-yields the contents of the container `C`.  A *container* is any type which
-implements the `contents` method.
+yields the contents of the container `C`.  By extension, a *container* is any
+type which implements the `contents` method.
 
 """
 contents(H::Union{Hessian,HalfHessian}) = H.obj
+contents(A::Union{Adjoint,Inverse,InverseAdjoint}) = A.op
+contents(A::Union{Sum,Composition}) = A.ops
 
 """
 ```julia
