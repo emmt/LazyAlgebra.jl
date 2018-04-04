@@ -120,14 +120,10 @@ const I = LazyAlgebra.Identity()
                 @test F\y ≈ w atol=0 rtol=ϵ norm=vnorm2
                 for α in (0, 1, -1,  2.71, π),
                     β in (0, 1, -1, -1.33, φ)
-                    #@test apply!(α, Direct, F, x, β, vcopy(y)) ≈
-                    #    T(α)*z + T(β)*y atol=0 rtol=sqrt(ϵ)
-                    #@test apply!(α, Inverse, F, y, β, vcopy(x)) ≈
-                    #    T(α)*w + T(β)*x atol=0 rtol=sqrt(ϵ)
-                    @test maxrelabsdif(apply!(α, Direct, F, x, β, vcopy(y)),
-                                       T(α)*z + T(β)*y) ≤ sqrt(ϵ)
-                    #@test maxrelabsdif(apply!(α, Inverse, F, y, β, vcopy(x)),
-                    #                   T(α)*w + T(β)*x) ≤ sqrt(ϵ)
+                    @test apply!(α, Direct, F, x, β, vcopy(y)) ≈
+                        T(α)*z + T(β)*y atol=0 rtol=ϵ
+                    @test apply!(α, Inverse, F, y, β, vcopy(x)) ≈
+                        T(α)*w + T(β)*x atol=0 rtol=ϵ
                 end
             end
         end

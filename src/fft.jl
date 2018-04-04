@@ -56,7 +56,8 @@ The interest of creating such an operator is that it caches the ressources
 necessary for fast computation of the FFT and can be therefore *much* faster
 than calling `fft`, `rfft`, `ifft`, etc.  This is especially true on small
 arrays.  Keywords `flags` and `timelimit` may be used to specify planning
-options and time limit to create the FFT plans.
+options and time limit to create the FFT plans (see
+http://www.fftw.org/doc/Planner-Flags.html).
 
 Another advantage is that the returned object is a linear mapping which can be
 used as any other mapping:
@@ -209,13 +210,13 @@ function apply!(α::Scalar,
     return y
 end
 
-# Apply backward transform.
+# Apply backward complex-to-complex transform.
 function apply!(α::Scalar,
                 ::Type{Backward},
                 A::FFTOperator{T,C,N},
                 x::DenseArray{C,N},
                 β::Scalar,
-                y::DenseArray{T,N}) where {T,C,N}
+                y::DenseArray{T,N}) where {T<:fftwComplex,C,N}
     if α == 0
         vscale!(y, β)
     elseif β == 0
@@ -229,6 +230,28 @@ function apply!(α::Scalar,
     return y
 end
 
+# Apply backward complex-to-real (c2r) transform. Preserving input is not
+# possible for multi-dimensional c2r transforms so we must copy the input
+# argument x.
+function apply!(α::Scalar,
+                ::Type{Backward},
+                A::FFTOperator{T,C,N},
+                x::DenseArray{C,N},
+                β::Scalar,
+                y::DenseArray{T,N};
+                overwriteinput::Bool=false) where {T<:fftwReal,C,N}
+    if α == 0
+        vscale!(y, β)
+    elseif β == 0
+        A_mul_B!(y, A.backward, (overwriteinput ? x : vcopy(x)))
+        α == 1 || vscale!(y, α)
+    else
+        z = vcreate(Backward, A, x)
+        A_mul_B!(z, A.backward, (overwriteinput ? x : vcopy(x)))
+        vcombine!(y, α, z, β, y)
+    end
+    return y
+end
 """
 
 `check_flags(flags)` checks whether `flags` is an allowed bitwise-or
