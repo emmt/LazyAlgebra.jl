@@ -5,8 +5,8 @@
 #
 #-------------------------------------------------------------------------------
 #
-# This file is part of the LazyAlgebra package released under the MIT "Expat"
-# license.
+# This file is part of LazyAlgebra (https://github.com/emmt/LazyAlgebra.jl)
+# released under the MIT "Expat" license.
 #
 # Copyright (c) 2017-2018 Éric Thiébaut.
 #
@@ -54,6 +54,7 @@ export
     AdjointInverse,
     Direct,
     Endomorphism,
+    FFTOperator,
     GeneralMatrix,
     HalfHessian,
     Hessian,
@@ -86,6 +87,8 @@ include("blas.jl")
 include("methods.jl")
 include("vectors.jl")
 include("mappings.jl")
+include("fft.jl")
+import .FFT.FFTOperator
 include("conjgrad.jl")
 
 end

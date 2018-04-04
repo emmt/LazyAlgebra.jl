@@ -97,4 +97,39 @@ const I = LazyAlgebra.Identity()
         end
     end
 
+
+    @testset "FFT ($T)" for T in (Float32, Float64)
+        for dims in ((45,), (20,), (33,12), (30,20), (4,5,6))
+            for cmplx in (false, true)
+                if cmplx
+                    x = randn(T, dims) + 1im*randn(T, dims)
+                else
+                    x = randn(T, dims)
+                end
+                F = FFTOperator(x)
+                if cmplx
+                    y = randn(T, dims) + 1im*randn(T, dims)
+                else
+                    y = randn(T, output_size(F)) + 1im*randn(T, output_size(F))
+                end
+                ϵ = eps(T)
+                atol, rtol = zero(T), eps(T)
+                z = (cmplx ? fft(x) : rfft(x))
+                w = (cmplx ? ifft(y) : irfft(y, dims[1]))
+                @test F*x ≈ z atol=0 rtol=ϵ norm=vnorm2
+                @test F\y ≈ w atol=0 rtol=ϵ norm=vnorm2
+                for α in (0, 1, -1,  2.71, π),
+                    β in (0, 1, -1, -1.33, φ)
+                    #@test apply!(α, Direct, F, x, β, vcopy(y)) ≈
+                    #    T(α)*z + T(β)*y atol=0 rtol=sqrt(ϵ)
+                    #@test apply!(α, Inverse, F, y, β, vcopy(x)) ≈
+                    #    T(α)*w + T(β)*x atol=0 rtol=sqrt(ϵ)
+                    @test maxrelabsdif(apply!(α, Direct, F, x, β, vcopy(y)),
+                                       T(α)*z + T(β)*y) ≤ sqrt(ϵ)
+                    #@test maxrelabsdif(apply!(α, Inverse, F, y, β, vcopy(x)),
+                    #                   T(α)*w + T(β)*x) ≤ sqrt(ϵ)
+                end
+            end
+        end
+    end
 end

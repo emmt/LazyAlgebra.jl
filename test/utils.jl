@@ -14,7 +14,15 @@ function relabsdif(a::Ta, b::Tb) where {Ta<:Real, Tb<:Real}
     relabsdif(convert(T, a), convert(T, b))
 end
 
+function relabsdif(a::Complex{Ta}, b::Complex{Tb}) where {Ta<:Real, Tb<:Real}
+    T = float(promote_type(Ta, Tb))
+    relabsdif(convert(T, a), convert(T, b))
+end
+
 relabsdif(a::T, b::T) where {T<:AbstractFloat} =
+    (a == b ? zero(T) : 2*abs(a - b)/(abs(a) + abs(b)))
+
+relabsdif(a::Complex{T}, b::Complex{T}) where {T<:AbstractFloat} =
     (a == b ? zero(T) : 2*abs(a - b)/(abs(a) + abs(b)))
 
 """ `maxrelabsdif(A,B)` yields the maximum relative difference between arrays
