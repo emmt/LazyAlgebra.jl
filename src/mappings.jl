@@ -32,7 +32,7 @@ const Identities = Union{Identity,Adjoint{Identity},Inverse{Identity},
 # Traits:
 selfadjointtype(::Identities) = SelfAdjoint
 morphismtype(::Identities) = Endomorphism
-diagonaltype(::Identities) = Diagonal
+diagonaltype(::Identities) = DiagonalMapping
 inplacetype(::Type{<:Operations}, ::Identities) = InPlace
 
 Base.inv(::Identities) = I
@@ -69,7 +69,7 @@ end
 # Traits:
 selfadjointtype(::UniformScalingOperator) = SelfAdjoint
 morphismtype(::UniformScalingOperator) = Endomorphism
-diagonaltype(::UniformScalingOperator) = Diagonal
+diagonaltype(::UniformScalingOperator) = DiagonalMapping
 inplacetype(::Type{<:Operations}, ::UniformScalingOperator) = InPlace
 
 isinvertible(A::UniformScalingOperator) = (isfinite(A.α) && A.α != zero(Scalar))
@@ -124,7 +124,7 @@ end
 
 # Traits:
 morphismtype(::NonuniformScalingOperator) = Endomorphism
-diagonaltype(::NonuniformScalingOperator) = Diagonal
+diagonaltype(::NonuniformScalingOperator) = DiagonalMapping
 inplacetype(::Type{<:Operations}, ::NonuniformScalingOperator) = InPlace
 selfadjointtype(A::NonuniformScalingOperator) =
     _selfadjointtype(eltype(contents(A)), A)

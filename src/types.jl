@@ -186,14 +186,15 @@ end
 
 The *diagonal* trait indicates whether a mapping is a diagonal linear mapping
 or not.  Abstract type `DiagonalType` has two concrete singleton sub-types:
-`Diagonal` for diagonal linear mappings and `NonDiagonal` for other mappings.
+`DiagonalMapping` for diagonal linear mappings and `NonDiagonalMapping` for
+other mappings.
 
 See also: [`diagonaltype`](@ref), [`Trait`](@ref).
 
 """
 abstract type DiagonalType <: Trait end
 
-for T in (:Diagonal, :NonDiagonal)
+for T in (:DiagonalMapping, :NonDiagonalMapping)
     @eval begin
         struct $T <: DiagonalType end
         @doc @doc(DiagonalType) $T

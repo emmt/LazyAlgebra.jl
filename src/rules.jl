@@ -104,21 +104,21 @@ end
 diagonaltype(A)
 ```
 
-yields the *diagonal* type of mapping `A`, that is one of `Diagonal` for
-diagonal linear maps or `NonDiagonal` for other mappings.
+yields the *diagonal* type of mapping `A`, that is one of `DiagonalMapping` for
+diagonal linear maps or `NonDiagonalMapping` for other mappings.
 
 See also: [`Trait`](@ref).
 
 """
-diagonaltype(::Mapping) = NonDiagonal
+diagonaltype(::Mapping) = NonDiagonalMapping
 diagonaltype(A::Union{Scaled,Inverse}) = diagonaltype(contents(A))
 function diagonaltype(A::Union{Sum,Composition})
     @inbounds for i in 1:length(A)
-        if diagonaltype(A.ops[i]) != Diagonal
-            return NonDiagonal
+        if diagonaltype(A.ops[i]) != DiagonalMapping
+            return NonDiagonalMapping
         end
     end
-    return Diagonal
+    return DiagonalMapping
 end
 
 """
@@ -146,7 +146,7 @@ end
 is_linear(A::Mapping) = (lineartype(A) == Linear)
 is_selfadjoint(A::Mapping) = (selfadjointtype(A) == SelfAdjoint)
 is_endomorphism(A::Mapping) = (morphismtype(A) == Endomorphism)
-is_diagonal(A::Mapping) = (diagonaltype(A) == Diagonal)
+is_diagonal(A::Mapping) = (diagonaltype(A) == DiagonalMapping)
 is_applicable_in_place(A::Mapping) = is_applicable_in_place(Direct, A)
 is_applicable_in_place(::Type{P}, A::Mapping) where {P<:Operations} =
     (inplacetype(P, A) == InPlace)
