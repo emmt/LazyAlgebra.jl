@@ -286,9 +286,9 @@ function apply!(α::Real,
         T = promote_type(Tw, Tx, Ty)
         a, b = convert(T, α), convert(T, β)
         I = eachindex(w, x, y)
-        if P :: Direct || P :: Adjoint
+        if P === Direct || P === Adjoint
             @axpby!(i, I, a, w[i]*x[i], b, y[i])
-        elseif P :: Inverse || P :: InverseAdjoint
+        elseif P === Inverse || P === InverseAdjoint
             @axpby!(i, I, a, x[i]/w[i], b, y[i])
         end
     end
@@ -312,13 +312,13 @@ function apply!(α::Real,
         T = promote_type(Tw, Tx, Ty)
         a, b = convert(T, α), convert(T, β)
         I = eachindex(w, x, y)
-        if P :: Direct
+        if P === Direct
             @axpby!(i, I, a, w[i]*x[i], b, y[i])
-        elseif P :: Adjoint
+        elseif P === Adjoint
             @axpby!(i, I, a, conj(w[i])*x[i], b, y[i])
-        elseif P :: Inverse
+        elseif P === Inverse
             @axpby!(i, I, a, x[i]/w[i], b, y[i])
-        elseif P :: InverseAdjoint
+        elseif P === InverseAdjoint
             @axpby!(i, I, a, x[i]/conj(w[i]), b, y[i])
         end
     end
