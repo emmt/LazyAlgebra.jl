@@ -86,14 +86,24 @@ function FFTOperator(::Type{T},
                      dims::NTuple{N,Int};
                      flags::Integer = FFTW.ESTIMATE,
                      timelimit::Real = FFTW.NO_TIMELIMIT) where {T<:fftwReal,N}
+    # Check arguments and build dimension list of the result of the forward
+    # real-to-complex (r2c) transform.
     planning = check_flags(flags)
     ncols = check_dimensions(dims)
     zdims = ntuple(i -> (i == 1 ? (dims[i] >> 1) + 1 : dims[i]), Val{N})
+
+    # Compute the plans with suitable FFTW flags.  The forward transform (r2c)
+    # must preserve its input, while the backward transform (c2r) may destroy
+    # it (in fact there are no input-preserving algorithms for
+    # multi-dimensional c2r transforms).
     forward = plan_rfft(Array{T}(dims);
                         flags = (planning | FFTW.PRESERVE_INPUT),
                         timelimit = timelimit)
     backward = plan_brfft(Array{Complex{T}}(zdims), dims[1];
-                          flags = planning, timelimit = timelimit)
+                          flags = (planning  | FFTW.DESTROY_INPUT),
+                          timelimit = timelimit)
+
+    # Build operator.
     F = typeof(forward)
     B = typeof(backward)
     return FFTOperator{T,Complex{T},N,F,B}(ncols, dims, zdims,
@@ -105,13 +115,20 @@ function FFTOperator(::Type{Complex{T}},
                      dims::NTuple{N,Int};
                      flags::Integer=FFTW.ESTIMATE,
                      timelimit::Real=FFTW.NO_TIMELIMIT) where {T<:fftwReal,N}
+    # Check arguments.  The input and output of the complex-to-complex
+    # transformhave the same dimensions.
     planning = check_flags(flags)
     ncols = check_dimensions(dims)
     temp = Array{Complex{T}}(dims)
+
+    # Compute the plans with suitable FFTW flags.  The forward and backward
+    # transform must preserve their input.
     forward = plan_fft(temp; flags = (planning | FFTW.PRESERVE_INPUT),
                        timelimit = timelimit)
     backward = plan_bfft(temp; flags = (planning | FFTW.PRESERVE_INPUT),
                          timelimit = timelimit)
+
+    # Build operator.
     F = typeof(forward)
     B = typeof(backward)
     return FFTOperator{Complex{T},Complex{T},N,F,B}(ncols, dims, dims,
