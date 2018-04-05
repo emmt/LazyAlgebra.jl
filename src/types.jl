@@ -118,16 +118,26 @@ abstract type LinearMapping <: Mapping end
 
 """
 
-The linear trait indicates whether a mapping is linear or not.  Abstract type
-`LinearType` has two concrete singleton subtypes: `Linear` for linear mappings
-and `Nonlinear` for other mappings.
+The abstract type `Trait` is inherited by types indicating specific traits.
 
-See also: [`lineartype`](@ref).
+See also: [`lineartype`](@ref), [`selfadjointtype`](@ref),
+          [`diagonaltype`](@ref), [`morphismtype`](@ref).
 
 """
-abstract type LinearType end
+abstract type Trait end
 
-for T in (:Nonlinear, :Linear)
+"""
+
+The *linear* trait indicates whether a mapping is linear or not.  Abstract type
+`LinearType` has two concrete singleton sub-types: `Linear` for linear mappings
+and `NonLinear` for other mappings.
+
+See also: [`lineartype`](@ref), [`Trait`](@ref).
+
+"""
+abstract type LinearType <: Trait end
+
+for T in (:NonLinear, :Linear)
     @eval begin
         struct $T <: LinearType end
         @doc @doc(LinearType) $T
@@ -136,36 +146,79 @@ end
 
 """
 
-Abstract type `SelfAdjointOperator` is to be inherited by linear mappings
-whose adjoint is equal to themself.  Such mappings must only implement
-methods for the `Direct` and `Inverse` operations (if applicable).
+The *self-adjoint* trait indicates whether a mapping is a self-adjoint linear
+map or not.  Abstract type `SelfAdjointType` has two concrete singleton
+sub-types: `SelfAdjoint` for self-adjoint linear maps and `NonSelfAdjoint` for
+other mappings.
 
-See also: [`LinearMapping`](@ref).
-
-"""
-abstract type SelfAdjointOperator <: LinearMapping end
+See also: [`selfadjointtype`](@ref), [`Trait`](@ref), [`LinearMapping`](@ref).
 
 """
+abstract type SelfAdjointType <: Trait end
 
-Abstract type `Endomorphism` is to be inherited by nonlinear mappings
-whose input and output spaces are the same.  Such mappings must only extend
-`vcreate` method for the signature `vcreate(::Type{<:Endomorphism}, x)`.
-
-See also: [`Mapping`](@ref), [`is_endomorphism`](@ref).
-
-"""
-abstract type Endomorphism <: Mapping end
+for T in (:NonSelfAdjoint, :SelfAdjoint)
+    @eval begin
+        struct $T <: SelfAdjointType end
+        @doc @doc(SelfAdjointType) $T
+    end
+end
 
 """
 
-Abstract type `LinearEndomorphism` is to be inherited by linear mappings
-whose input and output spaces are the same.  Such mappings must only extend
-`vcreate` method for the signature `vcreate(::Type{<:LinearEndomorphism}`.
+The *morphism* trait indicates whether a mapping is an endomorphism (its input
+and output spaces are the same) or not.  Abstract type `MorphismType` has two
+concrete singleton sub-types: `Endomorphism` for endomorphisms and `Morphism`
+for other mappings.
 
-See also: [`LinearMapping`](@ref), [`is_endomorphism`](@ref).
+See also: [`morphismtype`](@ref), [`Trait`](@ref).
 
 """
-abstract type LinearEndomorphism <: LinearMapping end
+abstract type MorphismType <: Trait end
+
+for T in (:Morphism, :Endomorphism)
+    @eval begin
+        struct $T <: MorphismType end
+        @doc @doc(MorphismType) $T
+    end
+end
+
+"""
+
+The *diagonal* trait indicates whether a mapping is a diagonal linear mapping
+or not.  Abstract type `DiagonalType` has two concrete singleton sub-types:
+`Diagonal` for diagonal linear mappings and `NonDiagonal` for other mappings.
+
+See also: [`diagonaltype`](@ref), [`Trait`](@ref).
+
+"""
+abstract type DiagonalType <: Trait end
+
+for T in (:Diagonal, :NonDiagonal)
+    @eval begin
+        struct $T <: DiagonalType end
+        @doc @doc(DiagonalType) $T
+    end
+end
+
+"""
+
+The *in-place* trait indicates whether a mapping is applicable in-place or not.
+Abstract type `InPlaceType` has two concrete singleton sub-types: `InPlace` for
+mappings which are applicable with the same input and output arguments or
+`OutOfPlace` for mappings which must be applied with different input and output
+arguments.
+
+See also: [`inplacetype`](@ref), [`Trait`](@ref).
+
+"""
+abstract type InPlaceType <: Trait end
+
+for T in (:InPlace, :OutOfPlace)
+    @eval begin
+        struct $T <: InPlaceType end
+        @doc @doc(InPlaceType) $T
+    end
+end
 
 """
 
@@ -338,10 +391,10 @@ vcreate(::Type{Direct}, H::Hessian{typeof(A)}, x::T)
 ```
 
 See also: [`apply!`](@ref), [`vcreate`](@ref), [`LinearMapping`][@ref),
-          [`SelfAdjointOperator`][@ref), [`HalfHessian`][@ref).
+          [`Trait`][@ref), [`HalfHessian`][@ref).
 
 """
-struct Hessian{T} <: SelfAdjointOperator
+struct Hessian{T} <: Mapping
     obj::T
 end
 
@@ -386,9 +439,9 @@ vcreate(::Type{Direct}, H::HalfHessian{typeof(A)}, x::T)
 ```
 
 See also: [`apply!`](@ref), [`vcreate`](@ref), [`LinearMapping`][@ref),
-          [`SelfAdjointOperator`][@ref), [`Hessian`][@ref).
+          [`Trait`][@ref), [`Hessian`][@ref).
 
 """
-struct HalfHessian{T} <: SelfAdjointOperator
+struct HalfHessian{T} <: Mapping
     obj::T
 end

@@ -28,36 +28,128 @@ InverseAdjoint(::Union{Adjoint,Inverse,InverseAdjoint,Scaled,Sum,Composition}) =
 
 # Extend the `length` method to yield the number of components of a sum or
 # composition of mappings.
-Base.length(A::Sum) = length(A.ops)
-Base.length(A::Composition) = length(A.ops)
+Base.length(A::Union{Sum,Composition}) = length(contents(A))
 
 """
 ```julia
 lineartype(A)
 ```
 
-yields the linear type of mapping `A`, that is one of `Linear` or `NonLinear`
-which are singleton types.
+yields the *linear* type of mapping `A`, that is one of `Linear` for linear
+maps or `NonLinear` for other mappings.
+
+See also: [`Trait`](@ref).
 
 """
 lineartype(::LinearMapping) = Linear
 lineartype(::Scaled{<:LinearMapping}) = Linear
 lineartype(A::Union{Scaled,Inverse}) = lineartype(A.op)
-lineartype(::Mapping) = Nonlinear # anything else is non-linear
+lineartype(::Mapping) = NonLinear # anything else is non-linear
 function lineartype(A::Union{Sum,Composition})
     @inbounds for i in 1:length(A)
         if lineartype(A.ops[i]) != Linear
-            return Nonlinear
+            return NonLinear
         end
     end
     return Linear
 end
 
-is_linear(x) = (lineartype(x) == Linear)
-is_nonlinear(x) = ! is_linear(x)
+"""
+```julia
+selfadjointtype(A)
+```
 
-is_endomorphism(x) = false
-is_endomorphism(::Union{Endomorphism,LinearEndomorphism}) = true
+yields the *self-adjoint* type of mapping `A`, that is one of `SelfAdjoint` for
+self-adjoint linear maps or `NonSelfAdjoint` for other mappings.
+
+See also: [`Trait`](@ref).
+
+"""
+selfadjointtype(::Mapping) = NonSelfAdjoint
+selfadjointtype(A::Union{Scaled,Inverse}) = selfadjointtype(contents(A))
+function selfadjointtype(A::Union{Sum,Composition})
+    @inbounds for i in 1:length(A)
+        if selfadjointtype(A.ops[i]) != SelfAdjoint
+            return NonSelfAdjoint
+        end
+    end
+    return SelfAdjoint
+end
+
+"""
+```julia
+morphismtype(A)
+```
+
+yields the *morphism* type of mapping `A`, that is one of `Endomorphism` for
+mappings whose input and output spaces are the same or `Morphism` for other
+mappings.
+
+See also: [`Trait`](@ref).
+
+"""
+morphismtype(::Mapping) = Morphism
+morphismtype(A::Union{Scaled,Inverse}) = morphismtype(contents(A))
+function morphismtype(A::Union{Sum,Composition})
+    @inbounds for i in 1:length(A)
+        if morphismtype(A.ops[i]) != Endomorphism
+            return Morphism
+        end
+    end
+    return Endomorphism
+end
+
+"""
+```julia
+diagonaltype(A)
+```
+
+yields the *diagonal* type of mapping `A`, that is one of `Diagonal` for
+diagonal linear maps or `NonDiagonal` for other mappings.
+
+See also: [`Trait`](@ref).
+
+"""
+diagonaltype(::Mapping) = NonDiagonal
+diagonaltype(A::Union{Scaled,Inverse}) = diagonaltype(contents(A))
+function diagonaltype(A::Union{Sum,Composition})
+    @inbounds for i in 1:length(A)
+        if diagonaltype(A.ops[i]) != Diagonal
+            return NonDiagonal
+        end
+    end
+    return Diagonal
+end
+
+"""
+```julia
+inplacetype([P=Direct,] A)
+```
+
+yields whether the mapping `A` is applicable in-place for operation `P`.  The
+retuned value is one of `InPlace` or `OutOfPlace`.
+
+See also: [`Trait`](@ref).
+
+"""
+inplacetype(::Mapping) = OutOfPlace
+inplacetype(A::Union{Scaled,Inverse}) = inplacetype(contents(A))
+function inplacetype(A::Union{Sum,Composition})
+    @inbounds for i in 1:length(A)
+        if inplacetype(A.ops[i]) != InPlace
+            return OutOfPlace
+        end
+    end
+    return InPlace
+end
+
+is_linear(A::Mapping) = (lineartype(A) == Linear)
+is_selfadjoint(A::Mapping) = (selfadjointtype(A) == SelfAdjoint)
+is_endomorphism(A::Mapping) = (morphismtype(A) == Endomorphism)
+is_diagonal(A::Mapping) = (diagonaltype(A) == Diagonal)
+is_applicable_in_place(A::Mapping) = is_applicable_in_place(Direct, A)
+is_applicable_in_place(::Type{P}, A::Mapping) where {P<:Operations} =
+    (inplacetype(P, A) == InPlace)
 
 # Unary minus and unary plus.
 -(A::Mapping) = -1*A
@@ -89,10 +181,8 @@ is_endomorphism(::Union{Endomorphism,LinearEndomorphism}) = true
 \(A::Mapping, B::Mapping) = inv(A)*B
 /(A::Mapping, B::Mapping) = A*inv(B)
 
-ctranspose(A::Mapping) = Adjoint(A)
-ctranspose(A::SelfAdjointOperator) = A
+ctranspose(A::Mapping) = _adjoint(selfadjointtype(A), A)
 ctranspose(A::Adjoint) = A.op
-ctranspose(A::Inverse) = InverseAdjoint(A.op)
 ctranspose(A::InverseAdjoint) = inv(A.op)
 ctranspose(A::Scaled) = conj(A.sc)*ctranspose(A.op)
 ctranspose(A::Sum) = Sum(ntuple(i -> ctranspose(A.ops[i]), length(A)))
@@ -100,6 +190,10 @@ function ctranspose(A::Composition)
     n = length(A)
     Composition(ntuple(i -> ctranpose(A.ops[n + 1 - i]), n))
 end
+_adjoint(::Type{SelfAdjoint}, A::Mapping) = A
+_adjoint(::Type{NonSelfAdjoint}, A::Mapping) = Adjoint(A)
+_adjoint(::Type{SelfAdjoint}, A::Inverse) = A
+_adjoint(::Type{NonSelfAdjoint}, A::Inverse) = InverseAdjoint(A)
 
 inv(A::Mapping) = Inverse(A)
 inv(A::Adjoint) = InverseAdjoint(A.op)
@@ -212,6 +306,7 @@ apply!(α::Real, ::Type{P}, A::Mapping, x, β::Real, y) where {P<:Operations} =
     apply!(convert(Scalar, α), P, A, x, convert(Scalar, β), y)
 
 # This one is needed to avoid infinite loop.
+# FIXME: may be due to bad argument types, better call _apply!
 function apply!(::Scalar, ::Type{P}, ::Type{T}, x,
                 ::Scalar, y) where {P<:Operations, T<:Mapping}
     unimplemented(P, T)
@@ -274,24 +369,6 @@ for (T1, T2, T3) in ((:Direct,         :Adjoint,        :Adjoint),
 
         is_applicable_in_place(::Type{$T1}, A::$T2, x) =
             is_applicable_in_place($T3, A.op, x)
-    end
-end
-
-# Specialize methods for self-adjoint mappings so that only `Direct` and
-# `Inverse` operations have to be implemented.
-for (T1, T2) in ((:Adjoint, :Direct),
-                 (:InverseAdjoint, :Inverse))
-    @eval begin
-
-        apply!(α::Scalar, ::Type{$T1}, A::SelfAdjointOperator, x, β::Scalar, y) =
-            apply!(α, $T2, A, x, β, y)
-
-        vcreate(::Type{$T1}, A::SelfAdjointOperator, x) =
-            vcreate($T2, A, x)
-
-        is_applicable_in_place(::Type{$T1}, A::SelfAdjointOperator, x) =
-            is_applicable_in_place($T2, A, x)
-
     end
 end
 
@@ -382,5 +459,3 @@ See also: [`Mapping`](@ref), [`apply`](@ref).
 
 """
 vcreate(A::Mapping, x) = vcreate(Direct, A, x)
-vcreate(::Type{<:Operations}, A::Union{Endomorphism,LinearEndomorphism}, x) =
-    vcreate(A, x)
