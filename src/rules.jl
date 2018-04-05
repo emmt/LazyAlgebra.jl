@@ -260,10 +260,10 @@ The result `y` may have been allocated by:
 y = vcreate([Op,] A, x)
 ```
 
-Mapping subtypes only need to implement `apply!` with the specific signature:
+Mapping sub-types only need to implement `apply!` with the specific signature:
 
 ```julia
-apply!(α::Scalar, ::Type{P}, A::M, x, β::Scalar, y) -> y
+apply!(α::Real, ::Type{P}, A::M, x, β::Real, y) -> y
 ```
 
 for any supported operation `P` and where `M` is the type of the mapping.  Of
@@ -271,47 +271,28 @@ course, the types of arguments `x` and `y` may be specified as well.
 
 See also: [`Mapping`](@ref), [`apply`](@ref), [`vcreate`](@ref).
 
-"""
-function apply! end
+""" apply!
 
-# `Direct` is the default operation.
-apply!(A::Mapping, x, y) =
-    apply!(one(Scalar), Direct, A, x, zero(Scalar), y)
-apply!(α::Real, A::Mapping, x, y) =
-    apply!(convert(Scalar, α), Direct, A, x, zero(Scalar), y)
-apply!(A::Mapping, x, β::Real, y) =
-    apply!(one(Scalar), Direct, A, x, convert(Scalar, β), y)
-apply!(α::Real, A::Mapping, x, β::Real, y) =
-    apply!(convert(Scalar, α), Direct, A, x, convert(Scalar, β), y)
-
-# Extend `A_mul_B!` so that are no needs to extend `Ac_mul_B` `Ac_mul_Bc`,
-# etc. to have `A'*x`, `A*B*C*x`, etc. yield the expected result.
-A_mul_B!(y::Ty, A::Mapping, x::Tx) where {Tx,Ty} =
-    apply!(one(Scalar), Direct, A, x, zero(Scalar), y)
-
-# Only the method with signature:
+# Provide fallbacks so that `Direct` is the default operation and only the
+# method with signature:
 #
-#     apply!(α::Scalar, ::Type{P}, A::MappingType, x,
-#            β::Scalar, y) where {P<:Operations}
+#     apply!(α::Real, ::Type{P}, A::MappingType, x,
+#            β::Real, y) where {P<:Operations}
 #
 # has to be implemented by mapping subtypes so we provide the necessary
 # mechanism to dispatch derived methods.
+apply!(A::Mapping, x, y) =
+    apply!(one(Scalar), Direct, A, x, zero(Scalar), y)
+apply!(α::Real, A::Mapping, x, y) =
+    apply!(α, Direct, A, x, zero(Scalar), y)
+apply!(A::Mapping, x, β::Real, y) =
+    apply!(one(Scalar), Direct, A, x, β, y)
 apply!(::Type{P}, A::Mapping, x, y) where {P<:Operations} =
     apply!(one(Scalar), P, A, x, zero(Scalar), y)
 apply!(α::Real, ::Type{P}, A::Mapping, x, y) where {P<:Operations} =
-    apply!(convert(Scalar, α), P, A, x, zero(Scalar), y)
+    apply!(α, P, A, x, zero(Scalar), y)
 apply!(::Type{P}, A::Mapping, x, β::Real, y) where {P<:Operations} =
-    apply!(one(Scalar), P, A, x, convert(Scalar, β), y)
-apply!(α::Real, ::Type{P}, A::Mapping, x, β::Real, y) where {P<:Operations} =
-    apply!(convert(Scalar, α), P, A, x, convert(Scalar, β), y)
-
-# This one is needed to avoid infinite loop.
-# FIXME: may be due to bad argument types, better call _apply!
-function apply!(::Scalar, ::Type{P}, ::Type{T}, x,
-                ::Scalar, y) where {P<:Operations, T<:Mapping}
-    unimplemented(P, T)
-end
-
+    apply!(one(Scalar), P, A, x, β, y)
 
 # Change order of arguments.
 apply!(y, A::Mapping, x) = apply!(A, x, y)
@@ -327,6 +308,11 @@ apply!(β::Real, y, α::Real, A::Mapping, x) = apply!(α, A, x, β, y)
 apply!(β::Real, y, α::Real, ::Type{P}, A::Mapping, x) where {P<:Operations} =
     apply!(α, P, A, x, β, y)
 
+# Extend `A_mul_B!` so that are no needs to extend `Ac_mul_B` `Ac_mul_Bc`,
+# etc. to have `A'*x`, `A*B*C*x`, etc. yield the expected result.
+A_mul_B!(y::Ty, A::Mapping, x::Tx) where {Tx,Ty} =
+    apply!(one(Scalar), Direct, A, x, zero(Scalar), y)
+
 # Implemention of the `apply!(α,P,A,x,β,y)` and `vcreate(P,A,x)` methods for a
 # scaled mapping.
 for (P, expr) in ((:Direct, :(α*A.sc)),
@@ -338,7 +324,7 @@ for (P, expr) in ((:Direct, :(α*A.sc)),
         vcreate(::Type{$P}, A::Scaled, x) =
             vcreate($P, A.op, x)
 
-        apply!(α::Scalar, ::Type{$P}, A::Scaled, x, β::Scalar, y) =
+        apply!(α::Real, ::Type{$P}, A::Scaled, x, β::Real, y) =
             apply!($expr, $P, A.op, x, β, y)
 
     end
@@ -361,14 +347,12 @@ for (T1, T2, T3) in ((:Direct,         :Adjoint,        :Adjoint),
                      (:InverseAdjoint, :InverseAdjoint, :Direct))
     @eval begin
 
-        apply!(α::Scalar, ::Type{$T1}, A::$T2, x, β::Scalar, y) =
+        apply!(α::Real, ::Type{$T1}, A::$T2, x, β::Real, y) =
             apply!(α, $T3, A.op, x, β, y)
 
         vcreate(::Type{$T1}, A::$T2, x) =
             vcreate($T3, A.op, x)
 
-        is_applicable_in_place(::Type{$T1}, A::$T2, x) =
-            is_applicable_in_place($T3, A.op, x)
     end
 end
 
@@ -379,11 +363,12 @@ end
 vcreate(::Type{P}, A::Sum, x) where {P<:Union{Direct,Adjoint}} =
     vcreate(P, A.ops[1], x)
 
-function apply!(α::Scalar, ::Type{P}, A::Sum, x,
-                β::Scalar, y) where {P<:Union{Direct,Adjoint}}
+function apply!(α::Real, ::Type{P}, A::Sum, x,
+                β::Real, y) where {P<:Union{Direct,Adjoint}}
+    b = convert(Scalar, β)
     for i in 1:length(A)
-        apply!(α, P, A.ops[i], x, β, y)
-        β = one(Scalar)
+        apply!(α, P, A.ops[i], x, b, y)
+        b = one(Scalar)
     end
     return y
 end
@@ -394,8 +379,8 @@ vcreate(::Type{P}, A::Sum, x) where {P<:Union{Inverse,InverseAdjoint}} =
 apply(::Type{P}, A::Sum, x) where {P<:Union{Inverse,InverseAdjoint}} =
     error(UnsupportedInverseOfSumOfMappings)
 
-function apply!(α::Scalar, ::Type{P}, A::Sum, x,
-                β::Scalar, y) where {P<:Union{Inverse,InverseAdjoint}}
+function apply!(α::Real, ::Type{P}, A::Sum, x,
+                β::Real, y) where {P<:Union{Inverse,InverseAdjoint}}
     error(UnsupportedInverseOfSumOfMappings)
 end
 
@@ -407,8 +392,8 @@ end
 apply(::Type{P}, A::Composition, x) where {P<:Union{Direct,InverseAdjoint}} =
     _apply(P, A, x, 1, length(A))
 
-function apply!(α::Scalar, ::Type{P}, A::Composition, x,
-                β::Scalar, y) where {P<:Union{Direct,InverseAdjoint}}
+function apply!(α::Real, ::Type{P}, A::Composition, x,
+                β::Real, y) where {P<:Union{Direct,InverseAdjoint}}
     # Apply mappings in order.
     return apply!(α, P, A.ops[1], _apply(P, A, x, 2, length(A)), β, y)
 end
@@ -416,8 +401,8 @@ end
 apply(::Type{P}, A::Composition, x) where {P<:Union{Adjoint,Inverse}} =
     (n = length(A); _apply(P, A, x, n, n))
 
-function apply!(α::Scalar, ::Type{P}, A::Composition, x,
-                β::Scalar, y) where {P<:Union{Adjoint,Inverse}}
+function apply!(α::Real, ::Type{P}, A::Composition, x,
+                β::Real, y) where {P<:Union{Adjoint,Inverse}}
     # Apply mappings in reverse order.
     n = length(A)
     return apply!(α, P, A.ops[n], _apply(P, A, x, n - 1, n), β, y)
