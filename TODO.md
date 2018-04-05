@@ -2,6 +2,18 @@
 
 * Add tests for rules.
 
+* Use traits to replace abstract types such as `Endomorphism`,
+  `SelfAdjointOperator`, etc.  Some operator may be endomorphisms or not.  For
+  instance the complex-to-complex `FFTOperator` is an endomorphism while the
+  real-to-complex FFT is not.  Another example: `NonuniformScalingOperator` is
+  self-adjoint if its coefficients are reals, not if they are complexes. This
+  also overcomes the fact that multiple heritage is not possible in Julia.
+
+* Replace `UniformScaling` by a `Scaled` version of the identity.
+
+* Provide simplification rules for sums of diagonal operators (which are also
+  easy to invert).
+
 * Extend basic methods for `Base.LinAlg.UniformScaling` and rename
   `UniformScalingOperator` and `NonuniformScalingOperator` as `UniformScaling`
   and `NonuniformScaling`?
