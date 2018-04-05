@@ -24,12 +24,16 @@ is to be as efficient as possible, hence the result of applying this mapping
 may be the same as the input argument.
 
 """
-struct Identity <: SelfAdjointOperator; end
+struct Identity <: LinearMapping; end
 const I = Identity()
 const Identities = Union{Identity,Adjoint{Identity},Inverse{Identity},
                          InverseAdjoint{Identity}}
 
-is_applicable_in_place(::Type{<:Operations}, ::Identity, x) = true
+# Traits:
+selfadjointtype(::Identities) = SelfAdjoint
+morphismtype(::Identities) = Endomorphism
+diagonaltype(::Identities) = Diagonal
+inplacetype(::Type{<:Operations}, ::Identities) = InPlace
 
 Base.inv(::Identities) = I
 Base.ctranspose(::Identities) = I
@@ -39,7 +43,7 @@ Base.ctranspose(::Identities) = I
 
 apply(::Type{<:Operations}, ::Identity, x) = x
 
-apply!(α::Scalar, ::Type{<:Operations}, ::Identity, x, β::Scalar, y) =
+apply!(α::Real, ::Type{<:Operations}, ::Identity, x, β::Real, y) =
     vcombine!(y, α, x, β, y)
 
 vcreate(::Type{<:Operations}, ::Identity, x) = vcreate(x)
@@ -58,11 +62,15 @@ argument by the scalar `α`.
 See also: [`NonuniformScalingOperator`](@ref).
 
 """
-struct UniformScalingOperator <: SelfAdjointOperator
+struct UniformScalingOperator <: LinearMapping
     α::Scalar
 end
 
-is_applicable_in_place(::Type{<:Operations}, ::UniformScalingOperator, x) = true
+# Traits:
+selfadjointtype(::UniformScalingOperator) = SelfAdjoint
+morphismtype(::UniformScalingOperator) = Endomorphism
+diagonaltype(::UniformScalingOperator) = Diagonal
+inplacetype(::Type{<:Operations}, ::UniformScalingOperator) = InPlace
 
 isinvertible(A::UniformScalingOperator) = (isfinite(A.α) && A.α != zero(Scalar))
 
@@ -75,13 +83,13 @@ function Base.inv(A::UniformScalingOperator)
     return UniformScalingOperator(one(Scalar)/A.α)
 end
 
-function apply!(α::Scalar, ::Type{Direct},
-                A::UniformScalingOperator, x, β::Scalar, y)
+function apply!(α::Real, ::Type{<:Union{Direct,Adjoint}},
+                A::UniformScalingOperator, x, β::Real, y)
     return vcombine!(y, α*A.α, x, β, y)
 end
 
-function apply!(α::Scalar, ::Type{Inverse},
-                A::UniformScalingOperator, x, β::Scalar, y)
+function apply!(α::Real, ::Type{<:Union{Inverse,InverseAdjoint}},
+                A::UniformScalingOperator, x, β::Real, y)
     ensureinvertible(A)
     return vcombine!(y, α/A.α, x, β, y)
 end
@@ -110,12 +118,20 @@ This mapping can be thought as a *diagonal* operator.
 See also: [`UniformScalingOperator`](@ref).
 
 """
-struct NonuniformScalingOperator{T} <: SelfAdjointOperator
+struct NonuniformScalingOperator{T} <: LinearMapping
     diag::T
 end
 
-is_applicable_in_place(::Type{<:Operations}, ::NonuniformScalingOperator, x) =
-    true
+# Traits:
+morphismtype(::NonuniformScalingOperator) = Endomorphism
+diagonaltype(::NonuniformScalingOperator) = Diagonal
+inplacetype(::Type{<:Operations}, ::NonuniformScalingOperator) = InPlace
+selfadjointtype(A::NonuniformScalingOperator) =
+    _selfadjointtype(eltype(contents(A)), A)
+_selfadjointtype(::Type{T}, ::NonuniformScalingOperator) where {T<:Real} =
+    SelfAdjoint
+_selfadjointtype(::Type{T}, ::NonuniformScalingOperator) where {T<:Complex} =
+    NonSelfAdjoint
 
 contents(A::NonuniformScalingOperator) = A.diag
 Base.diag(A::NonuniformScalingOperator) = A.diag
@@ -135,13 +151,13 @@ for pfx in (:input, :output)
 
         function $(Symbol(pfx,"_type"))(
             ::NonuniformScalingOperator{<:AbstractArray{T,N}}
-        ) where {T, N}
+        ) where {T,N}
             return Array{T,N}
         end
 
         function $(Symbol(pfx,"_eltype"))(
             ::NonuniformScalingOperator{<:AbstractArray{T,N}}
-        ) where {T<:AbstractFloat, N}
+        ) where {T<:AbstractFloat,N}
             return T
         end
 
@@ -173,152 +189,137 @@ for pfx in (:input, :output)
     end
 end
 
-function apply!(α::Scalar,
-                ::Type{Direct},
+"""
+```julia
+@axpby!(i, I, a, xi, b, yi)
+```
+
+yields the code to perform `y[i] = a*x[i] + b*y[i]` for each index `i ∈ I` with
+`x[i]` and `y[i]` respectively given by expression `xi` and `yi`.  The
+expression is evaluated efficiently considering the particular values of `a`
+and `b`.
+
+***Important*** It is assumed that all indices in `I` are within bounds, that
+`a` is nonzero and that `a` and `b` have correct types.
+
+"""
+macro axpby!(_i, _I, _a, _xi, _b, _yi)
+    i  = esc(_i)
+    I  = esc(_I)
+    a  = esc(_a)
+    xi = esc(_xi)
+    b  = esc(_b)
+    yi = esc(_yi)
+    quote
+        if $a == 1
+            if $b == 0
+                @inbounds @simd for $i in $I
+                    $yi = $xi
+                end
+            elseif $b == 1
+                @inbounds @simd for $i in $I
+                    $yi += $xi
+                end
+            elseif $b == -1
+                @inbounds @simd for $i in $I
+                    $yi = $xi - $yi
+                end
+            else
+                @inbounds @simd for $i in $I
+                    $yi = $xi + $b*$yi
+                end
+            end
+        elseif $a == -1
+            if $b == 0
+                @inbounds @simd for $i in $I
+                    $yi = -$xi
+                end
+            elseif $b == 1
+                @inbounds @simd for $i in $I
+                    $yi -= $xi
+                end
+            elseif $b == -1
+                @inbounds @simd for $i in $I
+                    $yi = -$xi - $yi
+                end
+            else
+                @inbounds @simd for $i in $I
+                    $yi = $b*$yi - $xi
+                end
+            end
+        else
+            if $b == 0
+                @inbounds @simd for $i in $I
+                    $yi = $a*$xi
+                end
+            elseif $b == 1
+                @inbounds @simd for $i in $I
+                    $yi += $a*$xi
+                end
+            elseif $b == -1
+                @inbounds @simd for $i in $I
+                    $yi = $a*$xi - $yi
+                end
+            else
+                @inbounds @simd for $i in $I
+                    $yi = $a*$xi + $b*$yi
+                end
+            end
+        end
+    end
+end
+
+function apply!(α::Real,
+                ::Type{P},
                 W::NonuniformScalingOperator{<:AbstractArray{Tw,N}},
                 x::AbstractArray{Tx,N},
-                β::Scalar,
-                y::AbstractArray{Ty,N}) where {Tw<:AbstractFloat,
+                β::Real,
+                y::AbstractArray{Ty,N}) where {P<:Operations,
+                                               Tw<:AbstractFloat,
                                                Tx<:AbstractFloat,
                                                Ty<:AbstractFloat,N}
-    w = W.diag
+    w = contents(W)
     @assert indices(w) == indices(x) == indices(y)
-    T = promote_type(Tw, Tx, Ty)
-    if α == one(α)
-        if β == zero(β)
-            @inbounds @simd for i in eachindex(w, x, y)
-                y[i] = w[i]*x[i]
-            end
-        elseif β == one(β)
-            @inbounds @simd for i in eachindex(w, x, y)
-                y[i] += w[i]*x[i]
-            end
-        elseif β == -one(β)
-            @inbounds @simd for i in eachindex(w, x, y)
-                y[i] = w[i]*x[i] - y[i]
-            end
-        else
-            const beta = convert(T, β)
-            @inbounds @simd for i in eachindex(w, x, y)
-                y[i] = w[i]*x[i] + beta*y[i]
-            end
-        end
-    elseif α == zero(α)
-        vscale!(y, β)
-    elseif α == -one(α)
-        if β == zero(β)
-            @inbounds @simd for i in eachindex(w, x, y)
-                y[i] = -w[i]*x[i]
-            end
-        elseif β == one(β)
-            @inbounds @simd for i in eachindex(w, x, y)
-                y[i] -= w[i]*x[i]
-            end
-        elseif β == -one(β)
-            @inbounds @simd for i in eachindex(w, x, y)
-                y[i] = -w[i]*x[i] - y[i]
-            end
-        else
-            const beta = convert(T, β)
-            @inbounds @simd for i in eachindex(w, x, y)
-                y[i] = beta*y[i] - w[i]*x[i]
-            end
-        end
+    if α == 0
+        scale!(y, β)
     else
-        const alpha = convert(T, α)
-        if β == zero(β)
-            @inbounds @simd for i in eachindex(w, x, y)
-                y[i] = alpha*w[i]*x[i]
-            end
-        elseif β == one(β)
-            @inbounds @simd for i in eachindex(w, x, y)
-                y[i] += alpha*w[i]*x[i]
-            end
-        elseif β == -one(β)
-            @inbounds @simd for i in eachindex(w, x, y)
-                y[i] = alpha*w[i]*x[i] - y[i]
-            end
-        else
-            const beta = convert(T, β)
-            @inbounds @simd for i in eachindex(w, x, y)
-                y[i] = alpha*w[i]*x[i] + beta*y[i]
-            end
+        T = promote_type(Tw, Tx, Ty)
+        a, b = convert(T, α), convert(T, β)
+        I = eachindex(w, x, y)
+        if P :: Direct || P :: Adjoint
+            @axpby!(i, I, a, w[i]*x[i], b, y[i])
+        elseif P :: Inverse || P :: InverseAdjoint
+            @axpby!(i, I, a, x[i]/w[i], b, y[i])
         end
     end
     return y
 end
 
-function apply!(α::Scalar,
-                #::Type{<:Union{Inverse,InverseAdjoint}},
-                ::Type{Inverse},
-                W::NonuniformScalingOperator{<:AbstractArray{Tw,N}},
-                x::AbstractArray{Tx,N},
-                β::Scalar,
-                y::AbstractArray{Ty,N}) where {Tw<:AbstractFloat,
-                                               Tx<:AbstractFloat,
-                                               Ty<:AbstractFloat,N}
-    w = W.diag
+function apply!(α::Real,
+                ::Type{P},
+                W::NonuniformScalingOperator{<:AbstractArray{Complex{Tw},N}},
+                x::AbstractArray{Complex{Tx},N},
+                β::Real,
+                y::AbstractArray{Complex{Ty},N}) where {P<:Operations,
+                                                        Tw<:AbstractFloat,
+                                                        Tx<:AbstractFloat,
+                                                        Ty<:AbstractFloat,N}
+    w = contents(W)
     @assert indices(w) == indices(x) == indices(y)
-    T = promote_type(Tw, Tx, Ty)
-    if α == one(α)
-        if β == zero(β)
-            @inbounds @simd for i in eachindex(w, x, y)
-                y[i] = x[i]/w[i]
-            end
-        elseif β == one(β)
-            @inbounds @simd for i in eachindex(w, x, y)
-                y[i] += x[i]/w[i]
-            end
-        elseif β == -one(β)
-            @inbounds @simd for i in eachindex(w, x, y)
-                y[i] = x[i]/w[i] - y[i]
-            end
-        else
-            const beta = convert(T, β)
-            @inbounds @simd for i in eachindex(w, x, y)
-                y[i] = x[i]/w[i] + beta*y[i]
-            end
-        end
-    elseif α == zero(α)
-        vscale!(y, β)
-    elseif α == -one(α)
-        if β == zero(β)
-            @inbounds @simd for i in eachindex(w, x, y)
-                y[i] = -x[i]/w[i]
-            end
-        elseif β == one(β)
-            @inbounds @simd for i in eachindex(w, x, y)
-                y[i] -= x[i]/w[i]
-            end
-        elseif β == -one(β)
-            @inbounds @simd for i in eachindex(w, x, y)
-                y[i] = -x[i]/w[i] - y[i]
-            end
-        else
-            const beta = convert(T, β)
-            @inbounds @simd for i in eachindex(w, x, y)
-                y[i] = beta*y[i] - x[i]/w[i]
-            end
-        end
+    if α == 0
+        scale!(y, β)
     else
-        const alpha = convert(T, α)
-        if β == zero(β)
-            @inbounds @simd for i in eachindex(w, x, y)
-                y[i] = alpha*x[i]/w[i]
-            end
-        elseif β == one(β)
-            @inbounds @simd for i in eachindex(w, x, y)
-                y[i] += alpha*x[i]/w[i]
-            end
-        elseif β == -one(β)
-            @inbounds @simd for i in eachindex(w, x, y)
-                y[i] = alpha*x[i]/w[i] - y[i]
-            end
-        else
-            const beta = convert(T, β)
-            @inbounds @simd for i in eachindex(w, x, y)
-                y[i] = alpha*x[i]/w[i] + beta*y[i]
-            end
+        T = promote_type(Tw, Tx, Ty)
+        a, b = convert(T, α), convert(T, β)
+        I = eachindex(w, x, y)
+        if P :: Direct
+            @axpby!(i, I, a, w[i]*x[i], b, y[i])
+        elseif P :: Adjoint
+            @axpby!(i, I, a, conj(w[i])*x[i], b, y[i])
+        elseif P :: Inverse
+            @axpby!(i, I, a, x[i]/w[i], b, y[i])
+        elseif P :: InverseAdjoint
+            @axpby!(i, I, a, x[i]/conj(w[i]), b, y[i])
         end
     end
     return y
@@ -361,9 +362,8 @@ struct RankOneOperator{U,V} <: LinearMapping
     v::V
 end
 
-function apply!(α::Scalar, ::Type{Direct}, A::RankOneOperator, x,
-                β::Scalar, y)
-    if α == zero(α)
+function apply!(α::Real, ::Type{Direct}, A::RankOneOperator, x, β::Real, y)
+    if α == 0
         # Lazily assume that y has correct type, dimensions, etc.
         vscale!(y, β)
     else
@@ -372,9 +372,8 @@ function apply!(α::Scalar, ::Type{Direct}, A::RankOneOperator, x,
     return y
 end
 
-function apply!(α::Scalar, ::Type{Adjoint}, A::RankOneOperator, x,
-                β::Scalar, y)
-    if α == zero(α)
+function apply!(α::Real, ::Type{Adjoint}, A::RankOneOperator, x, β::Real, y)
+    if α == 0
         # Lazily assume that y has correct type, dimensions, etc.
         vscale!(y, β)
     else
@@ -414,18 +413,21 @@ A*x = A'*x = vscale(vdot(u, x)), u)
 ```
 
 See also: [`RankOneOperator`](@ref), [`LinearMapping`](@ref),
-          [`SelfAdjointOperator`](@ref) [`apply!`](@ref), [`vcreate`](@ref).
+          [`Trait`](@ref) [`apply!`](@ref), [`vcreate`](@ref).
 
 """
-struct SymmetricRankOneOperator{U} <: SelfAdjointOperator
+struct SymmetricRankOneOperator{U} <: LinearMapping
     u::U
 end
 
-is_applicable_in_place(::Type{<:Operations}, ::SymmetricRankOneOperator) = true
+# Traits:
+morphismtype(::SymmetricRankOneOperator) = Endomorphism
+inplacetype(::Type{<:Operations}, ::SymmetricRankOneOperator) = InPlace
+selfadjointtype(A::SymmetricRankOneOperator) = SelfAdjoint
 
-function apply!(α::Scalar, ::Type{Direct}, A::SymmetricRankOneOperator, x,
-                β::Scalar, y)
-    if α == zero(α)
+function apply!(α::Real, ::Type{<:Union{Direct,Adjoint}},
+                A::SymmetricRankOneOperator, x, β::Real, y)
+    if α == 0
         # Lazily assume that y has correct type, dimensions, etc.
         vscale!(y, β)
     else
@@ -434,7 +436,8 @@ function apply!(α::Scalar, ::Type{Direct}, A::SymmetricRankOneOperator, x,
     return y
 end
 
-function vcreate(::Type{Direct}, A::SymmetricRankOneOperator, x)
+function vcreate(::Type{<:Union{Direct,Adjoint}},
+                 A::SymmetricRankOneOperator, x)
     # Lazily assume that x has correct type, dimensions, etc.
     vcreate(A.u)
 end
@@ -445,7 +448,6 @@ input_size(A::SymmetricRankOneOperator) = size(A.u)
 input_size(A::SymmetricRankOneOperator, d...) = size(A.u, d...)
 input_eltype(A::SymmetricRankOneOperator) = eltype(A.u)
 
-# FIXME: this should be automatically done for SelfAdjointOperators?
 output_type(A::SymmetricRankOneOperator{U}) where {U} = U
 output_ndims(A::SymmetricRankOneOperator) = ndims(A.u)
 output_size(A::SymmetricRankOneOperator) = size(A.u)
@@ -480,6 +482,8 @@ struct GeneralMatrix{T<:AbstractArray} <: LinearMapping
     arr::T
 end
 
+contents(A) = A.arr
+
 # Make a GeneralMatrix behaves like an ordinary array.
 Base.eltype(A::GeneralMatrix) = eltype(A.arr)
 Base.length(A::GeneralMatrix) = length(A.arr)
@@ -493,11 +497,11 @@ Base.stride(A::GeneralMatrix, k) = stride(A.arr, k)
 Base.strides(A::GeneralMatrix) = strides(A.arr)
 Base.eachindex(A::GeneralMatrix) = eachindex(A.arr)
 
-function apply!(α::Scalar,
+function apply!(α::Real,
                 ::Type{P},
                 A::GeneralMatrix{<:AbstractArray{<:AbstractFloat}},
                 x::AbstractArray{<:AbstractFloat},
-                β::Scalar,
+                β::Real,
                 y::AbstractArray{<:AbstractFloat}) where {P<:Operations}
     return apply!(α, P, A.arr, x, β, y)
 end
@@ -520,11 +524,11 @@ function apply(::Type{P},
 end
 
 # By default, use pure Julia code for the generalized matrix-vector product.
-function apply!(α::Scalar,
+function apply!(α::Real,
                 ::Type{P},
                 A::AbstractArray{<:Real},
                 x::AbstractArray{<:Real},
-                β::Scalar,
+                β::Real,
                 y::AbstractArray{<:Real}) where {P<:Union{Direct,
                                                           InverseAdjoint}}
     if indices(A) != (indices(y)..., indices(x)...)
@@ -533,11 +537,11 @@ function apply!(α::Scalar,
     return _apply!(α, P, A, x, β, y)
 end
 
-function apply!(α::Scalar,
+function apply!(α::Real,
                 ::Type{P},
                 A::AbstractArray{<:Real},
                 x::AbstractArray{<:Real},
-                β::Scalar,
+                β::Real,
                 y::AbstractArray{<:Real}) where {P<:Union{Adjoint,Inverse}}
     if indices(A) != (indices(x)..., indices(y)...)
         throw(DimensionMismatch("`x` and/or `y` have indices incompatible with `A`"))
@@ -577,16 +581,16 @@ end
 
 # Pure Julia code implementations.
 
-function _apply!(α::Scalar,
+function _apply!(α::Real,
                  ::Type{Direct},
                  A::AbstractArray{Ta},
                  x::AbstractArray{Tx},
-                 β::Scalar,
+                 β::Real,
                  y::AbstractArray{Ty}) where {Ta<:Real, Tx<:Real, Ty<:Real}
-    if β != one(β)
+    if β != 1
         vscale!(y, β)
     end
-    if α != zero(α)
+    if α != 0
         # Loop through the coefficients of A assuming column-major storage
         # order.
         T = promote_type(Ta, Tx, Ty)
@@ -611,13 +615,13 @@ function _apply!(y::AbstractArray{Ty},
     return _apply!(promote_type(Ty, Ta, Tx), y, Adjoint, A, x)
 end
 
-function _apply!(α::Scalar,
+function _apply!(α::Real,
                  ::Type{Adjoint},
                  A::AbstractArray{Ta},
                  x::AbstractArray{Tx},
-                 β::Scalar,
+                 β::Real,
                  y::AbstractArray{Ty}) where {Ta<:Real, Tx<:Real, Ty<:Real}
-    if α == zero(α)
+    if α == 0
         vscale!(y, β)
     else
         # Loop through the coefficients of A assuming column-major storage
@@ -625,7 +629,7 @@ function _apply!(α::Scalar,
         T = promote_type(Ta, Tx, Ty)
         alpha = convert(T, α)
         I, J = CartesianRange(indices(x)), CartesianRange(indices(y))
-        if β == zero(β)
+        if β == 0
             @inbounds for j in J
                 local s::T = zero(T)
                 @simd for i in I
