@@ -86,14 +86,12 @@ function apply!(alpha::Real,
                 y::DenseArray{Ty,M}) where {Ts<:Real,Tx<:Real,Ty<:Real,M,N}
     @assert size(x) == input_size(S)
     @assert size(y) == output_size(S)
-    if alpha == 0
-        vscale!(y, beta)
-    else
-        A, I, J = S.A, S.I, S.J
-        @assert length(I) == length(J) == length(A)
-        if beta != 1
-            vscale!(beta, y)
-        end
+    A, I, J = S.A, S.I, S.J
+    @assert length(I) == length(J) == length(A)
+    if beta != 1
+        vscale!(beta, y)
+    end
+    if alpha != 0
         for k in 1:length(A)
             i, j = I[k], J[k]
             y[i] += alpha*A[k]*x[j]
