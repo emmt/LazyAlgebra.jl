@@ -13,21 +13,52 @@
 
 """
 ```julia
-conjgrad!(x, A, b, x0 [, p, q, r]) -> x
+conjgrad(A, b, x0=vzeros(b)) -> x
 ```
 
 solves the linear system `A⋅x = b` starting at `x0` by means of the iterative
-conjugate gradient method.  The result is stored in `x` which is returned.
-Note that `b` and `x` and `x0` can be the same (*e.g.*, to save memory).
-Argument `A` implements a symmetric positive definite linear operator and is
-used as:
+conjugate gradient method.  Argument `A` implements a symmetric positive
+definite linear operator and is used as:
 
 ```julia
 apply!(q, A, p)
 ```
 
 to overwrite `q` with `q = A⋅p`.  This method can be extended to be specialized
-for the specific type of the linear operator `A`.
+for the specific type of `A`.
+
+See [`conjgrad!`][@ref) for accepted keywords and more details.
+
+"""
+conjgrad(A, b, x0; kwds...) =
+    conjgrad!(vcreate(b), A, b, x0; kwds...)
+
+function conjgrad(A, b; kwds...)
+    x = vzeros(b)
+    return conjgrad!(x, A, b, x; kwds...)
+end
+
+"""
+# Linear conjugate gradient
+
+```julia
+conjgrad!(x, A, b, [x0=vzeros(b), p, q, r]) -> x
+```
+
+solves the linear system `A⋅x = b` starting at `x0` by means of the iterative
+conjugate gradient method.  The result is stored in `x` which is returned.
+Argument `A` implements a symmetric positive definite linear operator.  It can
+be an instance of `LinearMapping` or a callable object which is used as:
+
+```julia
+A(q, p)
+```
+
+to overwrite `q` with `q = A⋅p`.  This method can be extended to be specialized
+for the specific type of `A`.
+
+If no initial variables are specified, the default is to start with all
+variables set to zero.
 
 Optional arguments `p`, `q` and `r` are writable workspace *vectors*.  On
 return, `p` is the last search direction, `q = A⋅p` and `r = b - A.xp` with
@@ -35,67 +66,175 @@ return, `p` is the last search direction, `q = A⋅p` and `r = b - A.xp` with
 distinct.  All *vectors* must have the same sizes.  If all workspace vectors
 are provided, no other memory allocation is necessary.
 
-Keyword `maxiter` can be set with the maximum number of iterations to perform.
+Providing `A` is positive definite, the solution `x` of the equations
+`A⋅x = b` is also the minimum of the quadratic function:
 
-Keyword `strict` can be set to a boolean value (default is `true`) to specify
-whether non-positive definite operator `A` throws a `NonPositiveDefinite`
-exception or just returns the best solution found so far (with a warning if
-`quiet` is false).
+    f(x) = (1/2) x'⋅A⋅x - b'⋅x + ϵ
 
-Keyword `quiet` can be set to a boolean value (default is `false`) to specify
-whether or not to print warning messages.
+where `ϵ` is an arbitrary constant.  The variations of `f(x)` between
+successive iterations or the norm of the gradient `f(x)` of may be used to
+decide the convergence of the algorithm (see keywords `ftol` and `gtol` below).
+
+
+## Saving memory
+
+To save memory, `x` and `x0` can be the same object.  Otherwise, if no
+restarting occurs (see keyword `restart` below), `b` can also be the same as
+`x`.
+
+
+## Keywords
+
+There are several keywords to control the algorithm:
+
+* Keyword `ftol` specifies the function tolerance for convergence.  The
+  convergence is assumed as soon as the variation of the objective function
+  `f(x)` between two successive iterations is less or equal `ftol` times the
+  largest variation so far.  By default, `ftol = 1e-7`.
+
+* Keyword `gtol` specifies the gradient tolerances for convergence, it is a
+  tuple of two values `(gatol, grtol)` where `gatol` and `grtol` are the
+  absolute and relative tolerances.  Convergence occurs when the Euclidean norm
+  of the residuals (which is that of the gradient of the associated objective
+  function) is less or equal the largest of `gatol` and `grtol` times the
+  Euclidean norm of the initial residuals.  By default, `gtol = (0.0, 0.0)`.
+
+* Keyword `xtol` specifies the variables tolerance for convergence.  The
+  convergence is assumed as soon as the Euclidean norm of the change of
+  variables is less or equal `xtol` times the Euclidean norm of the variables
+  `x`.  By default, `xtol = 0`.
+
+* Keyword `maxiter` specifies the maximum number of iterations which is
+  practically unlimited by default.
+
+* Keyword `restart` may be set with the mwimum number of iterations before
+  restarting the algorithm.  By default, `restart` is set with the smallest of
+  `50` and the number of variables.  Set `restart` to at least `maxiter` if you
+  do not want that any restarts ever occur.
+
+* Keyword `strict` can be set to a boolean value (default is `true`) to specify
+  whether non-positive definite operator `A` throws a `NonPositiveDefinite`
+  exception or just returns the best solution found so far (with a warning if
+  `quiet` is false).
+
+* Keyword `quiet` can be set to a boolean value (default is `false`) to specify
+  whether or not to print warning messages.
+
+See also: [`conjgrad`][@ref).
 
 """
-function conjgrad!(x, A, b, x0,
+conjgrad!(x, A::LinearMapping, b, args...; kwds...) =
+    conjgrad!(x, (p, q) -> apply!(q, A, p), b, args...; kwds...)
+
+function conjgrad!(x, A, b, x0 = vzeros(b),
                    p = vcreate(x), q = vcreate(x), r = vcreate(x);
-                   maxiter::Integer = min(50, length(b)),
+                   ftol::Real = 1e-7,
+                   gtol::NTuple{2,Real} = (0.0,0.0),
+                   xtol::Real = 0.0,
+                   maxiter::Integer = typemax(Int),
+                   restart::Integer = min(50, length(b)),
+                   verb::Bool = false,
+                   io::IO = STDOUT,
                    quiet::Bool = false,
                    strict::Bool = true)
-    # Declare typed local scalars to make sure their type is stable.
-    local alpha::Float64, beta::Float64, gamma::Float64, epsilon::Float64
-    local rho::Float64, rhoprev::Float64
-
     # Initialization.
+    @assert 0 ≤ ftol < 1
+    @assert gtol[1] ≥ 0
+    @assert 0 ≤ gtol[2] < 1
+    @assert 0 ≤ xtol < 1
+    @assert restart ≥ 1
     vcopy!(x, x0)
     if maxiter < 1
         return x
     end
-    if vnorm2(x) > 0
+    if vnorm2(x) > 0 # cheap trick to check whether x is non-zero
         # Compute r = b - A⋅x.
-        vcombine!(r, 1, b, -1, apply!(r, A, x))
+        A(r, x)
+        vcombine!(r, 1, b, -1, r)
     else
         # Save applying A since x = 0.
         vcopy!(r, b)
     end
-    epsilon = 0.0
-    rho = 0.0
-    k = 1
+    rho = Cdouble(vdot(r, r))
+    ftest = Cdouble(ftol)
+    gtest = Cdouble(max(gtol[1], gtol[2]*sqrt(rho)))
+    xtest = Cdouble(xtol)
+    psimax = Cdouble(0)
+    oldrho = Cdouble(0)
+
+    # Conjugate gradient iterations.
+    k = 0
     while true
-        rhoprev = rho
-        rho = vdot(r, r)
-        if rho ≤ epsilon
+        if verb
+            if k == 0
+                @printf(io, "# %s\n# %s\n",
+                        "Iter.  Delta f(x)    ||∇f(x)||",
+                        "-------------------------------")
+            end
+            @printf(io, "%6d %12.4e %12.4e\n",
+                    k, Cdouble(psi), Cdouble(sqrt(rho)))
+        end
+        k += 1
+        if sqrt(rho) ≤ gtest
+            # Normal convergence.
+            if verb
+                @printf(io, "# %s\n", "Convergence (gtest statisfied).")
+            end
+            break
+        elseif k > maxiter
+            if verb
+                @printf(io, "# %s\n", "Too many iterations.")
+            end
+            if !quiet
+                warn("too many ($(maxiter)) conjugate gradient iterations")
+            end
             break
         end
-        if k == 1
+        if k == 1 || rem(k, restart) == 0
+            # Restart of first iteration.
+            if k > 1
+                # Restart.
+                A(r, x)
+                vcombine!(r, 1, b, -1, r)
+            end
             vcopy!(p, r)
         else
-            beta = rho/rhoprev
+            beta = rho/oldrho
             vcombine!(p, beta, p, +1, r)
         end
-        apply!(q, A, p)
-        gamma = vdot(p, q)
-        if gamma ≤ 0.0
+        A(q, p)
+        gamma = Cdouble(vdot(p, q))
+        if gamma ≤ 0
+            if verb
+                @printf(io, "# %s\n", "Operator is not positive definite.")
+            end
             strict && throw(NonPositiveDefinite("in conjugate gradient"))
-            quiet || warn("matrix is not positive definite")
+            if !quiet
+                warn("operator is not positive definite")
+            end
             break
         end
         alpha = rho/gamma
-        vupdate!(x,  alpha, p)
-        if k ≥ maxiter
+        vupdate!(x, +alpha, p)
+        vupdate!(r, -alpha, q) # FIXME: spare this update if next tests succeed
+        psi = alpha*rho/2      # psi = f(x_{k}) - f(x_{k+1})
+        psimax = max(psi, psimax)
+        if psi ≤ ftest*psimax
+            # Normal convergence.
+            if verb
+                @printf(io, "# %s\n", "Convergence (ftest statisfied).")
+            end
             break
         end
-        vupdate!(r, -alpha, q)
-        k += 1
+        if xtest > 0 && alpha*vnorm2(p) ≤ xtest*vnorm2(x)
+            # Normal convergence.
+            if verb
+                @printf(io, "# %s\n", "Convergence (xtest statisfied).")
+            end
+            break
+        end
+        oldrho = rho
+        rho = Cdouble(vdot(r, r))
     end
     return x
 end

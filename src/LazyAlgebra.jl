@@ -20,6 +20,8 @@ isdefined(Base, :apply) && import Base: apply
 export
     apply,
     apply!,
+    conjgrad,
+    conjgrad!,
     contents,
     input_type,
     input_eltype,
