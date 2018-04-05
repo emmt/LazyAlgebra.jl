@@ -504,7 +504,7 @@ function _vupdate!(y::DenseArray{Ty,N},
             j = sel[i]
             y[j] -= x[j]
         end
-    elseif alpha != 0
+    elseif α != 0
         @inbounds @simd for i in eachindex(sel)
             j = sel[i]
             y[j] += α*x[j]
