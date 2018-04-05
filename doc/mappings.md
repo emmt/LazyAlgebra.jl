@@ -35,15 +35,14 @@ the result of applying the mapping `A` (or one of its variants as indicated by
 The signature of the `apply!` method is:
 
 ```julia
-apply!(α::Scalar, ::Type{P}, A::Ta, x::tx, β::Scalar, y::Ty) -> y
+apply!(α::Real, ::Type{P}, A::Ta, x::tx, β::Real, y::Ty) -> y
 ```
 
 This method shall overwrites the output variables `y` with the result of
 `α*P(A)⋅x + β*y` where `P` is one of `Direct`, `Adjoint`, `Inverse` and/or
 `InverseAdjoint` (or equivalently `AdjointInverse`).  The convention is that
 the prior contents of `y` is not used at all if `β = 0` so `y` does not need to
-be properly initialized in that case.  The `Scalar` type is an alias for the
-double precision floating-point type (`Float64`).
+be properly initialized in that case.
 
 Not all operations `P` must be implemented, only the supported ones.  For
 iterative resolution of (inverse) problems, it is generally needed to implement
@@ -79,40 +78,48 @@ function vcreate(::Type{Adjoint}, S::SparseOperator{Ts,M,N},
     Ty = promote_type(Ts, Tx)
     return Array{T}(input_size(S))
 end
-function apply!(alpha::Scalar,
+function apply!(alpha::Real,
                 ::Type{Direct},
                 S::SparseOperator{Ts,M,N},
                 x::DenseArray{Tx,N},
-                beta::Scalar,
+                beta::Real,
                 y::DenseArray{Ty,M}) where {Ts<:Real,Tx<:Real,Ty<:Real,M,N}
     @assert size(x) == input_size(S)
     @assert size(y) == output_size(S)
-    A, I, J = S.A, S.I, S.J
-    @assert length(I) == length(J) == length(A)
-    if beta != one(beta)
-        vscale!(beta, y)
-    end
-    for k in 1:length(A)
-        i, j = I[k], J[k]
-        y[i] += alpha*A[k]*x[j]
+    if alpha == 0
+        vscale!(y, beta)
+    else
+        A, I, J = S.A, S.I, S.J
+        @assert length(I) == length(J) == length(A)
+        if beta != 1
+            vscale!(beta, y)
+        end
+        for k in 1:length(A)
+            i, j = I[k], J[k]
+            y[i] += alpha*A[k]*x[j]
+        end
     end
     return y
 end
-function apply!(alpha::Scalar, ::Type{Adjoint},
+function apply!(alpha::Real, ::Type{Adjoint},
                 S::SparseOperator{Ts,M,N},
                 x::DenseArray{Tx,N},
-                beta::Scalar,
+                beta::Real,
                 y::DenseArray{Ty,M}) where {Ts<:Real,Tx<:Real,Ty<:Real,M,N}
     @assert size(x) == output_size(S)
     @assert size(y) == input_size(S)
-    A, I, J = S.A, S.I, S.J
-    @assert length(I) == length(J) == length(A)
-    if beta != one(beta)
-        vscale!(beta, y)
-    end
-    for k in 1:n
-        i, j = I[k], J[k]
-        y[j] += alpha*A[k]*x[i]
+    if alpha == 0
+        vscale!(y, beta)
+    else
+        A, I, J = S.A, S.I, S.J
+        @assert length(I) == length(J) == length(A)
+        if beta != 1
+            vscale!(beta, y)
+        end
+        for k in 1:n
+            i, j = I[k], J[k]
+            y[j] += alpha*A[k]*x[i]
+        end
     end
     return y
 end
