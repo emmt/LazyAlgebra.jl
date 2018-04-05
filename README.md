@@ -7,9 +7,11 @@
 vectors used in [linear algebra](https://en.wikipedia.org/wiki/Linear_algebra).
 
 Many numerical methods (*e.g.* in numerical optimization or digital signal
-processing) involve essentially linear operations on the considered variables.
-`LazyAlgebra` provides a framework to implement these kind of numerical methods
-independently of the specific type of the variables.  This is exploited in
+processing) involve essentially
+[linear operations](https://en.wikipedia.org/wiki/Vector_space) on the
+considered variables.  `LazyAlgebra` provides a framework to implement these
+kind of numerical methods independently of the specific type of the variables.
+This is exploited in
 [OptimPackNextGen](https://github.com/emmt/OptimPackNextGen.jl) package, an
 attempt to provide most optimization algorithms of
 [OptimPack](https://github.com/emmt/OptimPack) in pure Julia.
@@ -22,8 +24,6 @@ A few concepts are central to `LazyAlgebra`:
   few methods are implemented for their specific type;
 * *mappings* are any functions between such vectors;
 * *linear mappings* behave linearly with respect to their arguments.
-
-(https://en.wikipedia.org/wiki/Vector_space)
 
 Similar Julia packages:
 * [LinearMaps](https://github.com/Jutho/LinearMaps.jl)
@@ -164,5 +164,5 @@ and right multiply the result by `C`.
 mapping types (not by combining existing mappings as explained above) which
 benefit from the `LazyAlgebra` framework is as simple as declaring a new
 mapping subtype of `Mapping` (or one of its abstract subtypes) and extending
-two methods `vcreate` and `apply!` specialized for the new mapping type.  More
+two methods `vcreate` and `apply!` specialized for the new mapping type.  For
 mode details, see [here](doc/mappings.md).
