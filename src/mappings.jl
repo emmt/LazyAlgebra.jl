@@ -117,6 +117,7 @@ end
 is_applicable_in_place(::Type{<:Operations}, ::NonuniformScalingOperator, x) =
     true
 
+contents(A::NonuniformScalingOperator) = A.diag
 Base.diag(A::NonuniformScalingOperator) = A.diag
 
 function Base.inv(A::NonuniformScalingOperator{<:AbstractArray{T,N}}
