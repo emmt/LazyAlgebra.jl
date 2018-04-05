@@ -138,6 +138,9 @@ end
 FFTOperator(arr::Array{T,N}; kwds...) where {T<:fftwNumber,N} =
     FFTOperator(eltype(arr), size(arr); kwds...)
 
+# Traits:
+morphismtype(::FFTOperator{<:Complex}) = Endomorphism
+
 input_size(A::FFTOperator) = A.inpdims
 input_size(A::FFTOperator, i::Integer) = A.inpdims[i]
 output_size(A::FFTOperator) = A.outdims
