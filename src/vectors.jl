@@ -214,6 +214,33 @@ Also see [`vfill!`](@ref).
 
 """
 vzero!(A::AbstractArray{T,N}) where {T,N} = fill!(A, zero(T))
+vzero!(x) = fill!(x, 0)
+
+"""
+
+```julia
+vzeros(x)
+```
+
+yields a *vector* like `x` filled with zeros.
+
+Also see [`vones`](@ref), [`vcreate`](@ref), [`vfill!`](@ref).
+
+"""
+vzeros(x) = vzero!(vcreate(x))
+
+"""
+
+```julia
+vones(x)
+```
+
+yields a *vector* like `x` filled with ones.
+
+Also see [`vzeros`](@ref), [`vcreate`](@ref), [`vfill!`](@ref).
+
+"""
+vones(x) = vfill!(vcreate(x), 1)
 
 #------------------------------------------------------------------------------
 
