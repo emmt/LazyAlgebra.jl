@@ -164,40 +164,40 @@ function vcreate(::Type{P},
     return Array{T}(input_size(A))
 end
 
-function apply!(α::Scalar,
+function apply!(α::Real,
                 ::Type{Direct},
                 A::FFTOperator{T,C,N},
                 x::DenseArray{T,N},
-                β::Scalar,
+                β::Real,
                 y::DenseArray{C,N}) where {T,C,N}
     return apply!(α, Forward, A, x, β, y)
 end
 
-function apply!(α::Scalar,
+function apply!(α::Real,
                 ::Type{Adjoint},
                 A::FFTOperator{T,C,N},
                 x::DenseArray{C,N},
-                β::Scalar,
+                β::Real,
                 y::DenseArray{T,N}) where {T,C,N}
     return apply!(α, Backward, A, x, β, y)
 end
 
-function apply!(α::Scalar,
+function apply!(α::Real,
                 ::Type{Inverse},
                 A::FFTOperator{T,C,N},
                 x::DenseArray{C,N},
-                β::Scalar,
+                β::Real,
                 y::DenseArray{T,N}) where {T,C,N}
-    return apply!(Scalar(α/A.ncols), Backward, A, x, β, y)
+    return apply!(α/A.ncols, Backward, A, x, β, y)
 end
 
-function apply!(α::Scalar,
+function apply!(α::Real,
                 ::Type{InverseAdjoint},
                 A::FFTOperator{T,C,N},
                 x::DenseArray{T,N},
-                β::Scalar,
+                β::Real,
                 y::DenseArray{C,N}) where {T,C,N}
-    return apply!(Scalar(α/A.ncols), Forward, A, x, β, y)
+    return apply!(α/A.ncols, Forward, A, x, β, y)
 end
 
 # We want to compute:
@@ -209,11 +209,11 @@ end
 # transform.
 
 # Apply forward transform.
-function apply!(α::Scalar,
+function apply!(α::Real,
                 ::Type{Forward},
                 A::FFTOperator{T,C,N},
                 x::DenseArray{T,N},
-                β::Scalar,
+                β::Real,
                 y::DenseArray{C,N}) where {T,C,N}
     @assert size(x) == input_size(A)
     @assert size(y) == output_size(A)
@@ -231,11 +231,11 @@ function apply!(α::Scalar,
 end
 
 # Apply backward complex-to-complex transform.
-function apply!(α::Scalar,
+function apply!(α::Real,
                 ::Type{Backward},
                 A::FFTOperator{T,C,N},
                 x::DenseArray{C,N},
-                β::Scalar,
+                β::Real,
                 y::DenseArray{T,N}) where {T<:fftwComplex,C,N}
     if α == 0
         vscale!(y, β)
@@ -253,11 +253,11 @@ end
 # Apply backward complex-to-real (c2r) transform. Preserving input is not
 # possible for multi-dimensional c2r transforms so we must copy the input
 # argument x.
-function apply!(α::Scalar,
+function apply!(α::Real,
                 ::Type{Backward},
                 A::FFTOperator{T,C,N},
                 x::DenseArray{C,N},
-                β::Scalar,
+                β::Real,
                 y::DenseArray{T,N};
                 overwriteinput::Bool=false) where {T<:fftwReal,C,N}
     if α == 0
