@@ -18,10 +18,12 @@ conjgrad(A, b, x0=vzeros(b)) -> x
 
 solves the linear system `A⋅x = b` starting at `x0` by means of the iterative
 conjugate gradient method.  Argument `A` implements a symmetric positive
-definite linear operator and is used as:
+definite linear map, `A` can be a Julia array (interpreted as a general matrix,
+see [`GeneralMatrix`](@ref)), an instance of [`LinearMapping`](@ref) or a
+callable object which is used as:
 
 ```julia
-apply!(q, A, p)
+A(q, p)
 ```
 
 to overwrite `q` with `q = A⋅p`.  This method can be extended to be specialized
@@ -47,8 +49,9 @@ conjgrad!(x, A, b, [x0=vzeros(b), p, q, r]) -> x
 
 solves the linear system `A⋅x = b` starting at `x0` by means of the iterative
 conjugate gradient method.  The result is stored in `x` which is returned.
-Argument `A` implements a symmetric positive definite linear operator.  It can
-be an instance of `LinearMapping` or a callable object which is used as:
+Argument `A` implements a symmetric positive definite linear map, `A` can be a
+Julia array (interpreted as a general matrix, see [`GeneralMatrix`](@ref)), an
+instance of [`LinearMapping`](@ref) or a callable object which is used as:
 
 ```julia
 A(q, p)
@@ -123,8 +126,8 @@ There are several keywords to control the algorithm:
 See also: [`conjgrad`][@ref).
 
 """
-conjgrad!(x, A::LinearMapping, b, args...; kwds...) =
-    conjgrad!(x, (p, q) -> apply!(q, A, p), b, args...; kwds...)
+conjgrad!(x, A::Union{LinearMapping,AbstractArray}, b, args...; kwds...) =
+    conjgrad!(x, (dst, src) -> apply!(dst, A, src), b, args...; kwds...)
 
 function conjgrad!(x, A, b, x0 = vzeros(b),
                    p = vcreate(x), q = vcreate(x), r = vcreate(x);
@@ -138,13 +141,26 @@ function conjgrad!(x, A, b, x0 = vzeros(b),
                    quiet::Bool = false,
                    strict::Bool = true)
     # Initialization.
-    @assert 0 ≤ ftol < 1
-    @assert gtol[1] ≥ 0
-    @assert 0 ≤ gtol[2] < 1
-    @assert 0 ≤ xtol < 1
-    @assert restart ≥ 1
+    if ! (0 ≤ ftol < 1)
+        throw(ArgumentError("bad function tolerance (ftol = $ftol)"))
+    end
+    if gtol[1] < 0
+        throw(ArgumentError("bad gradient absolute tolerance (gtol[1] = ",
+                            gtol[1], ")"))
+    end
+    if ! (0 ≤ gtol[2] < 1)
+        throw(ArgumentError("bad gradient relative tolerance (gtol[2] = ",
+                            gtol[2], ")"))
+    end
+    if ! (0 ≤ xtol < 1)
+        throw(ArgumentError("bad variables tolerance (xtol = $xtol)"))
+    end
+    if restart < 1
+        throw(ArgumentError("bad number of iterations for restarting ",
+                            "(restart = $restart)"))
+    end
     vcopy!(x, x0)
-    if maxiter < 1
+    if maxiter < 1 && quiet && !verb
         return x
     end
     if vnorm2(x) > 0 # cheap trick to check whether x is non-zero
@@ -160,6 +176,7 @@ function conjgrad!(x, A, b, x0 = vzeros(b),
     gtest = Cdouble(max(gtol[1], gtol[2]*sqrt(rho)))
     xtest = Cdouble(xtol)
     psimax = Cdouble(0)
+    psi = Cdouble(0)
     oldrho = Cdouble(0)
 
     # Conjugate gradient iterations.
@@ -168,7 +185,7 @@ function conjgrad!(x, A, b, x0 = vzeros(b),
         if verb
             if k == 0
                 @printf(io, "# %s\n# %s\n",
-                        "Iter.  Delta f(x)    ||∇f(x)||",
+                        "Iter.    Δf(x)       ||∇f(x)||",
                         "-------------------------------")
             end
             @printf(io, "%6d %12.4e %12.4e\n",
@@ -183,14 +200,14 @@ function conjgrad!(x, A, b, x0 = vzeros(b),
             break
         elseif k > maxiter
             if verb
-                @printf(io, "# %s\n", "Too many iterations.")
+                @printf(io, "# %s\n", "Too many iteration(s).")
             end
             if !quiet
-                warn("too many ($(maxiter)) conjugate gradient iterations")
+                warn("too many ($k) conjugate gradient iteration(s)")
             end
             break
         end
-        if k == 1 || rem(k, restart) == 0
+        if rem(k, restart) == 1
             # Restart of first iteration.
             if k > 1
                 # Restart.
