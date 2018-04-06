@@ -523,6 +523,19 @@ function apply(::Type{P},
     return apply!(one(Scalar), P, A, x, zero(Scalar), vcreate(P, A, x))
 end
 
+function apply!(y::AbstractArray{<:Real},
+                A::AbstractArray{<:Real},
+                x::AbstractArray{<:Real})
+    return apply!(y, Direct, A, x)
+end
+
+function apply!(y::AbstractArray{<:Real},
+                ::Type{P},
+                A::AbstractArray{<:Real},
+                x::AbstractArray{<:Real}) where {P<:Operations}
+    return apply!(one(Scalar), P, A, x, zero(Scalar), y)
+end
+
 # By default, use pure Julia code for the generalized matrix-vector product.
 function apply!(α::Real,
                 ::Type{P},
