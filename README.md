@@ -2,6 +2,8 @@
 
 [![License](http://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat)](LICENSE.md)
 [![Build Status](https://travis-ci.org/emmt/LazyAlgebra.jl.svg?branch=master)](https://travis-ci.org/emmt/LazyAlgebra.jl)
+[![Coverage Status](https://coveralls.io/repos/emmt/LazyAlgebra.jl/badge.svg?branch=master&service=github)](https://coveralls.io/github/emmt/LazyAlgebra.jl?branch=master)
+[![codecov.io](http://codecov.io/github/emmt/LazyAlgebra.jl/coverage.svg?branch=master)](http://codecov.io/github/emmt/LazyAlgebra.jl?branch=master)
 
 `LazyAlgebra` is a Julia package to generalize the notion of matrices and
 vectors used in [linear algebra](https://en.wikipedia.org/wiki/Linear_algebra).
@@ -51,9 +53,10 @@ of reals).
 
 ### General mappings
 
-A `Mapping` can be any function between two variables spaces.  Assuming upper
-case Latin letters denote *mappings*, lower case Latin letters denote
-*variables*, and Greek letters denote *scalars*, then:
+A `Mapping` can be any function between two variables spaces.  Using
+Householder-like notation (that is upper case Latin letters denote *mappings*,
+lower case Latin letters denote *variables*, and Greek letters denote
+*scalars*), then:
 
 * `A*x` or `A⋅x` yields the result of applying the mapping `A` to `x`;
 

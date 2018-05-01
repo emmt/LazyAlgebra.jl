@@ -1,4 +1,4 @@
-The *MockAlgebra* package is licensed under the MIT "Expat" License:
+The LazyAlgebra package is licensed under the MIT "Expat" License:
 
 > Copyright (c) 2017-2018: Éric Thiébaut <https://github.com/emmt>
 >
