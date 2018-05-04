@@ -104,11 +104,8 @@ element type of the result is a floating-point type.
 Also see [`similar`](@ref).
 
 """
-vcreate(x::AbstractArray{T,N}) where {T<:AbstractFloat,N} =
+vcreate(x::AbstractArray{T,N}) where {T<:Union{Reals,Complexes},N} =
     similar(x, T)
-
-vcreate(x::AbstractArray{Complex{T},N}) where {T<:AbstractFloat,N} =
-    similar(x, Complex{T})
 
 vcreate(x::AbstractArray{T,N}) where {T,N} =
     similar(x, float(T))
