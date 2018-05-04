@@ -17,7 +17,7 @@ else
 end
 
 @testset "Vectors" begin
-    types = (Float16, Float32, Float64)
+    types = (Float32, Float64)
     dims = (3,4,5)
     @testset "vnorm ($T)" for T in types
         v = randn(T, dims)
