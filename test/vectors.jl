@@ -4,14 +4,26 @@
 # Tests for vectorized operations.
 #
 
+isdefined(:LazyAlgebra) || include("../src/LazyAlgebra.jl")
+
+module LazyAlgebraVectorsTests
+
+using LazyAlgebra
+
+@static if VERSION < v"0.7.0-DEV.2005"
+    using Base.Test
+else
+    using Test
+end
+
 @testset "Vectors" begin
     types = (Float16, Float32, Float64)
     dims = (3,4,5)
     @testset "vnorm ($T)" for T in types
         v = randn(T, dims)
-        @test vnorminf(a) == maximum(abs.(a))
-        @test vnorm1(a) ≈ sum(abs.(a))
-        @test vnorm2(a) ≈ sqrt(sum(a.*a))
+        @test vnorminf(v) == maximum(abs.(v))
+        @test vnorm1(v) ≈ sum(abs.(v))
+        @test vnorm2(v) ≈ sqrt(sum(v.*v))
     end
     @testset "vcopy, vswap ($T)" for T in types
         u = randn(T, dims)
@@ -27,7 +39,7 @@
         a = randn(T, dims)
         @test (0,0) == extrema(vfill!(a,0) - zeros(T,dims))
         a = randn(T, dims)
-        @test (0,0) == extrema(vfill!(a,0) - vzero(a))
+        @test (0,0) == extrema(vfill!(a,0) - vzero!(a))
         a = randn(T, dims)
         @test (0,0) == extrema(vfill!(a,1) - ones(T,dims))
         a = randn(T, dims)
@@ -51,7 +63,7 @@
             b = Array{Tb}(dims)
             e = max(eps(Ta), eps(Tb))
             for α in (0, -1, 1, π, 2.71)
-                @test maximum(abs.(vscale!(b,α,a) - α*a)) ≤ 4*eps
+                @test maximum(abs.(vscale!(b,α,a) - α*a)) ≤ 4*e
             end
         end
     end
@@ -80,3 +92,5 @@
         end
     end
 end
+
+end # module
