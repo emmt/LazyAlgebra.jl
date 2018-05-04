@@ -75,15 +75,6 @@ function vnorminf(::Type{T},
     return s
 end
 
-function vnorminf(::Type{T},
-                  v::AbstractArray{<:Unsigned,N})::T where {T<:AbstractFloat,N}
-    local s::T = zero(T)
-    @inbounds @simd for i in eachindex(v)
-        s = max(s, v[i])
-    end
-    return s
-end
-
 for norm in (:vnorm2, :vnorm1, :vnorminf)
     @eval begin
         $norm(v::AbstractArray{T,N}) where {T<:AbstractFloat,N} = $norm(T, v)
