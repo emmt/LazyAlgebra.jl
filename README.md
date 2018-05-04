@@ -5,8 +5,9 @@
 [![Coverage Status](https://coveralls.io/repos/emmt/LazyAlgebra.jl/badge.svg?branch=master&service=github)](https://coveralls.io/github/emmt/LazyAlgebra.jl?branch=master)
 [![codecov.io](http://codecov.io/github/emmt/LazyAlgebra.jl/coverage.svg?branch=master)](http://codecov.io/github/emmt/LazyAlgebra.jl?branch=master)
 
-`LazyAlgebra` is a Julia package to generalize the notion of matrices and
-vectors used in [linear algebra](https://en.wikipedia.org/wiki/Linear_algebra).
+**LazyAlgebra** is a [`Julia`](http://julialang.org/) package to generalize the
+notion of matrices and vectors used in
+[linear algebra](https://en.wikipedia.org/wiki/Linear_algebra).
 
 Many numerical methods (*e.g.* in numerical optimization or digital signal
 processing) involve essentially
