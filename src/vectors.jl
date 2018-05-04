@@ -150,16 +150,16 @@ function vswap!(x::AbstractArray{T,N}, y::AbstractArray{T,N}) where {T,N}
     if indices(x) != indices(y)
         throw(DimensionMismatch("`x` and `y` must have the same indices"))
     end
-    _mayswap!(x, y)
+    __mayswap!(x, y)
 end
 
-_mayswap!(x::DenseArray{T,N}, y::DenseArray{T,N}) where {T,N} =
-    pointer(x) == pointer(y) || _doswap(x, y)
+__mayswap!(x::DenseArray{T,N}, y::DenseArray{T,N}) where {T,N} =
+    pointer(x) == pointer(y) || __swap!(x, y)
 
-_mayswap!(x::AbstractArray{T,N}, y::AbstractArray{T,N}) where {T,N} =
-    _doswap(x, y)
+__mayswap!(x::AbstractArray{T,N}, y::AbstractArray{T,N}) where {T,N} =
+    __swap!(x, y)
 
-function _doswap!(x::AbstractArray{T,N}, y::AbstractArray{T,N}) where {T,N}
+function __swap!(x::AbstractArray{T,N}, y::AbstractArray{T,N}) where {T,N}
     @inbounds @simd for i in eachindex(x, y)
         temp = x[i]
         x[i] = y[i]
