@@ -3,9 +3,9 @@
 #
 # Implement basic operations for *vectors*.  Here arrays of any rank are
 # considered as *vectors*, the only requirements are that, when combining
-# *vectors*, they have the same type and dimensions.  These methods are
-# intended to be used for numerical optimization and thus, for now,
-# elements must be real (not complex).
+# *vectors*, they have the same list of indices (i.e. the same dimensions for
+# most arrays).  These methods are intended to be used for numerical
+# optimization.
 #
 #-------------------------------------------------------------------------------
 #
@@ -13,6 +13,12 @@
 # license.
 #
 # Copyright (c) 2017-2018 Éric Thiébaut.
+#
+
+# FIXME: To simplify the code, we rely on the fact that converting `x::T` to
+# type `T` does nothing.  According to julia/base/essentials.jl:
+#
+#     convert(::Type{T}, x::T) where {T} = x
 #
 
 """
@@ -26,16 +32,25 @@ can be imposed by optional argument `T`.  Also see [`vnorm1`](@ref) and
 
 """
 function vnorm2(::Type{T},
-                v::AbstractArray{<:Real,N})::T where {T<:AbstractFloat,N}
-    local s::T = zero(T)
+                v::AbstractArray{<:Real})::T where {T<:AbstractFloat}
+    s = zero(T)
     @inbounds @simd for i in eachindex(v)
-        s += v[i]*v[i]
+        x = convert(T, v[i])
+        s += x*x
     end
     return sqrt(s)
 end
 
-vnorm2(x) = sqrt(vdot(x, x))
-vnorm2(::Type{T}, x) where {T<:AbstractFloat} = sqrt(vdot(T, x, x))
+function vnorm2(::Type{T},
+                v::AbstractArray{Complex{<:Real}})::T where {T<:AbstractFloat}
+    s = zero(T)
+    @inbounds @simd for i in eachindex(v)
+        z = convert(Complex{T}, v[i])
+        s += abs2(z)
+    end
+    return sqrt(s)
+end
+
 
 """
 ```julia
@@ -44,14 +59,29 @@ vnorm1([T,] v)
 
 yields the L1 norm of `v`, that is the sum of the absolute values of its
 elements.  The floating point type of the result can be imposed by optional
-argument `T`.  Also see [`vnorm2`](@ref) and [`vnorminf`](@ref).
+argument `T`.  For a complex valued argument, the result is the sum of the
+absolute values of the real part and of the imaginary part of the elements
+(like BLAS `asum`).
+
+See also [`vnorm2`](@ref) and [`vnorminf`](@ref).
 
 """
 function vnorm1(::Type{T},
-                v::AbstractArray{<:Real,N})::T where {T<:AbstractFloat,N}
-    local s::T = zero(T)
+                v::AbstractArray{<:Real})::T where {T<:AbstractFloat}
+    s = zero(T)
     @inbounds @simd for i in eachindex(v)
-        s += abs(v[i])
+        x = convert(T, v[i])
+        s += abs(x)
+    end
+    return s
+end
+
+function vnorm1(::Type{T},
+                v::AbstractArray{Complex{<:Real}})::T where {T<:AbstractFloat}
+    s = zero(T)
+    @inbounds @simd for i in eachindex(v)
+        z = convert(Complex{T}, v[i])
+        s += abs(real(z)) + abs(imag(z))
     end
     return s
 end
@@ -66,13 +96,29 @@ elements.  The floating point type of the result can be imposed by optional
 argument `T`.  Also see [`vnorm1`](@ref) and [`vnorm2`](@ref).
 
 """
-function vnorminf(::Type{T},
-                  v::AbstractArray{<:Real,N})::T where {T<:AbstractFloat,N}
-    local s::T = zero(T)
+function vnorminf(::Type{T}, v::AbstractArray{T})::T where {T<:AbstractFloat}
+    amax = zero(T)
     @inbounds @simd for i in eachindex(v)
-        s = max(s, abs(v[i]))
+        x = v[i]
+        amax = max(amax, abs(x))
     end
-    return s
+    return amax
+end
+
+function vnorminf(::Type{T}, v::AbstractArray{R})::T where {T<:AbstractFloat,
+                                                            R<:Real}
+    return convert(T, vnorminf(R, v))
+end
+
+# FIXME: avoid overflows?
+function vnorminf(::Type{T},
+                  v::AbstractArray{Complex{<:Real}})::T where {T<:AbstractFloat}
+    amax = zero(T)
+    @inbounds @simd for i in eachindex(v)
+        z = convert(Complex{T}, v[i])
+        amax = max(amax, abs2(z))
+    end
+    return sqrt(amax)
 end
 
 for norm in (:vnorm2, :vnorm1, :vnorminf)
@@ -95,10 +141,7 @@ element type of the result is a floating-point type.
 Also see [`similar`](@ref).
 
 """
-vcreate(x::AbstractArray{T,N}) where {T<:Union{Reals,Complexes},N} =
-    similar(x, T)
-
-vcreate(x::AbstractArray{T,N}) where {T,N} =
+vcreate(x::AbstractArray{T,N}) where {R<:Real,T<:Union{R,Complex{R}},N} =
     similar(x, float(T))
 
 #------------------------------------------------------------------------------
@@ -116,14 +159,21 @@ dimensions).
 Also see [`copy!`](@ref), [`vcopy`](@ref), [`vswap!`](@ref).
 
 """
-function vcopy!(dst::AbstractArray{Td,N},
-                src::AbstractArray{Ts,N}) where {Td, Ts, N}
+function vcopy!(dst::AbstractArray{<:Real,N},
+                src::AbstractArray{<:Real,N}) where {N}
     indices(dst) == indices(src) ||
-        _errdims("`dst` and `src` must have the same indices")
+        __baddims("`dst` and `src` must have the same indices")
     copy!(dst, src)
 end
 
-@inline _errdims(msg::AbstractString) = throw(DimensionMismatch(msg))
+function vcopy!(dst::AbstractArray{Complex{<:Real},N},
+                src::AbstractArray{Complex{<:Real},N}) where {N}
+    indices(dst) == indices(src) ||
+        __baddims("`dst` and `src` must have the same indices")
+    copy!(dst, src)
+end
+
+@inline __baddims(msg::AbstractString) = throw(DimensionMismatch(msg))
 
 """
 ```julia
@@ -149,9 +199,10 @@ if they are arrays).
 Also see [`vcopy!`](@ref).
 
 """
-function vswap!(x::AbstractArray{T,N}, y::AbstractArray{T,N}) where {T,N}
+function vswap!(x::AbstractArray{T,N},
+                y::AbstractArray{T,N}) where {R<:Real,T<:Union{R,Complex{R}},N}
     indices(x) == indices(y) ||
-        _errdims("`x` and `y` must have the same indices")
+        __baddims("`x` and `y` must have the same indices")
     __mayswap!(x, y)
 end
 
@@ -182,10 +233,15 @@ sets all elements of `x` with the scalar value `α` and return `x`.
 Also see [`vzero!`](@ref).
 
 """
-vfill!(x::AbstractArray{T,N}, α::Real) where {T,N} =
-    _vfill!(x, convert(T, α))
+vfill!(x::AbstractArray{T}, α::Real) where {T<:AbstractFloat} =
+    __vfill!(x, convert(T, α))
 
-function _vfill!(x::AbstractArray{T,N}, α::T) where {T,N}
+function vfill!(x::AbstractArray{Complex{R}},
+                α::Union{Real,Complex{<:Real}}) where {R<:AbstractFloat}
+    __vfill!(x, convert(Complex{R}, α))
+end
+
+function __vfill!(x::AbstractArray{T}, α::T) where {T}
     @inbounds @simd for i in eachindex(x)
         x[i] = α
     end
@@ -203,8 +259,7 @@ fills `x` with zeros and returns it.
 Also see [`vfill!`](@ref).
 
 """
-vzero!(A::AbstractArray{T,N}) where {T,N} = fill!(A, zero(T))
-vzero!(x) = fill!(x, 0)
+vzero!(x) = vfill!(x, 0)
 
 """
 
@@ -260,49 +315,41 @@ vscale!(α, x) -> x
 
 Also see [`vscale`](@ref).
 
-"""
-vscale!(α::Real, x::T) where {T} = vscale!(x, α)
-vscale!(dst::D, src::S, α::Real) where {D,S} = vscale!(dst, α, src)
+""" vscale!
 
-function vscale!(dst::AbstractArray{Td,N},
-                 α::Real,
-                 src::AbstractArray{Ts,N}) where {Td<:AbstractFloat,
-                                                  Ts<:AbstractFloat,N}
-    return _vscale!(dst, promote_scalar(Td, Ts, α), src)
-end
+for (Td, Ts) in ((:Td,            :Ts),
+                 (:(Complex{Td}), :(Complex{Ts})))
+    @eval begin
 
-function vscale!(dst::AbstractArray{Complex{Td},N},
-                 α::Real,
-                 src::AbstractArray{Complex{Ts},N}) where {Td<:AbstractFloat,
+        function vscale!(dst::AbstractArray{$Td,N},
+                         α::Real,
+                         src::AbstractArray{$Ts,N}) where {Td<:AbstractFloat,
                                                            Ts<:AbstractFloat,N}
-    return _vscale!(dst, promote_scalar(Td, Ts, α), src)
-end
-
-function _vscale!(dst::AbstractArray{Td,N},
-                  α::AbstractFloat,
-                  src::AbstractArray{Ts,N}) where {Td,Ts,N}
-    if α == 0
-        vzero!(dst)
-    elseif α == 1
-        vcopy!(dst, src)
-    else
-        indices(dst) == indices(src) ||
-            _errdims("`dst` and `src` must have the same indices")
-        if α == -1
-            @inbounds @simd for i in eachindex(dst, src)
-                dst[i] = -src[i]
+            indices(dst) == indices(src) ||
+                __baddims("`dst` and `src` must have the same indices")
+            if α == 1
+                copy!(dst, src)
+            elseif α == 0
+                fill!(dst, 0)
+            elseif α == -1
+                @inbounds @simd for i in eachindex(dst, src)
+                    dst[i] = -src[i]
+                end
+            else
+                a = promote_scalar(Td, Ts, α)
+                @inbounds @simd for i in eachindex(dst, src)
+                    dst[i] = a*src[i]
+                end
             end
-        else
-            @inbounds @simd for i in eachindex(dst, src)
-                dst[i] = α*src[i]
-            end
+            return dst
         end
+
     end
-    return dst
 end
 
-function vscale!(x::AbstractArray{<:Union{T,Complex{T}},N},
-                 α::Real) where {T<:AbstractFloat,N}
+# In-place scaling.
+function vscale!(x::AbstractArray{<:Union{T,Complex{T}}},
+                 α::Real) where {T<:AbstractFloat}
     if α == 0
         vzero!(x)
     elseif α == -1
@@ -318,8 +365,19 @@ function vscale!(x::AbstractArray{<:Union{T,Complex{T}},N},
     return x
 end
 
-# In place scaling for other *vector* types.
-vscale!(x::T, α::Real) where {T} = vscale!(x, α, x)
+# In-place scaling with reverse order of arguments.
+vscale!(α::Real, x) = vscale!(x, α)
+
+# Scaling for other *vector* types.
+vscale!(x, α::Real) = vscale!(x, α, x)
+vscale!(dst, src, α::Real) = vscale!(dst, α, src)
+
+# The following methods are needed to avoid looping forever.
+vscale!(::Real, ::Real) = error("bad argument types")
+vscale!(::Any, ::Real, ::Real) = error("bad argument types")
+vscale!(::Real, ::Any, ::Real) = error("bad argument types")
+vscale!(::Real, ::Real, ::Any) = error("bad argument types")
+vscale!(::Real, ::Real, ::Real) = error("bad argument types")
 
 """
 ```julia
@@ -377,7 +435,8 @@ for (Td, Tx, Ty) in ((:Td,            :Tx,            :Ty),
                                                              Tx<:AbstractFloat,
                                                              Ty<:AbstractFloat,
                                                              N}
-        @assert indices(dst) == indices(x) == indices(y)
+        indices(dst) == indices(x) == indices(y) ||
+            __baddims("`x` and `y` must have the same indices as `dst`")
         @inbounds @simd for i in eachindex(dst, x, y)
             dst[i] = x[i]*y[i]
         end
@@ -391,7 +450,8 @@ for (Td, Tx, Ty) in ((:Td,            :Tx,            :Ty),
                                                           Tx<:AbstractFloat,
                                                           Ty<:AbstractFloat,
                                                           N}
-        @assert size(dst) == size(x) == size(y)
+        size(dst) == size(x) == size(y) ||
+            __baddims("`x` and `y` must have the same dimensions as `dst`")
         jmin, jmax = extrema(sel)
         1 ≤ jmin ≤ jmax ≤ length(dst) || throw(BoundsError())
         @inbounds @simd for i in eachindex(sel)
@@ -421,85 +481,67 @@ times at this location.
 
 See also: [`vscale!`](@ref), [`vcombine!](@ref).
 
-"""
-function vupdate!(y::AbstractArray{Ty,N},
-                  α::Real,
-                  x::AbstractArray{Tx,N}) where {Ty<:AbstractFloat,
-                                                 Tx<:AbstractFloat,N}
-    return _vupdate!(y, promote_scalar(Tx, Ty, α), x)
-end
+""" vupdate!
 
-function vupdate!(y::AbstractArray{Complex{Ty},N},
-                  α::Real,
-                  x::AbstractArray{Complex{Tx},N}) where {Ty<:AbstractFloat,
+for (Tx, Ty) in ((:Tx,            :Ty),
+                 (:(Complex{Tx}), :(Complex{Ty})))
+    @eval begin
+
+        function vupdate!(y::AbstractArray{$Ty,N},
+                          α::Real,
+                          x::AbstractArray{$Tx,N}) where {Ty<:AbstractFloat,
                                                           Tx<:AbstractFloat,N}
-    return _vupdate!(y, promote_scalar(Tx, Ty, α), x)
-end
-
-# Pure Julia implementation.
-function _vupdate!(y::AbstractArray{Ty,N},
-                   α::AbstractFloat,
-                   x::AbstractArray{Tx,N}) where {Ty,Tx,N}
-    indices(x) == indices(y) ||
-        _errdims("`x` and `y` must have the same indices")
-    if α == 1
-        @inbounds @simd for i in eachindex(y, x)
-            y[i] += x[i]
+            indices(x) == indices(y) ||
+                __baddims("`x` and `y` must have the same indices")
+            if α == 1
+                @inbounds @simd for i in eachindex(y, x)
+                    y[i] += x[i]
+                end
+            elseif α == -1
+                @inbounds @simd for i in eachindex(y, x)
+                    y[i] -= x[i]
+                end
+            elseif α != 0
+                a = promote_scalar(Tx, Ty, α)
+                @inbounds @simd for i in eachindex(y, x)
+                    y[i] += a*x[i]
+                end
+            end
+            return y
         end
-    elseif α == -1
-        @inbounds @simd for i in eachindex(y, x)
-            y[i] -= x[i]
-        end
-    elseif α != 0
-        @inbounds @simd for i in eachindex(y, x)
-            y[i] += α*x[i]
-        end
-    end
-    return y
-end
 
-function vupdate!(y::DenseArray{Ty,N},
-                  sel::AbstractVector{Int},
-                  α::Real,
-                  x::DenseArray{Tx,N}) where {Ty<:AbstractFloat,
-                                              Tx<:AbstractFloat,N}
-    return _vupdate!(y, sel, promote_scalar(Tx, Ty, α), x)
-end
-
-function vupdate!(y::DenseArray{Complex{Ty},N},
-                  sel::AbstractVector{Int},
-                  α::Real,
-                  x::DenseArray{Complex{Tx},N}) where {Ty<:AbstractFloat,
+        function vupdate!(y::DenseArray{$Ty,N},
+                          sel::AbstractVector{Int},
+                          α::Real,
+                          x::DenseArray{$Tx,N}) where {Ty<:AbstractFloat,
                                                        Tx<:AbstractFloat,N}
-    return _vupdate!(y, sel, promote_scalar(Tx, Ty, α), x)
+            size(x) == size(y) ||
+                __baddims("`x` and `y` must have the same dimensions")
+            jmin, jmax = extrema(sel)
+            1 ≤ jmin ≤ jmax ≤ length(x) || throw(BoundsError())
+            if α == 1
+                @inbounds @simd for i in eachindex(sel)
+                    j = sel[i]
+                    y[j] += x[j]
+                end
+            elseif α == -1
+                @inbounds @simd for i in eachindex(sel)
+                    j = sel[i]
+                    y[j] -= x[j]
+                end
+            elseif α != 0
+                a = promote_scalar(Tx, Ty, α)
+                @inbounds @simd for i in eachindex(sel)
+                    j = sel[i]
+                    y[j] += a*x[j]
+                end
+            end
+            return y
+        end
+
+     end
 end
 
-function _vupdate!(y::DenseArray{Ty,N},
-                   sel::AbstractVector{Int},
-                   α::AbstractFloat,
-                   x::DenseArray{Tx,N}) where {Ty,Tx,N}
-    size(x) == size(y) ||
-        _errdims("`x` and `y` must have the same dimensions")
-    jmin, jmax = extrema(sel)
-    1 ≤ jmin ≤ jmax ≤ length(x) || throw(BoundsError())
-    if α == 1
-        @inbounds @simd for i in eachindex(sel)
-            j = sel[i]
-            y[j] += x[j]
-        end
-    elseif α == -1
-        @inbounds @simd for i in eachindex(sel)
-            j = sel[i]
-            y[j] -= x[j]
-        end
-    elseif α != 0
-        @inbounds @simd for i in eachindex(sel)
-            j = sel[i]
-            y[j] += α*x[j]
-        end
-    end
-    return y
-end
 
 #------------------------------------------------------------------------------
 # LINEAR COMBINATION
@@ -546,6 +588,7 @@ for (Td, Tx, Ty) in ((:Td,            :Tx,            :Ty),
                      (:(Complex{Td}), :(Complex{Tx}), :(Complex{Ty})))
 
     @eval begin
+
         function vcombine!(dst::AbstractArray{$Td,N},
                            α::Real,
                            x::AbstractArray{$Tx,N},
@@ -553,67 +596,63 @@ for (Td, Tx, Ty) in ((:Td,            :Tx,            :Ty),
                            y::AbstractArray{$Ty,N}) where {Td<:AbstractFloat,
                                                            Tx<:AbstractFloat,
                                                            Ty<:AbstractFloat,N}
-            _vcombine!(dst,
-                       promote_scalar(Td, Tx, Ty, α), x,
-                       promote_scalar(Td, Tx, Ty, β), y)
+            indices(dst) == indices(x) == indices(y) ||
+                __baddims("`x` and `y` must have the same indices as `dst`")
+            if α == 0
+                vscale!(dst, β, y)
+            elseif β == 0
+                vscale!(dst, α, x)
+            elseif α == 1
+                if β == 1
+                    @inbounds @simd for i in eachindex(dst, x, y)
+                        dst[i] = x[i] + y[i]
+                    end
+                elseif β == -1
+                    @inbounds @simd for i in eachindex(dst, x, y)
+                        dst[i] = x[i] - y[i]
+                    end
+                else
+                    b = promote_scalar(Td, Tx, Ty, β)
+                    @inbounds @simd for i in eachindex(dst, x, y)
+                        dst[i] = x[i] + b*y[i]
+                    end
+                end
+            elseif α == -1
+                if β == 1
+                    @inbounds @simd for i in eachindex(dst, x, y)
+                        dst[i] = y[i] - x[i]
+                    end
+                elseif β == -1
+                    @inbounds @simd for i in eachindex(dst, x, y)
+                        dst[i] = -x[i] - y[i]
+                    end
+                else
+                    b = promote_scalar(Td, Tx, Ty, β)
+                    @inbounds @simd for i in eachindex(dst, x, y)
+                        dst[i] = b*y[i] - x[i]
+                    end
+                end
+            else
+                a = promote_scalar(Td, Tx, Ty, α)
+                if β == 1
+                    @inbounds @simd for i in eachindex(dst, x, y)
+                        dst[i] = a*x[i] + y[i]
+                    end
+                elseif β == -1
+                    @inbounds @simd for i in eachindex(dst, x, y)
+                        dst[i] = a*x[i] - y[i]
+                    end
+                else
+                    b = promote_scalar(Td, Tx, Ty, β)
+                    @inbounds @simd for i in eachindex(dst, x, y)
+                        dst[i] = a*x[i] + b*y[i]
+                    end
+                end
+            end
+            return dst
         end
-    end
-end
 
-function _vcombine!(dst::AbstractArray{Td,N},
-                    α::AbstractFloat,
-                    x::AbstractArray{Tx,N},
-                    β::Real,
-                    y::AbstractArray{Ty,N}) where {Td,Tx,Ty,N}
-    @assert indices(dst) == indices(x) == indices(y)
-    if α == 0
-        _vscale!(dst, β, y)
-    elseif β == 0
-        _vscale!(dst, α, x)
-    elseif α == 1
-        if β == 1
-            @inbounds @simd for i in eachindex(dst, x, y)
-                dst[i] = x[i] + y[i]
-            end
-        elseif β == -1
-            @inbounds @simd for i in eachindex(dst, x, y)
-                dst[i] = x[i] - y[i]
-            end
-        else
-            @inbounds @simd for i in eachindex(dst, x, y)
-                dst[i] = x[i] + β*y[i]
-            end
-        end
-    elseif α == -1
-        if β == 1
-            @inbounds @simd for i in eachindex(dst, x, y)
-                dst[i] = y[i] - x[i]
-            end
-        elseif β == -1
-            @inbounds @simd for i in eachindex(dst, x, y)
-                dst[i] = -x[i] - y[i]
-            end
-        else
-            @inbounds @simd for i in eachindex(dst, x, y)
-                dst[i] = β*y[i] - x[i]
-            end
-        end
-    else
-        if β == 1
-            @inbounds @simd for i in eachindex(dst, x, y)
-                dst[i] = α*x[i] + y[i]
-            end
-        elseif β == -1
-            @inbounds @simd for i in eachindex(dst, x, y)
-                dst[i] = α*x[i] - y[i]
-            end
-        else
-            @inbounds @simd for i in eachindex(dst, x, y)
-                dst[i] = α*x[i] + β*y[i]
-            end
-        end
     end
-    return dst
 end
 
 @doc @doc(vcombine) vcombine!
@@ -680,7 +719,7 @@ function vdot(::Type{T},
               x::AbstractArray{<:Real,N},
               y::AbstractArray{<:Real,N})::T where {T<:AbstractFloat,N}
     indices(w) == indices(x) == indices(y) ||
-        _errdims("`w`, `x` and `y` must have the same indices")
+        __baddims("`w`, `x` and `y` must have the same indices")
     local s::T = zero(T)
     @inbounds @simd for i in eachindex(w, x, y)
         s += w[i]*x[i]*y[i]
@@ -700,7 +739,7 @@ function vdot(::Type{T},
               y::AbstractArray{Complex{Ty},N})::T where {T<:AbstractFloat,
                                                          Tx<:Real,Ty<:Real,N}
     indices(w) == indices(x) == indices(y) ||
-        _errdims("`w`, `x` and `y` must have the same indices")
+        __baddims("`w`, `x` and `y` must have the same indices")
     local s::T = zero(T)
     @inbounds @simd for i in eachindex(w, x, y)
         s += (x[i].re*y[i].re + x[i].im*y[i].im)*w[i]
@@ -722,7 +761,7 @@ function vdot(::Type{T},
               x::DenseArray{<:Real,N},
               y::DenseArray{<:Real,N})::T where {T<:AbstractFloat,N}
     size(y) == size(x) ||
-        _errdims("`x` and `y` must have same dimensions")
+        __baddims("`x` and `y` must have same dimensions")
     jmin, jmax = extrema(sel)
     1 ≤ jmin ≤ jmax ≤ length(x) || throw(BoundsError())
     local s::T = zero(T)
@@ -745,7 +784,7 @@ function vdot(::Type{T},
               y::AbstractArray{Complex{Ty},N})::T where {T<:AbstractFloat,
                                                          Tx<:Real,Ty<:Real,N}
     size(y) == size(x) ||
-        _errdims("`x` and `y` must have same dimensions")
+        __baddims("`x` and `y` must have same dimensions")
     jmin, jmax = extrema(sel)
     1 ≤ jmin ≤ jmax ≤ length(x) || throw(BoundsError())
     local s::T = zero(T)
@@ -769,7 +808,7 @@ function _vdot(::Type{T},
                x::AbstractArray{<:Real,N},
                y::AbstractArray{<:Real,N})::T where {T<:AbstractFloat, N}
     indices(x) == indices(y) ||
-        _errdims("`x` and `y` must have the same indices")
+        __baddims("`x` and `y` must have the same indices")
     local s::T = zero(T)
     @inbounds @simd for i in eachindex(x, y)
         s += x[i]*y[i]
@@ -787,7 +826,7 @@ function _vdot(::Type{T},
                y::AbstractArray{Complex{Ty},N})::T where {T<:AbstractFloat,
                                                           Tx<:Real,Ty<:Real,N}
     indices(x) == indices(y) ||
-        _errdims("`x` and `y` must have the same indices")
+        __baddims("`x` and `y` must have the same indices")
     local s::T = zero(T)
     @inbounds @simd for i in eachindex(x, y)
         s += x[i].re*y[i].re + x[i].im*y[i].im

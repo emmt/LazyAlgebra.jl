@@ -59,9 +59,8 @@ end
 function blas_vdot(x::Union{DenseArray{T},StridedVector{T}},
                    y::Union{DenseArray{T},StridedVector{T}}
                    ) where {T <: BlasReal}
-    if (n = length(x)) != length(y)
-        throw(DimensionMismatch("`x` and `y` must have the same length"))
-    end
+    (n = length(x)) == length(y) ||
+        __baddims("`x` and `y` must have the same length")
     return _dot(n, pointer(x), stride(x, 1), pointer(y), stride(y, 1))
 end
 
@@ -102,7 +101,8 @@ function blas_apply!(y::DenseArray{T},
                      A::DenseArray{T},
                      x::DenseArray{T}
                      ) where {T <: BlasReal}
-    @assert size(A) == (size(y)..., size(x)...)
+    (size(y)..., size(x)...) == size(A) ||
+        __baddims("the dimensions of `y` and `x` must match those of `A`")
     m, n = length(y), length(x)
     return _gemv!('N', m, n, one(T), A, m, x, 1, zero(T), y, 1)
 end
@@ -111,7 +111,8 @@ function blas_apply!(y::DenseArray{T},
                      ::Type{Adjoint},
                      A::DenseArray{T},
                      x::DenseArray{T}) where {T <: BlasReal}
-    @assert size(A) == (size(x)..., size(y)...)
+    (size(x)..., size(y)...) == size(A) ||
+        __baddims("the dimensions of `x` and `y` must match those of `A`")
     m, n = length(x), length(y)
     return _gemv!('T', m, n, one(T), A, m, x, 1, zero(T), y, 1)
 end
