@@ -128,9 +128,9 @@ diagonaltype(::NonuniformScalingOperator) = DiagonalMapping
 inplacetype(::Type{<:Operations}, ::NonuniformScalingOperator) = InPlace
 selfadjointtype(A::NonuniformScalingOperator) =
     _selfadjointtype(eltype(contents(A)), A)
-_selfadjointtype(::Type{T}, ::NonuniformScalingOperator) where {T<:Real} =
+_selfadjointtype(::Type{<:Real}, ::NonuniformScalingOperator) =
     SelfAdjoint
-_selfadjointtype(::Type{T}, ::NonuniformScalingOperator) where {T<:Complex} =
+_selfadjointtype(::Type{<:Complex}, ::NonuniformScalingOperator) =
     NonSelfAdjoint
 
 contents(A::NonuniformScalingOperator) = A.diag
