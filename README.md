@@ -23,10 +23,11 @@ attempt to provide most optimization algorithms of
 complex mappings and linear mappings to operate on the variables.
 
 A few concepts are central to `LazyAlgebra`:
-* *vectors* represent the variables of interest and can be anything provided a
+* *vectors* represent the variables of interest and can be anything providing a
   few methods are implemented for their specific type;
 * *mappings* are any functions between such vectors;
-* *linear mappings* behave linearly with respect to their arguments.
+* *linear mappings* (a.k.a. linear operators) behave linearly with respect to
+  their arguments.
 
 Similar Julia packages:
 * [LinearMaps](https://github.com/Jutho/LinearMaps.jl)
