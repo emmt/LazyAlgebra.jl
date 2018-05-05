@@ -42,7 +42,7 @@ function vnorm2(::Type{T},
 end
 
 function vnorm2(::Type{T},
-                v::AbstractArray{Complex{<:Real}})::T where {T<:AbstractFloat}
+                v::AbstractArray{<:Complex{<:Real}})::T where {T<:AbstractFloat}
     s = zero(T)
     @inbounds @simd for i in eachindex(v)
         z = convert(Complex{T}, v[i])
@@ -77,7 +77,7 @@ function vnorm1(::Type{T},
 end
 
 function vnorm1(::Type{T},
-                v::AbstractArray{Complex{<:Real}})::T where {T<:AbstractFloat}
+                v::AbstractArray{<:Complex{<:Real}})::T where {T<:AbstractFloat}
     s = zero(T)
     @inbounds @simd for i in eachindex(v)
         z = convert(Complex{T}, v[i])
@@ -112,7 +112,7 @@ end
 
 # FIXME: avoid overflows?
 function vnorminf(::Type{T},
-                  v::AbstractArray{Complex{<:Real}})::T where {T<:AbstractFloat}
+                  v::AbstractArray{<:Complex{<:Real}})::T where {T<:AbstractFloat}
     amax = zero(T)
     @inbounds @simd for i in eachindex(v)
         z = convert(Complex{T}, v[i])
@@ -123,8 +123,10 @@ end
 
 for norm in (:vnorm2, :vnorm1, :vnorminf)
     @eval begin
-        $norm(v::AbstractArray{T,N}) where {T<:AbstractFloat,N} = $norm(T, v)
-        $norm(v::AbstractArray{T,N}) where {T<:Real,N} = $norm(float(T), x)
+        $norm(v::AbstractArray{<:Union{R,Complex{R}}}) where {R<:AbstractFloat} =
+            $norm(R, v)
+        $norm(v::AbstractArray{<:Union{R,Complex{R}}}) where {R<:Real} =
+            $norm(float(R), v)
     end
 end
 
@@ -166,8 +168,8 @@ function vcopy!(dst::AbstractArray{<:Real,N},
     copy!(dst, src)
 end
 
-function vcopy!(dst::AbstractArray{Complex{<:Real},N},
-                src::AbstractArray{Complex{<:Real},N}) where {N}
+function vcopy!(dst::AbstractArray{<:Complex{<:Real},N},
+                src::AbstractArray{<:Complex{<:Real},N}) where {N}
     indices(dst) == indices(src) ||
         __baddims("`dst` and `src` must have the same indices")
     copy!(dst, src)
