@@ -119,9 +119,11 @@ Also see [`copy!`](@ref), [`vcopy`](@ref), [`vswap!`](@ref).
 function vcopy!(dst::AbstractArray{Td,N},
                 src::AbstractArray{Ts,N}) where {Td, Ts, N}
     indices(dst) == indices(src) ||
-        throw(DimensionMismatch("`dst` and `src` must have the same indices"))
+        _errdims("`dst` and `src` must have the same indices")
     copy!(dst, src)
 end
+
+@inline _errdims(msg::AbstractString) = throw(DimensionMismatch(msg))
 
 """
 ```julia
@@ -149,7 +151,7 @@ Also see [`vcopy!`](@ref).
 """
 function vswap!(x::AbstractArray{T,N}, y::AbstractArray{T,N}) where {T,N}
     indices(x) == indices(y) ||
-        throw(DimensionMismatch("`x` and `y` must have the same indices"))
+        _errdims("`x` and `y` must have the same indices")
     __mayswap!(x, y)
 end
 
@@ -285,7 +287,7 @@ function _vscale!(dst::AbstractArray{Td,N},
         vcopy!(dst, src)
     else
         indices(dst) == indices(src) ||
-            throw(DimensionMismatch("`dst` and `src` must have the same indices"))
+            _errdims("`dst` and `src` must have the same indices")
         if α == -1
             @inbounds @simd for i in eachindex(dst, src)
                 dst[i] = -src[i]
@@ -438,9 +440,8 @@ end
 function _vupdate!(y::AbstractArray{Ty,N},
                    α::AbstractFloat,
                    x::AbstractArray{Tx,N}) where {Ty,Tx,N}
-    if indices(x) != indices(y)
-        throw(DimensionMismatch("`x` and `y` must have the same indices"))
-    end
+    indices(x) == indices(y) ||
+        _errdims("`x` and `y` must have the same indices")
     if α == 1
         @inbounds @simd for i in eachindex(y, x)
             y[i] += x[i]
@@ -477,9 +478,8 @@ function _vupdate!(y::DenseArray{Ty,N},
                    sel::AbstractVector{Int},
                    α::AbstractFloat,
                    x::DenseArray{Tx,N}) where {Ty,Tx,N}
-    if size(x) != size(y)
-        throw(DimensionMismatch("`x` and `y` must have the same dimensions"))
-    end
+    size(x) == size(y) ||
+        _errdims("`x` and `y` must have the same dimensions")
     jmin, jmax = extrema(sel)
     1 ≤ jmin ≤ jmax ≤ length(x) || throw(BoundsError())
     if α == 1
@@ -679,9 +679,8 @@ function vdot(::Type{T},
               w::AbstractArray{<:Real,N},
               x::AbstractArray{<:Real,N},
               y::AbstractArray{<:Real,N})::T where {T<:AbstractFloat,N}
-    if !(indices(w) == indices(x) == indices(y))
-        throw(DimensionMismatch("`w`, `x` and `y` must have the same indices"))
-    end
+    indices(w) == indices(x) == indices(y) ||
+        _errdims("`w`, `x` and `y` must have the same indices")
     local s::T = zero(T)
     @inbounds @simd for i in eachindex(w, x, y)
         s += w[i]*x[i]*y[i]
@@ -700,9 +699,8 @@ function vdot(::Type{T},
               x::AbstractArray{Complex{Tx},N},
               y::AbstractArray{Complex{Ty},N})::T where {T<:AbstractFloat,
                                                          Tx<:Real,Ty<:Real,N}
-    if !(indices(w) == indices(x) == indices(y))
-        throw(DimensionMismatch("`w`, `x` and `y` must have the same indices"))
-    end
+    indices(w) == indices(x) == indices(y) ||
+        _errdims("`w`, `x` and `y` must have the same indices")
     local s::T = zero(T)
     @inbounds @simd for i in eachindex(w, x, y)
         s += (x[i].re*y[i].re + x[i].im*y[i].im)*w[i]
@@ -723,9 +721,8 @@ function vdot(::Type{T},
               sel::AbstractVector{Int},
               x::DenseArray{<:Real,N},
               y::DenseArray{<:Real,N})::T where {T<:AbstractFloat,N}
-    if size(y) != size(x)
-        throw(DimensionMismatch("`x` and `y` must have same dimensions"))
-    end
+    size(y) == size(x) ||
+        _errdims("`x` and `y` must have same dimensions")
     jmin, jmax = extrema(sel)
     1 ≤ jmin ≤ jmax ≤ length(x) || throw(BoundsError())
     local s::T = zero(T)
@@ -747,9 +744,8 @@ function vdot(::Type{T},
               x::AbstractArray{Complex{Tx},N},
               y::AbstractArray{Complex{Ty},N})::T where {T<:AbstractFloat,
                                                          Tx<:Real,Ty<:Real,N}
-    if size(y) != size(x)
-        throw(DimensionMismatch("`x` and `y` must have same dimensions"))
-    end
+    size(y) == size(x) ||
+        _errdims("`x` and `y` must have same dimensions")
     jmin, jmax = extrema(sel)
     1 ≤ jmin ≤ jmax ≤ length(x) || throw(BoundsError())
     local s::T = zero(T)
@@ -772,9 +768,8 @@ end
 function _vdot(::Type{T},
                x::AbstractArray{<:Real,N},
                y::AbstractArray{<:Real,N})::T where {T<:AbstractFloat, N}
-    if indices(x) != indices(y)
-        throw(DimensionMismatch("`x` and `y` must have the same indices"))
-    end
+    indices(x) == indices(y) ||
+        _errdims("`x` and `y` must have the same indices")
     local s::T = zero(T)
     @inbounds @simd for i in eachindex(x, y)
         s += x[i]*y[i]
@@ -791,9 +786,8 @@ function _vdot(::Type{T},
                x::AbstractArray{Complex{Tx},N},
                y::AbstractArray{Complex{Ty},N})::T where {T<:AbstractFloat,
                                                           Tx<:Real,Ty<:Real,N}
-    if indices(x) != indices(y)
-        throw(DimensionMismatch("`x` and `y` must have the same indices"))
-    end
+    indices(x) == indices(y) ||
+        _errdims("`x` and `y` must have the same indices")
     local s::T = zero(T)
     @inbounds @simd for i in eachindex(x, y)
         s += x[i].re*y[i].re + x[i].im*y[i].im
