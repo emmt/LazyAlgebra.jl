@@ -118,7 +118,8 @@ Also see [`copy!`](@ref), [`vcopy`](@ref), [`vswap!`](@ref).
 """
 function vcopy!(dst::AbstractArray{Td,N},
                 src::AbstractArray{Ts,N}) where {Td, Ts, N}
-    @assert indices(dst) == indices(src)
+    indices(dst) == indices(src) ||
+        throw(DimensionMismatch("`dst` and `src` must have the same indices"))
     copy!(dst, src)
 end
 
@@ -147,9 +148,8 @@ Also see [`vcopy!`](@ref).
 
 """
 function vswap!(x::AbstractArray{T,N}, y::AbstractArray{T,N}) where {T,N}
-    if indices(x) != indices(y)
+    indices(x) == indices(y) ||
         throw(DimensionMismatch("`x` and `y` must have the same indices"))
-    end
     __mayswap!(x, y)
 end
 
@@ -283,7 +283,9 @@ function _vscale!(dst::AbstractArray{Td,N},
         vzero!(dst)
     elseif α == 1
         vcopy!(dst, src)
-    elseif indices(dst) == indices(src)
+    else
+        indices(dst) == indices(src) ||
+            throw(DimensionMismatch("`dst` and `src` must have the same indices"))
         if α == -1
             @inbounds @simd for i in eachindex(dst, src)
                 dst[i] = -src[i]
@@ -293,8 +295,6 @@ function _vscale!(dst::AbstractArray{Td,N},
                 dst[i] = α*src[i]
             end
         end
-    else
-        throw(DimensionMismatch("`dst` and `src` must have the same indices"))
     end
     return dst
 end
