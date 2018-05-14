@@ -34,14 +34,17 @@ Similar Julia packages:
 * [LinearOperators](https://github.com/JuliaSmoothOptimizers/LinearOperators.jl)
 
 
-The rationale to have special methods for basic vector operations, *e.g* `vdot`
-instead of `dot`, is to distinguish the assumptions made in Julia where `dot`
-yields the inner product of two objects whose type is derived from the
-`AbstractArray` type with the only requirement that they have the same number
-of elements while `vdot` yields the sum of the product of the corresponding
-elements between two objects of the same kind (they can be two arrays but they
-must have the same dimensions and complex valued elements are considere as pair
-of reals).
+There are several reasons to have special methods for basic vector operations
+rather than relying on Julia linear algebra methods.  First, the notion of
+*vector* is different, in Julia a mono-dimensional array is a vector while,
+here any object with embedded values can be assumed to be a vector providing a
+subset of methods are specialized for this type of object.  For instance,
+LazyAlgebra provides such methods specialized for real-valued and
+complex-valued (with real components) arrays of any dimensionality.  Second,
+the meaning of the methods may have to be different.  For instance, only
+real-valued functions can be minimized (or maximized) and for this task,
+complex-valued variables can just be considered as real-valued variables (each
+complex value being equivalent to a pair of reals).
 
 
 ## Mappings
