@@ -1,5 +1,9 @@
 ## Methods for vectors
 
+A *vector* is that which has the algebra of a vector space (Peano 1888, van der
+Waerden 1931).  See talk by Jiahao Chen:
+[*Taking Vector Transposes Seriously*](https://www.youtube.com/watch?v=C2RO34b_oPM) at JuliaCon 2017.
+
 ### Vectorized methods
 
 Most necessary operations on the variables of interest are linear operations.
@@ -8,10 +12,13 @@ Hence variables (whatever their specific type and size) are just called
 manipulate the variables via a small number of vectorized methods:
 
 * `vdot([T,][w,]x,y)` yields the inner product of `x` and `y`; that is, the sum
-  of `x[i]*y[i]` or, if `w` is specified, the sum of `w[i]*x[i]*y[i]`, for all
-  indices `i`.  Optional argument `T` is the floating point type of the result.
-  `vdot([T,]sel,x,y)` yields the sum of `x[i]*y[i]` for all `i ∈ sel` where
-  `sel` is a selection of indices.
+  of `conj(x[i])*y[i]` or, if `w` is specified, the sum of
+  `w[i]*conj(x[i])*y[i]`, for all indices `i`.  Optional argument `T` is the
+  type of the result; for real valued *vectors*, `T` is a floating-point type;
+  for complex valued *vectors*, `T` can be a complex type (with floating-point
+  parts) or a floating-point type to compute only the real part of the inner
+  product.  `vdot([T,]sel,x,y)` yields the sum of `x[i]*y[i]` for all `i ∈ sel`
+  where `sel` is a selection of indices.
 
 * `vnorm1([T,]x)` yields the L-1 norm of `x`, that is the sum of the absolute
   values of the components of `x`.  Optional argument `T` is the floating-point
