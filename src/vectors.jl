@@ -487,61 +487,60 @@ See also: [`vscale!`](@ref), [`vcombine!](@ref).
 
 for (Tx, Ty) in ((:Tx,            :Ty),
                  (:(Complex{Tx}), :(Complex{Ty})))
-    @eval begin
 
-        function vupdate!(y::AbstractArray{$Ty,N},
-                          α::Real,
-                          x::AbstractArray{$Tx,N}) where {Ty<:AbstractFloat,
-                                                          Tx<:AbstractFloat,N}
-            indices(x) == indices(y) ||
-                __baddims("`x` and `y` must have the same indices")
-            if α == 1
-                @inbounds @simd for i in eachindex(y, x)
-                    y[i] += x[i]
-                end
-            elseif α == -1
-                @inbounds @simd for i in eachindex(y, x)
-                    y[i] -= x[i]
-                end
-            elseif α != 0
-                a = promote_scalar(Tx, Ty, α)
-                @inbounds @simd for i in eachindex(y, x)
-                    y[i] += a*x[i]
-                end
+    @eval function vupdate!(y::AbstractArray{$Ty,N},
+                            α::Real,
+                            x::AbstractArray{$Tx,N}) where {Ty<:AbstractFloat,
+                                                            Tx<:AbstractFloat,
+                                                            N}
+        indices(x) == indices(y) ||
+            __baddims("`x` and `y` must have the same indices")
+        if α == 1
+            @inbounds @simd for i in eachindex(y, x)
+                y[i] += x[i]
             end
-            return y
-        end
-
-        function vupdate!(y::DenseArray{$Ty,N},
-                          sel::AbstractVector{Int},
-                          α::Real,
-                          x::DenseArray{$Tx,N}) where {Ty<:AbstractFloat,
-                                                       Tx<:AbstractFloat,N}
-            size(x) == size(y) ||
-                __baddims("`x` and `y` must have the same dimensions")
-            jmin, jmax = extrema(sel)
-            1 ≤ jmin ≤ jmax ≤ length(x) || throw(BoundsError())
-            if α == 1
-                @inbounds @simd for i in eachindex(sel)
-                    j = sel[i]
-                    y[j] += x[j]
-                end
-            elseif α == -1
-                @inbounds @simd for i in eachindex(sel)
-                    j = sel[i]
-                    y[j] -= x[j]
-                end
-            elseif α != 0
-                a = promote_scalar(Tx, Ty, α)
-                @inbounds @simd for i in eachindex(sel)
-                    j = sel[i]
-                    y[j] += a*x[j]
-                end
+        elseif α == -1
+            @inbounds @simd for i in eachindex(y, x)
+                y[i] -= x[i]
             end
-            return y
+        elseif α != 0
+            a = promote_scalar(Tx, Ty, α)
+            @inbounds @simd for i in eachindex(y, x)
+                y[i] += a*x[i]
+            end
         end
+        return y
+    end
 
-     end
+    @eval function vupdate!(y::DenseArray{$Ty,N},
+                            sel::AbstractVector{Int},
+                            α::Real,
+                            x::DenseArray{$Tx,N}) where {Ty<:AbstractFloat,
+                                                         Tx<:AbstractFloat,N}
+        size(x) == size(y) ||
+            __baddims("`x` and `y` must have the same dimensions")
+        jmin, jmax = extrema(sel)
+        1 ≤ jmin ≤ jmax ≤ length(x) || throw(BoundsError())
+        if α == 1
+            @inbounds @simd for i in eachindex(sel)
+                j = sel[i]
+                y[j] += x[j]
+            end
+        elseif α == -1
+            @inbounds @simd for i in eachindex(sel)
+                j = sel[i]
+                y[j] -= x[j]
+            end
+        elseif α != 0
+            a = promote_scalar(Tx, Ty, α)
+            @inbounds @simd for i in eachindex(sel)
+                j = sel[i]
+                y[j] += a*x[j]
+            end
+        end
+        return y
+    end
+
 end
 
 
