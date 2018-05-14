@@ -85,6 +85,7 @@ end
                 @test distance(vscale(α,a), d) == 0
                 @test distance(vscale(a,α), d) == 0
                 @test distance(vscale!(b,α,a), d) == 0
+                @test distance(vscale!(b,a,α), d) == 0
                 c = vcopy(a)
                 @test distance(vscale!(c,α), d) == 0
                 vcopy!(c, a)
@@ -145,11 +146,42 @@ end
         end
     end
     @testset "vdot ($Ta,$Tb)" for Ta in types, Tb in types
+        Tmin = sizeof(Ta) ≤ sizeof(Tb) ? Ta : Tb
+        Tmax = sizeof(Ta) ≥ sizeof(Tb) ? Ta : Tb
         a = randn(Ta, dims)
         b = randn(Tb, dims)
+        sel = makeselection(length(a))
+        w = zeros(Tmax, dims)
+        w[sel] = rand(length(sel))
+        # check implementation for real-valued vectors
         @test vdot(a,b) ≈ sum(a.*b)
+        @test vdot(w,a,b) ≈ sum(w.*a.*b)
+        @test vdot(sel,a,b) ≈ sum(a[sel].*b[sel])
+        # check ⟨a,b⟩ = ⟨b,a⟩ for real-valued vectors
         @test vdot(a,b) == vdot(b,a)
+        @test vdot(w,a,b) ≈ vdot(w,b,a)
+        @test vdot(sel,a,b) == vdot(sel,b,a)
         @test sqrt(vdot(a,a)) ≈ vnorm2(a)
+    end
+    @testset "vdot (Complex{$Ta},Complex{$Tb})" for Ta in types, Tb in types
+        Tmin = sizeof(Ta) ≤ sizeof(Tb) ? Ta : Tb
+        Tmax = sizeof(Ta) ≥ sizeof(Tb) ? Ta : Tb
+        a = complex.(randn(Ta, dims), randn(Ta, dims))
+        b = complex.(randn(Tb, dims), randn(Tb, dims))
+        sel = makeselection(length(a))
+        w = zeros(Tmax, dims)
+        w[sel] = rand(length(sel))
+        # check implementation for complex-valued vectors
+        @test vdot(a,b) ≈ sum(conj.(a).*b)
+        @test vdot(Tmax,a,b) ≈ real(sum(conj.(a).*b))
+        @test vdot(w,a,b) ≈ sum(w.*conj.(a).*b)
+        @test vdot(Tmax,w,a,b) ≈ real(sum(w.*conj.(a).*b))
+        @test vdot(sel,a,b) ≈ sum(conj.(a[sel]).*b[sel])
+        @test vdot(Tmax,sel,a,b) ≈ real(sum(conj.(a[sel]).*b[sel]))
+        # check ⟨a,b⟩ = conj(⟨b,a⟩) for complex-valued vectors
+        @test vdot(a,b) == conj(vdot(b,a))
+        @test vdot(w,a,b) ≈ conj(vdot(w,b,a))
+        @test vdot(sel,a,b) == conj(vdot(sel,b,a))
     end
 end
 
