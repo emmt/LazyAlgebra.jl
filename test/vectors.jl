@@ -111,17 +111,19 @@ end
             end
         end
     end
-    @testset "vupdate ($T)" for T in types
-        a = randn(T, dims)
-        d = randn(T, dims)
+    @testset "vupdate ($Ta,$Tb)" for Ta in types, Tb in types
+        Tmin = sizeof(Ta) ≤ sizeof(Tb) ? Ta : Tb
+        Tmax = sizeof(Ta) ≥ sizeof(Tb) ? Ta : Tb
+        a = randn(Ta, dims)
+        b = randn(Tb, dims)
         sel = makeselection(length(a))
-        atol, rtol = zero(T), sqrt(eps(T))
+        atol, rtol = zero(Tmin), sqrt(eps(Tmin))
         for α in (0, -1, 1, π, 2.71)
-            @test vupdate!(vcopy(a),α,d) ≈
-                a + T(α)*d atol=atol rtol=rtol norm=vnorm2
+            @test vupdate!(vcopy(a),α,b) ≈
+                a + Tmax(α)*b atol=atol rtol=rtol norm=vnorm2
             c = vcopy(a)
-            c[sel] .+= T(α)*d[sel]
-            @test vupdate!(vcopy(a),sel,α,d) ≈ c atol=atol rtol=rtol norm=vnorm2
+            c[sel] .+= Tmax(α)*b[sel]
+            @test vupdate!(vcopy(a),sel,α,b) ≈ c atol=atol rtol=rtol norm=vnorm2
         end
     end
     @testset "vproduct ($Ta,$Tb)" for Ta in types, Tb in types
