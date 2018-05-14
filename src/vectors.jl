@@ -716,7 +716,7 @@ function vdot(::Type{Complex{T}},
               )::Complex{T} where {T<:AbstractFloat,Tx<:Real,Ty<:Real,N}
     indices(x) == indices(y) ||
         __baddims("`x` and `y` must have the same indices")
-    s = zero(T)
+    s = zero(Complex{T})
     @inbounds @simd for i in eachindex(x, y)
         xi = convert(Complex{T}, x[i])
         yi = convert(Complex{T}, y[i])
@@ -778,7 +778,7 @@ function vdot(::Type{Complex{T}},
               )::Complex{T} where {T<:AbstractFloat,Tx<:Real,Ty<:Real,N}
     indices(w) == indices(x) == indices(y) ||
         __baddims("`w`, `x` and `y` must have the same indices")
-    s = zero(T)
+    s = zero(Complex{T})
     @inbounds @simd for i in eachindex(w, x, y)
         wi = convert(T, w[i])
         xi = convert(Complex{T}, x[i])
@@ -845,7 +845,7 @@ function vdot(::Type{Complex{T}},
         __baddims("`x` and `y` must have same dimensions")
     jmin, jmax = extrema(sel)
     1 ≤ jmin ≤ jmax ≤ length(x) || throw(BoundsError())
-    s = zero(T)
+    s = zero(Complex{T})
     @inbounds @simd for i in eachindex(sel)
         j = sel[i]
         xj = convert(Complex{T}, x[j])
