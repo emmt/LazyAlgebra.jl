@@ -25,7 +25,11 @@ may be the same as the input argument.
 
 """
 struct Identity <: LinearMapping; end
+
+@callable Identity
+
 const I = Identity()
+
 const Identities = Union{Identity,Adjoint{Identity},Inverse{Identity},
                          InverseAdjoint{Identity}}
 
@@ -65,6 +69,8 @@ See also: [`NonuniformScalingOperator`](@ref).
 struct UniformScalingOperator <: LinearMapping
     α::Scalar
 end
+
+@callable UniformScalingOperator
 
 # Traits:
 selfadjointtype(::UniformScalingOperator) = SelfAdjoint
@@ -121,6 +127,8 @@ See also: [`UniformScalingOperator`](@ref).
 struct NonuniformScalingOperator{T} <: LinearMapping
     diag::T
 end
+
+@callable NonuniformScalingOperator
 
 # Traits:
 morphismtype(::NonuniformScalingOperator) = Endomorphism
@@ -362,6 +370,8 @@ struct RankOneOperator{U,V} <: LinearMapping
     v::V
 end
 
+@callable RankOneOperator
+
 function apply!(α::Real, ::Type{Direct}, A::RankOneOperator, x, β::Real, y)
     if α == 0
         # Lazily assume that y has correct type, dimensions, etc.
@@ -419,6 +429,8 @@ See also: [`RankOneOperator`](@ref), [`LinearMapping`](@ref),
 struct SymmetricRankOneOperator{U} <: LinearMapping
     u::U
 end
+
+@callable SymmetricRankOneOperator
 
 # Traits:
 morphismtype(::SymmetricRankOneOperator) = Endomorphism
@@ -481,6 +493,8 @@ See also: [`reshape`](@ref).
 struct GeneralMatrix{T<:AbstractArray} <: LinearMapping
     arr::T
 end
+
+@callable GeneralMatrix
 
 contents(A) = A.arr
 

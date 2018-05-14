@@ -129,7 +129,7 @@ See also: [`apply`](@ref), [`apply!`](@ref), [`vcreate`](@ref),
           [`Inverse`](@ref), [`InverseAdjoint`](@ref).
 
 """
-abstract type Mapping end
+abstract type Mapping <: Function end
 
 abstract type LinearMapping <: Mapping end
 @doc @doc(Mapping) LinearMapping

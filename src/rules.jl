@@ -11,7 +11,26 @@
 # Copyright (c) 2017-2018 Éric Thiébaut.
 #
 
-import Base: *, ⋅, +, -, \, /, ctranspose, inv, A_mul_B!
+import Base: *, ⋅, ∘, +, -, \, /, ctranspose, inv, A_mul_B!
+
+"""
+```julia
+@callable T
+```
+
+makes concrete type `T` callable as a regular mapping that is `A(x)` yields
+`apply(A,x)` for any `A` of type `T`.
+
+"""
+macro callable(T)
+    quote
+	(A::$T)(x) = apply(A, x)
+    end
+end
+
+for T in (Adjoint, Inverse, InverseAdjoint, Scaled, Sum, Composition, Hessian)
+    @eval (A::$T)(x) = apply(A, x)
+end
 
 const UnsupportedInverseOfSumOfMappings = "automatic dispatching of the inverse of a sum of mappings is not supported"
 
@@ -170,7 +189,8 @@ is_applicable_in_place(::Type{P}, A::Mapping) where {P<:Operations} =
 *(alpha::Real, A::T) where {T<:Mapping} =
     (alpha == one(alpha) ? A : Scaled{T}(alpha, A))
 
-# Composition of mappings and right muliplication of a mapping by a vector.
+# Composition of mappings and right multiplication of a mapping by a vector.
+∘(A::Mapping, B::Mapping) = A*B
 *(A::Composition, B::Mapping) = Composition(A.ops..., B)
 *(A::Composition, B::Composition) = Composition(A.ops..., B.ops...)
 *(A::Mapping, B::Composition) = Composition(A, B.ops...)
