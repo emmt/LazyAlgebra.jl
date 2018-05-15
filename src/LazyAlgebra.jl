@@ -82,15 +82,15 @@ export
     SymmetricRankOneOperator,
     UniformScalingOperator
 
-# The following constants are to decide whether or not use BLAS routines
-# whenever possible.
-const USE_BLAS_DOT = true
-const USE_BLAS_AXPY = true
-const USE_BLAS_GEMV = true
+# The following constant is to decide whether or not use BLAS routines whenever
+# possible.
+const USE_BLAS = true
 
 include("types.jl")
 include("rules.jl")
-include("blas.jl")
+@static if USE_BLAS
+    include("blas.jl")
+end
 include("methods.jl")
 include("vectors.jl")
 include("mappings.jl")
