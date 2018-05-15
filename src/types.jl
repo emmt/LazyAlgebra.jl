@@ -267,9 +267,8 @@ struct Adjoint{T<:Mapping} <: LinearMapping
     # The inner constructors make sure that the argument is a linear mapping.
     Adjoint{T}(A::T) where {T<:LinearMapping} = new{T}(A)
     function Adjoint{T}(A::T) where {T<:Mapping}
-        if lineartype(A) != Linear
+        lineartype(A) == Linear ||
             error("taking the adjoint of non-linear mappings is not allowed")
-        end
         return new{T}(A)
     end
 end
@@ -287,9 +286,8 @@ struct InverseAdjoint{T<:LinearMapping} <: LinearMapping
     # The inner constructors ensure that the argument is a linear mapping.
     InverseAdjoint{T}(A::T) where {T<:LinearMapping} = new{T}(A)
     function InverseAdjoint{T}(A::T) where {T<:Mapping}
-        if lineartype(A) != Linear
+        lineartype(A) == Linear ||
             error("taking the inverse adjoint of non-linear mappings is not allowed")
-        end
         return new{T}(A)
     end
 end
@@ -340,9 +338,7 @@ struct Sum{T<:Tuple{Vararg{Mapping}}} <: Mapping
 
     # The inner constructor ensures that the number of arguments is at least 2.
     function Sum{T}(ops::T) where {T<:Tuple{Vararg{Mapping}}}
-        if length(ops) < 2
-            error("a sum of mappings has at least 2 components")
-        end
+        length(ops) ≥ 2 || error("a sum of mappings has at least 2 components")
         return new{T}(ops)
     end
 end
@@ -361,9 +357,8 @@ struct Composition{T<:Tuple{Vararg{Mapping}}} <: Mapping
 
     # The inner constructor ensures that the number of arguments is at least 2.
     function Composition{T}(ops::T) where {T<:Tuple{Vararg{Mapping}}}
-        if length(ops) < 2
+        length(ops) ≥ 2 ||
             error("a composition of mappings has at least 2 components")
-        end
         return new{T}(ops)
     end
 end
