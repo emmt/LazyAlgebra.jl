@@ -209,7 +209,7 @@ function conjgrad!(x, A, b, x0 = vzeros(b),
             break
         end
         if rem(k, restart) == 1
-            # Restart of first iteration.
+            # Restart or first iteration.
             if k > 1
                 # Restart.
                 A(r, x)
