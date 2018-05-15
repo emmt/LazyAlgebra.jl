@@ -336,11 +336,21 @@ end
 function vcreate(::Type{<:Operations},
                  W::NonuniformScalingOperator{<:AbstractArray{Tw,N}},
                  x::AbstractArray{Tx,N}) where {Tw<:AbstractFloat,
-                                                Tx<:AbstractFloat, N}
+                                                Tx<:AbstractFloat,N}
     inds = indices(W.diag)
     @assert indices(x) == inds
     T = promote_type(Tw, Tx)
     return similar(Array{T}, inds)
+end
+
+function vcreate(::Type{<:Operations},
+                 W::NonuniformScalingOperator{<:AbstractArray{Complex{Tw},N}},
+                 x::AbstractArray{Complex{Tx},N}) where {Tw<:AbstractFloat,
+                                                         Tx<:AbstractFloat,N}
+    inds = indices(W.diag)
+    @assert indices(x) == inds
+    T = promote_type(Tw, Tx)
+    return similar(Array{Complex{T}}, inds)
 end
 
 #------------------------------------------------------------------------------
