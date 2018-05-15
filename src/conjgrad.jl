@@ -129,6 +129,12 @@ See also: [`conjgrad`][@ref).
 conjgrad!(x, A::Union{LinearMapping,AbstractArray}, b, args...; kwds...) =
     conjgrad!(x, (dst, src) -> apply!(dst, A, src), b, args...; kwds...)
 
+function conjgrad!(x, A::Mapping, b, args...; kwds...)
+    lineartype(A) == Linear ||
+        throws(ArgumentError("`A` must be a linear map"))
+    conjgrad!(x, (dst, src) -> apply!(dst, A, src), b, args...; kwds...)
+end
+
 function conjgrad!(x, A, b, x0 = vzeros(b),
                    p = vcreate(x), q = vcreate(x), r = vcreate(x);
                    ftol::Real = 1e-7,
