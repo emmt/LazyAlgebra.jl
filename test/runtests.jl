@@ -13,5 +13,6 @@ end
 include("utils.jl")
 include("vectors.jl")
 include("mappings.jl")
+include("conjgrad.jl")
 
 end
