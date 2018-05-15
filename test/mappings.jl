@@ -25,6 +25,7 @@ const I = LazyAlgebra.Identity()
     betas = (0, 1, -1, -1.33, φ)
     operations = (Direct, Adjoint, Inverse, InverseAdjoint)
     floats = (Float32, Float64)
+    complexes = (Complex64, Complex128)
 
     @testset "Identity" begin
         I = Identity()
@@ -97,15 +98,20 @@ const I = LazyAlgebra.Identity()
 
     @testset "Non-uniform scaling ($T)" for T in floats
         w = randn(T, dims)
+        for i in eachindex(w)
+            while w[i] == 0
+                w[i] = randn(T)
+            end
+        end
         x = randn(T, dims)
         y = randn(T, dims)
-        wx = w.*x
-        qx = x./w
         z = vcreate(y)
         S = NonuniformScalingOperator(w)
         atol, rtol = zero(T), sqrt(eps(T))
-        @test S*x  ≈ wx atol=atol rtol=rtol norm=vnorm2
-        @test S'*x ≈ wx atol=atol rtol=rtol norm=vnorm2
+        @test S*x  ≈ w.*x atol=atol rtol=rtol norm=vnorm2
+        @test S'*x ≈ w.*x atol=atol rtol=rtol norm=vnorm2
+        @test S\x ≈ x./w atol=atol rtol=rtol norm=vnorm2
+        @test S'\x ≈ x./w atol=atol rtol=rtol norm=vnorm2
         for α in alphas,
             β in betas
             for P in (Direct, Adjoint)
@@ -116,6 +122,37 @@ const I = LazyAlgebra.Identity()
                 @test apply!(α, P, S, x, β, vcopy(y)) ≈
                     T(α)*x./w + T(β)*y atol=atol rtol=rtol norm=vnorm2
             end
+        end
+    end
+
+    @testset "Non-uniform scaling (Complex{$T})" for T in floats
+        w = complex.(randn(T, dims), randn(T, dims))
+        for i in eachindex(w)
+            while w[i] == 0
+                w[i] = complex(randn(T), randn(T))
+            end
+        end
+        x = complex.(randn(T, dims), randn(T, dims))
+        y = complex.(randn(T, dims), randn(T, dims))
+        wx = w.*x
+        qx = x./w
+        z = vcreate(y)
+        S = NonuniformScalingOperator(w)
+        atol, rtol = zero(T), sqrt(eps(T))
+        @test S*x  ≈ w.*x atol=atol rtol=rtol norm=vnorm2
+        @test S'*x ≈ conj.(w).*x atol=atol rtol=rtol norm=vnorm2
+        @test S\x ≈ x./w atol=atol rtol=rtol norm=vnorm2
+        @test S'\x ≈ x./conj.(w) atol=atol rtol=rtol norm=vnorm2
+        for α in alphas,
+            β in betas
+            @test apply!(α, Direct, S, x, β, vcopy(y)) ≈
+                T(α)*w.*x + T(β)*y atol=atol rtol=rtol norm=vnorm2
+            @test apply!(α, Adjoint, S, x, β, vcopy(y)) ≈
+                T(α)*conj.(w).*x + T(β)*y atol=atol rtol=rtol norm=vnorm2
+            @test apply!(α, Inverse, S, x, β, vcopy(y)) ≈
+                T(α)*x./w + T(β)*y atol=atol rtol=rtol norm=vnorm2
+            @test apply!(α, InverseAdjoint, S, x, β, vcopy(y)) ≈
+                T(α)*x./conj.(w) + T(β)*y atol=atol rtol=rtol norm=vnorm2
         end
     end
 
