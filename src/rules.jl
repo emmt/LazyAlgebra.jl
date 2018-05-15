@@ -24,7 +24,7 @@ makes concrete type `T` callable as a regular mapping that is `A(x)` yields
 """
 macro callable(T)
     quote
-	(A::$T)(x) = apply(A, x)
+	(A::$(esc(T)))(x) = apply(A, x)
     end
 end
 
