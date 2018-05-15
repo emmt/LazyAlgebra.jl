@@ -43,7 +43,7 @@ const DEBUG = true
         b = H'*y
         n = length(b)
         x1 = conjgrad(A, b; maxiter=10n, restart=n,
-                      quiet=true, verb=false,
+                      quiet=false, verb=true,
                       gtol=(0,0), ftol=0, xtol=rtol/10)
         DEBUG && println("x1: ", vnorm2(x1 - x0)/vnorm2(x0))
         @test vnorm2(x1 - x0) ≤ atol
@@ -96,8 +96,10 @@ const DEBUG = true
         DEBUG && println("x8: ", vnorm2(x8 - x0)/vnorm2(x0))
         @test vnorm2(x8 - x0) ≤ atol
 
-        # Exceptions.
-        @test_throws LazyAlgebra.NonPositiveDefinite conjgrad(-A, b)
+        # Non-positive definite.
+        @test vnorm2(conjgrad(-A, b; strict=false)) ≤ 0
+        @test_throws LazyAlgebra.NonPositiveDefinite conjgrad(-A, b; verb=true,
+                                                              quiet=false)
 
     end
 end
