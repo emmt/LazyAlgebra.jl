@@ -76,28 +76,35 @@ function vupdate!(y::BlasVec{T}, alpha::Number,
     return y
 end
 
-function apply!(α::Number,
-                ::Type{Direct},
-                A::DenseArray{T},
-                x::DenseArray{T},
-                β::Number,
-                y::DenseArray{T}) where {T<:BlasFloat}
-    (size(y)..., size(x)...) == size(A) ||
-        __baddims("the dimensions of `y` and `x` must match those of `A`")
-    m, n = length(y), length(x)
-    return __gemv!('N', m, n, convert(T, α), A, m, x, 1, convert(T, β), y, 1)
-end
+# This pathetic loop over explicit types is needed to disentangle ambiguities.
+for T in (Float32, Float64, Complex64, Complex128)
 
-function apply!(α::Number,
-                ::Type{Adjoint},
-                A::DenseArray{T},
-                x::DenseArray{T},
-                β::Number,
-                y::DenseArray{T}) where {T<:BlasFloat}
-    (size(x)..., size(y)...) == size(A) ||
-        __baddims("the dimensions of `x` and `y` must match those of `A`")
-    m, n = length(x), length(y)
-    return __gemv!('C', m, n, convert(T, α), A, m, x, 1, convert(T, β), y, 1)
+    @eval function apply!(α::Real,
+                          ::Type{Direct},
+                          A::DenseArray{$T},
+                          x::DenseArray{$T},
+                          β::Real,
+                          y::DenseArray{$T})
+        (size(y)..., size(x)...) == size(A) ||
+            __baddims("the dimensions of `y` and `x` must match those of `A`")
+        m, n = length(y), length(x)
+        __gemv!('N', m, n, convert($T, α), A, m, x, 1, convert($T, β), y, 1)
+        return y
+     end
+
+    @eval function apply!(α::Real,
+                          ::Type{Adjoint},
+                          A::DenseArray{$T},
+                          x::DenseArray{$T},
+                          β::Real,
+                          y::DenseArray{$T})
+        (size(x)..., size(y)...) == size(A) ||
+            __baddims("the dimensions of `x` and `y` must match those of `A`")
+        m, n = length(x), length(y)
+        __gemv!('C', m, n, convert($T, α), A, m, x, 1, convert($T, β), y, 1)
+        return y
+    end
+
 end
 
 # Wrappers for BLAS level 2 GEMV routine, assuming arguments have been checked
@@ -125,7 +132,6 @@ for (fname, elty) in ((:dgemv_,:Float64),
                    Ptr{$elty}, Ptr{$elty}, Ptr{BlasInt}),
                   &trans, &m, &n, &alpha, A, &max(1,lda), x, &incx,
                   &beta, y, &incy)
-            return y
-        end
+       end
     end
 end
