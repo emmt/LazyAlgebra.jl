@@ -177,13 +177,13 @@ function conjgrad!(x, A, b, x0 = vzeros(b),
         # Save applying A since x = 0.
         vcopy!(r, b)
     end
-    rho = Cdouble(vdot(r, r))
-    ftest = Cdouble(ftol)
-    gtest = Cdouble(max(gtol[1], gtol[2]*sqrt(rho)))
-    xtest = Cdouble(xtol)
-    psimax = Cdouble(0)
-    psi = Cdouble(0)
-    oldrho = Cdouble(0)
+    rho = Float64(vdot(r, r))
+    ftest = Float64(ftol)
+    gtest = Float64(max(gtol[1], gtol[2]*sqrt(rho)))
+    xtest = Float64(xtol)
+    psimax = Float64(0)
+    psi = Float64(0)
+    oldrho = Float64(0)
 
     # Conjugate gradient iterations.
     k = 0
@@ -195,7 +195,7 @@ function conjgrad!(x, A, b, x0 = vzeros(b),
                         "-------------------------------")
             end
             @printf(io, "%6d %12.4e %12.4e\n",
-                    k, Cdouble(psi), Cdouble(sqrt(rho)))
+                    k, Float64(psi), Float64(sqrt(rho)))
         end
         k += 1
         if sqrt(rho) ≤ gtest
@@ -226,7 +226,7 @@ function conjgrad!(x, A, b, x0 = vzeros(b),
             vcombine!(p, beta, p, +1, r)
         end
         A(q, p)
-        gamma = Cdouble(vdot(p, q))
+        gamma = Float64(vdot(p, q))
         if gamma ≤ 0
             if verb
                 @printf(io, "# %s\n", "Operator is not positive definite.")
@@ -257,7 +257,7 @@ function conjgrad!(x, A, b, x0 = vzeros(b),
             break
         end
         oldrho = rho
-        rho = Cdouble(vdot(r, r))
+        rho = Float64(vdot(r, r))
     end
     return x
 end
