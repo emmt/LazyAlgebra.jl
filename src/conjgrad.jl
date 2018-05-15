@@ -137,7 +137,7 @@ end
 
 function conjgrad!(x, A, b, x0 = vzeros(b),
                    p = vcreate(x), q = vcreate(x), r = vcreate(x);
-                   ftol::Real = 1e-7,
+                   ftol::Real = 1e-8,
                    gtol::NTuple{2,Real} = (0.0,0.0),
                    xtol::Real = 0.0,
                    maxiter::Integer = typemax(Int),
@@ -147,24 +147,19 @@ function conjgrad!(x, A, b, x0 = vzeros(b),
                    quiet::Bool = false,
                    strict::Bool = true)
     # Initialization.
-    if ! (0 ≤ ftol < 1)
+    0 ≤ ftol < 1 ||
         throw(ArgumentError("bad function tolerance (ftol = $ftol)"))
-    end
-    if gtol[1] < 0
+    gtol[1] ≥ 0 ||
         throw(ArgumentError("bad gradient absolute tolerance (gtol[1] = ",
                             gtol[1], ")"))
-    end
-    if ! (0 ≤ gtol[2] < 1)
+    0 ≤ gtol[2] < 1 ||
         throw(ArgumentError("bad gradient relative tolerance (gtol[2] = ",
                             gtol[2], ")"))
-    end
-    if ! (0 ≤ xtol < 1)
+    0 ≤ xtol < 1 ||
         throw(ArgumentError("bad variables tolerance (xtol = $xtol)"))
-    end
-    if restart < 1
+    restart ≥ 1 ||
         throw(ArgumentError("bad number of iterations for restarting ",
                             "(restart = $restart)"))
-    end
     vcopy!(x, x0)
     if maxiter < 1 && quiet && !verb
         return x
