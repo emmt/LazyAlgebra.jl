@@ -206,7 +206,9 @@ See also: [`vdot`](@ref), [`vcreate`](@ref), [`apply!`](@ref),
           [`input_type`](@ref).
 
 """
-function checkmapping(y::Ty, A::LinearMapping, x::Tx) where {Tx, Ty}
+function checkmapping(y::Ty, A::Mapping, x::Tx) where {Tx, Ty}
+    lineartype(A) <: Linear ||
+        throw(ArgumentError("expecting a linear map"))
     v1 = vdot(y, A*x)
     v2 = vdot(A'*y, x)
     (v1, v2, v1 - v2)
@@ -214,13 +216,13 @@ end
 
 function checkmapping(::Type{T},
                       outdims::Tuple{Vararg{Int}},
-                      A::LinearMapping,
+                      A::Mapping,
                       inpdims::Tuple{Vararg{Int}}) where {T<:AbstractFloat}
     checkmapping(randn(T, outdims), A, randn(T, inpdims))
 end
 
 function checkmapping(outdims::Tuple{Vararg{Int}},
-                      A::LinearMapping,
+                      A::Mapping,
                       inpdims::Tuple{Vararg{Int}})
     checkmapping(Float64, outdims, A, inpdims)
 end
@@ -228,5 +230,3 @@ end
 checkmapping(A::LinearMapping) =
     checkmapping(randn(output_eltype(A), output_size(A)), A,
                  randn(input_eltype(A), input_size(A)))
-
-
