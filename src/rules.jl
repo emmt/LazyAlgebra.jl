@@ -208,7 +208,7 @@ ctranspose(A::Scaled) = conj(A.sc)*ctranspose(A.op)
 ctranspose(A::Sum) = Sum(ntuple(i -> ctranspose(A.ops[i]), length(A)))
 function ctranspose(A::Composition)
     n = length(A)
-    Composition(ntuple(i -> ctranpose(A.ops[n + 1 - i]), n))
+    Composition(ntuple(i -> ctranspose(A.ops[n + 1 - i]), n))
 end
 _adjoint(::Type{SelfAdjoint}, A::Mapping) = A
 _adjoint(::Type{NonSelfAdjoint}, A::Mapping) = Adjoint(A)
@@ -218,7 +218,7 @@ _adjoint(::Type{NonSelfAdjoint}, A::Inverse) = InverseAdjoint(A)
 inv(A::Mapping) = Inverse(A)
 inv(A::Adjoint) = InverseAdjoint(A.op)
 inv(A::Inverse) = A.op
-inv(A::InverseAdjoint) = ctranpose(A.op)
+inv(A::InverseAdjoint) = ctranspose(A.op)
 inv(A::Scaled) = (one(Scalar)/A.sc)*inv(A.op)
 inv(A::Sum) = error(UnsupportedInverseOfSumOfMappings)
 function inv(A::Composition)
