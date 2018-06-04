@@ -66,9 +66,7 @@ lineartype(A::Union{Scaled,Inverse}) = lineartype(A.op)
 lineartype(::Mapping) = NonLinear # anything else is non-linear
 function lineartype(A::Union{Sum,Composition})
     @inbounds for i in 1:length(A)
-        if lineartype(A.ops[i]) != Linear
-            return NonLinear
-        end
+        lineartype(A.ops[i]) <: Linear || return NonLinear
     end
     return Linear
 end
@@ -88,9 +86,7 @@ selfadjointtype(::Mapping) = NonSelfAdjoint
 selfadjointtype(A::Union{Scaled,Inverse}) = selfadjointtype(contents(A))
 function selfadjointtype(A::Union{Sum,Composition})
     @inbounds for i in 1:length(A)
-        if selfadjointtype(A.ops[i]) != SelfAdjoint
-            return NonSelfAdjoint
-        end
+        selfadjointtype(A.ops[i]) <: SelfAdjoint || return NonSelfAdjoint
     end
     return SelfAdjoint
 end
@@ -111,9 +107,7 @@ morphismtype(::Mapping) = Morphism
 morphismtype(A::Union{Scaled,Inverse}) = morphismtype(contents(A))
 function morphismtype(A::Union{Sum,Composition})
     @inbounds for i in 1:length(A)
-        if morphismtype(A.ops[i]) != Endomorphism
-            return Morphism
-        end
+        morphismtype(A.ops[i]) <: Endomorphism || return Morphism
     end
     return Endomorphism
 end
@@ -133,9 +127,7 @@ diagonaltype(::Mapping) = NonDiagonalMapping
 diagonaltype(A::Union{Scaled,Inverse}) = diagonaltype(contents(A))
 function diagonaltype(A::Union{Sum,Composition})
     @inbounds for i in 1:length(A)
-        if diagonaltype(A.ops[i]) != DiagonalMapping
-            return NonDiagonalMapping
-        end
+        diagonaltype(A.ops[i]) <: DiagonalMapping || return NonDiagonalMapping
     end
     return DiagonalMapping
 end
@@ -155,20 +147,18 @@ inplacetype(::Mapping) = OutOfPlace
 inplacetype(A::Union{Scaled,Inverse}) = inplacetype(contents(A))
 function inplacetype(A::Union{Sum,Composition})
     @inbounds for i in 1:length(A)
-        if inplacetype(A.ops[i]) != InPlace
-            return OutOfPlace
-        end
+        inplacetype(A.ops[i]) <: InPlace || return OutOfPlace
     end
     return InPlace
 end
 
-is_linear(A::Mapping) = (lineartype(A) == Linear)
-is_selfadjoint(A::Mapping) = (selfadjointtype(A) == SelfAdjoint)
-is_endomorphism(A::Mapping) = (morphismtype(A) == Endomorphism)
-is_diagonal(A::Mapping) = (diagonaltype(A) == DiagonalMapping)
+is_linear(A::Mapping) = (lineartype(A) <: Linear)
+is_selfadjoint(A::Mapping) = (selfadjointtype(A) <: SelfAdjoint)
+is_endomorphism(A::Mapping) = (morphismtype(A) <: Endomorphism)
+is_diagonal(A::Mapping) = (diagonaltype(A) <: DiagonalMapping)
 is_applicable_in_place(A::Mapping) = is_applicable_in_place(Direct, A)
 is_applicable_in_place(::Type{P}, A::Mapping) where {P<:Operations} =
-    (inplacetype(P, A) == InPlace)
+    (inplacetype(P, A) <: InPlace)
 
 # Unary minus and unary plus.
 -(A::Mapping) = -1*A

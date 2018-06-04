@@ -26,20 +26,20 @@ const I = LazyAlgebra.Identity()
     operations = (Direct, Adjoint, Inverse, InverseAdjoint)
     floats = (Float32, Float64)
     complexes = (Complex64, Complex128)
+    I = Identity()
 
     @testset "Identity" begin
-        I = Identity()
         @test I === LazyAlgebra.I
         @test I' === I
         @test inv(I) === I
         @test I*I === I
         @test I\I === I
         @test I/I === I
-        @test selfadjointtype(I) == SelfAdjoint
-        @test morphismtype(I) == Endomorphism
-        @test diagonaltype(I) == DiagonalMapping
+        @test selfadjointtype(I) <: SelfAdjoint
+        @test morphismtype(I) <: Endomorphism
+        @test diagonaltype(I) <: DiagonalMapping
         for P in operations
-            @test inplacetype(P, I) == InPlace
+            @test inplacetype(P, I) <: InPlace
         end
         for T in floats
             atol, rtol = zero(T), sqrt(eps(T))
@@ -65,12 +65,27 @@ const I = LazyAlgebra.Identity()
         B = RankOneOperator(w, y)
         C = SymmetricRankOneOperator(w)
         atol, rtol = zero(T), sqrt(eps(T))
+        @test lineartype(A) <: Linear
+        @test lineartype(C) <: Linear
+        @test morphismtype(C) <: Endomorphism
+        for P in operations
+            @test inplacetype(P, C) <: InPlace
+        end
+        @test A*I === A
+        @test I*A === A
         @test A*x  ≈ sum(w.*x)*w atol=atol rtol=rtol norm=vnorm2
         @test A'*x ≈ sum(w.*x)*w atol=atol rtol=rtol norm=vnorm2
         @test B*x  ≈ sum(y.*x)*w atol=atol rtol=rtol norm=vnorm2
         @test B'*x ≈ sum(w.*x)*y atol=atol rtol=rtol norm=vnorm2
         @test C*x  ≈ sum(w.*x)*w atol=atol rtol=rtol norm=vnorm2
         @test C'*x ≈ sum(w.*x)*w atol=atol rtol=rtol norm=vnorm2
+        for α in alphas,
+            β in betas
+            for P in (Direct, Adjoint)
+                @test apply!(α, P, C, x, β, vcopy(y)) ≈
+                    T(α*vdot(w,x))*w + T(β)*y atol=atol rtol=rtol norm=vnorm2
+            end
+        end
     end
 
     @testset "Uniform scaling ($T)" for T in floats

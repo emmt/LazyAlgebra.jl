@@ -267,7 +267,7 @@ struct Adjoint{T<:Mapping} <: LinearMapping
     # The inner constructors make sure that the argument is a linear mapping.
     Adjoint{T}(A::T) where {T<:LinearMapping} = new{T}(A)
     function Adjoint{T}(A::T) where {T<:Mapping}
-        lineartype(A) == Linear ||
+        lineartype(A) <: Linear ||
             error("taking the adjoint of non-linear mappings is not allowed")
         return new{T}(A)
     end
@@ -286,7 +286,7 @@ struct InverseAdjoint{T<:LinearMapping} <: LinearMapping
     # The inner constructors ensure that the argument is a linear mapping.
     InverseAdjoint{T}(A::T) where {T<:LinearMapping} = new{T}(A)
     function InverseAdjoint{T}(A::T) where {T<:Mapping}
-        lineartype(A) == Linear ||
+        lineartype(A) <: Linear ||
             error("taking the inverse adjoint of non-linear mappings is not allowed")
         return new{T}(A)
     end

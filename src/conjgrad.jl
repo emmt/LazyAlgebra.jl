@@ -130,7 +130,7 @@ conjgrad!(x, A::Union{LinearMapping,AbstractArray}, b, args...; kwds...) =
     conjgrad!(x, (dst, src) -> apply!(dst, A, src), b, args...; kwds...)
 
 function conjgrad!(x, A::Mapping, b, args...; kwds...)
-    lineartype(A) == Linear ||
+    lineartype(A) <: Linear ||
         throws(ArgumentError("`A` must be a linear map"))
     conjgrad!(x, (dst, src) -> apply!(dst, A, src), b, args...; kwds...)
 end
