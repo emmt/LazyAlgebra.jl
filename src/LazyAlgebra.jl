@@ -24,7 +24,6 @@ export
     conjgrad!,
     conjgrad,
     contents,
-    contents,
     diagonaltype,
     inplacetype,
     input_eltype,
