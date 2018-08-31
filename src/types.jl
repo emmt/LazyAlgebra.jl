@@ -253,9 +253,9 @@ struct Direct; end
 
 Types `Adjoint`, `Inverse` and `InverseAdjoint` are used to *decorate* a
 mapping to indicate the conjugate transpose and/or inverse of the mapping.  The
-`ctranspose` method is extended, so that in the code, it is sufficient (and
+`adjoint` method is extended, so that in the code, it is sufficient (and
 recommended) to write `A'` instead of `Adjoint(A)`.  Furthermore, `A'` or
-`ctranspose(A)` may be able to perform some simplications resulting in improved
+`adjoint(A)` may be able to perform some simplications resulting in improved
 efficiency.  `AdjointInverse` is just an alias for `InverseAdjoint`.  Note that
 the adjoint only makes sense for linear mappings.
 

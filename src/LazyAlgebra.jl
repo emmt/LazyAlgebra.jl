@@ -15,9 +15,64 @@ isdefined(Base, :__precompile__) && __precompile__(true)
 
 module LazyAlgebra
 
+# Deal with compatibility issues.
 isdefined(Base, :apply) && import Base: apply
+@static if isdefined(Base, :adjoint)
+    import Base: adjoint
+else
+    import Base: ctranspose
+    const adjoint = ctranspose
+end
+using Compat
+using Compat.Printf
+@static if !isdefined(Base, Symbol("@warn"))
+    using Compat: @warn
+end
+@static if !isdefined(Base, Symbol("@info"))
+    using Compat: @info
+end
+
+# Important revision numbers:
+#   * 0.7.0-DEV.3204: A_mul_B! is deprecated (as mul! or scale!)
+#   * 0.7.0-DEV.3449: LinearAlgebra in the stdlib
+#   * 0.7.0-DEV.3563: scale! -> mul1!
+#   * 0.7.0-DEV.3665: mul1! -> rmul!
+
+# Define `LinearAlgebra`.
+@static if VERSION < v"0.7.0-DEV.3449"
+    # LinearAlgebra not in the stdlib
+    const LinearAlgebra = Base.LinAlg
+else
+    import LinearAlgebra
+end
+const BLAS = LinearAlgebra.BLAS
+import .BLAS: libblas, @blasfunc, BlasInt, BlasReal, BlasFloat, BlasComplex
+
+# Import/define `mul!` and `⋅`.
+if VERSION < v"0.7.0-DEV.3204"
+    # A_mul_B! not deprecated
+    import Base: ⋅, A_mul_B!
+    const mul! = A_mul_B!
+else
+    import .LinearAlgebra: ⋅, mul!
+end
+
+# Define `rmul!`.
+if VERSION < v"0.7.0-DEV.3563"
+    # scale! not deprecated
+    rmul!(A::AbstractArray, s::Number) = scale!(A, s)
+    #export mul!, rmul!
+elseif VERSION < v"0.7.0-DEV.3665"
+    # scale! -> mul1!
+    rmul!(A::AbstractArray, s::Number) = rmul1!(A, s)
+else
+    import .LinearAlgebra: rmul!
+end
+
+import Base: *, ∘, +, -, \, /, inv
 
 export
+    adjoint,
     apply!,
     apply,
     conjgrad!,
@@ -87,17 +142,11 @@ export
     SymmetricRankOneOperator,
     UniformScalingOperator
 
-# The following constant is to decide whether or not use BLAS routines whenever
-# possible.
-const USE_BLAS = true
-
 include("types.jl")
 include("rules.jl")
-@static if USE_BLAS
-    include("blas.jl")
-end
 include("methods.jl")
 include("vectors.jl")
+include("blas.jl")
 include("mappings.jl")
 include("fft.jl")
 import .FFT.FFTOperator

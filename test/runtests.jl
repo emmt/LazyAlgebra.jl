@@ -1,14 +1,12 @@
-isdefined(:LazyAlgebra) || include("../src/LazyAlgebra.jl")
+isdefined(Main, :LazyAlgebra) || include("../src/LazyAlgebra.jl")
 
 module LazyAlgebraTests
 
 using LazyAlgebra
 
-@static if VERSION < v"0.7.0-DEV.2005"
-    using Base.Test
-else
-    using Test
-end
+# Deal with compatibility issues.
+using Compat
+using Compat.Test
 
 include("utils.jl")
 include("vectors.jl")

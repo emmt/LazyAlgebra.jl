@@ -63,7 +63,7 @@ Householder-like notation (that is upper case Latin letters denote *mappings*,
 lower case Latin letters denote *variables*, and Greek letters denote
 *scalars*), then:
 
-* `A*x` or `A⋅x` yields the result of applying the mapping `A` to `x`;
+* `A(x)`, `A*x` or `A⋅x` yields the result of applying the mapping `A` to `x`;
 
 * `A\x` yields the result of applying the inverse of `A` to `x`;
 
@@ -71,26 +71,30 @@ Simple constructions are allowed for any kind of mappings and can be used to
 create new instances of mappings which behave correctly.  For instance:
 
 * `B = α*A` (where `α` is a real) is a mapping which behaves as `A` times `α`;
-  that is `B⋅x` yields the same result as `α*(A⋅x)`.
+  that is `B(x)` yields the same result as `α*(A(x))`.
 
 * `C = A + B + ...` is a mapping which behaves as the sum of the mappings `A`,
-  `B`, ...; that is `C⋅x` yields the same result as `A⋅x + B⋅x + ...`.
+  `B`, ...; that is `C(x)` yields the same result as `A(x) + B(x) + ...`.
 
-* `C = A*B` or `C = A⋅B` is a mapping which behaves as the composition of the
-  mappings `A` and `B`; that is `C⋅x` yields the same result as `A⋅(B.x)`.  As
-  for the sum of mappings, there may be an arbitrary number of mappings in a
-  composition; for example, if `D = A*B*C` then `D⋅x` yields the same result as
-  `A⋅(B⋅(C⋅x))`.
+* `C = A*B`, `C = A∘B` or `C = A⋅B` is a mapping which behaves as the
+  composition of the mappings `A` and `B`; that is `C⋅x` yields the same result
+  as `A(B(x))`.  As for the sum of mappings, there may be an arbitrary number
+  of mappings in a composition; for example, if `D = A*B*C` then `D(x)` yields
+  the same result as `A(B(C(x)))`.
 
-* `C = A\B` is a mapping such that `C⋅x` yields the same result as `A\(B⋅x)`.
+* `C = A\B` is a mapping such that `C(x)` yields the same result as `A\(B(x))`.
 
-* `C = A/B` is a mapping such that `C⋅x` yields the same result as `A⋅(B\x)`.
+* `C = A/B` is a mapping such that `C(x)` yields the same result as `A(B\x)`.
 
 These constructions can be combined to build up more complex mappings.  For
 example:
 
 * `D = A*(B + 3C)` is a mapping such that `D⋅x` yields the same result as
-  `A⋅(B⋅x + 3*C⋅x)`.
+  `A(B(x) + 3*C(x))`.
+
+
+Beware that, due to the priority of operators in Julia, `A*B(x)` is the same
+as `A(B(x))` not `(A*B)(x)`.
 
 
 ### Linear mappings
@@ -98,6 +102,10 @@ example:
 A `LinearMapping` can be any linear mapping between two spaces.  This abstract
 subtype of `Mapping` is introduced to extend the notion of *matrices* and
 *vectors*.  Assuming the type of `A` inherits from `LinearMapping`, then:
+
+* for linear mappings `A` and `B`, `A⋅B` is the same as `A∘B` or `A*B` which
+  yields the composition of `A` and `B` whose effect is to apply `B` and then
+  `A`;
 
 * `A'⋅x` and `A'*x` yields the result of applying the adjoint of the mapping
   `A` to `x`;

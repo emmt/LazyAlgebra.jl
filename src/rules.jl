@@ -11,8 +11,6 @@
 # Copyright (c) 2017-2018 Éric Thiébaut.
 #
 
-import Base: *, ⋅, ∘, +, -, \, /, ctranspose, inv, A_mul_B!
-
 """
 ```julia
 @callable T
@@ -35,15 +33,15 @@ end
 const UnsupportedInverseOfSumOfMappings = "automatic dispatching of the inverse of a sum of mappings is not supported"
 
 # As a general rule, do not use the constructors of tagged types directly but
-# use `A'` or `ctranspose(A)` instead of `Adjoint(A)`, `inv(A)` instead of
+# use `A'` or `adjoint(A)` instead of `Adjoint(A)`, `inv(A)` instead of
 # `Inverse(A)`, etc.  This is somewhat enforced by the following constructors
 # which systematically throw an error.
 Inverse(::Union{Adjoint,Inverse,InverseAdjoint,Scaled,Sum,Composition}) =
     error("use `inv(A)` instead of `Inverse(A)`")
 Adjoint(::Union{Adjoint,Inverse,InverseAdjoint,Scaled,Sum,Composition}) =
-    error("use `A'` or `ctranspose(A)` instead of `Adjoint(A)`")
+    error("use `A'` or `adjoint(A)` instead of `Adjoint(A)`")
 InverseAdjoint(::Union{Adjoint,Inverse,InverseAdjoint,Scaled,Sum,Composition}) =
-    error("use `inv(A')`, `inv(A)'`, `inv(ctranspose(A))` or `ctranspose(inv(A))` instead of `InverseAdjoint(A)` or `AdjointInverse(A)")
+    error("use `inv(A')`, `inv(A)'`, `inv(adjoint(A))` or `adjoint(inv(A))` instead of `InverseAdjoint(A)` or `AdjointInverse(A)")
 
 # Extend the `length` method to yield the number of components of a sum or
 # composition of mappings.
@@ -191,14 +189,14 @@ is_applicable_in_place(::Type{P}, A::Mapping) where {P<:Operations} =
 \(A::Mapping, B::Mapping) = inv(A)*B
 /(A::Mapping, B::Mapping) = A*inv(B)
 
-ctranspose(A::Mapping) = _adjoint(selfadjointtype(A), A)
-ctranspose(A::Adjoint) = A.op
-ctranspose(A::InverseAdjoint) = inv(A.op)
-ctranspose(A::Scaled) = conj(A.sc)*ctranspose(A.op)
-ctranspose(A::Sum) = Sum(ntuple(i -> ctranspose(A.ops[i]), length(A)))
-function ctranspose(A::Composition)
+adjoint(A::Mapping) = _adjoint(selfadjointtype(A), A)
+adjoint(A::Adjoint) = A.op
+adjoint(A::InverseAdjoint) = inv(A.op)
+adjoint(A::Scaled) = conj(A.sc)*adjoint(A.op)
+adjoint(A::Sum) = Sum(ntuple(i -> adjoint(A.ops[i]), length(A)))
+function adjoint(A::Composition)
     n = length(A)
-    Composition(ntuple(i -> ctranspose(A.ops[n + 1 - i]), n))
+    Composition(ntuple(i -> adjoint(A.ops[n + 1 - i]), n))
 end
 _adjoint(::Type{SelfAdjoint}, A::Mapping) = A
 _adjoint(::Type{NonSelfAdjoint}, A::Mapping) = Adjoint(A)
@@ -208,7 +206,7 @@ _adjoint(::Type{NonSelfAdjoint}, A::Inverse) = InverseAdjoint(A)
 inv(A::Mapping) = Inverse(A)
 inv(A::Adjoint) = InverseAdjoint(A.op)
 inv(A::Inverse) = A.op
-inv(A::InverseAdjoint) = ctranspose(A.op)
+inv(A::InverseAdjoint) = adjoint(A.op)
 inv(A::Scaled) = (one(Scalar)/A.sc)*inv(A.op)
 inv(A::Sum) = error(UnsupportedInverseOfSumOfMappings)
 function inv(A::Composition)
@@ -318,9 +316,8 @@ apply!(β::Real, y, α::Real, A::Mapping, x) = apply!(α, A, x, β, y)
 apply!(β::Real, y, α::Real, ::Type{P}, A::Mapping, x) where {P<:Operations} =
     apply!(α, P, A, x, β, y)
 
-# Extend `A_mul_B!` so that are no needs to extend `Ac_mul_B` `Ac_mul_Bc`,
-# etc. to have `A'*x`, `A*B*C*x`, etc. yield the expected result.
-A_mul_B!(y::Ty, A::Mapping, x::Tx) where {Tx,Ty} =
+# Extend `mul!` so that `A'*x`, `A*B*C*x`, etc. yield the expected result.
+mul!(y::Ty, A::Mapping, x::Tx) where {Tx,Ty} =
     apply!(one(Scalar), Direct, A, x, zero(Scalar), y)
 
 # Implemention of the `apply!(α,P,A,x,β,y)` and `vcreate(P,A,x)` methods for a

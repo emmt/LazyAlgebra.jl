@@ -4,16 +4,17 @@
 # Tests for vectorized operations.
 #
 
-isdefined(:LazyAlgebra) || include("../src/LazyAlgebra.jl")
+#isdefined(:LazyAlgebra) || include("../src/LazyAlgebra.jl")
 
 module LazyAlgebraVectorsTests
 
 using LazyAlgebra
 
-@static if VERSION < v"0.7.0-DEV.2005"
-    using Base.Test
-else
-    using Test
+# Deal with compatibility issues.
+using Compat
+using Compat.Test
+@static if isdefined(Base, :MathConstants)
+    import Base.MathConstants: φ
 end
 
 distance(a::Real, b::Real) = abs(a - b)
@@ -25,7 +26,7 @@ distance(A::AbstractArray{Ta,N}, B::AbstractArray{Tb,N}) where {Ta,Tb,N} =
     maximum(abs.(A - B))
 
 function makeselection(n::Integer)
-    sel = Array{Int}(0)
+    sel = Array{Int}(undef, 0)
     j = [2,3,5]
     k = 1
     while k ≤ n
@@ -59,10 +60,10 @@ end
         @test distance(v, vc) == 0
         vswap!(u, v)
         @test distance(u, vc) == distance(v, uc) == 0
-        @test_throws DimensionMismatch  vcopy!(Array{T}(dims .+ 1), u)
+        @test_throws DimensionMismatch  vcopy!(Array{T}(undef, dims .+ 1), u)
     end
     @testset "vfill ($T)" for T in types
-        a = randn(T, dims)
+       a = randn(T, dims)
         @test distance(vfill!(a,0), zeros(T,dims)) == 0
         a = randn(T, dims)
         @test distance(vfill!(a,0), vzero!(a)) == 0
@@ -101,7 +102,7 @@ end
         for Ta in types, Tb in types
             a = randn(Ta, dims)
             ac = vcopy(a)
-            b = Array{Tb}(dims)
+            b = Array{Tb}(undef, dims)
             e = max(eps(Ta), eps(Tb))
             for α in (0, -1, 1, π, 2.71)
                 d = α*a

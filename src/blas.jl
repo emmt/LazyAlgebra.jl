@@ -34,8 +34,8 @@
 #     BLAS   3.4 µs     2.0 µs   65 ns
 #     Julia  4.5 µs    24.2 μs   65 ns
 
-import Base.BLAS
-import Base.BLAS: libblas, BlasInt, BlasReal, BlasFloat, BlasComplex, @blasfunc
+#import LinearAlgebra.BLAS
+#import Compat.LinearAlgebra.BLAS: libblas, BlasInt, BlasReal, BlasFloat, BlasComplex, @blasfunc
 
 const BlasVec{T} = Union{DenseVector{T},StridedVector{T}}
 const BlasArr{T,N} = DenseArray{T,N}
@@ -77,7 +77,7 @@ function vupdate!(y::BlasVec{T}, alpha::Number,
 end
 
 # This pathetic loop over explicit types is needed to disentangle ambiguities.
-for T in (Float32, Float64, Complex64, Complex128)
+for T in (Float32, Float64, ComplexF32, ComplexF64)
 
     @eval function apply!(α::Real,
                           ::Type{Direct},
@@ -112,8 +112,8 @@ end
 # vector product.
 for (fname, elty) in ((:dgemv_,:Float64),
                       (:sgemv_,:Float32),
-                      (:zgemv_,:Complex128),
-                      (:cgemv_,:Complex64))
+                      (:zgemv_,:ComplexF64),
+                      (:cgemv_,:ComplexF32))
     @eval begin
         #SUBROUTINE xGEMV(TRANS,M,N,ALPHA,A,LDA,X,INCX,BETA,Y,INCY)
         #*     .. Scalar Arguments ..
@@ -126,12 +126,14 @@ for (fname, elty) in ((:dgemv_,:Float64),
                          A::DenseArray{$elty}, lda::Int,
                          x::DenseArray{$elty}, incx::Int, beta::($elty),
                          y::DenseArray{$elty}, incy::Int)
-            ccall((@blasfunc($fname), libblas), Void,
-                  (Ptr{UInt8}, Ptr{BlasInt}, Ptr{BlasInt}, Ptr{$elty},
-                   Ptr{$elty}, Ptr{BlasInt}, Ptr{$elty}, Ptr{BlasInt},
-                   Ptr{$elty}, Ptr{$elty}, Ptr{BlasInt}),
-                  &trans, &m, &n, &alpha, A, &max(1,lda), x, &incx,
-                  &beta, y, &incy)
+            ccall((@blasfunc($fname), libblas), Cvoid,
+                  (Ref{UInt8}, Ref{BlasInt}, Ref{BlasInt}, Ref{$elty},
+                   Ptr{$elty}, Ref{BlasInt}, Ptr{$elty}, Ref{BlasInt},
+                   Ref{$elty}, Ptr{$elty}, Ref{BlasInt}),
+                  trans, m, n, alpha, A, max(1,lda), x, incx,
+                  beta, y, incy)
        end
     end
 end
+
+#end # module

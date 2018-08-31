@@ -19,9 +19,17 @@ export FFTOperator
 using ..LazyAlgebra
 import ..LazyAlgebra: apply!, vcreate,
     input_size, input_ndims, input_eltype,
-    output_size, output_ndims, output_eltype
+    output_size, output_ndims, output_eltype, mul!
 
-import Base.FFTW: fftwNumber, fftwReal, fftwComplex
+# Deal with compatibility issues.
+using Compat
+# FIXME: @static if VERSION < v"0.7.0-DEV.1776"
+# FIXME:     import Base.FFTW
+# FIXME: else
+# FIXME:     using FFTW
+# FIXME: end
+using FFTW
+import FFTW: fftwNumber, fftwReal, fftwComplex
 
 abstract type Direction end
 struct Forward  <: Direction end
@@ -90,16 +98,16 @@ function FFTOperator(::Type{T},
     # real-to-complex (r2c) transform.
     planning = check_flags(flags)
     ncols = check_dimensions(dims)
-    zdims = ntuple(i -> (i == 1 ? (dims[i] >> 1) + 1 : dims[i]), Val{N})
+    zdims = ntuple(i -> (i == 1 ? (dims[i] >> 1) + 1 : dims[i]), Val(N))
 
     # Compute the plans with suitable FFTW flags.  The forward transform (r2c)
     # must preserve its input, while the backward transform (c2r) may destroy
     # it (in fact there are no input-preserving algorithms for
     # multi-dimensional c2r transforms).
-    forward = plan_rfft(Array{T}(dims);
+    forward = plan_rfft(Array{T}(undef, dims);
                         flags = (planning | FFTW.PRESERVE_INPUT),
                         timelimit = timelimit)
-    backward = plan_brfft(Array{Complex{T}}(zdims), dims[1];
+    backward = plan_brfft(Array{Complex{T}}(undef, zdims), dims[1];
                           flags = (planning  | FFTW.DESTROY_INPUT),
                           timelimit = timelimit)
 
@@ -119,7 +127,7 @@ function FFTOperator(::Type{Complex{T}},
     # transformhave the same dimensions.
     planning = check_flags(flags)
     ncols = check_dimensions(dims)
-    temp = Array{Complex{T}}(dims)
+    temp = Array{Complex{T}}(undef, dims)
 
     # Compute the plans with suitable FFTW flags.  The forward and backward
     # transform must preserve their input.
@@ -154,14 +162,14 @@ function vcreate(::Type{P},
                  A::FFTOperator{T,C,N},
                  x::DenseArray{T,N}) where {P<:Union{Forward,Direct,
                                                      InverseAdjoint},T,C,N}
-    return Array{C}(output_size(A))
+    return Array{C}(undef, output_size(A))
 end
 
 function vcreate(::Type{P},
                  A::FFTOperator{T,C,N},
                  x::DenseArray{C,N}) where {P<:Union{Backward,Adjoint,Inverse},
                                             T,C,N}
-    return Array{T}(input_size(A))
+    return Array{T}(undef, input_size(A))
 end
 
 function apply!(α::Real,
@@ -220,11 +228,11 @@ function apply!(α::Real,
     if α == 0
         vscale!(y, β)
     elseif β == 0
-        A_mul_B!(y, A.forward, x)
+        mul!(y, A.forward, x)
         α == 1 || vscale!(y, α)
     else
         z = vcreate(Forward, A, x)
-        A_mul_B!(z, A.forward, x)
+        mul!(z, A.forward, x)
         vcombine!(y, α, z, β, y)
     end
     return y
@@ -240,11 +248,11 @@ function apply!(α::Real,
     if α == 0
         vscale!(y, β)
     elseif β == 0
-        A_mul_B!(y, A.backward, x)
+        mul!(y, A.backward, x)
         α == 1 || vscale!(y, α)
     else
         z = vcreate(Backward, A, x)
-        A_mul_B!(z, A.backward, x)
+        mul!(z, A.backward, x)
         vcombine!(y, α, z, β, y)
     end
     return y
@@ -263,11 +271,11 @@ function apply!(α::Real,
     if α == 0
         vscale!(y, β)
     elseif β == 0
-        A_mul_B!(y, A.backward, (overwriteinput ? x : vcopy(x)))
+        mul!(y, A.backward, (overwriteinput ? x : vcopy(x)))
         α == 1 || vscale!(y, α)
     else
         z = vcreate(Backward, A, x)
-        A_mul_B!(z, A.backward, (overwriteinput ? x : vcopy(x)))
+        mul!(z, A.backward, (overwriteinput ? x : vcopy(x)))
         vcombine!(y, α, z, β, y)
     end
     return y

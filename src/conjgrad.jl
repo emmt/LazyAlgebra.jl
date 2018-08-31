@@ -143,7 +143,7 @@ function conjgrad!(x, A, b, x0 = vzeros(b),
                    maxiter::Integer = typemax(Int),
                    restart::Integer = min(50, length(b)),
                    verb::Bool = false,
-                   io::IO = STDOUT,
+                   io::IO = stdout,
                    quiet::Bool = false,
                    strict::Bool = true)
     # Initialization.
@@ -204,7 +204,7 @@ function conjgrad!(x, A, b, x0 = vzeros(b),
                 @printf(io, "# %s\n", "Too many iteration(s).")
             end
             if !quiet
-                warn("too many ($k) conjugate gradient iteration(s)")
+                @warn("too many ($k) conjugate gradient iteration(s)")
             end
             break
         end
@@ -228,7 +228,7 @@ function conjgrad!(x, A, b, x0 = vzeros(b),
             end
             strict && throw(NonPositiveDefinite("in conjugate gradient"))
             if !quiet
-                warn("operator is not positive definite")
+                @warn("operator is not positive definite")
             end
             break
         end

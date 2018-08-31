@@ -1,3 +1,5 @@
+* Implement preconditioned conjugate gradient.
+
 * Use more extensively BLAS subroutines.
 
 * Add tests for rules.

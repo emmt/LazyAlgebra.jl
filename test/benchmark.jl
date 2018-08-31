@@ -119,7 +119,7 @@ function testdot(_dims::Integer...)
 
     dims = Int.(_dims)
 
-    #show(STDOUT, MIME"text/plain"(), @benchmark $p(dat, a, img, b, rois))
+    #show(stdout, MIME"text/plain"(), @benchmark $p(dat, a, img, b, rois))
 
     println("\n\nDot products of $dims elements")
 

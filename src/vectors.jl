@@ -3,7 +3,7 @@
 #
 # Implement basic operations for *vectors*.  Here arrays of any rank are
 # considered as *vectors*, the only requirements are that, when combining
-# *vectors*, they have the same list of indices (i.e. the same dimensions for
+# *vectors*, they have the same list of axes (i.e. the same dimensions for
 # most arrays).  These methods are intended to be used for numerical
 # optimization.
 #
@@ -155,24 +155,24 @@ vcopy!(dst, src) -> dst
 
 copies the contents of `src` into `dst` and returns `dst`.  This function
 checks that the copy makes sense (for instance, for array arguments, the
-`copy!` operation does not check that the source and destination have the same
-dimensions).
+`copyto!` operation does not check that the source and destination have the
+same dimensions).
 
-Also see [`copy!`](@ref), [`vcopy`](@ref), [`vswap!`](@ref).
+Also see [`copyto!`](@ref), [`vcopy`](@ref), [`vswap!`](@ref).
 
 """
 function vcopy!(dst::AbstractArray{<:Real,N},
                 src::AbstractArray{<:Real,N}) where {N}
-    indices(dst) == indices(src) ||
-        __baddims("`dst` and `src` must have the same indices")
-    copy!(dst, src)
+    axes(dst) == axes(src) ||
+        __baddims("`dst` and `src` must have the same axes")
+    copyto!(dst, src)
 end
 
 function vcopy!(dst::AbstractArray{<:Complex{<:Real},N},
                 src::AbstractArray{<:Complex{<:Real},N}) where {N}
-    indices(dst) == indices(src) ||
-        __baddims("`dst` and `src` must have the same indices")
-    copy!(dst, src)
+    axes(dst) == axes(src) ||
+        __baddims("`dst` and `src` must have the same axes")
+    copyto!(dst, src)
 end
 
 @inline __baddims(msg::AbstractString) = throw(DimensionMismatch(msg))
@@ -203,8 +203,8 @@ Also see [`vcopy!`](@ref).
 """
 function vswap!(x::AbstractArray{T,N},
                 y::AbstractArray{T,N}) where {R<:Real,T<:Union{R,Complex{R}},N}
-    indices(x) == indices(y) ||
-        __baddims("`x` and `y` must have the same indices")
+    axes(x) == axes(y) ||
+        __baddims("`x` and `y` must have the same axes")
     __mayswap!(x, y)
 end
 
@@ -327,10 +327,10 @@ for (Td, Ts) in ((:Td,            :Ts),
                          α::Real,
                          src::AbstractArray{$Ts,N}) where {Td<:AbstractFloat,
                                                            Ts<:AbstractFloat,N}
-            indices(dst) == indices(src) ||
-                __baddims("`dst` and `src` must have the same indices")
+            axes(dst) == axes(src) ||
+                __baddims("`dst` and `src` must have the same axes")
             if α == 1
-                copy!(dst, src)
+                copyto!(dst, src)
             elseif α == 0
                 fill!(dst, 0)
             elseif α == -1
@@ -359,7 +359,7 @@ function vscale!(x::AbstractArray{<:Union{T,Complex{T}}},
             x[i] = -x[i]
         end
     elseif α != 1
-        const alpha = convert(T, α)
+        alpha = convert(T, α)
         @inbounds @simd for i in eachindex(x)
             x[i] *= alpha
         end
@@ -437,8 +437,8 @@ for (Td, Tx, Ty) in ((:Td,            :Tx,            :Ty),
                                                              Tx<:AbstractFloat,
                                                              Ty<:AbstractFloat,
                                                              N}
-        indices(dst) == indices(x) == indices(y) ||
-            __baddims("`x` and `y` must have the same indices as `dst`")
+        axes(dst) == axes(x) == axes(y) ||
+            __baddims("`x` and `y` must have the same axes as `dst`")
         @inbounds @simd for i in eachindex(dst, x, y)
             dst[i] = x[i]*y[i]
         end
@@ -493,8 +493,8 @@ for (Tx, Ty) in ((:Tx,            :Ty),
                             x::AbstractArray{$Tx,N}) where {Ty<:AbstractFloat,
                                                             Tx<:AbstractFloat,
                                                             N}
-        indices(x) == indices(y) ||
-            __baddims("`x` and `y` must have the same indices")
+        axes(x) == axes(y) ||
+            __baddims("`x` and `y` must have the same axes")
         if α == 1
             @inbounds @simd for i in eachindex(y, x)
                 y[i] += x[i]
@@ -597,8 +597,8 @@ for (Td, Tx, Ty) in ((:Td,            :Tx,            :Ty),
                            y::AbstractArray{$Ty,N}) where {Td<:AbstractFloat,
                                                            Tx<:AbstractFloat,
                                                            Ty<:AbstractFloat,N}
-            indices(dst) == indices(x) == indices(y) ||
-                __baddims("`x` and `y` must have the same indices as `dst`")
+            axes(dst) == axes(x) == axes(y) ||
+                __baddims("`x` and `y` must have the same axes as `dst`")
             if α == 0
                 vscale!(dst, β, y)
             elseif β == 0
@@ -695,8 +695,8 @@ vdot(T::Type{AbstractFloat}, x, y) = x[1].re*y[1].re + x[1].im*y[1].im +
 function vdot(::Type{T},
               x::AbstractArray{<:Real,N},
               y::AbstractArray{<:Real,N})::T where {T<:AbstractFloat,N}
-    indices(x) == indices(y) ||
-        __baddims("`x` and `y` must have the same indices")
+    axes(x) == axes(y) ||
+        __baddims("`x` and `y` must have the same axes")
     s = zero(T)
     @inbounds @simd for i in eachindex(x, y)
         s += convert(T, x[i]*y[i])
@@ -713,8 +713,8 @@ function vdot(::Type{Complex{T}},
               x::AbstractArray{Complex{Tx},N},
               y::AbstractArray{Complex{Ty},N}
               )::Complex{T} where {T<:AbstractFloat,Tx<:Real,Ty<:Real,N}
-    indices(x) == indices(y) ||
-        __baddims("`x` and `y` must have the same indices")
+    axes(x) == axes(y) ||
+        __baddims("`x` and `y` must have the same axes")
     s = zero(Complex{T})
     @inbounds @simd for i in eachindex(x, y)
         xi = convert(Complex{T}, x[i])
@@ -730,8 +730,8 @@ function vdot(::Type{T},
               x::AbstractArray{Complex{Tx},N},
               y::AbstractArray{Complex{Ty},N})::T where {T<:AbstractFloat,
                                                          Tx<:Real,Ty<:Real,N}
-    indices(x) == indices(y) ||
-        __baddims("`x` and `y` must have the same indices")
+    axes(x) == axes(y) ||
+        __baddims("`x` and `y` must have the same axes")
     s = zero(T)
     @inbounds @simd for i in eachindex(x, y)
         xi = convert(Complex{T}, x[i])
@@ -752,8 +752,8 @@ function vdot(::Type{T},
               w::AbstractArray{<:Real,N},
               x::AbstractArray{<:Real,N},
               y::AbstractArray{<:Real,N})::T where {T<:AbstractFloat,N}
-    indices(w) == indices(x) == indices(y) ||
-        __baddims("`w`, `x` and `y` must have the same indices")
+    axes(w) == axes(x) == axes(y) ||
+        __baddims("`w`, `x` and `y` must have the same axes")
     s = zero(T)
     @inbounds @simd for i in eachindex(w, x, y)
         wi = convert(T, w[i])
@@ -775,8 +775,8 @@ function vdot(::Type{Complex{T}},
               x::AbstractArray{Complex{Tx},N},
               y::AbstractArray{Complex{Ty},N}
               )::Complex{T} where {T<:AbstractFloat,Tx<:Real,Ty<:Real,N}
-    indices(w) == indices(x) == indices(y) ||
-        __baddims("`w`, `x` and `y` must have the same indices")
+    axes(w) == axes(x) == axes(y) ||
+        __baddims("`w`, `x` and `y` must have the same axes")
     s = zero(Complex{T})
     @inbounds @simd for i in eachindex(w, x, y)
         wi = convert(T, w[i])
@@ -792,8 +792,8 @@ function vdot(::Type{T},
               x::AbstractArray{Complex{Tx},N},
               y::AbstractArray{Complex{Ty},N})::T where {T<:AbstractFloat,
                                                          Tx<:Real,Ty<:Real,N}
-    indices(w) == indices(x) == indices(y) ||
-        __baddims("`w`, `x` and `y` must have the same indices")
+    axes(w) == axes(x) == axes(y) ||
+        __baddims("`w`, `x` and `y` must have the same axes")
     s = zero(T)
     @inbounds @simd for i in eachindex(w, x, y)
         wi = convert(T, w[i])

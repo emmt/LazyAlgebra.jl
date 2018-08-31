@@ -40,7 +40,7 @@ diagonaltype(::Identities) = DiagonalMapping
 inplacetype(::Type{<:Operations}, ::Identities) = InPlace
 
 Base.inv(::Identities) = I
-Base.ctranspose(::Identities) = I
+adjoint(::Identities) = I
 *(::Identities, A::Mapping) = A
 *(A::Mapping, ::Identities) = A
 *(::Identities, ::Identities) = I
@@ -103,7 +103,7 @@ end
 function vcreate(::Type{<:Operations},
                  A::UniformScalingOperator,
                  x::AbstractArray{T,N}) where {T<:Real,N}
-    return similar(Array{float(T)}, indices(x))
+    return similar(Array{float(T)}, axes(x))
 end
 
 vcreate(::Type{<:Operations}, A::UniformScalingOperator, x) =
@@ -142,7 +142,7 @@ _selfadjointtype(::Type{<:Complex}, ::NonuniformScalingOperator) =
     NonSelfAdjoint
 
 contents(A::NonuniformScalingOperator) = A.diag
-Base.diag(A::NonuniformScalingOperator) = A.diag
+LinearAlgebra.diag(A::NonuniformScalingOperator) = A.diag
 
 function Base.inv(A::NonuniformScalingOperator{<:AbstractArray{T,N}}
                   ) where {T<:AbstractFloat, N}
@@ -199,7 +199,7 @@ end
 
 """
 ```julia
-@axpby!(i, I, a, xi, b, yi)
+@axpby!(I, a, xi, b, yi)
 ```
 
 yields the code to perform `y[i] = a*x[i] + b*y[i]` for each index `i ∈ I` with
@@ -207,17 +207,15 @@ yields the code to perform `y[i] = a*x[i] + b*y[i]` for each index `i ∈ I` wit
 expression is evaluated efficiently considering the particular values of `a`
 and `b`.
 
-***Important*** It is assumed that all indices in `I` are within bounds, that
+***Important*** It is assumed that all axes in `I` are within bounds, that
 `a` is nonzero and that `a` and `b` have correct types.
 
 """
-macro axpby!(_i, _I, _a, _xi, _b, _yi)
-    i  = esc(_i)
-    I  = esc(_I)
-    a  = esc(_a)
-    xi = esc(_xi)
-    b  = esc(_b)
-    yi = esc(_yi)
+macro axpby!(i, I, a, xi, b, yi)
+    esc(_compile_axpby!(i, I, a, xi, b, yi))
+end
+
+function _compile_axpby!(i::Symbol, I, a, xi, b, yi)
     quote
         if $a == 1
             if $b == 0
@@ -287,9 +285,9 @@ function apply!(α::Real,
                                                Tx<:AbstractFloat,
                                                Ty<:AbstractFloat,N}
     w = contents(W)
-    @assert indices(w) == indices(x) == indices(y)
+    @assert axes(w) == axes(x) == axes(y)
     if α == 0
-        scale!(y, β)
+        rmul!(y, β)
     else
         T = promote_type(Tw, Tx, Ty)
         a, b = convert(T, α), convert(T, β)
@@ -313,9 +311,9 @@ function apply!(α::Real,
                                                         Tx<:AbstractFloat,
                                                         Ty<:AbstractFloat,N}
     w = contents(W)
-    @assert indices(w) == indices(x) == indices(y)
+    @assert axes(w) == axes(x) == axes(y)
     if α == 0
-        scale!(y, β)
+        rmul!(y, β)
     else
         T = promote_type(Tw, Tx, Ty)
         a, b = convert(T, α), convert(T, β)
@@ -337,8 +335,8 @@ function vcreate(::Type{<:Operations},
                  W::NonuniformScalingOperator{<:AbstractArray{Tw,N}},
                  x::AbstractArray{Tx,N}) where {Tw<:AbstractFloat,
                                                 Tx<:AbstractFloat,N}
-    inds = indices(W.diag)
-    @assert indices(x) == inds
+    inds = axes(W.diag)
+    @assert axes(x) == inds
     T = promote_type(Tw, Tx)
     return similar(Array{T}, inds)
 end
@@ -347,8 +345,8 @@ function vcreate(::Type{<:Operations},
                  W::NonuniformScalingOperator{<:AbstractArray{Complex{Tw},N}},
                  x::AbstractArray{Complex{Tx},N}) where {Tw<:AbstractFloat,
                                                          Tx<:AbstractFloat,N}
-    inds = indices(W.diag)
-    @assert indices(x) == inds
+    inds = axes(W.diag)
+    @assert axes(x) == inds
     T = promote_type(Tw, Tx)
     return similar(Array{Complex{T}}, inds)
 end
@@ -491,11 +489,11 @@ to generalize the definition of the matrix-vector product without calling
 For instance, assuming that `G = GeneralMatrix(A)` with `A` a regular array,
 then `y = G*x` requires that the dimensions of `x` match the trailing
 dimensions of `A` and yields a result `y` whose dimensions are the remaining
-leading dimensions of `A`, such that `indices(A) = (indices(y)...,
-indices(x)...)`.  Applying the adjoint of `G` as in `y = G'*x` requires that
+leading dimensions of `A`, such that `axes(A) = (axes(y)...,
+axes(x)...)`.  Applying the adjoint of `G` as in `y = G'*x` requires that
 the dimensions of `x` match the leading dimension of `A` and yields a result
 `y` whose dimensions are the remaining trailing dimensions of `A`, such that
-`indices(A) = (indices(x)..., indices(y)...)`.
+`axes(A) = (axes(x)..., axes(y)...)`.
 
 See also: [`reshape`](@ref).
 
@@ -512,7 +510,12 @@ contents(A) = A.arr
 Base.eltype(A::GeneralMatrix) = eltype(A.arr)
 Base.length(A::GeneralMatrix) = length(A.arr)
 Base.ndims(A::GeneralMatrix) = ndims(A.arr)
-Base.indices(A::GeneralMatrix) = indices(A.arr)
+@static if isdefined(Base, :axes)
+    Base.axes(A::GeneralMatrix) = axes(A.arr)
+else
+    import Compat: axes
+    Base.indices(A::GeneralMatrix) = indices(A.arr)
+end
 Base.size(A::GeneralMatrix) = size(A.arr)
 Base.size(A::GeneralMatrix, inds...) = size(A.arr, inds...)
 Base.getindex(A::GeneralMatrix, inds...) = getindex(A.arr, inds...)
@@ -568,8 +571,8 @@ function apply!(α::Real,
                 β::Real,
                 y::AbstractArray{<:Real}) where {P<:Union{Direct,
                                                           InverseAdjoint}}
-    if indices(A) != (indices(y)..., indices(x)...)
-        throw(DimensionMismatch("`x` and/or `y` have indices incompatible with `A`"))
+    if axes(A) != (axes(y)..., axes(x)...)
+        throw(DimensionMismatch("`x` and/or `y` have axes incompatible with `A`"))
     end
     return _apply!(α, P, A, x, β, y)
 end
@@ -580,8 +583,8 @@ function apply!(α::Real,
                 x::AbstractArray{<:Real},
                 β::Real,
                 y::AbstractArray{<:Real}) where {P<:Union{Adjoint,Inverse}}
-    if indices(A) != (indices(x)..., indices(y)...)
-        throw(DimensionMismatch("`x` and/or `y` have indices incompatible with `A`"))
+    if axes(A) != (axes(x)..., axes(y)...)
+        throw(DimensionMismatch("`x` and/or `y` have axes incompatible with `A`"))
     end
     return _apply!(α, P, A, x, β, y)
 end
@@ -592,10 +595,10 @@ function vcreate(::Type{P},
                                                  Tx<:AbstractFloat, Nx,
                                                  P<:Union{Direct,
                                                           InverseAdjoint}}
-    inds = indices(A)
+    inds = axes(A)
     Ny = Na - Nx
-    if Nx ≥ Na || indices(x) != inds[Ny+1:end]
-        throw(DimensionMismatch("the indices of `x` do not match the trailing indices of `A`"))
+    if Nx ≥ Na || axes(x) != inds[Ny+1:end]
+        throw(DimensionMismatch("the axes of `x` do not match the trailing axes of `A`"))
     end
     Ty = promote_type(Ta, Tx)
     return similar(Array{Ty}, inds[1:Ny])
@@ -606,10 +609,10 @@ function vcreate(::Type{P},
                  x::AbstractArray{Tx,Nx}) where {Ta<:AbstractFloat, Na,
                                                  Tx<:AbstractFloat, Nx,
                                                  P<:Union{Adjoint,Inverse}}
-    inds = indices(A)
+    inds = axes(A)
     Ny = Na - Nx
-    if Nx ≥ Na || indices(x) != inds[1:Nx]
-        throw(DimensionMismatch("the indices of `x` do not match the leading indices of `A`"))
+    if Nx ≥ Na || axes(x) != inds[1:Nx]
+        throw(DimensionMismatch("the axes of `x` do not match the leading axes of `A`"))
     end
     Ty = promote_type(Ta, Tx)
     return similar(Array{Ty}, inds[Nx+1:end])
@@ -632,7 +635,7 @@ function _apply!(α::Real,
         # order.
         T = promote_type(Ta, Tx, Ty)
         alpha = convert(T, α)
-        I, J = CartesianRange(indices(y)), CartesianRange(indices(x))
+        I, J = CartesianIndices(axes(y)), CartesianIndices(axes(x))
         @inbounds for j in J
             xj = alpha*convert(T, x[j])
             if xj != zero(xj)
@@ -665,7 +668,7 @@ function _apply!(α::Real,
         # order.
         T = promote_type(Ta, Tx, Ty)
         alpha = convert(T, α)
-        I, J = CartesianRange(indices(x)), CartesianRange(indices(y))
+        I, J = CartesianIndices(axes(x)), CartesianIndices(axes(y))
         if β == 0
             @inbounds for j in J
                 local s::T = zero(T)

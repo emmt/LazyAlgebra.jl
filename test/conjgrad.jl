@@ -4,17 +4,15 @@
 # Tests for linear conjugate gradients methods.
 #
 
-isdefined(:LazyAlgebra) || include("../src/LazyAlgebra.jl")
+#isdefined(:LazyAlgebra) || include("../src/LazyAlgebra.jl")
 
 module LazyAlgebraConjGradTests
 
 using LazyAlgebra
 
-@static if VERSION < v"0.7.0-DEV.2005"
-    using Base.Test
-else
-    using Test
-end
+# Deal with compatibility issues.
+using Compat
+using Compat.Test
 
 const DEBUG = true
 

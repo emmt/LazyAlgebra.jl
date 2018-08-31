@@ -4,19 +4,21 @@
 # Tests for basic mappings.
 #
 
-isdefined(:LazyAlgebra) || include("../src/LazyAlgebra.jl")
+#isdefined(:LazyAlgebra) || include("../src/LazyAlgebra.jl")
 
 module LazyAlgebraMappingTests
 
 using LazyAlgebra
 
-@static if VERSION < v"0.7.0-DEV.2005"
-    using Base.Test
-else
-    using Test
+# Deal with compatibility issues.
+using Compat
+using Compat.Test
+@static if isdefined(Base, :MathConstants)
+    import Base.MathConstants: φ
 end
-
-const I = LazyAlgebra.Identity()
+@static if VERSION ≥ v"0.7.0-DEV.1776"
+    using FFTW
+end
 
 @testset "Mappings" begin
     dims = (3,4,5)
@@ -25,7 +27,7 @@ const I = LazyAlgebra.Identity()
     betas = (0, 1, -1, -1.33, φ)
     operations = (Direct, Adjoint, Inverse, InverseAdjoint)
     floats = (Float32, Float64)
-    complexes = (Complex64, Complex128)
+    complexes = (ComplexF32, ComplexF64)
     I = Identity()
 
     @testset "Identity" begin
