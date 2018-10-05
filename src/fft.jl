@@ -8,26 +8,23 @@
 # This file is part of LazyAlgebra (https://github.com/emmt/LazyAlgebra.jl)
 # released under the MIT "Expat" license.
 #
-# Copyright (C) 2015-2016, Éric Thiébaut, Jonathan Léger & Matthew Ozon.
 # Copyright (C) 2017-2018, Éric Thiébaut.
+# Copyright (C) 2015-2016, Éric Thiébaut, Jonathan Léger & Matthew Ozon.
 #
 
 module FFT
 
 export FFTOperator
 
-using ..LazyAlgebra
-import ..LazyAlgebra: apply!, vcreate,
-    input_size, input_ndims, input_eltype,
-    output_size, output_ndims, output_eltype, mul!
-
-# Deal with compatibility issues.
 using Compat
-# FIXME: @static if VERSION < v"0.7.0-DEV.1776"
-# FIXME:     import Base.FFTW
-# FIXME: else
-# FIXME:     using FFTW
-# FIXME: end
+
+using ..LazyAlgebra
+import ..LazyAlgebra: apply!, vcreate, morphismtype, mul!,
+    input_size, input_ndims, input_eltype,
+    output_size, output_ndims, output_eltype
+
+import AbstractFFTs: Plan
+
 using FFTW
 import FFTW: fftwNumber, fftwReal, fftwComplex
 
@@ -36,7 +33,7 @@ struct Forward  <: Direction end
 struct Backward <: Direction end
 
 # The time needed to allocate temporary arrays is negligible compared to the
-# time taken to computate a FFT (e.g. 20µs to allocate a 256×256 array of
+# time taken to computate a FFT (e.g., 5µs to allocate a 256×256 array of
 # double precision complexes versus 1.5ms to compute its FFT).  We therefore do
 # not store any temporary arrays in the FFT operator.  Only the FFT plans are
 # cached in the operator.
@@ -81,7 +78,12 @@ See also: [`fft`](@ref), [`plan_fft`](@ref), [`bfft`](@ref),
           [`brfft`](@ref), [`plan_brfft`](@ref).
 
 """
-struct FFTOperator{T<:fftwNumber,C<:fftwComplex,N,F,B} <: LinearMapping
+struct FFTOperator{T<:fftwNumber,  # element type of input
+                   C<:fftwComplex, # element type of output
+                   N,              # number of dimensions
+                   F<:Plan{T},     # type of forward plan
+                   B<:Plan{C}      # type of backward plan
+                   } <: LinearMapping
     ncols::Int             # number of input elements
     inpdims::NTuple{N,Int} # input dimensions
     outdims::NTuple{N,Int} # output dimensions
@@ -91,11 +93,12 @@ end
 
 # Real-to-complex FFT.
 function FFTOperator(::Type{T},
-                     dims::NTuple{N,Int};
+                     _dims::NTuple{N,Integer};
                      flags::Integer = FFTW.ESTIMATE,
                      timelimit::Real = FFTW.NO_TIMELIMIT) where {T<:fftwReal,N}
     # Check arguments and build dimension list of the result of the forward
     # real-to-complex (r2c) transform.
+    dims = map(Int, _dims)
     planning = check_flags(flags)
     ncols = check_dimensions(dims)
     zdims = ntuple(i -> (i == 1 ? (dims[i] >> 1) + 1 : dims[i]), Val(N))
@@ -120,17 +123,18 @@ end
 
 # Complex-to-complex FFT.
 function FFTOperator(::Type{Complex{T}},
-                     dims::NTuple{N,Int};
-                     flags::Integer=FFTW.ESTIMATE,
-                     timelimit::Real=FFTW.NO_TIMELIMIT) where {T<:fftwReal,N}
+                     _dims::NTuple{N,Integer};
+                     flags::Integer = FFTW.ESTIMATE,
+                     timelimit::Real = FFTW.NO_TIMELIMIT) where {T<:fftwReal,N}
     # Check arguments.  The input and output of the complex-to-complex
-    # transformhave the same dimensions.
+    # transform have the same dimensions.
+    dims = map(Int, _dims)
     planning = check_flags(flags)
     ncols = check_dimensions(dims)
     temp = Array{Complex{T}}(undef, dims)
 
     # Compute the plans with suitable FFTW flags.  The forward and backward
-    # transform must preserve their input.
+    # transforms must preserve their input.
     forward = plan_fft(temp; flags = (planning | FFTW.PRESERVE_INPUT),
                        timelimit = timelimit)
     backward = plan_bfft(temp; flags = (planning | FFTW.PRESERVE_INPUT),
@@ -150,9 +154,9 @@ FFTOperator(arr::Array{T,N}; kwds...) where {T<:fftwNumber,N} =
 morphismtype(::FFTOperator{<:Complex}) = Endomorphism
 
 input_size(A::FFTOperator) = A.inpdims
-input_size(A::FFTOperator, i::Integer) = A.inpdims[i]
+input_size(A::FFTOperator, d) = A.inpdims[d]
 output_size(A::FFTOperator) = A.outdims
-output_size(A::FFTOperator, i::Integer) = A.outdims[i]
+output_size(A::FFTOperator, d) = A.outdims[d]
 input_ndims(A::FFTOperator{T,C,N}) where {T,C,N} = N
 output_ndims(A::FFTOperator{T,C,N}) where {T,C,N} = N
 input_eltype(A::FFTOperator{T,C,N}) where {T,C,N} = T
@@ -223,8 +227,10 @@ function apply!(α::Real,
                 x::DenseArray{T,N},
                 β::Real,
                 y::DenseArray{C,N}) where {T,C,N}
-    @assert size(x) == input_size(A)
-    @assert size(y) == output_size(A)
+    size(x) == input_size(A) ||
+        throw(DimensionMismatch("x must have dimensions $(input_size(A))"))
+    size(y) == output_size(A) ||
+        throw(DimensionMismatch("y must have dimensions $(output_size(A))"))
     if α == 0
         vscale!(y, β)
     elseif β == 0
@@ -245,6 +251,10 @@ function apply!(α::Real,
                 x::DenseArray{C,N},
                 β::Real,
                 y::DenseArray{T,N}) where {T<:fftwComplex,C,N}
+    size(x) == output_size(A) ||
+        throw(DimensionMismatch("x must have dimensions $(output_size(A))"))
+    size(y) == input_size(A) ||
+        throw(DimensionMismatch("y must have dimensions $(input_size(A))"))
     if α == 0
         vscale!(y, β)
     elseif β == 0
@@ -268,6 +278,10 @@ function apply!(α::Real,
                 β::Real,
                 y::DenseArray{T,N};
                 overwriteinput::Bool=false) where {T<:fftwReal,C,N}
+    size(x) == output_size(A) ||
+        throw(DimensionMismatch("x must have dimensions $(output_size(A))"))
+    size(y) == input_size(A) ||
+        throw(DimensionMismatch("y must have dimensions $(input_size(A))"))
     if α == 0
         vscale!(y, β)
     elseif β == 0
@@ -280,6 +294,7 @@ function apply!(α::Real,
     end
     return y
 end
+
 """
 
 `check_flags(flags)` checks whether `flags` is an allowed bitwise-or
@@ -290,9 +305,8 @@ http://www.fftw.org/doc/Planner-Flags.html) and returns the filtered flags.
 function check_flags(flags::Integer)
     planning = flags & (FFTW.ESTIMATE | FFTW.MEASURE | FFTW.PATIENT |
                         FFTW.EXHAUSTIVE | FFTW.WISDOM_ONLY)
-    if flags != planning
+    flags == planning ||
         throw(ArgumentError("only FFTW planning flags can be specified"))
-    end
     return UInt32(planning)
 end
 
@@ -306,9 +320,7 @@ function check_dimensions(dims::NTuple{N,Int}) where {N}
     number = 1
     for i in 1:length(dims)
         dim = dims[i]
-        if dim < 1
-            error("invalid dimension(s)")
-        end
+        dim ≥ 1 || throw(ArgumentError("invalid dimension(s)"))
         number *= dim
     end
     return number
