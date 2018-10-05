@@ -56,7 +56,7 @@ const Complexes = Complex{<:Reals}
 """
 
 A `Scalar` is used to represent multipliers or scaling factors when combining
-mappings.  For now, scalars are reals.
+mappings.  For now, scalars are double precision floating-point.
 
 """
 const Scalar = Float64
