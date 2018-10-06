@@ -81,7 +81,7 @@ See also: [`Trait`](@ref).
 
 """
 selfadjointtype(::Mapping) = NonSelfAdjoint
-selfadjointtype(A::Union{Scaled,Inverse}) = selfadjointtype(contents(A))
+selfadjointtype(A::Union{Scaled,Inverse}) = selfadjointtype(A.op)
 function selfadjointtype(A::Union{Sum,Composition})
     @inbounds for i in 1:length(A)
         selfadjointtype(A.ops[i]) <: SelfAdjoint || return NonSelfAdjoint
@@ -102,7 +102,7 @@ See also: [`Trait`](@ref).
 
 """
 morphismtype(::Mapping) = Morphism
-morphismtype(A::Union{Scaled,Inverse}) = morphismtype(contents(A))
+morphismtype(A::Union{Scaled,Inverse}) = morphismtype(A.op)
 function morphismtype(A::Union{Sum,Composition})
     @inbounds for i in 1:length(A)
         morphismtype(A.ops[i]) <: Endomorphism || return Morphism
@@ -122,7 +122,7 @@ See also: [`Trait`](@ref).
 
 """
 diagonaltype(::Mapping) = NonDiagonalMapping
-diagonaltype(A::Union{Scaled,Inverse}) = diagonaltype(contents(A))
+diagonaltype(A::Union{Scaled,Inverse}) = diagonaltype(A.op)
 function diagonaltype(A::Union{Sum,Composition})
     @inbounds for i in 1:length(A)
         diagonaltype(A.ops[i]) <: DiagonalMapping || return NonDiagonalMapping
@@ -142,7 +142,7 @@ See also: [`Trait`](@ref).
 
 """
 inplacetype(::Mapping) = OutOfPlace
-inplacetype(A::Union{Scaled,Inverse}) = inplacetype(contents(A))
+inplacetype(A::Union{Scaled,Inverse}) = inplacetype(A.op)
 function inplacetype(A::Union{Sum,Composition})
     @inbounds for i in 1:length(A)
         inplacetype(A.ops[i]) <: InPlace || return OutOfPlace
@@ -168,7 +168,7 @@ is_applicable_in_place(::Type{P}, A::Mapping) where {P<:Operations} =
 +(A::Sum, B::Sum) = Sum(A.ops..., B.ops...)
 +(A::Mapping, B::Mapping) = Sum(A, B)
 
-# Dot operator involving a mapping acts a s the multiply operator.
+# Dot operator involving a mapping acts as the multiply operator.
 ⋅(α::Real, B::Mapping) = α*B
 ⋅(A::Mapping, b::T) where {T} = A*b
 
@@ -193,11 +193,8 @@ adjoint(A::Mapping) = _adjoint(selfadjointtype(A), A)
 adjoint(A::Adjoint) = A.op
 adjoint(A::InverseAdjoint) = inv(A.op)
 adjoint(A::Scaled) = conj(A.sc)*adjoint(A.op)
-adjoint(A::Sum) = Sum(ntuple(i -> adjoint(A.ops[i]), length(A)))
-function adjoint(A::Composition)
-    n = length(A)
-    Composition(ntuple(i -> adjoint(A.ops[n + 1 - i]), n))
-end
+adjoint(A::Sum) = Sum(map(adjoint, A.ops))
+adjoint(A::Composition) = Composition(reversemap(adjoint, A.ops))
 _adjoint(::Type{SelfAdjoint}, A::Mapping) = A
 _adjoint(::Type{NonSelfAdjoint}, A::Mapping) = Adjoint(A)
 _adjoint(::Type{SelfAdjoint}, A::Inverse) = A
@@ -209,10 +206,20 @@ inv(A::Inverse) = A.op
 inv(A::InverseAdjoint) = adjoint(A.op)
 inv(A::Scaled) = (one(Scalar)/A.sc)*inv(A.op)
 inv(A::Sum) = error(UnsupportedInverseOfSumOfMappings)
-function inv(A::Composition)
-    n = length(A)
-    Composition(ntuple(i -> inv(A.ops[n + 1 - i]), n))
-end
+inv(A::Composition) = Composition(reversemap(inv, A.ops))
+
+"""
+```julia
+reversemap(f, args)
+```
+
+applies the function `f` to arguments `args` in reverse order and return the
+result.  For now, the arguments `args` must be in the form of a simple tuple
+and the result is the tuple: `(f(args[end]),f(args[end-1]),...,f(args[1])`.
+
+"""
+reversemap(f::Function, args::NTuple{N,Any}) where {N} =
+    ntuple(i -> f(args[(N + 1) - i]), Val(N))
 
 """
 ```julia

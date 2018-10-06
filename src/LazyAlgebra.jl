@@ -36,6 +36,7 @@ export
     output_ndims,
     output_size,
     output_type,
+    reversemap,
     selfadjointtype,
     vcombine!,
     vcombine,
