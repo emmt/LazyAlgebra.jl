@@ -315,10 +315,10 @@ const Operations = Union{Direct,Adjoint,Inverse,InverseAdjoint}
 
 """
 
-A `Scaled` mapping is used to represent a mappings times a scalar, it should
-not be used directly.  Use the `*` operator (with a scalar left operand)
-instead as it may be able to make some simplifications resulting in improved
-efficiency.
+A `Scaled` mapping is used to represent a mappings times a scalar.  End-users
+should not use a `Scaled` constructor directly but rather use the `*` operator
+(with a scalar left operand) as it may be able to make some simplifications
+resulting in improved efficiency.
 
 """
 struct Scaled{T<:Mapping} <: Mapping
@@ -328,9 +328,9 @@ end
 
 """
 
-A `Sum` is used to represent an arbitrary sum of mappings, it should not be
-used directly.  Use the `+` operator instead as it may be able to make some
-simplifications resulting in improved efficiency.
+A `Sum` is used to represent an arbitrary sum of mappings.  End-users should
+not use a `Sum` constructor directly but rather use the `+` operator as it may
+be able to make some simplifications resulting in improved efficiency.
 
 """
 struct Sum{T<:Tuple{Vararg{Mapping}}} <: Mapping
@@ -347,9 +347,12 @@ Sum(ops::Mapping...) = Sum(ops)
 
 """
 
-A `Composition` is used to represent an arbitrary composition of mappings, it
-should be used directly.  Use the `.` or `*` operators instead as they may be
-able to make some simplifications resulting in improved efficiency.
+A `Composition` is used to represent an arbitrary composition of mappings.
+Constructor `Composition(A,B)` may be extended in code implementing specific
+mappings of linear operators to provide *automatic* simplifications.  The
+end-user should not use `Composition` constructors directly but use the `.` or
+`*` operators instead as they may be able to make some simplifications
+resulting in improved efficiency.
 
 """
 struct Composition{T<:Tuple{Vararg{Mapping}}} <: Mapping
