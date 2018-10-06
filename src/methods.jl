@@ -151,7 +151,7 @@ yields whether mapping `A` is applicable *in-place* for performing operation
 `P` with argument `x`, that is with the result stored into the argument `x`.
 This can be used to spare allocating ressources.
 
-See also: [`LinearMapping`](@ref), [`apply!`](@ref).
+See also: [`InPlaceType`](@ref), [`LinearMapping`](@ref), [`apply!`](@ref).
 
 """
 is_applicable_in_place(::Type{<:Operations}, A::Mapping, x) = false
@@ -214,7 +214,7 @@ See also: [`vdot`](@ref), [`vcreate`](@ref), [`apply!`](@ref),
 
 """
 function checkmapping(y::Ty, A::Mapping, x::Tx) where {Tx, Ty}
-    lineartype(A) <: Linear ||
+    is_linear(A) ||
         throw(ArgumentError("expecting a linear map"))
     v1 = vdot(y, A*x)
     v2 = vdot(A'*y, x)

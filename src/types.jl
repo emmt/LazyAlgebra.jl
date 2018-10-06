@@ -14,25 +14,25 @@
 struct SingularSystem <: Exception
     msg::String
 end
-Base.showerror(io::IO, err::SingularSystem) =
+showerror(io::IO, err::SingularSystem) =
     print(io, "singular linear system ($(err.msg))")
 
 struct NonPositiveDefinite <: Exception
     msg::String
 end
-Base.showerror(io::IO, err::NonPositiveDefinite) =
+showerror(io::IO, err::NonPositiveDefinite) =
     print(io, "non-positive definite operator ($(err.msg))")
 
 struct UnimplementedOperation <: Exception
     msg::String
 end
-Base.showerror(io::IO, err::UnimplementedOperation) =
+showerror(io::IO, err::UnimplementedOperation) =
     print(io, err.msg)
 
 struct UnimplementedMethod <: Exception
     msg::String
 end
-Base.showerror(io::IO, err::UnimplementedMethod) =
+showerror(io::IO, err::UnimplementedMethod) =
     print(io, err.msg)
 
 """
@@ -124,7 +124,7 @@ these operations are assumed possible (except `Adjoint` and `InverseAdjoint`
 for a nonlinear mapping).
 
 See also: [`apply`](@ref), [`apply!`](@ref), [`vcreate`](@ref),
-          [`lineartype`](@ref), [`is_applicable_in_place`](@ref),
+          [`LinearType`](@ref), [`is_applicable_in_place`](@ref),
           [`Scalar`](@ref), [`Direct`](@ref), [`Adjoint`](@ref),
           [`Inverse`](@ref), [`InverseAdjoint`](@ref).
 
@@ -138,19 +138,26 @@ abstract type LinearMapping <: Mapping end
 
 The abstract type `Trait` is inherited by types indicating specific traits.
 
-See also: [`lineartype`](@ref), [`selfadjointtype`](@ref),
-          [`diagonaltype`](@ref), [`morphismtype`](@ref).
+See also: [`LinearType`](@ref), [`SelfAdjointType`](@ref),
+          [`DiagonalType`](@ref), [`MorphismType`](@ref).
 
 """
 abstract type Trait end
 
 """
 
-The *linear* trait indicates whether a mapping is linear or not.  Abstract type
-`LinearType` has two concrete singleton sub-types: `Linear` for linear mappings
-and `NonLinear` for other mappings.
+The *linear* trait indicates whether a mapping is certainly linear.  Abstract
+type `LinearType` has two concrete singleton sub-types: `Linear` for linear
+mappings and `NonLinear` for other mappings.  The call:
 
-See also: [`lineartype`](@ref), [`Trait`](@ref).
+```julia
+LinearType(A)
+```
+
+yields the *linear* type of mapping `A`, that is one of `Linear` for linear
+maps or `NonLinear` for other mappings.
+
+See also: [`Trait`](@ref), [`is_linear`](@ref).
 
 """
 abstract type LinearType <: Trait end
@@ -164,12 +171,19 @@ end
 
 """
 
-The *self-adjoint* trait indicates whether a mapping is a self-adjoint linear
-map or not.  Abstract type `SelfAdjointType` has two concrete singleton
-sub-types: `SelfAdjoint` for self-adjoint linear maps and `NonSelfAdjoint` for
-other mappings.
+The *self-adjoint* trait indicates whether a mapping is certainly a
+self-adjoint linear map.  Abstract type `SelfAdjointType` has two concrete
+singleton sub-types: `SelfAdjoint` for self-adjoint linear maps and
+`NonSelfAdjoint` for other mappings.  The call:
 
-See also: [`selfadjointtype`](@ref), [`Trait`](@ref), [`LinearMapping`](@ref).
+```julia
+SelfAdjointType(A)
+```
+
+yields the *self-adjoint* type of mapping `A`, that is one of `SelfAdjoint` for
+self-adjoint linear maps or `NonSelfAdjoint` for other mappings.
+
+See also: [`Trait`](@ref), [`is_selfadjoint`](@ref).
 
 """
 abstract type SelfAdjointType <: Trait end
@@ -183,12 +197,20 @@ end
 
 """
 
-The *morphism* trait indicates whether a mapping is an endomorphism (its input
-and output spaces are the same) or not.  Abstract type `MorphismType` has two
-concrete singleton sub-types: `Endomorphism` for endomorphisms and `Morphism`
-for other mappings.
+The *morphism* trait indicates whether a mapping is certainly an endomorphism
+(its input and output spaces are the same).  Abstract type `MorphismType` has
+two concrete singleton sub-types: `Endomorphism` for endomorphisms and
+`Morphism` for other mappings.  The call:
 
-See also: [`morphismtype`](@ref), [`Trait`](@ref).
+```julia
+MorphismType(A)
+```
+
+yields the *morphism* type of mapping `A`, that is one of `Endomorphism` for
+mappings whose input and output spaces are the same or `Morphism` for other
+mappings.
+
+See also: [`Trait`](@ref), [`is_endomorphism`](@ref).
 
 """
 abstract type MorphismType <: Trait end
@@ -202,12 +224,19 @@ end
 
 """
 
-The *diagonal* trait indicates whether a mapping is a diagonal linear mapping
-or not.  Abstract type `DiagonalType` has two concrete singleton sub-types:
+The *diagonal* trait indicates whether a mapping is certainly a diagonal linear
+mapping.  Abstract type `DiagonalType` has two concrete singleton sub-types:
 `DiagonalMapping` for diagonal linear mappings and `NonDiagonalMapping` for
-other mappings.
+other mappings.  The call:
 
-See also: [`diagonaltype`](@ref), [`Trait`](@ref).
+```julia
+DiagonalType(A)
+```
+
+yields the *diagonal* type of mapping `A`, that is one of `DiagonalMapping` for
+diagonal linear maps or `NonDiagonalMapping` for other mappings.
+
+See also: [`Trait`](@ref), [`is_diagonal`](@ref).
 
 """
 abstract type DiagonalType <: Trait end
@@ -221,13 +250,20 @@ end
 
 """
 
-The *in-place* trait indicates whether a mapping is applicable in-place or not.
+The *in-place* trait indicates whether a mapping is applicable in-place.
 Abstract type `InPlaceType` has two concrete singleton sub-types: `InPlace` for
 mappings which are applicable with the same input and output arguments or
 `OutOfPlace` for mappings which must be applied with different input and output
-arguments.
+arguments.  The call:
 
-See also: [`inplacetype`](@ref), [`Trait`](@ref).
+```julia
+InPlaceType([P=Direct,] A)
+```
+
+yields whether the mapping `A` is applicable in-place for operation `P`.  The
+retuned value is one of `InPlace` or `OutOfPlace`.
+
+See also: [`Trait`](@ref), [`is_applicable_in_place`](@ref).
 
 """
 abstract type InPlaceType <: Trait end
@@ -267,7 +303,7 @@ struct Adjoint{T<:Mapping} <: LinearMapping
     # The inner constructors make sure that the argument is a linear mapping.
     Adjoint{T}(A::T) where {T<:LinearMapping} = new{T}(A)
     function Adjoint{T}(A::T) where {T<:Mapping}
-        lineartype(A) <: Linear ||
+        is_linear(A) ||
             error("taking the adjoint of non-linear mappings is not allowed")
         return new{T}(A)
     end
@@ -286,7 +322,7 @@ struct InverseAdjoint{T<:LinearMapping} <: LinearMapping
     # The inner constructors ensure that the argument is a linear mapping.
     InverseAdjoint{T}(A::T) where {T<:LinearMapping} = new{T}(A)
     function InverseAdjoint{T}(A::T) where {T<:Mapping}
-        lineartype(A) <: Linear ||
+        is_linear(A) ||
             error("taking the inverse adjoint of non-linear mappings is not allowed")
         return new{T}(A)
     end

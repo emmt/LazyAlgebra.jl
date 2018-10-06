@@ -19,7 +19,7 @@ export FFTOperator
 using Compat
 
 using ..LazyAlgebra
-import ..LazyAlgebra: apply!, vcreate, morphismtype, mul!,
+import ..LazyAlgebra: apply!, vcreate, MorphismType, mul!,
     input_size, input_ndims, input_eltype,
     output_size, output_ndims, output_eltype
 
@@ -151,7 +151,7 @@ FFTOperator(arr::Array{T,N}; kwds...) where {T<:fftwNumber,N} =
     FFTOperator(eltype(arr), size(arr); kwds...)
 
 # Traits:
-morphismtype(::FFTOperator{<:Complex}) = Endomorphism
+MorphismType(::FFTOperator{<:Complex}) = Endomorphism
 
 input_size(A::FFTOperator) = A.inpdims
 input_size(A::FFTOperator, d) = A.inpdims[d]

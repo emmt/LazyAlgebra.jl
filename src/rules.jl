@@ -45,118 +45,143 @@ InverseAdjoint(::Union{Adjoint,Inverse,InverseAdjoint,Scaled,Sum,Composition}) =
 
 # Extend the `length` method to yield the number of components of a sum or
 # composition of mappings.
-Base.length(A::Union{Sum,Composition}) = length(contents(A))
+length(A::Union{Sum,Composition}) = length(contents(A))
+
+# Non-specific constructors for the *linear* trait.
+LinearType(::LinearMapping) = Linear
+LinearType(::Scaled{<:LinearMapping}) = Linear
+LinearType(A::Union{Scaled,Inverse}) = LinearType(A.op)
+LinearType(::Mapping) = NonLinear # anything else is non-linear
+LinearType(A::Union{Sum,Composition}) =
+    all(is_linear, A.ops) ? Linear : NonLinear
+
+# Non-specific constructors for the *self-adjoint* trait.
+SelfAdjointType(::Mapping) = NonSelfAdjoint
+SelfAdjointType(A::Union{Scaled,Inverse}) = SelfAdjointType(A.op)
+SelfAdjointType(A::Sum) =
+    all(is_selfadjoint, A.ops) ? SelfAdjoint : NonSelfAdjoint
+
+# Non-specific constructors for the *morphism* trait.
+MorphismType(::Mapping) = Morphism
+MorphismType(A::Union{Scaled,Inverse}) = MorphismType(A.op)
+MorphismType(A::Union{Sum,Composition}) =
+    all(is_endomorphism, ops) ? Endomorphism : Morphism
+
+# Non-specific constructors for the *diagonal* trait.
+DiagonalType(::Mapping) = NonDiagonalMapping
+DiagonalType(A::Union{Scaled,Inverse}) = DiagonalType(A.op)
+DiagonalType(A::Union{Sum,Composition}) =
+    all(is_diagonal, A.ops) ? DiagonalMapping : NonDiagonalMapping
+
+# Non-specific constructors for the *in-place* trait.
+InPlaceType(A::Mapping) = InPlaceType(Direct, A)
+InPlaceType(::Type{<:Operations}, ::Mapping) = OutOfPlace
+InPlaceType(::Type{P}, A::Union{Scaled,Inverse}) where {P<:Operations} =
+    InPlaceType(P, A.op)
+InPlaceType(::Type{P}, A::Union{Sum,Composition}) where {P<:Operations} =
+    all(op -> is_applicable_in_place(P, op), A.ops) ? InPlace : OutOfPlace
 
 """
 ```julia
-lineartype(A)
+is_linear(A)
 ```
 
-yields the *linear* type of mapping `A`, that is one of `Linear` for linear
-maps or `NonLinear` for other mappings.
+yields whether `A` is certainly a linear mapping.
 
-See also: [`Trait`](@ref).
+!!! note
+    This method is intended to perform certain automatic simplifications or
+    optimizations.  It is guaranted to return `true` when its argument is
+    certainly a linear mapping but it may return `false` even though its
+    argument behaves linearly because it is not always possible to figure out
+    that a complex mapping assemblage has this property.
+
+See also: [`LinearType`](@ref).
 
 """
-lineartype(::LinearMapping) = Linear
-lineartype(::Scaled{<:LinearMapping}) = Linear
-lineartype(A::Union{Scaled,Inverse}) = lineartype(A.op)
-lineartype(::Mapping) = NonLinear # anything else is non-linear
-function lineartype(A::Union{Sum,Composition})
-    @inbounds for i in 1:length(A)
-        lineartype(A.ops[i]) <: Linear || return NonLinear
-    end
-    return Linear
-end
+is_linear(A::Mapping) = _is_linear(LinearType(A))
+_is_linear(::Type{Linear}) = true
+_is_linear(::Type{NonLinear}) = false
 
 """
 ```julia
-selfadjointtype(A)
+is_selfadjoint(A)
 ```
 
-yields the *self-adjoint* type of mapping `A`, that is one of `SelfAdjoint` for
-self-adjoint linear maps or `NonSelfAdjoint` for other mappings.
+yields whether mapping `A` is certainly a self-adjoint linear mapping.
 
-See also: [`Trait`](@ref).
+!!! note
+    This method is intended to perform certain automatic simplifications or
+    optimizations.  It is guaranted to return `true` when its argument is
+    certainly a self-adjoint linear mapping but it may return `false` even
+    though its argument behaves like a self-adjoint linear map because it is
+    not always possible to figure out that a complex mapping assemblage has
+    this property.
+
+See also: [`SelfAdjointType`](@ref).
 
 """
-selfadjointtype(::Mapping) = NonSelfAdjoint
-selfadjointtype(A::Union{Scaled,Inverse}) = selfadjointtype(A.op)
-function selfadjointtype(A::Union{Sum,Composition})
-    @inbounds for i in 1:length(A)
-        selfadjointtype(A.ops[i]) <: SelfAdjoint || return NonSelfAdjoint
-    end
-    return SelfAdjoint
-end
+is_selfadjoint(A::Mapping) = _is_selfadjoint(SelfAdjointType(A))
+_is_selfadjoint(::Type{SelfAdjoint}) = true
+_is_selfadjoint(::Type{NonSelfAdjoint}) = false
 
 """
 ```julia
-morphismtype(A)
+    is_endomorphism(A)
 ```
 
-yields the *morphism* type of mapping `A`, that is one of `Endomorphism` for
-mappings whose input and output spaces are the same or `Morphism` for other
-mappings.
+yields whether mapping `A` is certainly an endomorphism.
 
-See also: [`Trait`](@ref).
+!!! note
+    This method is intended to perform certain automatic simplifications or
+    optimizations.  It is guaranted to return `true` when its argument is
+    certainly an endomorphism but it may return `false` even though its
+    argument behaves like an endomorphism because it is not always possible to
+    figure out that a complex mapping assemblage has this property.
+
+See also: [`MorphismType`](@ref).
 
 """
-morphismtype(::Mapping) = Morphism
-morphismtype(A::Union{Scaled,Inverse}) = morphismtype(A.op)
-function morphismtype(A::Union{Sum,Composition})
-    @inbounds for i in 1:length(A)
-        morphismtype(A.ops[i]) <: Endomorphism || return Morphism
-    end
-    return Endomorphism
-end
+is_endomorphism(A::Mapping) = _is_endomorphism(MorphismType(A))
+_is_endomorphism(::Type{Endomorphism}) = true
+_is_endomorphism(::Type{Morphism}) = false
 
 """
 ```julia
-diagonaltype(A)
+    is_diagonal(A)
 ```
 
-yields the *diagonal* type of mapping `A`, that is one of `DiagonalMapping` for
-diagonal linear maps or `NonDiagonalMapping` for other mappings.
+yields whether mapping `A` is certainly a diagonal linear map.
 
-See also: [`Trait`](@ref).
+!!! note
+    This method is intended to perform certain automatic simplifications or
+    optimizations.  It is guaranted to return `true` when its argument is
+    certainly a diagonal linear map but it may return `false` even though its
+    argument behaves like a diagonal linear map because it is not always
+    possible to figure out that a complex mapping assemblage has this property.
+
+See also: [`DiagonalType`](@ref).
 
 """
-diagonaltype(::Mapping) = NonDiagonalMapping
-diagonaltype(A::Union{Scaled,Inverse}) = diagonaltype(A.op)
-function diagonaltype(A::Union{Sum,Composition})
-    @inbounds for i in 1:length(A)
-        diagonaltype(A.ops[i]) <: DiagonalMapping || return NonDiagonalMapping
-    end
-    return DiagonalMapping
-end
+is_diagonal(A::Mapping) = _is_diagonal(DiagonalType(A))
+_is_diagonal(::Type{DiagonalMapping}) = true
+_is_diagonal(::Type{NonDiagonalMapping}) = false
 
 """
 ```julia
-inplacetype([P=Direct,] A)
+    is_applicable_in_place([P=Direct,] A)
 ```
 
-yields whether the mapping `A` is applicable in-place for operation `P`.  The
-retuned value is one of `InPlace` or `OutOfPlace`.
+yields whether operation `P` (`Direct` by default) of mapping `A` can be
+applied in-place.
 
-See also: [`Trait`](@ref).
+See also: [`InPlaceType`](@ref).
 
 """
-inplacetype(::Mapping) = OutOfPlace
-inplacetype(A::Union{Scaled,Inverse}) = inplacetype(A.op)
-function inplacetype(A::Union{Sum,Composition})
-    @inbounds for i in 1:length(A)
-        inplacetype(A.ops[i]) <: InPlace || return OutOfPlace
-    end
-    return InPlace
-end
-
-is_linear(A::Mapping) = (lineartype(A) <: Linear)
-is_selfadjoint(A::Mapping) = (selfadjointtype(A) <: SelfAdjoint)
-is_endomorphism(A::Mapping) = (morphismtype(A) <: Endomorphism)
-is_diagonal(A::Mapping) = (diagonaltype(A) <: DiagonalMapping)
 is_applicable_in_place(A::Mapping) = is_applicable_in_place(Direct, A)
 is_applicable_in_place(::Type{P}, A::Mapping) where {P<:Operations} =
-    (inplacetype(P, A) <: InPlace)
+    _is_applicable_in_place(InPlaceType(P, A))
+_is_applicable_in_place(::Type{InPlace}) = true
+_is_applicable_in_place(::Type{OutOfPlace}) = false
 
 # Unary minus and unary plus.
 -(A::Mapping) = -1*A
@@ -189,15 +214,15 @@ is_applicable_in_place(::Type{P}, A::Mapping) where {P<:Operations} =
 \(A::Mapping, B::Mapping) = inv(A)*B
 /(A::Mapping, B::Mapping) = A*inv(B)
 
-adjoint(A::Mapping) = _adjoint(selfadjointtype(A), A)
+adjoint(A::Mapping) = _adjoint(SelfAdjointType(A), A)
 adjoint(A::Adjoint) = A.op
 adjoint(A::InverseAdjoint) = inv(A.op)
 adjoint(A::Scaled) = conj(A.sc)*adjoint(A.op)
 adjoint(A::Sum) = Sum(map(adjoint, A.ops))
 adjoint(A::Composition) = Composition(reversemap(adjoint, A.ops))
 _adjoint(::Type{SelfAdjoint}, A::Mapping) = A
-_adjoint(::Type{NonSelfAdjoint}, A::Mapping) = Adjoint(A)
 _adjoint(::Type{SelfAdjoint}, A::Inverse) = A
+_adjoint(::Type{NonSelfAdjoint}, A::Mapping) = Adjoint(A)
 _adjoint(::Type{NonSelfAdjoint}, A::Inverse) = InverseAdjoint(A)
 
 inv(A::Mapping) = Inverse(A)
@@ -446,10 +471,10 @@ vcreate([P,] A, x) -> y
 ```
 
 yields a new instance `y` suitable for storing the result of applying mapping
-`A` to the argument `x`.  Optional parameter `P ∈ Operations` can be `Direct`
-(the default), `Adjoint`, `Inverse` and/or `InverseAdjoint` can be used to
-specify how `A` is to be applied as explained in the documentation of the
-[`apply`](@ref) method.
+`A` to the argument `x`.  Optional parameter `P ∈ Operations` is one of
+`Direct` (the default), `Adjoint`, `Inverse` and/or `InverseAdjoint` and can be
+used to specify how `A` is to be applied as explained in the documentation of
+the [`apply`](@ref) method.
 
 The method `vcreate(::Type{P}, A, x)` should be implemented by linear mappings
 for any supported operations `P` and argument type for `x`.

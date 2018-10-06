@@ -16,6 +16,40 @@ isdefined(Base, :__precompile__) && __precompile__(true)
 module LazyAlgebra
 
 export
+    Adjoint,
+    AdjointInverse,
+    DiagonalMapping,
+    DiagonalType,
+    Direct,
+    Endomorphism,
+    FFTOperator,
+    GeneralMatrix,
+    HalfHessian,
+    Hessian,
+    Identity,
+    InPlace,
+    InPlaceType,
+    Inverse,
+    InverseAdjoint,
+    Linear,
+    LinearMapping,
+    LinearType,
+    Mapping,
+    Morphism,
+    MorphismType,
+    NonDiagonalMapping,
+    NonLinear,
+    NonSelfAdjoint,
+    NonuniformScalingOperator,
+    Operations,
+    OutOfPlace,
+    RankOneOperator,
+    Scalar,
+    SelfAdjoint,
+    SelfAdjointType,
+    SingularSystem,
+    SymmetricRankOneOperator,
+    UniformScalingOperator,
     adjoint,
     apply!,
     apply,
@@ -23,21 +57,20 @@ export
     conjgrad!,
     conjgrad,
     contents,
-    diagonaltype,
-    inplacetype,
     input_eltype,
     input_ndims,
     input_size,
     input_type,
     is_applicable_in_place,
-    lineartype,
-    morphismtype,
+    is_diagonal,
+    is_endomorphism,
+    is_linear,
+    is_selfadjoint,
     output_eltype,
     output_ndims,
     output_size,
     output_type,
     reversemap,
-    selfadjointtype,
     vcombine!,
     vcombine,
     vcopy!,
@@ -56,44 +89,21 @@ export
     vswap!,
     vupdate!,
     vzero!,
-    vzeros,
-    Adjoint,
-    AdjointInverse,
-    DiagonalMapping,
-    Direct,
-    Endomorphism,
-    FFTOperator,
-    GeneralMatrix,
-    HalfHessian,
-    Hessian,
-    Identity,
-    InPlace,
-    Inverse,
-    InverseAdjoint,
-    Linear,
-    LinearMapping,
-    Mapping,
-    Morphism,
-    NonDiagonalMapping,
-    NonLinear,
-    NonSelfAdjoint,
-    NonuniformScalingOperator,
-    Operations,
-    OutOfPlace,
-    RankOneOperator,
-    Scalar,
-    SelfAdjoint,
-    SingularSystem,
-    SymmetricRankOneOperator,
-    UniformScalingOperator
+    vzeros
 
 # Deal with compatibility issues.
-isdefined(Base, :apply) && import Base: apply
+@static isdefined(Base, :apply) && import Base: apply
 @static if isdefined(Base, :adjoint)
     import Base: adjoint
 else
     import Base: ctranspose
     const adjoint = ctranspose
+end
+@static if isdefined(Base, :axes)
+    import Base: axes
+else
+    import Base: indices
+    const axes = indices
 end
 using Compat
 using Compat.Printf
@@ -136,7 +146,9 @@ else
     import .LinearAlgebra: rmul!
 end
 
-import Base: *, ∘, +, -, \, /, inv
+import Base: *, ∘, +, -, \, /, inv,
+    show, showerror, convert, eltype, ndims, size, length, stride,
+    getindex, setindex!, eachindex
 
 include("types.jl")
 include("rules.jl")

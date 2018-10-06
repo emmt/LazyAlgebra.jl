@@ -37,11 +37,11 @@ end
         @test I*I === I
         @test I\I === I
         @test I/I === I
-        @test selfadjointtype(I) <: SelfAdjoint
-        @test morphismtype(I) <: Endomorphism
-        @test diagonaltype(I) <: DiagonalMapping
+        @test SelfAdjointType(I) <: SelfAdjoint
+        @test MorphismType(I) <: Endomorphism
+        @test DiagonalType(I) <: DiagonalMapping
         for P in operations
-            @test inplacetype(P, I) <: InPlace
+            @test InPlaceType(P, I) <: InPlace
         end
         for T in floats
             atol, rtol = zero(T), sqrt(eps(T))
@@ -67,11 +67,11 @@ end
         B = RankOneOperator(w, y)
         C = SymmetricRankOneOperator(w)
         atol, rtol = zero(T), sqrt(eps(T))
-        @test lineartype(A) <: Linear
-        @test lineartype(C) <: Linear
-        @test morphismtype(C) <: Endomorphism
+        @test LinearType(A) <: Linear
+        @test LinearType(C) <: Linear
+        @test MorphismType(C) <: Endomorphism
         for P in operations
-            @test inplacetype(P, C) <: InPlace
+            @test InPlaceType(P, C) <: InPlace
         end
         @test A*I === A
         @test I*A === A

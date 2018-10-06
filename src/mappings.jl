@@ -47,10 +47,10 @@ const Identities = Union{Identity,Adjoint{Identity},Inverse{Identity},
                          InverseAdjoint{Identity}}
 
 # Traits:
-selfadjointtype(::Identities) = SelfAdjoint
-morphismtype(::Identities) = Endomorphism
-diagonaltype(::Identities) = DiagonalMapping
-inplacetype(::Type{<:Operations}, ::Identities) = InPlace
+SelfAdjointType(::Identities) = SelfAdjoint
+MorphismType(::Identities) = Endomorphism
+DiagonalType(::Identities) = DiagonalMapping
+InPlaceType(::Type{<:Operations}, ::Identities) = InPlace
 
 inv(::Identities) = I
 adjoint(::Identities) = I
@@ -86,10 +86,10 @@ end
 @callable UniformScalingOperator
 
 # Traits:
-selfadjointtype(::UniformScalingOperator) = SelfAdjoint
-morphismtype(::UniformScalingOperator) = Endomorphism
-diagonaltype(::UniformScalingOperator) = DiagonalMapping
-inplacetype(::Type{<:Operations}, ::UniformScalingOperator) = InPlace
+SelfAdjointType(::UniformScalingOperator) = SelfAdjoint
+MorphismType(::UniformScalingOperator) = Endomorphism
+DiagonalType(::UniformScalingOperator) = DiagonalMapping
+InPlaceType(::Type{<:Operations}, ::UniformScalingOperator) = InPlace
 
 isinvertible(A::UniformScalingOperator) = (isfinite(A.α) && A.α != zero(Scalar))
 
@@ -97,7 +97,7 @@ ensureinvertible(A::UniformScalingOperator) =
     isinvertible(A) || throw(
         SingularSystem("Uniform scaling operator is singular"))
 
-function Base.inv(A::UniformScalingOperator)
+function inv(A::UniformScalingOperator)
     ensureinvertible(A)
     return UniformScalingOperator(one(Scalar)/A.α)
 end
@@ -144,10 +144,10 @@ end
 @callable NonuniformScalingOperator
 
 # Traits:
-morphismtype(::NonuniformScalingOperator) = Endomorphism
-diagonaltype(::NonuniformScalingOperator) = DiagonalMapping
-inplacetype(::Type{<:Operations}, ::NonuniformScalingOperator) = InPlace
-selfadjointtype(A::NonuniformScalingOperator) =
+MorphismType(::NonuniformScalingOperator) = Endomorphism
+DiagonalType(::NonuniformScalingOperator) = DiagonalMapping
+InPlaceType(::Type{<:Operations}, ::NonuniformScalingOperator) = InPlace
+SelfAdjointType(A::NonuniformScalingOperator) =
     _selfadjointtype(eltype(contents(A)), A)
 _selfadjointtype(::Type{<:Real}, ::NonuniformScalingOperator) =
     SelfAdjoint
@@ -157,8 +157,8 @@ _selfadjointtype(::Type{<:Complex}, ::NonuniformScalingOperator) =
 contents(A::NonuniformScalingOperator) = A.diag
 LinearAlgebra.diag(A::NonuniformScalingOperator) = A.diag
 
-function Base.inv(A::NonuniformScalingOperator{<:AbstractArray{T,N}}
-                  ) where {T<:AbstractFloat, N}
+function inv(A::NonuniformScalingOperator{<:AbstractArray{T,N}}
+             ) where {T<:AbstractFloat, N}
     q = A.diag
     r = similar(q)
     @inbounds @simd for i in eachindex(q, r)
@@ -454,9 +454,9 @@ end
 @callable SymmetricRankOneOperator
 
 # Traits:
-morphismtype(::SymmetricRankOneOperator) = Endomorphism
-inplacetype(::Type{<:Operations}, ::SymmetricRankOneOperator) = InPlace
-selfadjointtype(A::SymmetricRankOneOperator) = SelfAdjoint
+MorphismType(::SymmetricRankOneOperator) = Endomorphism
+InPlaceType(::Type{<:Operations}, ::SymmetricRankOneOperator) = InPlace
+SelfAdjointType(::SymmetricRankOneOperator) = SelfAdjoint
 
 function apply!(α::Real, ::Type{<:Union{Direct,Adjoint}},
                 A::SymmetricRankOneOperator, x, β::Real, y)
@@ -520,22 +520,17 @@ end
 contents(A) = A.arr
 
 # Make a GeneralMatrix behaves like an ordinary array.
-Base.eltype(A::GeneralMatrix) = eltype(A.arr)
-Base.length(A::GeneralMatrix) = length(A.arr)
-Base.ndims(A::GeneralMatrix) = ndims(A.arr)
-@static if isdefined(Base, :axes)
-    Base.axes(A::GeneralMatrix) = axes(A.arr)
-else
-    import Compat: axes
-    Base.indices(A::GeneralMatrix) = indices(A.arr)
-end
-Base.size(A::GeneralMatrix) = size(A.arr)
-Base.size(A::GeneralMatrix, inds...) = size(A.arr, inds...)
-Base.getindex(A::GeneralMatrix, inds...) = getindex(A.arr, inds...)
-Base.setindex!(A::GeneralMatrix, x, inds...) = setindex!(A.arr, x, inds...)
-Base.stride(A::GeneralMatrix, k) = stride(A.arr, k)
-Base.strides(A::GeneralMatrix) = strides(A.arr)
-Base.eachindex(A::GeneralMatrix) = eachindex(A.arr)
+eltype(A::GeneralMatrix) = eltype(A.arr)
+length(A::GeneralMatrix) = length(A.arr)
+ndims(A::GeneralMatrix) = ndims(A.arr)
+axes(A::GeneralMatrix) = axes(A.arr)
+size(A::GeneralMatrix) = size(A.arr)
+size(A::GeneralMatrix, inds...) = size(A.arr, inds...)
+getindex(A::GeneralMatrix, inds...) = getindex(A.arr, inds...)
+setindex!(A::GeneralMatrix, x, inds...) = setindex!(A.arr, x, inds...)
+stride(A::GeneralMatrix, k) = stride(A.arr, k)
+strides(A::GeneralMatrix) = strides(A.arr)
+eachindex(A::GeneralMatrix) = eachindex(A.arr)
 
 function apply!(α::Real,
                 ::Type{P},
