@@ -3,6 +3,13 @@
 #
 # Implement non-specific methods for mappings.
 #
+#-------------------------------------------------------------------------------
+#
+# This file is part of the LazyAlgebra package released under the MIT "Expat"
+# license.
+#
+# Copyright (c) 2017-2018 Éric Thiébaut.
+#
 
 function unimplemented(::Type{P}, ::Type{T}) where {P<:Operations, T<:Mapping}
     throw(UnimplementedOperation("unimplemented operation `$P` for mapping $T"))

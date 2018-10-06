@@ -19,9 +19,22 @@
 Identity()
 ```
 
-yields the identity linear mapping.  Beware that the purpose of this mapping
-is to be as efficient as possible, hence the result of applying this mapping
-may be the same as the input argument.
+yields the identity linear mapping.  The purpose of this mapping is to be as
+efficient as possible, hence the result of applying this mapping may be the
+same as the input argument.
+
+The identity is a singleton and is also available as:
+
+```julia
+LazyAlgebra.I
+```
+
+which is not exported by default (to avoid collisions with the `LinearAlgebra`
+module).  You may do it explicitly:
+
+```julia
+import LazyAlgebra: I
+```
 
 """
 struct Identity <: LinearMapping; end
@@ -39,7 +52,7 @@ morphismtype(::Identities) = Endomorphism
 diagonaltype(::Identities) = DiagonalMapping
 inplacetype(::Type{<:Operations}, ::Identities) = InPlace
 
-Base.inv(::Identities) = I
+inv(::Identities) = I
 adjoint(::Identities) = I
 *(::Identities, A::Mapping) = A
 *(A::Mapping, ::Identities) = A
