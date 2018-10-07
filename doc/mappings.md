@@ -1,13 +1,13 @@
 ## Implementation of new mappings or linear operators
 
 `LazyAlgebra` provides a number of mappings and linear operators.  To create
-now primitive mapping types (not by combining existing mappings) and benefit
+new primitive mapping types (not by combining existing mappings) and benefit
 from the `LazyAlgebra` infrastruture, you have to:
 
-* create a new type derived from `Mapping` or one of its abstract subtypes such
-  as `LinearMapping` or `SelfAdjointOperator`;
+* Create a new type derived from `Mapping` or one of its abstract subtypes such
+  as `LinearMapping`.
 
-* implement at least two methods `vcreate` and `apply!` specialized for the new
+* Implement at least two methods `vcreate` and `apply!` specialized for the new
   mapping type.  The former method is to create a new output variable suitable
   to store the result of applying the mapping (or one of its variants) to some
   input variable.  Applying the mapping is done by the latter method.
@@ -22,7 +22,7 @@ where `A` is the mapping, `x` its argument and `P` is one of `Direct`,
 `Adjoint`, `Inverse` and/or `InverseAdjoint` (or equivalently `AdjointInverse`)
 and indicates how `A` is to be applied:
 
-* `Direct` to apply `A` to `x`, *e.g.* to compute `A'⋅x`;
+* `Direct` to apply `A` to `x`, *e.g.* to compute `A⋅x`;
 * `Adjoint` to apply the adjoint of `A` to `x`, *e.g.* to compute `A'⋅x`;
 * `Inverse` to apply the inverse of `A` to `x`, *e.g.* to compute `A\x`;
 * `InverseAdjoint` or `AdjointInverse` to apply the inverse of `A'` to `x`,
@@ -35,14 +35,14 @@ the result of applying the mapping `A` (or one of its variants as indicated by
 The signature of the `apply!` method is:
 
 ```julia
-apply!(α::Real, ::Type{P}, A::Ta, x::tx, β::Real, y::Ty) -> y
+apply!(α::Real, ::Type{P}, A::Ta, x::Tx, β::Real, y::Ty) -> y
 ```
 
 This method shall overwrites the output variables `y` with the result of
 `α*P(A)⋅x + β*y` where `P` is one of `Direct`, `Adjoint`, `Inverse` and/or
-`InverseAdjoint` (or equivalently `AdjointInverse`).  The convention is that
-the prior contents of `y` is not used at all if `β = 0` so `y` does not need to
-be properly initialized in that case.
+`InverseAdjoint` (or equivalently `AdjointInverse`) and shall return `y`.  The
+convention is that the prior contents of `y` is not used at all if `β = 0` so
+the contents of `y` does not need to be initialized in that case.
 
 Not all operations `P` must be implemented, only the supported ones.  For
 iterative resolution of (inverse) problems, it is generally needed to implement
@@ -57,6 +57,9 @@ The following example implements a simple sparse linear operator which is able
 to operate on multi-dimensional arrays (the so-called *variables*):
 
 ```julia
+using LazyAlgebra
+import LazyAlgebra: vcreate, apply!, input_size, output_size
+
 struct SparseOperator{T<:AbstractFloat,M,N} <: LinearMapping
     outdims::NTuple{M,Int}
     inpdims::NTuple{N,Int}
@@ -64,20 +67,24 @@ struct SparseOperator{T<:AbstractFloat,M,N} <: LinearMapping
     I::Vector{Int}
     J::Vector{Int}
 end
+
 input_size(S::SparseOperator) = S.inpdims
 output_size(S::SparseOperator) = S.outdims
+
 function vcreate(::Type{Direct}, S::SparseOperator{Ts,M,N},
                  x::DenseArray{Tx,N}) where {Ts<:Real,Tx<:Real,M,N}
     @assert size(x) == input_size(S)
     Ty = promote_type(Ts, Tx)
-    return Array{Ty}(output_size(S))
+    return Array{Ty}(undef, output_size(S))
 end
+
 function vcreate(::Type{Adjoint}, S::SparseOperator{Ts,M,N},
                  x::DenseArray{Tx,M}) where {Ts<:Real,Tx<:Real,M,N}
     @assert size(x) == output_size(S)
     Ty = promote_type(Ts, Tx)
-    return Array{T}(input_size(S))
+    return Array{T}(undef, input_size(S))
 end
+
 function apply!(alpha::Real,
                 ::Type{Direct},
                 S::SparseOperator{Ts,M,N},
@@ -86,12 +93,10 @@ function apply!(alpha::Real,
                 y::DenseArray{Ty,M}) where {Ts<:Real,Tx<:Real,Ty<:Real,M,N}
     @assert size(x) == input_size(S)
     @assert size(y) == output_size(S)
-    A, I, J = S.A, S.I, S.J
-    @assert length(I) == length(J) == length(A)
-    if beta != 1
-        vscale!(beta, y)
-    end
+    beta == 1 || vscale!(y, beta)
     if alpha != 0
+        A, I, J = S.A, S.I, S.J
+        @assert length(I) == length(J) == length(A)
         for k in 1:length(A)
             i, j = I[k], J[k]
             y[i] += alpha*A[k]*x[j]
@@ -99,6 +104,7 @@ function apply!(alpha::Real,
     end
     return y
 end
+
 function apply!(alpha::Real, ::Type{Adjoint},
                 S::SparseOperator{Ts,M,N},
                 x::DenseArray{Tx,N},
@@ -106,15 +112,11 @@ function apply!(alpha::Real, ::Type{Adjoint},
                 y::DenseArray{Ty,M}) where {Ts<:Real,Tx<:Real,Ty<:Real,M,N}
     @assert size(x) == output_size(S)
     @assert size(y) == input_size(S)
-    if alpha == 0
-        vscale!(y, beta)
-    else
+    beta == 1 || vscale!(y, beta)
+    if alpha != 0
         A, I, J = S.A, S.I, S.J
         @assert length(I) == length(J) == length(A)
-        if beta != 1
-            vscale!(beta, y)
-        end
-        for k in 1:n
+        for k in 1:length(A)
             i, j = I[k], J[k]
             y[j] += alpha*A[k]*x[i]
         end
@@ -123,10 +125,39 @@ function apply!(alpha::Real, ::Type{Adjoint},
 end
 ```
 
-Note that, in our example, arrays are restricted to be *dense* so that linear
-indexing is efficient.  For the sake of clarity, the above code is intended to
-be correct although there are many possible optimizations.
+Remarks:
 
-Also note the call to `vscale!(beta, y)` to properly initialize `y`.  (Remember
-the convention that the contents of `y` is not used at all if `β = 0` so `y`
-does not need to be properly initialized in that case.)
+- In our example, arrays are restricted to be *dense* so that linear indexing
+  is efficient.  For the sake of clarity, the above code is intended to be
+  correct although there are many possible optimizations.
+
+- If `alpha = 0` there is nothing to do except scale `y` by `beta`.
+
+- The call to `vscale!(beta, y)` is to properly initialize `y`.  (Remember the
+  convention that the contents of `y` is not used at all if `beta = 0` so `y`
+  does not need to be properly initialized in that case, it will simply be
+  zero-filled by the call to `vscale!`.)  The statements
+
+  ```julia
+  beta == 1 || vscale!(y, beta)
+  ```
+
+  are equivalent to:
+
+  ```julia
+  if beta != 1
+      vscale!(y, beta)
+  end
+  ```
+
+  which may be simplified to just calling `vscale!` unconditionally:
+
+  ```julia
+  vscale!(y, beta)
+  ```
+
+  as `vscale!(y, beta)` does nothing if `beta = 1`.
+
+- `@inbounds` could be used for the loops but this would require checking that
+  all indices are whithin the bounds.  In this example, only `k` is guaranteed
+  to be valid, `i` and `j` have to be checked.
