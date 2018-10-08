@@ -69,14 +69,18 @@ adjoint(::Identities) = I
 ==(A::Scaled{<:Identities}, ::Identities) = (A.sc == one(A.sc))
 ==(A::Scaled{<:Identities}, B::Scaled{<:Identities}) = (A.sc == B.sc)
 
-\(::Identities, A::Mapping) = A
-\(A::Mapping, ::Identities) = inv(A)
+\(A::Identities, B::Identities) = I
+\(A::Identities, B::Mapping) = B
+\(A::Scaled{<:Identities}, B::Mapping) = (one(A.sc)/A.sc)*B
+\(A::Mapping, B::Identities) = inv(A)
 \(A::LinearMapping, B::Scaled{<:Identities}) = B.sc*inv(A)
 \(A::Mapping, B::Scaled{<:Identities}) =
     islinear(A) ? B.sc*inv(A) : inv(A)*B
 
-/(::Identities, A::Mapping) = inv(A)
-/(A::Mapping, ::Identities) = A
+/(A::Identities, B::Identities) = I
+/(A::Identities, B::Mapping) = inv(B)
+/(A::Scaled{<:Identities}, B::Mapping) = A.sc*inv(B)
+/(A::Mapping, B::Identities) = A
 /(A::LinearMapping, B::Scaled{<:Identities}) =
     (1/B.sc)*A # FIXME: check division by zero?
 /(A::Mapping, B::Scaled{<:Identities}) =
