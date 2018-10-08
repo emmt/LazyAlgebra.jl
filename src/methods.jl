@@ -5,8 +5,8 @@
 #
 #-------------------------------------------------------------------------------
 #
-# This file is part of the LazyAlgebra package released under the MIT "Expat"
-# license.
+# This file is part of LazyAlgebra (https://github.com/emmt/LazyAlgebra.jl)
+# released under the MIT "Expat" license.
 #
 # Copyright (c) 2017-2018 Éric Thiébaut.
 #
@@ -237,3 +237,37 @@ end
 checkmapping(A::LinearMapping) =
     checkmapping(randn(output_eltype(A), output_size(A)), A,
                  randn(input_eltype(A), input_size(A)))
+
+"""
+```julia
+densearray([T=eltype(A),] A)
+```
+
+lazyly yields a dense array based on `A`.  Optional argument `T` is to specify
+the element type of the result.  Argument `A` is returned if it is already a
+dense array with the requested element type; otherwise, [`convert`](@ref) is
+called to produce the result.
+
+Similarly:
+
+```julia
+densevector([T=eltype(V),] V)
+densematrix([T=eltype(M),] M)
+```
+
+respectively yield a dense vector from `V` and a dense matrix from `M`.
+
+"""
+densearray(A::DenseArray) = A
+densearray(::Type{T}, A::DenseArray{T,N}) where {T,N} = A
+densearray(A::AbstractArray{T,N}) where {T,N} = densearray(T, A)
+densearray(::Type{T}, A::AbstractArray{<:Any,N}) where {T,N} =
+    convert(Array{T,N}, A)
+
+densevector(V::AbstractVector{T}) where {T} = densearray(T, V)
+densevector(::Type{T}, V::AbstractVector) where {T} = densearray(T, V)
+@doc @doc(densearray) densevector
+
+densematrix(M::AbstractMatrix{T}) where {T} = densearray(T, M)
+densematrix(::Type{T}, M::AbstractMatrix) where {T} = densearray(T, M)
+@doc @doc(densearray) densematrix

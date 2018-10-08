@@ -1,6 +1,13 @@
+* Provide `SparseOperator`.
+
+* `LinearAlgebra.UniformScaling` can be combined with mappings in LazyAlgebra.
+
+* `UniformScalingOperator` has been deprecated in favor of a `Scaled` version
+  of the identity.
+
 * Compatible with Julia 0.6, 0.7 and 1.0.
 
-* Provide support for complex-valued arrays.
+* Provide (partial) support for complex-valued arrays.
 
 * Traits replace abstract types such as `Endomorphism`, `SelfAdjointOperator`,
   etc.  Some operator may be endomorphisms or not.  For instance the
@@ -13,7 +20,7 @@
   do `y = α*Op(A)⋅x + β*y` (as in LAPACK and optimized if scalars have values
   0, ±1):
 
-```julia
-apply!(α::Real, Op::Type{<:Operations}, A::LinearMapping, x, β::Real, y)
-apply!(β::Real, y, α::Real, Op::Type{<:Operations}, A::LinearMapping, x)
-```
+  ```julia
+  apply!(α::Real, Op::Type{<:Operations}, A::LinearMapping, x, β::Real, y)
+  apply!(β::Real, y, α::Real, Op::Type{<:Operations}, A::LinearMapping, x)
+  ```

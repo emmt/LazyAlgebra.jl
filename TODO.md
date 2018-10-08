@@ -7,10 +7,10 @@
 * Rename traits types and us their constructors to return trait instances.
   This is more *natural* in Julia and avoid having different method names.
 
-* Replace `UniformScalingOperator` by a `Scaled` version of the identity.
+* Make *scalars* any `Number`.
 
-* Provide simplification rules for sums of diagonal operators (which are also
-  easy to invert).
+* Provide simplification rules for sums and compositions of diagonal operators
+  (which are also easy to invert).
 
 * Write rules when an operator is supplied as an instance of
   `LinearAlgebra.UniformScaling`.

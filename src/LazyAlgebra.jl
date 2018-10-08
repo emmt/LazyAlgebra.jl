@@ -48,6 +48,7 @@ export
     SelfAdjoint,
     SelfAdjointType,
     SingularSystem,
+    SparseOperator,
     SymmetricRankOneOperator,
     UniformScalingOperator,
     adjoint,
@@ -158,6 +159,7 @@ include("methods.jl")
 include("vectors.jl")
 include("blas.jl")
 include("mappings.jl")
+include("sparse.jl")
 include("fft.jl")
 import .FFT: FFTOperator
 include("conjgrad.jl")
