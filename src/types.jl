@@ -5,8 +5,8 @@
 #
 #-------------------------------------------------------------------------------
 #
-# This file is part of the LazyAlgebra package released under the MIT "Expat"
-# license.
+# This file is part of the LazyAlgebra (https://github.com/emmt/LazyAlgebra.jl)
+# package released under the MIT "Expat" license.
 #
 # Copyright (c) 2017-2018 Éric Thiébaut.
 #
@@ -369,16 +369,16 @@ not use a `Sum` constructor directly but rather use the `+` operator as it may
 be able to make some simplifications resulting in improved efficiency.
 
 """
-struct Sum{T<:Tuple{Vararg{Mapping}}} <: Mapping
+struct Sum{N,T<:NTuple{N,Mapping}} <: Mapping
     ops::T
 
     # The inner constructor ensures that the number of arguments is at least 2.
-    function Sum{T}(ops::T) where {T<:Tuple{Vararg{Mapping}}}
+    function Sum{N,T}(ops::T) where {T<:NTuple{N,Mapping}} where {N}
         length(ops) ≥ 2 || error("a sum of mappings has at least 2 components")
-        return new{T}(ops)
+        return new{N,T}(ops)
     end
 end
-Sum(ops::T) where {T<:Tuple{Vararg{Mapping}}} = Sum{T}(ops)
+Sum(ops::T) where {T<:NTuple{N,Mapping}} where {N} = Sum{N,T}(ops)
 Sum(ops::Mapping...) = Sum(ops)
 
 """
@@ -391,17 +391,18 @@ end-user should not use `Composition` constructors directly but use the `.` or
 resulting in improved efficiency.
 
 """
-struct Composition{T<:Tuple{Vararg{Mapping}}} <: Mapping
+struct Composition{N,T<:NTuple{N,Mapping}} <: Mapping
     ops::T
 
     # The inner constructor ensures that the number of arguments is at least 2.
-    function Composition{T}(ops::T) where {T<:Tuple{Vararg{Mapping}}}
+    function Composition{N,T}(ops::T) where {T<:NTuple{N,Mapping}} where {N}
         length(ops) ≥ 2 ||
             error("a composition of mappings has at least 2 components")
-        return new{T}(ops)
+        return new{N,T}(ops)
     end
 end
-Composition(ops::T) where {T<:Tuple{Vararg{Mapping}}} = Composition{T}(ops)
+Composition(ops::T) where {T<:NTuple{N,Mapping}} where {N} =
+    Composition{N,T}(ops)
 Composition(ops::Mapping...) = Composition(ops)
 
 """

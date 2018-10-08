@@ -5,8 +5,8 @@
 #
 #-------------------------------------------------------------------------------
 #
-# This file is part of the LazyAlgebra package released under the MIT "Expat"
-# license.
+# This file is part of the LazyAlgebra (https://github.com/emmt/LazyAlgebra.jl)
+# package released under the MIT "Expat" license.
 #
 # Copyright (c) 2017-2018 Éric Thiébaut.
 #
@@ -45,7 +45,7 @@ InverseAdjoint(::Union{Adjoint,Inverse,InverseAdjoint,Scaled,Sum,Composition}) =
 
 # Extend the `length` method to yield the number of components of a sum or
 # composition of mappings.
-length(A::Union{Sum,Composition}) = length(contents(A))
+length(::Union{Sum{N},Composition{N}}) where {N} = N
 
 # Non-specific constructors for the *linear* trait.
 LinearType(::LinearMapping) = Linear
