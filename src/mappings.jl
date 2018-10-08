@@ -5,8 +5,8 @@
 #
 #-------------------------------------------------------------------------------
 #
-# This file is part of the LazyAlgebra package released under the MIT "Expat"
-# license.
+# This file is part of LazyAlgebra (https://github.com/emmt/LazyAlgebra.jl)
+# released under the MIT "Expat" license.
 #
 # Copyright (c) 2017-2018 Éric Thiébaut.
 #
@@ -69,12 +69,38 @@ adjoint(::Identities) = I
 ==(A::Scaled{<:Identities}, ::Identities) = (A.sc == one(A.sc))
 ==(A::Scaled{<:Identities}, B::Scaled{<:Identities}) = (A.sc == B.sc)
 
+\(::Identities, A::Mapping) = A
+\(A::Mapping, ::Identities) = inv(A)
+\(A::LinearMapping, B::Scaled{<:Identities}) = B.sc*inv(A)
+\(A::Mapping, B::Scaled{<:Identities}) =
+    islinear(A) ? B.sc*inv(A) : inv(A)*B
+
+/(::Identities, A::Mapping) = inv(A)
+/(A::Mapping, ::Identities) = A
+/(A::LinearMapping, B::Scaled{<:Identities}) =
+    (1/B.sc)*A # FIXME: check division by zero?
+/(A::Mapping, B::Scaled{<:Identities}) =
+    islinear(A) ? (1/B.sc)*A : A*inv(B) # FIXME: check division by zero?
+
 apply(::Type{<:Operations}, ::Identity, x) = x
 
 apply!(α::Real, ::Type{<:Operations}, ::Identity, x, β::Real, y) =
     vcombine!(y, α, x, β, y)
 
 vcreate(::Type{<:Operations}, ::Identity, x) = vcreate(x)
+
+
+# Rules to automatically convert UniformScaling from standard library module
+# LinearAlgebra into λ*I.
+simplify(A::UniformScaling) = A.λ*I
+for op in (:(+), :(-), :(*), :(∘), :(/), :(\))
+    @eval begin
+        Base.$op(A::UniformScaling, B::Mapping) = $op(simplify(A), B)
+        Base.$op(A::Mapping, B::UniformScaling) = $op(A, simplify(B))
+    end
+end
+⋅(A::UniformScaling, B::Mapping) = A*B
+⋅(A::Mapping, B::UniformScaling) = A*B
 
 """
 ```julia

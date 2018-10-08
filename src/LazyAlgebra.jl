@@ -119,8 +119,10 @@ using Compat: @debug, @error, @info, @warn
 @static if VERSION < v"0.7.0-DEV.3449"
     # LinearAlgebra not in the stdlib
     const LinearAlgebra = Base.LinAlg
+    import Base.LinAlg: UniformScaling
 else
     import LinearAlgebra
+    import LinearAlgebra: UniformScaling
 end
 const BLAS = LinearAlgebra.BLAS
 import .BLAS: libblas, @blasfunc, BlasInt, BlasReal, BlasFloat, BlasComplex

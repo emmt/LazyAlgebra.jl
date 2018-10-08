@@ -20,6 +20,8 @@ end
     using FFTW
 end
 
+const I = Identity()
+
 @testset "Mappings" begin
     dims = (3,4,5)
     n = prod(dims)
@@ -28,7 +30,6 @@ end
     operations = (Direct, Adjoint, Inverse, InverseAdjoint)
     floats = (Float32, Float64)
     complexes = (ComplexF32, ComplexF64)
-    I = Identity()
 
     @testset "Identity" begin
         @test I === LazyAlgebra.I
@@ -37,6 +38,15 @@ end
         @test I*I === I
         @test I\I === I
         @test I/I === I
+        @test I+I === 2I
+        @test I+2I === 3I
+        @test I+I === 2I
+        @test 2I+3I === 5I
+        @test 3I + (I + 2I) === 6I
+        @test inv(3I) === (1/3)*I
+        @test I - I === 0I
+        @test I + I - 2I === 0I
+        @test 2I - (I + I) === 0I
         @test SelfAdjointType(I) <: SelfAdjoint
         @test MorphismType(I) <: Endomorphism
         @test DiagonalType(I) <: DiagonalMapping
@@ -94,7 +104,7 @@ end
         x = randn(T, dims)
         y = randn(T, dims)
         γ = sqrt(2)
-        U = UniformScalingOperator(γ)
+        U = γ*I
         atol, rtol = zero(T), sqrt(eps(T))
         @test U*x  ≈ γ*x     atol=atol rtol=rtol norm=vnorm2
         @test U'*x ≈ γ*x     atol=atol rtol=rtol norm=vnorm2
