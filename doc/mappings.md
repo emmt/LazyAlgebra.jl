@@ -82,7 +82,7 @@ function vcreate(::Type{Adjoint}, S::SparseOperator{Ts,M,N},
                  x::DenseArray{Tx,M}) where {Ts<:Real,Tx<:Real,M,N}
     @assert size(x) == output_size(S)
     Ty = promote_type(Ts, Tx)
-    return Array{T}(undef, input_size(S))
+    return Array{Ty}(undef, input_size(S))
 end
 
 function apply!(alpha::Real,
@@ -107,9 +107,9 @@ end
 
 function apply!(alpha::Real, ::Type{Adjoint},
                 S::SparseOperator{Ts,M,N},
-                x::DenseArray{Tx,N},
+                x::DenseArray{Tx,M},
                 beta::Real,
-                y::DenseArray{Ty,M}) where {Ts<:Real,Tx<:Real,Ty<:Real,M,N}
+                y::DenseArray{Ty,N}) where {Ts<:Real,Tx<:Real,Ty<:Real,M,N}
     @assert size(x) == output_size(S)
     @assert size(y) == input_size(S)
     beta == 1 || vscale!(y, beta)
