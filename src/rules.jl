@@ -193,6 +193,9 @@ _is_applicable_in_place(::Type{OutOfPlace}) = false
 +(A::Sum, B::Sum) = Sum(A.ops..., B.ops...)
 +(A::Mapping, B::Mapping) = Sum(A, B)
 
+# Subtraction.
+-(A::Mapping, B::Mapping) = A + (-1)*B
+
 # Dot operator involving a mapping acts as the multiply operator.
 ⋅(α::Real, B::Mapping) = α*B
 ⋅(A::Mapping, b::T) where {T} = A*b
