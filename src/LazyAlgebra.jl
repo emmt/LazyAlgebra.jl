@@ -146,7 +146,7 @@ else
     import .LinearAlgebra: rmul!
 end
 
-import Base: *, ∘, +, -, \, /, inv,
+import Base: *, ∘, +, -, \, /, ==, inv,
     show, showerror, convert, eltype, ndims, size, length, stride,
     getindex, setindex!, eachindex
 

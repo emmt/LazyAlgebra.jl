@@ -12,7 +12,7 @@
 #
 
 #------------------------------------------------------------------------------
-# IDENTITY
+# IDENTITY AND UNIFORM SCALING
 
 """
 ```julia
@@ -54,9 +54,20 @@ InPlaceType(::Type{<:Operations}, ::Identities) = InPlace
 
 inv(::Identities) = I
 adjoint(::Identities) = I
+
 *(::Identities, A::Mapping) = A
 *(A::Mapping, ::Identities) = A
 *(::Identities, ::Identities) = I
+
++(::Identities, ::Identities) = 2*I
++(::Identities, A::Scaled{<:Identities}) = (A.sc + 1)*I
++(A::Scaled{<:Identities}, ::Identities) = (A.sc + 1)*I
++(A::Scaled{<:Identities}, B::Scaled{<:Identities}) = (A.sc + B.sc)*I
+
+==(::Identities, ::Identities) = true
+==(::Identities, A::Scaled{<:Identities}) = (A.sc == one(A.sc))
+==(A::Scaled{<:Identities}, ::Identities) = (A.sc == one(A.sc))
+==(A::Scaled{<:Identities}, B::Scaled{<:Identities}) = (A.sc == B.sc)
 
 apply(::Type{<:Operations}, ::Identity, x) = x
 
@@ -65,62 +76,31 @@ apply!(α::Real, ::Type{<:Operations}, ::Identity, x, β::Real, y) =
 
 vcreate(::Type{<:Operations}, ::Identity, x) = vcreate(x)
 
-#------------------------------------------------------------------------------
-# UNIFORM SCALING
-
 """
 ```julia
 UniformScalingOperator(α)
 ```
 
 creates a uniform scaling linear mapping whose effects is to multiply its
-argument by the scalar `α`.
+argument by the scalar `α`.  This is the same as `α*Identity()`.
 
 See also: [`NonuniformScalingOperator`](@ref).
 
 """
-struct UniformScalingOperator <: LinearMapping
-    α::Scalar
-end
+UniformScalingOperator
 
-@callable UniformScalingOperator
+@deprecate UniformScalingOperator(α::Number) α*Identity()
 
-# Traits:
-SelfAdjointType(::UniformScalingOperator) = SelfAdjoint
-MorphismType(::UniformScalingOperator) = Endomorphism
-DiagonalType(::UniformScalingOperator) = DiagonalMapping
-InPlaceType(::Type{<:Operations}, ::UniformScalingOperator) = InPlace
+isinvertible(A::Scaled{<:Identities}) = (isfinite(A.sc) && A.sc != zero(A.sc))
 
-isinvertible(A::UniformScalingOperator) = (isfinite(A.α) && A.α != zero(Scalar))
+ensureinvertible(A::Scaled{<:Identities}) =
+    isinvertible(A) ||
+    throw(SingularSystem("Uniform scaling operator is singular"))
 
-ensureinvertible(A::UniformScalingOperator) =
-    isinvertible(A) || throw(
-        SingularSystem("Uniform scaling operator is singular"))
-
-function inv(A::UniformScalingOperator)
+function inv(A::Scaled{<:Identities})
     ensureinvertible(A)
-    return UniformScalingOperator(one(Scalar)/A.α)
+    return (1/A.sc)*I
 end
-
-function apply!(α::Real, ::Type{<:Union{Direct,Adjoint}},
-                A::UniformScalingOperator, x, β::Real, y)
-    return vcombine!(y, α*A.α, x, β, y)
-end
-
-function apply!(α::Real, ::Type{<:Union{Inverse,InverseAdjoint}},
-                A::UniformScalingOperator, x, β::Real, y)
-    ensureinvertible(A)
-    return vcombine!(y, α/A.α, x, β, y)
-end
-
-function vcreate(::Type{<:Operations},
-                 A::UniformScalingOperator,
-                 x::AbstractArray{T,N}) where {T<:Real,N}
-    return similar(Array{float(T)}, axes(x))
-end
-
-vcreate(::Type{<:Operations}, A::UniformScalingOperator, x) =
-    vcreate(x)
 
 #------------------------------------------------------------------------------
 # NON-UNIFORM SCALING
