@@ -18,7 +18,16 @@ export
     encode_sum_of_terms,
     generate_symbols
 
+# Deal with compatibility issues.
 using Compat
+const OLD_STYLE = (VERSION < v"0.7")
+@static if OLD_STYLE
+    _macrocall(name::AbstractString, expr::Expr) =
+        Expr(:macrocall, Symbol(name), expr)
+else
+    _macrocall(name::AbstractString, expr::Expr) =
+        Expr(:macrocall, Symbol(name), (), expr)
+end
 
 # A token is an expression or a symbol.
 const Token = Union{Expr,Symbol}
@@ -233,7 +242,7 @@ function _encode(kwd::Val{:inbounds}, args::Tuple)
     catch err
         invalid_argument(:body, head, err)
     end
-    expr = Expr(:macrocall, Symbol("@inbounds"), (), body)
+    expr = _macrocall("@inbounds", body)
     return (expr, 1)
 end
 
@@ -257,9 +266,8 @@ function _encode(kwd::Union{Val{:for},Val{:simd_for}}, args::Tuple)
     catch err
         invalid_argument(:body, head, err)
     end
-    expr = (head == :for ?
-            Expr(:for, ctrl, body) :
-            Expr(:macrocall, Symbol("@simd"), (), Expr(:for, ctrl, body)))
+    expr = (head == :for ?      Expr(:for, ctrl, body) :
+            _macrocall("@simd", Expr(:for, ctrl, body)))
     return (expr, 2)
 end
 
@@ -306,9 +314,19 @@ function _encode(kwd::Val{:if}, args::Tuple)
             expr = body
             k -= 2
         else
-            expr = (noexpr ?
-                    Expr(head, args[k-1], body) :
-                    Expr(head, args[k-1], body, expr))
+            if OLD_STYLE
+                if noexpr
+                    expr = Expr(:if, args[k-1], body)
+                elseif expr.head == :block
+                    expr = Expr(:if, args[k-1], body, expr)
+                else
+                    expr = Expr(:if, args[k-1], body, Expr(:block, expr))
+                end
+            else
+                expr = (noexpr ?
+                        Expr(head, args[k-1], body) :
+                        Expr(head, args[k-1], body, expr))
+            end
             k -= 3
         end
         if k > 2
