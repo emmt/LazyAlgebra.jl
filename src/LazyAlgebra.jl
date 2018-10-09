@@ -47,6 +47,7 @@ export
     Scalar,
     SelfAdjoint,
     SelfAdjointType,
+    SimpleFiniteDifferences,
     SingularSystem,
     SparseOperator,
     SymmetricRankOneOperator,
@@ -161,6 +162,8 @@ include("blas.jl")
 include("coder.jl")
 include("mappings.jl")
 include("sparse.jl")
+include("finitedifferences.jl")
+import .FiniteDifferences: SimpleFiniteDifferences
 include("fft.jl")
 import .FFT: FFTOperator
 include("conjgrad.jl")
