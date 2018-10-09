@@ -13,6 +13,7 @@ using LazyAlgebra
 # Deal with compatibility issues.
 using Compat
 using Compat.Test
+using Compat: @warn
 @static if isdefined(Base, :MathConstants)
     import Base.MathConstants: φ
 end
@@ -207,32 +208,37 @@ const I = Identity()
         end
     end
 
-    rows, cols = (2,3,4), (5,6)
-    nrows, ncols = prod(rows), prod(cols)
-    @testset "Sparse matrices ($T)" for T in floats
-        A = randn(T, rows..., cols...)
-        A[rand(T, size(A)) .≤ 0.7] .= 0 # 70% of zeros
-        x = randn(T, cols)
-        y = randn(T, rows)
-        G = GeneralMatrix(A)
-        S = SparseOperator(A, length(rows))
-        atol, rtol = zero(T), sqrt(eps(T))
-        mA = reshape(A, nrows, ncols)
-        vx = reshape(x, ncols)
-        vy = reshape(y, nrows)
-        Sx = S*x
-        Sty = S'*y
-        @test Sx  ≈ G*x atol=atol rtol=rtol norm=vnorm2
-        @test Sty ≈ G'*y atol=atol rtol=rtol norm=vnorm2
-        @test Sx  ≈ reshape(mA*vx,  rows) atol=atol rtol=rtol norm=vnorm2
-        @test Sty ≈ reshape(mA'*vy, cols) atol=atol rtol=rtol norm=vnorm2
-        for α in alphas,
-            β in betas
-            @test apply!(α, Direct, S, x, β, vcopy(y)) ≈
-                T(α)*Sx + T(β)*y atol=atol rtol=rtol norm=vnorm2
-            @test apply!(α, Adjoint, S, y, β, vcopy(x)) ≈
-                T(α)*Sty + T(β)*x atol=atol rtol=rtol norm=vnorm2
+    @static if VERSION ≥ v"0.7"
+        rows, cols = (2,3,4), (5,6)
+        nrows, ncols = prod(rows), prod(cols)
+        @testset "Sparse matrices ($T)" for T in floats
+            A = randn(T, rows..., cols...)
+            A[rand(T, size(A)) .≤ 0.7] .= 0 # 70% of zeros
+            x = randn(T, cols)
+            y = randn(T, rows)
+            G = GeneralMatrix(A)
+            S = SparseOperator(A, length(rows))
+            atol, rtol = zero(T), sqrt(eps(T))
+            mA = reshape(A, nrows, ncols)
+            vx = reshape(x, ncols)
+            vy = reshape(y, nrows)
+            Sx = S*x
+            Sty = S'*y
+            @test Sx  ≈ G*x atol=atol rtol=rtol norm=vnorm2
+            @test Sty ≈ G'*y atol=atol rtol=rtol norm=vnorm2
+            @test Sx  ≈ reshape(mA*vx,  rows) atol=atol rtol=rtol norm=vnorm2
+            @test Sty ≈ reshape(mA'*vy, cols) atol=atol rtol=rtol norm=vnorm2
+            for α in alphas,
+                β in betas
+                @test apply!(α, Direct, S, x, β, vcopy(y)) ≈
+                    T(α)*Sx + T(β)*y atol=atol rtol=rtol norm=vnorm2
+                @test apply!(α, Adjoint, S, y, β, vcopy(x)) ≈
+                    T(α)*Sty + T(β)*x atol=atol rtol=rtol norm=vnorm2
+            end
+
         end
+    else
+        @warn "Sparse matrices tests broken for Julia ≤ 0.6"
     end
 
     @testset "FFT ($T)" for T in floats
