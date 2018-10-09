@@ -8,6 +8,7 @@ using LazyAlgebra
 using Compat
 using Compat.Test
 
+include("coder-test.jl")
 include("utils.jl")
 include("vectors.jl")
 include("mappings.jl")
