@@ -271,3 +271,48 @@ densevector(::Type{T}, V::AbstractVector) where {T} = densearray(T, V)
 densematrix(M::AbstractMatrix{T}) where {T} = densearray(T, M)
 densematrix(::Type{T}, M::AbstractMatrix) where {T} = densearray(T, M)
 @doc @doc(densearray) densematrix
+
+"""
+Any of the following calls:
+
+```julia
+fastrange(A)
+fastrange((n1, n2, ...))
+fastrange((i1:j1, i2:j2, ...))
+fastrange(CartesianIndex(i1, i2, ...), CartesianIndex(j1, j2, ...))
+fastrange(R)
+```
+
+yields an instance of `CartesianIndices` or `CartesianRange` (whichever is the
+most efficient depending on the version of Julia) for multi-dimensional
+indexing of all the elements of array `A`, a multi-dimensional array of
+dimensions `(n1,n2,...)`, a multi-dimensional region whose first and last
+indices are `(i1,i2,...)` and `(j1,j2,...)` or a Cartesian region defined by
+`R`, an instance of `CartesianIndices` or of `CartesianRange`.
+
+"""
+fastrange(A::AbstractArray) = fastrange(axes(A))
+@static if isdefined(Base, :CartesianIndices)
+    import Base: axes
+    fastrange(R::CartesianIndices) = R
+    fastrange(start::CartesianIndex{N}, stop::CartesianIndex{N}) where {N} =
+        CartesianIndices(map((i,j) -> i:j, start, stop))
+    fastrange(dims::NTuple{N,Integer}) where {N} =
+        CartesianIndices(map((d) -> Base.OneTo(Int(d)), dims))
+    fastrange(dims::NTuple{N,Int}) where {N} =
+        CartesianIndices(map(Base.OneTo, dims))
+    fastrange(dims::NTuple{N,AbstractUnitRange{<:Integer}}) where {N} =
+        CartesianIndices(inds)
+else
+    import Base: indices
+    const axes = indices
+    fastrange(R::CartesianIndices) = fastrange(R.indices)
+    fastrange(R::CartesianRange) = R
+    fastrange(start::CartesianIndex{N}, stop::CartesianIndex{N}) where {N} =
+        CartesianRange(start, stop)
+    fastrange(dims::NTuple{N,Integer}) where {N} =
+        CartesianRange(one(CartesianIndex{N}), CartesianIndex(dims))
+    fastrange(dims::NTuple{N,AbstractUnitRange{<:Integer}}) where {N} =
+        CartesianRange(CartesianIndex(map(first, inds)),
+                       CartesianIndex(map(last,  inds)))
+end
