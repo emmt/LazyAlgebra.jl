@@ -196,9 +196,11 @@ _is_applicable_in_place(::Type{OutOfPlace}) = false
 # Subtraction.
 -(A::Mapping, B::Mapping) = A + (-1)*B
 
-# Dot operator involving a mapping acts as the multiply operator.
-⋅(α::Real, B::Mapping) = α*B
-⋅(A::Mapping, b::T) where {T} = A*b
+# Dot operator (\cdot) involving a mapping acts as the multiply or compose
+# operator.
+⋅(A::Mapping, B::Mapping) = A*B
+⋅(A::Mapping, B::T) where {T} = A*B
+⋅(A::T, B::Mapping) where {T} = A*B
 
 # Left scalar muliplication of a mapping.
 *(alpha::Real, A::Scaled) = (alpha*A.sc)*A.op
@@ -232,7 +234,7 @@ inv(A::Mapping) = Inverse(A)
 inv(A::Adjoint) = InverseAdjoint(A.op)
 inv(A::Inverse) = A.op
 inv(A::InverseAdjoint) = adjoint(A.op)
-inv(A::Scaled) = (one(Scalar)/A.sc)*inv(A.op)
+inv(A::Scaled) = (one(A.sc)/A.sc)*inv(A.op)
 inv(A::Sum) = error(UnsupportedInverseOfSumOfMappings)
 inv(A::Composition) = Composition(reversemap(inv, A.ops))
 

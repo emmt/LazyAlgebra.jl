@@ -22,6 +22,11 @@ end
 end
 
 const I = Identity()
+@static if VERSION < v"0.7.0-DEV.3449"
+    using Base.LinAlg: UniformScaling
+else
+    using LinearAlgebra: UniformScaling, ⋅
+end
 
 @testset "Mappings" begin
     dims = (3,4,5)
@@ -68,6 +73,44 @@ const I = Identity()
                 end
             end
         end
+    end
+
+    @testset "UniformScaling" begin
+        # Check + operator.
+        @test I + UniformScaling(1) === 2I
+        @test I + UniformScaling(2) === 3I
+        @test UniformScaling(1) + I === 2I
+        @test UniformScaling(2) + I === 3I
+        # Check - operator.
+        @test I - UniformScaling(1) === 0I
+        @test I - UniformScaling(2) === -I
+        @test UniformScaling(1) - I === 0I
+        @test UniformScaling(2) - I === I
+        # Check * operator.
+        @test I*UniformScaling(1) === I
+        @test I*UniformScaling(2) === 2I
+        @test UniformScaling(1)*I === I
+        @test UniformScaling(2)*I === 2I
+        # Check \circ operator.
+        @test I∘UniformScaling(1) === I
+        @test I∘UniformScaling(2) === 2I
+        @test UniformScaling(1)∘I === I
+        @test UniformScaling(2)∘I === 2I
+        # \cdot is specific.
+        @test I⋅UniformScaling(1) === I
+        @test I⋅UniformScaling(2) === 2I
+        @test UniformScaling(1)⋅I === I
+        @test UniformScaling(2)⋅I === 2I
+        # Check / operator.
+        @test I/UniformScaling(1) === I
+        @test I/UniformScaling(2) === (1/2)*I
+        @test UniformScaling(1)/I === I
+        @test UniformScaling(2)/I === 2I
+        # Check \ operator.
+        @test I\UniformScaling(1) === I
+        @test I\UniformScaling(2) === 2I
+        @test UniformScaling(1)\I === I
+        @test UniformScaling(2)\I === (1/2)*I
     end
 
     @testset "Rank 1 operators ($T)" for T in floats

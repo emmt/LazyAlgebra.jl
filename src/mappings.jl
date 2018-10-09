@@ -43,48 +43,46 @@ struct Identity <: LinearMapping; end
 
 const I = Identity()
 
-const Identities = Union{Identity,Adjoint{Identity},Inverse{Identity},
-                         InverseAdjoint{Identity}}
-
 # Traits:
-SelfAdjointType(::Identities) = SelfAdjoint
-MorphismType(::Identities) = Endomorphism
-DiagonalType(::Identities) = DiagonalMapping
-InPlaceType(::Type{<:Operations}, ::Identities) = InPlace
+SelfAdjointType(::Identity) = SelfAdjoint
+MorphismType(::Identity) = Endomorphism
+DiagonalType(::Identity) = DiagonalMapping
+InPlaceType(::Type{<:Operations}, ::Identity) = InPlace
 
-inv(::Identities) = I
-adjoint(::Identities) = I
+# Never let the inverse, adjoint or inverse-adjoint of the identity yeild
+# something else than identity.
+inv(::Identity) = I
+Inverse(::Identity) = I
+adjoint(::Identity) = I
+Adjoint(::Identity) = I
+InverseAdjoint(::Identity) = I
 
-*(::Identities, A::Mapping) = A
-*(A::Mapping, ::Identities) = A
-*(::Identities, ::Identities) = I
+# Extend multiplication for the (scaled) identity.  It is important to account
+# for all possible cases.  If all cases are covered, extend the left and right
+# divison is not needed.
+*(::Identity, ::Identity) = I
+for T in (Scaled{Identity}, Mapping)
+    @eval *(A::Identity, B::$T) = B
+    @eval *(A::$T, B::Identity) = A
+end
+*(A::Scaled{Identity}, B::Scaled{Identity}) = (A.sc*B.sc)*I
+*(A::Scaled{Identity}, B::Mapping) = A.sc*B
+*(A::LinearMapping, B::Scaled{Identity}) = B.sc*A
+*(A::Mapping, B::Scaled{Identity}) =
+    islinear(A) ? B.sc*A : Composition(A, B)
 
-+(::Identities, ::Identities) = 2*I
-+(::Identities, A::Scaled{<:Identities}) = (A.sc + 1)*I
-+(A::Scaled{<:Identities}, ::Identities) = (A.sc + 1)*I
-+(A::Scaled{<:Identities}, B::Scaled{<:Identities}) = (A.sc + B.sc)*I
+# Extend addition for the (scaled) identity.  Extending subtraction is not
+# necessary.
++(::Identity, ::Identity) = 2*I
++(A::Identity, B::Scaled{Identity}) = (1 + B.sc)*I
++(A::Scaled{Identity}, B::Identity) = (A.sc + 1)*I
++(A::Scaled{Identity}, B::Scaled{Identity}) = (A.sc + B.sc)*I
 
-==(::Identities, ::Identities) = true
-==(::Identities, A::Scaled{<:Identities}) = (A.sc == one(A.sc))
-==(A::Scaled{<:Identities}, ::Identities) = (A.sc == one(A.sc))
-==(A::Scaled{<:Identities}, B::Scaled{<:Identities}) = (A.sc == B.sc)
-
-\(A::Identities, B::Identities) = I
-\(A::Identities, B::Mapping) = B
-\(A::Scaled{<:Identities}, B::Mapping) = (one(A.sc)/A.sc)*B
-\(A::Mapping, B::Identities) = inv(A)
-\(A::LinearMapping, B::Scaled{<:Identities}) = B.sc*inv(A)
-\(A::Mapping, B::Scaled{<:Identities}) =
-    islinear(A) ? B.sc*inv(A) : inv(A)*B
-
-/(A::Identities, B::Identities) = I
-/(A::Identities, B::Mapping) = inv(B)
-/(A::Scaled{<:Identities}, B::Mapping) = A.sc*inv(B)
-/(A::Mapping, B::Identities) = A
-/(A::LinearMapping, B::Scaled{<:Identities}) =
-    (1/B.sc)*A # FIXME: check division by zero?
-/(A::Mapping, B::Scaled{<:Identities}) =
-    islinear(A) ? (1/B.sc)*A : A*inv(B) # FIXME: check division by zero?
+# Extend equality for the (scaled) identity for a small gain in performances.
+==(::Identity, ::Identity) = true
+==(::Identity, A::Scaled{Identity}) = (A.sc == one(A.sc))
+==(A::Scaled{Identity}, ::Identity) = (A.sc == one(A.sc))
+==(A::Scaled{Identity}, B::Scaled{Identity}) = (A.sc == B.sc)
 
 apply(::Type{<:Operations}, ::Identity, x) = x
 
@@ -95,7 +93,10 @@ vcreate(::Type{<:Operations}, ::Identity, x) = vcreate(x)
 
 
 # Rules to automatically convert UniformScaling from standard library module
-# LinearAlgebra into λ*I.
+# LinearAlgebra into λ*I.  For other operators, there is no needs to extend ⋅
+# (\cdot) and ∘ (\circ) as they are already converted in calls to *.  But in
+# the case of UniformScaling, we must explicitly do that for * and for ∘ (not
+# for ⋅ which is replaced by a * by existing rules).
 simplify(A::UniformScaling) = A.λ*I
 for op in (:(+), :(-), :(*), :(∘), :(/), :(\))
     @eval begin
@@ -103,8 +104,6 @@ for op in (:(+), :(-), :(*), :(∘), :(/), :(\))
         Base.$op(A::Mapping, B::UniformScaling) = $op(A, simplify(B))
     end
 end
-⋅(A::UniformScaling, B::Mapping) = A*B
-⋅(A::Mapping, B::UniformScaling) = A*B
 
 """
 ```julia
@@ -121,13 +120,13 @@ UniformScalingOperator
 
 @deprecate UniformScalingOperator(α::Number) α*Identity()
 
-isinvertible(A::Scaled{<:Identities}) = (isfinite(A.sc) && A.sc != zero(A.sc))
+isinvertible(A::Scaled{Identity}) = (isfinite(A.sc) && A.sc != zero(A.sc))
 
-ensureinvertible(A::Scaled{<:Identities}) =
+ensureinvertible(A::Scaled{Identity}) =
     isinvertible(A) ||
     throw(SingularSystem("Uniform scaling operator is singular"))
 
-function inv(A::Scaled{<:Identities})
+function inv(A::Scaled{Identity})
     ensureinvertible(A)
     return (1/A.sc)*I
 end
