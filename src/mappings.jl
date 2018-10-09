@@ -62,8 +62,10 @@ InverseAdjoint(::Identity) = I
 # divison is not needed.
 *(::Identity, ::Identity) = I
 for T in (Scaled{Identity}, Mapping)
-    @eval *(A::Identity, B::$T) = B
-    @eval *(A::$T, B::Identity) = A
+    @eval begin
+        *(A::Identity, B::$T) = B
+        *(A::$T, B::Identity) = A
+    end
 end
 *(A::Scaled{Identity}, B::Scaled{Identity}) = (A.sc*B.sc)*I
 *(A::Scaled{Identity}, B::Mapping) = A.sc*B
@@ -112,6 +114,9 @@ UniformScalingOperator(α)
 
 creates a uniform scaling linear mapping whose effects is to multiply its
 argument by the scalar `α`.  This is the same as `α*Identity()`.
+
+!!! note
+    This has been deprecated.  Use `α*Identity()` instead.
 
 See also: [`NonuniformScalingOperator`](@ref).
 
