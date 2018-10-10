@@ -65,3 +65,6 @@
   perhaps of other low-rank operators.
 
 * Implement `isequal` and do simplifications like `A + 2A => 3A`
+
+* Decide that, unless forbidden, inv is always possible (may be clash when
+  trying to apply).  Or decide the opposite.

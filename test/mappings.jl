@@ -36,8 +36,10 @@ else
     using LinearAlgebra: UniformScaling, ⋅
 end
 
-struct SomeMapping <: Mapping end
-struct SomeLinearMapping <: LinearMapping end
+struct SomeMapping{T} <: Mapping end
+struct SomeLinearMapping{T} <: LinearMapping end
+SomeMapping(x) = SomeMapping{Val{x}}()
+SomeLinearMapping(x) = SomeLinearMapping{Val{x}}()
 
 # Overcome outer constructors barrier.
 forceAdjoint(arg::T) where {T} = Adjoint{T}(arg)
@@ -73,22 +75,97 @@ end
 
 function test_rules()
     @testset "Rules" begin
-        M = SomeMapping()
-        A = SomeLinearMapping()
+        M = SomeMapping(:M)
+        P = SomeMapping(:P)
+        Q = SomeMapping(:Q)
+        R = SomeMapping(:R)
+        A = SomeLinearMapping(:A)
+        B = SomeLinearMapping(:B)
+        C = SomeLinearMapping(:C)
+        C = SomeLinearMapping(:D)
+        @test M !== P
+        @test A !== B
         @test is_linear(M) == false
         @test is_linear(A) == true
+        @test is_linear(A + B) == true
+        @test is_linear(A') == true
+        @test is_linear(inv(A)) == true
+        @test is_linear(inv(M)) == false
+        @test is_linear(A + B + C) == true
+        @test is_linear(A' + B + C) == true
+        @test is_linear(A + B' + C) == true
+        @test is_linear(A + B + C') == true
+        @test is_linear(M + B + C) == false
+        @test is_linear(A + M + C) == false
+        @test is_linear(A + B + M) == false
+        @test is_linear(A*B*C) == true
+        @test is_linear(A'*B*C) == true
+        @test is_linear(A*B'*C) == true
+        @test is_linear(A*B*C') == true
+        @test is_linear(M*B*C) == false
+        @test is_linear(A*M*C) == false
+        @test is_linear(A*B*M) == false
+        @test is_endomorphism(M) == false
+        @test is_endomorphism(A) == false
+        @test is_selfadjoint(M) == false
+        @test is_selfadjoint(A) == false
+        @test is_selfadjoint(A'*A) == false # FIXME: should be true
+        @test is_selfadjoint(A*A') == false # FIXME: should be true
+        @test is_selfadjoint(B'*A*A'*B) == false # FIXME: should be true
+        @test (A*A')' === A*A'
+        for X in (A*A', A'*A, B'*A'*A*B, B'*A*A'*B)
+            @test X' === X
+        end
         @test A' === forceAdjoint(A)
         @test inv(M) === forceInverse(M)
         @test inv(A)' === forceInverseAdjoint(A)
         @test inv(A') === forceInverseAdjoint(A)
-        @test A'' === A
+        @test (A')' === A'' === A
+        E = inv(A')
+        F = inv(A)'
+        @test inv(E) === A'
+        @test inv(F) === A'
         @test inv(inv(M)) === M
-        # FIXME: the following trigger a segmentation fault in Julia 1.0.1
-        #        abd Julia 0.7 (but works out of the @test context)
-        #@test X == Y
-        #@test 3A === forceScaled(3,A)
-        #@test 7M === forceScaled(7,M)
-        #@test A+2M === forceSum(A,forceScaled(2,M))
+        @test inv(2M) === (1/2)*inv(M)
+        @test inv(A*B) === inv(B)*inv(A)
+        # Test aliases for composition.
+        @test isa(M*P, Composition)
+        @test M⋅P === M*P
+        @test M∘P === M*P
+        # Test associativity of sum and composition.
+        @test (M + P) + Q === M + P + Q
+        @test M + (P + Q) === (M + P) + Q
+        @test (M*P)*Q === M*P*Q
+        @test M*(P*Q) === (M*P)*Q
+        # Test adjoint of sums and compositions.
+        @test (A*B)' === (B')*(A') === B'*A'
+        @test (A'*B)' === B'*A
+        @test (A*B')' === B*A'
+        @test (A*B*C)' === C'*B'*A'
+        @test (A'*B*C)' === C'*B'*A
+        @test (A*B'*C)' === C'*B*A'
+        @test (A*B*C')' === C*B'*A'
+        @test (A + B)' === A' + B'
+        @test (A' + B)' === A + B'
+        @test (A + B')' === A' + B
+        @test (A' + B + C)' === A + B' + C'
+        @test (A + B' + C)' === A' + B + C'
+        @test (A + B + C')' === A' + B' + C
+        # Test inverse of sums and compositions.
+        @test_throws ErrorException inv(A + M) # FIXME: this should be done when applying
+        # Test unary plus and negation.
+        @test +M === M
+        @test -(-M) === M
+        if VERSION < v"0.7"
+             # FIXME: segmentation fault with Julia ≤ 0.7
+            @test -M === (-1)*M
+        end
+        if VERSION < v"0.7"
+            # FIXME: segmentation fault with Julia ≤ 0.7
+            @test 3A === forceScaled(3,A)
+            @test 7M === forceScaled(7,M)
+            @test A+2M === forceSum(A,forceScaled(2,M))
+        end
         @test_throws ErrorException Adjoint(A) # direct call forbidden
         @test_throws ErrorException Inverse(A) # direct call forbidden
         @test_throws ErrorException InverseAdjoint(A) # direct call forbidden
