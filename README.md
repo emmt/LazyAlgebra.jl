@@ -82,9 +82,11 @@ create new instances of mappings which behave correctly.  For instance:
   of mappings in a composition; for example, if `D = A*B*C` then `D(x)` yields
   the same result as `A(B(C(x)))`.
 
-* `C = A\B` is a mapping such that `C(x)` yields the same result as `A\(B(x))`.
+* `C = A\B` is a mapping such that `C(x)` yields the same result as
+  `inv(A)(B(x))`.
 
-* `C = A/B` is a mapping such that `C(x)` yields the same result as `A(B\x)`.
+* `C = A/B` is a mapping such that `C(x)` yields the same result as
+  `A(inv(B)(x))`.
 
 These constructions can be combined to build up more complex mappings.  For
 example:
@@ -127,18 +129,19 @@ B = A'
 C = B'
 ```
 
-yields `C` which is just a reference to `A`.  Likely
+yields `C` which is just a reference to `A`. In other words, that is
+`adjoint(adjoint(A)) -> A` holds.  Likely
 
 ```julia
 D = inv(A)
 E = inv(D)
 ```
 
-yields `E` which is another reference to `A`.  Note that following the
-principles of laziness, `inv(inv(A))` just yields `A` assuming by default that
-it is invertible.  It is however, possible to prevent this by extended the
-`Base.inv` method so as to throw an exception when applied to the specific type
-of `A`:
+yields `E` which is another reference to `A`.  In other words,
+`inv(inv(A)) -> A` holds assuming by default that `A` is invertible.  This
+follows the principles of laziness.  It is however, possible to prevent this by
+extended the `Base.inv` method so as to throw an exception when applied to the
+specific type of `A`:
 
 ```julia
 Base.inv(::SomeNonInvertibleMapping) = error("non-invertible mapping")
