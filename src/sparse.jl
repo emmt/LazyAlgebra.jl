@@ -22,13 +22,13 @@ dimensions `outdims` and `inpdims` and whose non-zero coefficients are given by
 and `J`.
 
 ```julia
-SparseOperator(A, d=1)
+SparseOperator(A, n=1)
 ```
 
 yields an instance of `SparseOperator` whose coefficients are the non-zero
 coefficients of array `A` and which implements generalized matrix
 multiplication by `A` in such a way that the result of applying the operator
-are arrays whose dimensions are the `d` leading dimensions of `A` for input
+are arrays whose dimensions are the `n` leading dimensions of `A` for input
 arrays whose dimensions are the remaining trailing dimensions of `A`.
 
 !!! note
@@ -66,6 +66,8 @@ struct SparseOperator{T,M,N,
     end
 end
 
+@callable SparseOperator
+
 function SparseOperator(outdims::NTuple{M,Int},
                         inpdims::NTuple{N,Int},
                         A::Ta,
@@ -89,11 +91,11 @@ function SparseOperator(outdims::NTuple{M,Integer},
 end
 
 function SparseOperator(A::DenseArray{T,N},
-                        d::Integer = 1) where {T,N}
-    1 ≤ d < N || throw(ArgumentError("out of bounds length of leading dimensions"))
+                        n::Integer = 1) where {T,N}
+    1 ≤ n < N || throw(ArgumentError("bad number of of leading dimensions"))
     dims = size(A)
-    outdims = dims[1:d]
-    inpdims = dims[d+1:end]
+    outdims = dims[1:n]
+    inpdims = dims[n+1:end]
     nrows = prod(outdims)
     ncols = prod(inpdims)
     nz = 0
@@ -102,9 +104,9 @@ function SparseOperator(A::DenseArray{T,N},
             nz += 1
         end
     end
-    C = Array{T}(undef,nz)
-    I = Array{Int}(undef,nz)
-    J = Array{Int}(undef,nz)
+    C = Array{T}(undef, nz)
+    I = Array{Int}(undef, nz)
+    J = Array{Int}(undef, nz)
     k = 0
     l = 0
     @inbounds for j in 1:ncols, i in 1:nrows
@@ -129,16 +131,14 @@ function vcreate(::Type{Direct}, S::SparseOperator{Ts,M,N},
                  x::DenseArray{Tx,N}) where {Ts<:Real,Tx<:Real,M,N}
     size(x) == input_size(S) ||
         throw(DimensionMismatch("bad dimensions for input"))
-    Ty = promote_type(Ts, Tx)
-    return Array{Ty}(undef, output_size(S))
+    return Array{promote_type(Ts,Tx)}(undef, output_size(S))
 end
 
 function vcreate(::Type{Adjoint}, S::SparseOperator{Ts,M,N},
                  x::DenseArray{Tx,M}) where {Ts<:Real,Tx<:Real,M,N}
     size(x) == output_size(S) ||
         throw(DimensionMismatch("bad dimensions for input"))
-    Ty = promote_type(Ts, Tx)
-    return Array{Ty}(undef, input_size(S))
+    return Array{promote_type(Ts,Tx)}(undef, input_size(S))
 end
 
 function apply!(alpha::Real,
@@ -164,7 +164,8 @@ function apply!(alpha::Real,
     return y
 end
 
-function apply!(alpha::Real, ::Type{Adjoint},
+function apply!(alpha::Real,
+                ::Type{Adjoint},
                 S::SparseOperator{Ts,M,N},
                 x::DenseArray{Tx,M},
                 beta::Real,

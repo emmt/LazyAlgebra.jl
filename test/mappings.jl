@@ -28,6 +28,12 @@ end
 @static if VERSION ≥ v"0.7.0-DEV.1776"
     using FFTW
 end
+@static if isdefined(Base, :axes)
+    import Base: axes
+else
+    import Base: indices
+    const axes = indices
+end
 
 const I = Identity()
 @static if VERSION < v"0.7.0-DEV.3449"
@@ -54,6 +60,18 @@ const OPERATIONS = (Direct, Adjoint, Inverse, InverseAdjoint)
 const FLOATS = (Float32, Float64)
 const COMPLEXES = (ComplexF32, ComplexF64)
 
+function almost_same(x::AbstractArray{Tx,Nx},
+                     y::AbstractArray{Ty,Ny};
+                     atol::Real=0,
+                     rtol::Real=relative_tolerance(Tx,Ty)) where {Tx<:Real,Nx,
+                                                                  Ty<:Real,Ny}
+    return (axes(x) == axes(y) &&
+            vnorm2(x - y) ≤ atol + rtol*max(vnorm2(x),vnorm2(y)))
+end
+
+relative_tolerance(::Type{Tx}, ::Type{Ty}) where {Tx<:Real,Ty<:Real} =
+    sqrt(max(Float64(eps(Tx)), Float64(eps(Ty))))
+
 function test_all()
     @testset "Mappings" begin
         test_rules()
@@ -63,11 +81,7 @@ function test_all()
         test_rank_one_operator()
         test_non_uniform_scaling()
         test_generalized_matrices()
-        @static if VERSION ≥ v"0.7"
-            test_sparse_operator()
-        else
-            @warn "Sparse operators tests broken for Julia ≤ 0.6"
-        end
+        test_sparse_operator()
         test_finite_differences()
         test_fft_operator()
     end
@@ -412,6 +426,9 @@ function test_generalized_matrices()
 end
 
 function test_sparse_operator()
+    @static if VERSION < v"0.7"
+        @warn "Many sparse operators tests broken for Julia < 0.7"
+    end
     rows, cols = (2,3,4), (5,6)
     nrows, ncols = prod(rows), prod(cols)
     @testset "Sparse matrices ($T)" for T in FLOATS
@@ -421,24 +438,41 @@ function test_sparse_operator()
         y = randn(T, rows)
         G = GeneralMatrix(A)
         S = SparseOperator(A, length(rows))
+        @test is_endomorphism(S) == (rows == cols)
+        @test output_size(S) == rows
+        @test input_size(S) == cols
         atol, rtol = zero(T), sqrt(eps(T))
         mA = reshape(A, nrows, ncols)
         vx = reshape(x, ncols)
         vy = reshape(y, nrows)
-        Sx = S*x
-        Sty = S'*y
-        @test Sx  ≈ G*x atol=atol rtol=rtol norm=vnorm2
-        @test Sty ≈ G'*y atol=atol rtol=rtol norm=vnorm2
-        @test Sx  ≈ reshape(mA*vx,  rows) atol=atol rtol=rtol norm=vnorm2
-        @test Sty ≈ reshape(mA'*vy, cols) atol=atol rtol=rtol norm=vnorm2
+        @static if VERSION ≥ v"0.7"
+            Sx = S*x
+            @test almost_same(Sx, reshape(mA*vx,  rows))
+            Sty = S'*y
+            @test almost_same(Sty, reshape(mA'*vy, cols))
+        else
+            Sx = reshape(mA*vx,  rows)
+            Sty = reshape(mA'*vy, cols)
+        end
+        @test almost_same(Sx, G*x)
+        @test almost_same(Sty, G'*y)
+        ## Use another constructor with integer conversion.
+        R = SparseOperator(Int32.(output_size(S)),
+                           Int64.(input_size(S)),
+                           S.A, Int32.(S.I), Int64.(S.J))
+        @static if VERSION ≥ v"0.7"
+            @test almost_same(Sx, R*x)
+        end
+        @test almost_same(Sty, R'*y)
         for α in ALPHAS,
             β in BETAS
-            @test apply!(α, Direct, S, x, β, vcopy(y)) ≈
-                T(α)*Sx + T(β)*y atol=atol rtol=rtol norm=vnorm2
-            @test apply!(α, Adjoint, S, y, β, vcopy(x)) ≈
-                T(α)*Sty + T(β)*x atol=atol rtol=rtol norm=vnorm2
+            @static if VERSION ≥ v"0.7"
+                @test almost_same(apply!(α, Direct, S, x, β, vcopy(y)),
+                                  T(α)*Sx + T(β)*y)
+                @test almost_same(apply!(α, Adjoint, S, y, β, vcopy(x)),
+                                  T(α)*Sty + T(β)*x)
+            end
         end
-
     end
 end
 
