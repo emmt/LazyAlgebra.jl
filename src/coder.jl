@@ -317,10 +317,8 @@ function _encode(kwd::Val{:if}, args::Tuple)
             if OLD_STYLE
                 if noexpr
                     expr = Expr(:if, args[k-1], body)
-                elseif expr.head == :block
-                    expr = Expr(:if, args[k-1], body, expr)
                 else
-                    expr = Expr(:if, args[k-1], body, Expr(:block, expr))
+                    expr = Expr(:if, args[k-1], body, _quote(expr))
                 end
             else
                 expr = (noexpr ?
@@ -340,5 +338,15 @@ function _encode(kwd::Val{:if}, args::Tuple)
     end
     return (expr, n)
 end
+
+"""
+```julia
+_quote(expr)
+```
+
+quotes expression `expr`.
+
+"""
+_quote(expr::Expr) = (expr.head === :block ? expr : Expr(:block, expr))
 
 end # module

@@ -38,6 +38,7 @@ end
 include("../src/coder.jl")
 import .Coder
 using .Coder
+using .Coder: invalid_argument, missing_arguments, expecting_expression
 
 #------------------------------------------------------------------------------
 # SIMPLE SUM
@@ -351,6 +352,16 @@ const BETAS  = (-1, 0, 1, 2)
     @test_throws ErrorException encode(:for, :(i = 1:4), "body")
     @test_throws ErrorException encode(:inbounds)
     @test_throws ErrorException encode(:inbounds, "body")
+    @test_throws ErrorException invalid_argument(:test, :if,
+                                                 ArgumentError("bad value"))
+    @test_throws ErrorException encode(
+        :if, :(x == 1),
+        (
+            :(x = 2),
+            :(y = 3),
+        ),
+        :else,
+    )
     # For the following code to work, the statement following an if / elseif /
     # else must be enclosed in a block, even if it is a single expression.
     #@test encode(:if, :(i == 1), :(x = 3)) == purge_code(:(if i == 1; x = 3; end))
