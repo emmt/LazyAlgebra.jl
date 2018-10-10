@@ -16,7 +16,8 @@
 module LazyAlgebraMappingTests
 
 using LazyAlgebra
-import LazyAlgebra: Scaled, Sum, Composition # not exported by default
+using LazyAlgebra: Scaled, Sum, Composition, # not exported by default
+    Endomorphism, EndomorphismType
 
 # Deal with compatibility issues.
 using Compat
@@ -439,6 +440,7 @@ function test_sparse_operator()
         G = GeneralMatrix(A)
         S = SparseOperator(A, length(rows))
         @test is_endomorphism(S) == (rows == cols)
+        @test (EndomorphismType(S) == Endomorphism) == (rows == cols)
         @test output_size(S) == rows
         @test input_size(S) == cols
         atol, rtol = zero(T), sqrt(eps(T))
