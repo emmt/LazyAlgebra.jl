@@ -12,6 +12,9 @@ include("coder-test.jl")
 include("utils.jl")
 include("vectors.jl")
 include("mappings.jl")
+import .LazyAlgebraMappingTests
+LazyAlgebraMappingTests.test_all()
+
 include("conjgrad.jl")
 
 end
