@@ -315,12 +315,46 @@ function generate_array(::Type{T}, dims) where {T}
     return A .+ λ
 end
 
+function purge_code!(expr::Expr)
+    j = 0
+    for i in 1:length(expr.args)
+        if ! isa(expr.args[i], LineNumberNode)
+            j += 1
+            if isa(expr.args[i], Expr)
+                expr.args[j] = purge_code!(expr.args[i])
+            elseif j < i
+                expr.args[j] = expr.args[i]
+            end
+        end
+    end
+    resize!(expr.args, j)
+    return expr
+end
+
 const FLOATS = (Float32, Float64)
 const SIZES  = ((1000,), (10,11), (4,5,6))
 const ALPHAS = (-1, 0, 1, 3)
 const BETAS  = (-1, 0, 1, 2)
 
 @testset "Coder" begin
+    vars = generate_symbols("i", 4)
+    @test (vars...) == (:i1, :i2, :i3, :i4)
+    @test encode_sum_of_terms(:a) == :a
+    @test encode_sum_of_terms((:a, :b)) == :(a + b)
+    @test encode_sum_of_terms((:a, :b, :c)) == :(a + b + c)
+    @test_throws ErrorException encode(:if)
+    @test_throws ErrorException encode(:if, "test", "body")
+    @test_throws ErrorException encode(:if, :(i == 4), "body")
+    @test_throws ErrorException encode(:for)
+    @test_throws ErrorException encode(:for, "ctrl", "body")
+    @test_throws ErrorException encode(:for, :(i = 1:4), "body")
+    @test_throws ErrorException encode(:inbounds)
+    @test_throws ErrorException encode(:inbounds, "body")
+    # For the following code to work, the statement following an if / elseif /
+    # else must be enclosed in a block, even if it is a single expression.
+    #@test encode(:if, :(i == 1), :(x = 3)) == purge_code(:(if i == 1; x = 3; end))
+    code = [:if, :(a < b), :((a,b) = (b,a))]
+    @test encode(code) == encode(code...)
     for T in FLOATS,
         dims in SIZES
         x = generate_array(T, dims)
