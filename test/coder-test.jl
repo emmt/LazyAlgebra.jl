@@ -37,6 +37,7 @@ end
 
 include("../src/coder.jl")
 import .Coder
+using .Coder
 
 #------------------------------------------------------------------------------
 # SIMPLE SUM
@@ -338,7 +339,7 @@ const BETAS  = (-1, 0, 1, 2)
 
 @testset "Coder" begin
     vars = generate_symbols("i", 4)
-    @test (vars...) == (:i1, :i2, :i3, :i4)
+    @test (vars...,) == (:i1, :i2, :i3, :i4)
     @test encode_sum_of_terms(:a) == :a
     @test encode_sum_of_terms((:a, :b)) == :(a + b)
     @test encode_sum_of_terms((:a, :b, :c)) == :(a + b + c)

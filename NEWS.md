@@ -1,3 +1,5 @@
+* Provide `SimpleFiniteDifferences` operator.
+
 * Provide `SparseOperator`.
 
 * `LinearAlgebra.UniformScaling` can be combined with mappings in LazyAlgebra.

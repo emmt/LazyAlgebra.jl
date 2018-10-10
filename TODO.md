@@ -63,3 +63,5 @@
 
 * Write an implementation of the L-BFGS operator and of the SR1 operator and
   perhaps of other low-rank operators.
+
+* Implement `isequal` and do simplifications like `A + 2A => 3A`

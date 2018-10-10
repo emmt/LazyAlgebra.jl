@@ -34,14 +34,11 @@ const UnsupportedInverseOfSumOfMappings = "automatic dispatching of the inverse 
 
 # As a general rule, do not use the constructors of tagged types directly but
 # use `A'` or `adjoint(A)` instead of `Adjoint(A)`, `inv(A)` instead of
-# `Inverse(A)`, etc.  This is somewhat enforced by the following constructors
-# which systematically throw an error.
-Inverse(::Union{Adjoint,Inverse,InverseAdjoint,Scaled,Sum,Composition}) =
-    error("use `inv(A)` instead of `Inverse(A)`")
-Adjoint(::Union{Adjoint,Inverse,InverseAdjoint,Scaled,Sum,Composition}) =
-    error("use `A'` or `adjoint(A)` instead of `Adjoint(A)`")
-InverseAdjoint(::Union{Adjoint,Inverse,InverseAdjoint,Scaled,Sum,Composition}) =
-    error("use `inv(A')`, `inv(A)'`, `inv(adjoint(A))` or `adjoint(inv(A))` instead of `InverseAdjoint(A)` or `AdjointInverse(A)")
+# `Inverse(A)`, etc.  This is enforced by the following constructors which
+# systematically throw an error.
+Inverse(A) = error("use `inv(A)` instead of `Inverse(A)`")
+Adjoint(A) = error("use `A'` or `adjoint(A)` instead of `Adjoint(A)`")
+InverseAdjoint(A) = error("use `inv(A')`, `inv(A)'`, `inv(adjoint(A))` or `adjoint(inv(A))` instead of `InverseAdjoint(A)` or `AdjointInverse(A)")
 
 # Extend the `length` method to yield the number of components of a sum or
 # composition of mappings.
@@ -220,18 +217,17 @@ _is_applicable_in_place(::Type{OutOfPlace}) = false
 /(A::Mapping, B::Mapping) = A*inv(B)
 
 adjoint(A::Mapping) = _adjoint(SelfAdjointType(A), A)
+adjoint(A::Inverse) = inv(adjoint(A.op))
 adjoint(A::Adjoint) = A.op
 adjoint(A::InverseAdjoint) = inv(A.op)
 adjoint(A::Scaled) = conj(A.sc)*adjoint(A.op)
 adjoint(A::Sum) = Sum(map(adjoint, A.ops))
 adjoint(A::Composition) = Composition(reversemap(adjoint, A.ops))
 _adjoint(::Type{SelfAdjoint}, A::Mapping) = A
-_adjoint(::Type{SelfAdjoint}, A::Inverse) = A
-_adjoint(::Type{NonSelfAdjoint}, A::Mapping) = Adjoint(A)
-_adjoint(::Type{NonSelfAdjoint}, A::Inverse) = InverseAdjoint(A)
+_adjoint(::Type{NonSelfAdjoint}, A::T) where {T<:Mapping} = Adjoint{T}(A)
 
-inv(A::Mapping) = Inverse(A)
-inv(A::Adjoint) = InverseAdjoint(A.op)
+inv(A::T) where {T<:Mapping} = Inverse{T}(A)
+inv(A::Adjoint{T}) where {T} = InverseAdjoint{T}(A.op)
 inv(A::Inverse) = A.op
 inv(A::InverseAdjoint) = adjoint(A.op)
 inv(A::Scaled) = (one(A.sc)/A.sc)*inv(A.op)

@@ -14,31 +14,6 @@
 #------------------------------------------------------------------------------
 # IDENTITY AND UNIFORM SCALING
 
-"""
-```julia
-Identity()
-```
-
-yields the identity linear mapping.  The purpose of this mapping is to be as
-efficient as possible, hence the result of applying this mapping may be the
-same as the input argument.
-
-The identity is a singleton and is also available as:
-
-```julia
-LazyAlgebra.I
-```
-
-which is not exported by default (to avoid collisions with the `LinearAlgebra`
-module).  You may do it explicitly:
-
-```julia
-import LazyAlgebra: I
-```
-
-"""
-struct Identity <: LinearMapping; end
-
 @callable Identity
 
 const I = Identity()
@@ -52,10 +27,7 @@ InPlaceType(::Type{<:Operations}, ::Identity) = InPlace
 # Never let the inverse, adjoint or inverse-adjoint of the identity yeild
 # something else than identity.
 inv(::Identity) = I
-Inverse(::Identity) = I
 adjoint(::Identity) = I
-Adjoint(::Identity) = I
-InverseAdjoint(::Identity) = I
 
 # Extend multiplication for the (scaled) identity.  It is important to account
 # for all possible cases.  If all cases are covered, extend the left and right

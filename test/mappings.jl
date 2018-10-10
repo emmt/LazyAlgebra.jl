@@ -16,6 +16,7 @@
 module LazyAlgebraMappingTests
 
 using LazyAlgebra
+import LazyAlgebra: Scaled, Sum, Composition # not exported by default
 
 # Deal with compatibility issues.
 using Compat
@@ -35,6 +36,17 @@ else
     using LinearAlgebra: UniformScaling, ⋅
 end
 
+struct SomeMapping <: Mapping end
+struct SomeLinearMapping <: LinearMapping end
+
+# Overcome outer constructors barrier.
+forceAdjoint(arg::T) where{T} = Adjoint{T}(arg)
+forceInverse(arg::T) where{T} = Inverse{T}(arg)
+forceInverseAdjoint(arg::T) where{T} = InverseAdjoint{T}(arg)
+forceScaled(α::Real,A::T) where{T} = Scaled{T}(α,A)
+forceScaled(α::Real,A::T) where{T} = Scaled{T}(α,A)
+forceSum(args...) = Sum(args)
+
 @testset "Mappings" begin
     dims = (3,4,5)
     n = prod(dims)
@@ -43,6 +55,30 @@ end
     operations = (Direct, Adjoint, Inverse, InverseAdjoint)
     floats = (Float32, Float64)
     complexes = (ComplexF32, ComplexF64)
+
+    @testset "Rules" begin
+        M = SomeMapping()
+        A = SomeLinearMapping()
+        @test is_linear(M) == false
+        @test is_linear(A) == true
+        @test A' === forceAdjoint(A)
+        @test inv(M) === forceInverse(M)
+        @test inv(A)' === forceInverseAdjoint(A)
+        @test inv(A') === forceInverseAdjoint(A)
+        @test A'' === A
+        @test inv(inv(M)) === M
+        @test 3A === forceScaled(3,A)
+        @test 7M === forceScaled(7,M)
+        @test A+2M === forceSum(A,forceScaled(2,M))
+        @test_throws ErrorException Adjoint(A) # direct call forbidden
+        @test_throws ErrorException Inverse(A) # direct call forbidden
+        @test_throws ErrorException InverseAdjoint(A) # direct call forbidden
+        @test_throws ErrorException Sum(A) # too few arguments
+        @test_throws ErrorException Composition(M) # too few arguments
+        @test_throws ErrorException forceAdjoint(M) # non-linear
+        @test_throws ErrorException M' # non-linear
+        @test_throws ErrorException forceInverseAdjoint(M) # non-linear
+    end
 
     @testset "Identity" begin
         @test I === LazyAlgebra.I
@@ -294,36 +330,63 @@ end
     sizes = ((50,), (8, 9), (4,5,6))
     @testset "Finite differences ($T)" for T in floats
         D = SimpleFiniteDifferences()
+        DtD = HalfHessian(D)
         for dims in sizes
             x = randn(T, dims)
             y = randn(T, ndims(x), size(x)...)
-            y0 = Array{T}(undef, size(y))
-            y1 = Array{T}(undef, size(y))
+            z = randn(T, size(x))
+            # Apply direct and adjoint of D "by-hand".
+            Dx_truth = Array{T}(undef, size(y))
+            Dty_truth = Array{T}(undef, size(x))
+            fill!(Dty_truth, 0)
             if ndims(x) == 1
-                y0[1,1:end-1] = x[2:end] - x[1:end-1]
-                y0[1,end] = 0
+                Dx_truth[1,1:end-1] = x[2:end] - x[1:end-1]
+                Dx_truth[1,end] = 0
+                Dty_truth[2:end]   += y[1,1:end-1]
+                Dty_truth[1:end-1] -= y[1,1:end-1]
             elseif ndims(x) == 2
-                y0[1,1:end-1,:] = x[2:end,:] - x[1:end-1,:]
-                y0[1,end,:] .= 0
-                y0[2,:,1:end-1] = x[:,2:end] - x[:,1:end-1]
-                y0[2,:,end] .= 0
+                Dx_truth[1,1:end-1,:] = x[2:end,:] - x[1:end-1,:]
+                Dx_truth[1,end,:] .= 0
+                Dx_truth[2,:,1:end-1] = x[:,2:end] - x[:,1:end-1]
+                Dx_truth[2,:,end] .= 0
+                Dty_truth[2:end,:]   += y[1,1:end-1,:]
+                Dty_truth[1:end-1,:] -= y[1,1:end-1,:]
+                Dty_truth[:,2:end]   += y[2,:,1:end-1]
+                Dty_truth[:,1:end-1] -= y[2,:,1:end-1]
             elseif ndims(x) == 3
-                y0[1,1:end-1,:,:] = x[2:end,:,:] - x[1:end-1,:,:]
-                y0[1,end,:,:] .= 0
-                y0[2,:,1:end-1,:] = x[:,2:end,:] - x[:,1:end-1,:]
-                y0[2,:,end,:] .= 0
-                y0[3,:,:,1:end-1] = x[:,:,2:end] - x[:,:,1:end-1]
-                y0[3,:,:,end] .= 0
+                Dx_truth[1,1:end-1,:,:] = x[2:end,:,:] - x[1:end-1,:,:]
+                Dx_truth[1,end,:,:] .= 0
+                Dx_truth[2,:,1:end-1,:] = x[:,2:end,:] - x[:,1:end-1,:]
+                Dx_truth[2,:,end,:] .= 0
+                Dx_truth[3,:,:,1:end-1] = x[:,:,2:end] - x[:,:,1:end-1]
+                Dx_truth[3,:,:,end] .= 0
+                Dty_truth[2:end,:,:]   += y[1,1:end-1,:,:]
+                Dty_truth[1:end-1,:,:] -= y[1,1:end-1,:,:]
+                Dty_truth[:,2:end,:]   += y[2,:,1:end-1,:]
+                Dty_truth[:,1:end-1,:] -= y[2,:,1:end-1,:]
+                Dty_truth[:,:,2:end]   += y[3,:,:,1:end-1]
+                Dty_truth[:,:,1:end-1] -= y[3,:,:,1:end-1]
             end
-            atol, rtol = zero(T), eps(T)*2
             Dx = D*x
-            # Here there should be no differences.
-            @test Dx ≈ y0 atol=atol rtol=rtol norm=vnorm2
-            @test vnorm2(Dx - y0) == 0
+            Dty = D'*y
+            DtDx = DtD*x
+            # There should be no differences between Dx and Dx_truth because
+            # they are computed in the exact same way.  For Dty and Dty_truth,
+            # the comparsion must be approximative.  For testing DtD against
+            # D'*D, parenthesis are needed to avoid simplifications.
+            atol, rtol = zero(T), 4*eps(T)
+            @test vdot(y,Dx) ≈ vdot(Dty,x) atol=atol rtol=sqrt(eps(T))
+            @test vnorm2(Dx - Dx_truth) == 0
+            @test Dty ≈ Dty_truth atol=atol rtol=rtol norm=vnorm2
+            @test DtDx ≈ D'*(D*x) atol=atol rtol=rtol norm=vnorm2
             for α in alphas,
                 β in betas
                 @test apply!(α, Direct, D, x, β, vcopy(y)) ≈
                     T(α)*Dx + T(β)*y atol=atol rtol=rtol norm=vnorm2
+                @test apply!(α, Adjoint, D, y, β, vcopy(x)) ≈
+                    T(α)*Dty + T(β)*x atol=atol rtol=rtol norm=vnorm2
+                @test apply!(α, Direct, DtD, x, β, vcopy(z)) ≈
+                    T(α)*DtDx + T(β)*z atol=atol rtol=rtol norm=vnorm2
             end
         end
     end

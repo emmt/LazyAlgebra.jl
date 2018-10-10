@@ -135,6 +135,44 @@ abstract type LinearMapping <: Mapping end
 @doc @doc(Mapping) LinearMapping
 
 """
+```julia
+Identity()
+```
+
+yields the identity linear mapping.  The purpose of this mapping is to be as
+efficient as possible, hence the result of applying this mapping may be the
+same as the input argument.
+
+The identity is a singleton and is also available as:
+
+```julia
+LazyAlgebra.I
+```
+
+which is not exported by default (to avoid collisions with the `LinearAlgebra`
+module).  You may do it explicitly:
+
+```julia
+import LazyAlgebra: I
+```
+
+This should not be necessary if you are `using LinearAlgebra` as the identity
+`I` defined in this standard library as `UniformScaling(1)` can be
+automatically converted into `LazyAlgebra` own version of the identity when
+combined with other LazyAlgebra mappings.  If you are using any of these
+versions of the identity `I`, then:
+
+```julia
+I/A
+A\\I
+```
+
+both yield `inv(A)` for any LazyAlgebra mappings `A`.
+
+"""
+struct Identity <: LinearMapping; end
+
+"""
 
 The abstract type `Trait` is inherited by types indicating specific traits.
 
@@ -289,47 +327,62 @@ struct Direct; end
 
 Types `Adjoint`, `Inverse` and `InverseAdjoint` are used to *decorate* a
 mapping to indicate the conjugate transpose and/or inverse of the mapping.  The
-`adjoint` method is extended, so that in the code, it is sufficient (and
-recommended) to write `A'` instead of `Adjoint(A)`.  Furthermore, `A'` or
-`adjoint(A)` may be able to perform some simplications resulting in improved
-efficiency.  `AdjointInverse` is just an alias for `InverseAdjoint`.  Note that
-the adjoint only makes sense for linear mappings.
+`adjoint` method is extended, so that in the code, it is sufficient to write
+`A'` or `adjoint(A)`.  Simarly, use `inv(A)` or `I/A` (with `I` the identity)
+to get the inverse of `A`.  Furthermore, `A'`, `adjoint(A)`, `inv(A)` or `I/A`
+may be able to perform some simplications resulting in improved efficiency.
+
+To benefit from such simplications, directly calling `Adjoint(A)`, `Inverse(A)`
+or `InverseAdjoint(A)` is forbidden (it will throw an error).  Only the inner
+constructors can be used if really needed.
+
+`AdjointInverse` is just an alias for `InverseAdjoint`.  Note that the adjoint
+only makes sense for linear mappings.
 
 See also: [`LinearMapping`](@ref), [`apply`](@ref), [`Operations`](@ref).
 
 """
 struct Adjoint{T<:Mapping} <: LinearMapping
     op::T
-    # The inner constructors make sure that the argument is a linear mapping.
+
+    # The inner constructors prevent direct calls like `Adjoint(A)` and make
+    # sure that the argument is a linear mapping.
     Adjoint{T}(A::T) where {T<:LinearMapping} = new{T}(A)
     function Adjoint{T}(A::T) where {T<:Mapping}
         is_linear(A) ||
             error("taking the adjoint of non-linear mappings is not allowed")
         return new{T}(A)
     end
-end
 
-# Outer constructor must be provided.
-Adjoint(A::T) where {T<:Mapping} = Adjoint{T}(A)
+    # Identity is treated specially.
+    Adjoint{T}(I::T) where {T<:Identity} = I
+end
 
 struct Inverse{T<:Mapping} <: Mapping
     op::T
+
+    # The inner constructor prevents direct calls like `Inverse(A)`.
+    Inverse{T}(A::T) where {T<:Mapping} = new{T}(A)
+
+    # Identity is treated specially.
+    Inverse{T}(I::T) where {T<:Identity} = I
 end
 
-struct InverseAdjoint{T<:LinearMapping} <: LinearMapping
+struct InverseAdjoint{T<:Mapping} <: LinearMapping
     op::T
 
-    # The inner constructors ensure that the argument is a linear mapping.
+    # The inner constructors prevent direct calls like `InverseAdjoint(A)` and
+    # make sure that the argument is a linear mapping.
     InverseAdjoint{T}(A::T) where {T<:LinearMapping} = new{T}(A)
     function InverseAdjoint{T}(A::T) where {T<:Mapping}
         is_linear(A) ||
             error("taking the inverse adjoint of non-linear mappings is not allowed")
         return new{T}(A)
     end
-end
 
-# Outer constructor must be provided.
-InverseAdjoint(A::T) where {T<:Mapping} = Adjoint{T}(A)
+    # Identity is treated specially.
+    InverseAdjoint{T}(I::T) where {T<:Identity} = I
+end
 
 const AdjointInverse{T} = InverseAdjoint{T}
 
