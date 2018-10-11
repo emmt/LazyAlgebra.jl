@@ -1,3 +1,6 @@
+* Add `fftfreq`, `rfftdims`, `goodfftdim` and `goodfftdims` in `LazyAlgebra.FFT`
+  and re-export `fftshift` and `ifftshift` when `using LazyAlgebra.FFT`.
+
 * Add `is_same_mapping` to allow for automatic simplications when building-up
   sums and compositions.
 

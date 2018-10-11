@@ -73,3 +73,27 @@
 
 * `Hessian` and `HalfHessian` should not both exist (one is 1/2 or 2 times the
   other).
+
+* Make a demo like:
+
+  ```julia
+  using LazyAlgebra
+  psf = read_image("psf.dat")
+  dat = read_image("data.dat")
+  wgt = read_image("weights.dat")
+  µ = 1e-3 # choose regularization level
+  .... # deal with sizes, zero-padding, or cropping etc.
+  F = FFTOperator(dat)    # make a FFT operator to work with arrays similar to dat
+  H = F\Diag(F*psf)*F     # H is the instrumental model (convolution by the PSF)
+  W = Diag(wgt)           # W is the precision matrix for independent noise
+  D = FiniteDifferences() # D will be used for the regularization
+  A = H'*W*H + µ*D'*D     # left hand-side matrix of the normal equations
+  b = H'*W*y              # right hand-side vector of the normal equations
+  img = conjgrad(A, b)    # solve the normal equations using linear conjugate gradients
+  save_image(img, "result.dat")
+  ```
+
+  Notes: (1) `D'*D` is automatically simplified into a `HalfHessian`
+  construction whose application to a *vector*, say `x`, is faster than
+  `D'*(D*x))`.  (2) The evaluation of `H'*W*H` automatically uses the least
+  temporary workspace(s).

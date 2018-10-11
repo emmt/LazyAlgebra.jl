@@ -14,7 +14,16 @@
 
 module FFT
 
-export FFTOperator
+# Be nice with the caller: re-export `fftshift` and `ifftshift` but not `fft`,
+# `ifft` etc. as the `FFTOperator` is meant to replace them.
+export
+    FFTOperator,
+    fftfreq,
+    fftshift,
+    goodfftdim,
+    goodfftdims,
+    ifftshift,
+    rfftdims
 
 using Compat
 
@@ -24,7 +33,7 @@ import ..LazyAlgebra: apply!, vcreate, MorphismType, mul!,
     output_size, output_ndims, output_eltype,
     is_same_mapping
 
-import AbstractFFTs: Plan
+import AbstractFFTs: Plan, fftshift, ifftshift
 
 using FFTW
 import FFTW: fftwNumber, fftwReal, fftwComplex
@@ -101,7 +110,7 @@ function FFTOperator(::Type{T},
     # real-to-complex (r2c) transform.
     planning = check_flags(flags)
     ncols = check_dimensions(dims)
-    zdims = ntuple(i -> (i == 1 ? (dims[i] >> 1) + 1 : dims[i]), Val(N))
+    zdims = rfftdims(dims)
 
     # Compute the plans with suitable FFTW flags.  The forward transform (r2c)
     # must preserve its input, while the backward transform (c2r) may destroy
@@ -345,6 +354,119 @@ function check_dimensions(dims::NTuple{N,Int}) where {N}
         number *= dim
     end
     return number
+end
+
+"""
+```julia
+goodfftdim(len)
+```
+
+yields the smallest integer which is greater or equal `len` and which is a
+multiple of powers of 2, 3 and/or 5.  If argument is an array dimesion list
+(i.e. a tuple of integers), a tuple of good FFT dimensions is returned.
+
+Also see: [`goodfftdims`](@ref), [`rfftdims`](@ref), [`FFTOperator`](@ref).
+
+"""
+goodfftdim(len::Integer) = goodfftdim(Int(len))
+goodfftdim(len::Int) = nextprod([2,3,5], len)
+
+"""
+```julia
+goodfftdims(dims)
+```
+
+yields a list of dimensions suitable for computing the FFT of arrays whose
+dimensions are `dims` (a tuple or a vector of integers).
+
+Also see: [`goodfftdim`](@ref), [`rfftdims`](@ref), [`FFTOperator`](@ref).
+
+"""
+goodfftdims(dims::Integer...) = map(goodfftdim, dims)
+goodfftdims(dims::Union{AbstractVector{<:Integer},Tuple{Vararg{Integer}}}) =
+    map(goodfftdim, dims)
+
+"""
+```julia
+rfftdims(dims)
+```
+
+yields the dimensions of the complex array produced by a real-complex FFT of a
+real array of size `dims`.
+
+Also see: [`goodfftdim`](@ref), [`FFTOperator`](@ref).
+
+"""
+rfftdims(dims::NTuple{N,Int}) where {N} =
+    ntuple(d -> (d == 1 ? (Int(dims[d]) >> 1) + 1 : Int(dims[d])), Val(N))
+
+"""
+### Generate Discrete Fourier Transform frequency indexes or frequencies
+
+Syntax:
+
+```julia
+k = fftfreq(dim)
+f = fftfreq(dim, step)
+```
+
+With a single argument, the function returns a vector of `dim` values set with
+the frequency indexes:
+
+```
+k = [0, 1, 2, ..., n-1, -n, ..., -2, -1]   if dim = 2*n
+k = [0, 1, 2, ..., n,   -n, ..., -2, -1]   if dim = 2*n + 1
+```
+
+depending whether `dim` is even or odd.  These rules are compatible to what is
+assumed by `fftshift` (which to see) in the sense that:
+
+```
+fftshift(fftfreq(dim)) = [-n, ..., -2, -1, 0, 1, 2, ...]
+```
+
+With two arguments, `step` is the sample spacing in the direct space and the
+result is a floating point vector with `dim` elements set with the frequency
+bin centers in cycles per unit of the sample spacing (with zero at the start).
+For instance, if the sample spacing is in seconds, then the frequency unit is
+cycles/second.  This is equivalent to:
+
+```
+fftfreq(dim)/(dim*step)
+```
+
+See also: [`FFTOperator`](@ref), [`fftshift`](@ref).
+
+"""
+function fftfreq(_dim::Integer)
+    dim = Int(_dim)
+    n = div(dim, 2)
+    f = Array{Int}(undef, dim)
+    @inbounds begin
+        for k in 1:dim-n
+            f[k] = k - 1
+        end
+        for k in dim-n+1:dim
+            f[k] = k - (1 + dim)
+        end
+    end
+    return f
+end
+
+function fftfreq(_dim::Integer, step::Real)
+    dim = Int(_dim)
+    scl = Cdouble(1/(dim*step))
+    n = div(dim, 2)
+    f = Array{Cdouble}(undef, dim)
+    @inbounds begin
+        for k in 1:dim-n
+            f[k] = (k - 1)*scl
+        end
+        for k in dim-n+1:dim
+            f[k] = (k - (1 + dim))*scl
+        end
+    end
+    return f
 end
 
 end # module
