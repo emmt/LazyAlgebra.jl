@@ -6,6 +6,9 @@ julia:
   - 0.6
   - 0.7
   - 1.0
+matrix:
+  allow_failures:
+    - julia: 0.6
 notifications:
   email: false
 # uncomment the following lines to override the default test script
