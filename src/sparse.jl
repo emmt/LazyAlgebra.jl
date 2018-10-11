@@ -128,6 +128,15 @@ cols(S::SparseOperator) = S.J
 input_size(S::SparseOperator) = S.inpdims
 output_size(S::SparseOperator) = S.outdims
 
+function is_same_mapping(A::SparseOperator{T,M,N,Tc,Ti,Tj},
+                         B::SparseOperator{T,M,N,Tc,Ti,Tj}) where {T,M,N,Tc,Ti,Tj}
+    return (is_same_mutable_object(coefs(A), coefs(B)) &&
+            is_same_mutable_object(rows(A), rows(B)) &&
+            is_same_mutable_object(cols(A), cols(B)) &&
+            input_size(A) == input_size(B) &&
+            output_size(A) == output_size(B))
+end
+
 EndomorphismType(S::SparseOperator) = (S.samedims ? Endomorphism : Morphism)
 
 function vcreate(::Type{Direct},

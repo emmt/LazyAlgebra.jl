@@ -1,3 +1,6 @@
+* Add `is_same_mapping` to allow for automatic simplications when building-up
+  sums and compositions.
+
 * Optimal, an more general, management of temporaries is now done via the
   `scratch` argument of the `vcreate` and `apply!` methods.  `InPlaceType`
   trait and `is_applicable_in_place` method have been removed.

@@ -19,6 +19,7 @@ using LazyAlgebra
 using LazyAlgebra: Scaled, Sum, Composition, # not exported by default
     Endomorphism, EndomorphismType,
     is_same_mutable_object
+import LazyAlgebra: is_same_mapping
 
 # Deal with compatibility issues.
 using Compat
@@ -48,6 +49,9 @@ struct SomeMapping{T} <: Mapping end
 struct SomeLinearMapping{T} <: LinearMapping end
 SomeMapping(x) = SomeMapping{Val{x}}()
 SomeLinearMapping(x) = SomeLinearMapping{Val{x}}()
+
+is_same_mapping(::SomeMapping{T}, ::SomeMapping{T}) where {T} = true
+is_same_mapping(::SomeLinearMapping{T}, ::SomeLinearMapping{T}) where {T} = true
 
 # Overcome outer constructors barrier.
 forceAdjoint(arg::T) where {T} = Adjoint{T}(arg)
@@ -107,6 +111,8 @@ function test_rules()
         D = SomeLinearMapping(:D)
         @test M !== P
         @test A !== B
+        @test is_same_mapping(A, B) == false
+        let E = A; @test is_same_mapping(A, E) == true; end
         @test is_linear(M) == false
         @test is_linear(A) == true
         @test is_linear(A + B) == true
@@ -143,10 +149,10 @@ function test_rules()
         @test inv(A)' === forceInverseAdjoint(A)
         @test inv(A') === forceInverseAdjoint(A)
         @test (A')' === A'' === A
-        E = inv(A')
-        F = inv(A)'
-        @test inv(E) === A'
-        @test inv(F) === A'
+        let E = inv(A'), F = inv(A)'
+            @test inv(E) === A'
+            @test inv(F) === A'
+        end
         @test inv(inv(M)) === M
         @test inv(2M) === (1/2)*inv(M)
         @test inv(A*B) === inv(B)*inv(A)
@@ -190,6 +196,7 @@ function test_rules()
             #                no             3            no    OK
             #                no             3            yes   Segmentation Fault
             # -------------------------------------------------------------------
+            # So it seems to be due to the `--inline=yes` option.
             @test -M === (-1)*M
             @test 3A === forceScaled(3,A)
             @test 7M === forceScaled(7,M)

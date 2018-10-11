@@ -21,7 +21,8 @@ using Compat
 using ..LazyAlgebra
 import ..LazyAlgebra: apply!, vcreate, MorphismType, mul!,
     input_size, input_ndims, input_eltype,
-    output_size, output_ndims, output_eltype
+    output_size, output_ndims, output_eltype,
+    is_same_mapping
 
 import AbstractFFTs: Plan
 
@@ -165,6 +166,14 @@ input_ndims(A::FFTOperator{T,C,N}) where {T,C,N} = N
 output_ndims(A::FFTOperator{T,C,N}) where {T,C,N} = N
 input_eltype(A::FFTOperator{T,C,N}) where {T,C,N} = T
 output_eltype(A::FFTOperator{T,C,N}) where {T,C,N} = C
+
+# 2 FFT operators can be considered the same if they operate on arguments with
+# the same element type and the same dimensions.  If the types do not match,
+# the matching method is the one which return false, so it is only needed to
+# implement the method for two arguments with the same types (omitting the type
+# of the plans as it is irrelevant here).
+is_same_mapping(A::FFTOperator{T,C,N}, B::FFTOperator{T,C,N}) where {T,C,N} =
+    (input_size(A) == input_size(B))
 
 function vcreate(P::Type{<:Union{Forward,Direct,InverseAdjoint}},
                  A::FFTOperator{T,C,N},

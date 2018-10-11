@@ -14,6 +14,8 @@
 #------------------------------------------------------------------------------
 # IDENTITY AND UNIFORM SCALING
 
+is_same_mapping(::Identity, ::Identity) = true
+
 @callable Identity
 
 const I = Identity()
@@ -140,6 +142,11 @@ _selfadjointtype(::Type{<:Complex}, ::NonuniformScalingOperator) =
 
 contents(A::NonuniformScalingOperator) = A.diag
 LinearAlgebra.diag(A::NonuniformScalingOperator) = A.diag
+
+function is_same_mapping(A::NonuniformScalingOperator{T},
+                         B::NonuniformScalingOperator{T}) where {T}
+    return is_same_mutable_object(diag(A), diag(B))
+end
 
 function inv(A::NonuniformScalingOperator{<:AbstractArray{T,N}}
              ) where {T<:AbstractFloat, N}
@@ -410,6 +417,12 @@ output_size(A::RankOneOperator) = size(A.u)
 output_size(A::RankOneOperator, d...) = size(A.u, d...)
 output_eltype(A::RankOneOperator) = eltype(A.u)
 
+function is_same_mapping(A::RankOneOperator{U,V},
+                         B::RankOneOperator{U,V}) where {U,V}
+    return (is_same_mutable_object(A.u, B.u) &&
+            is_same_mutable_object(A.v, B.v))
+end
+
 """
 
 A `SymmetricRankOneOperator` is defined by a *vector* `u` and created by:
@@ -461,6 +474,11 @@ output_size(A::SymmetricRankOneOperator) = size(A.u)
 output_size(A::SymmetricRankOneOperator, d...) = size(A.u, d...)
 output_eltype(A::SymmetricRankOneOperator) = eltype(A.u)
 
+function is_same_mapping(A::SymmetricRankOneOperator{U},
+                         B::SymmetricRankOneOperator{U}) where {U}
+    return is_same_mutable_object(A.u, B.u)
+end
+
 #------------------------------------------------------------------------------
 # GENERALIZED MATRIX AND MATRIX-VECTOR PRODUCT
 
@@ -505,6 +523,11 @@ setindex!(A::GeneralMatrix, x, inds...) = setindex!(A.arr, x, inds...)
 stride(A::GeneralMatrix, k) = stride(A.arr, k)
 strides(A::GeneralMatrix) = strides(A.arr)
 eachindex(A::GeneralMatrix) = eachindex(A.arr)
+
+function is_same_mapping(A::GeneralMatrix{T},
+                         B::GeneralMatrix{T}) where {T}
+    return is_same_mutable_object(A.arr, B.arr)
+end
 
 function apply!(α::Real,
                 P::Type{<:Operations},
@@ -679,6 +702,12 @@ end
 
 #------------------------------------------------------------------------------
 # HESSIAN AND HALF HESSIAN
+
+is_same_mapping(A::Hessian{T}, B::Hessian{T}) where {T} =
+    is_same_mapping(A.obj, B.obj)
+
+is_same_mapping(A::HalfHessian{T}, B::HalfHessian{T}) where {T} =
+    is_same_mapping(A.obj, B.obj)
 
 # Default method for allocating the result for Hessian and HalfHessian linear
 # mappings.

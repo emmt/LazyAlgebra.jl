@@ -20,13 +20,15 @@ export
 using Compat
 using ..Coder
 using  ...LazyAlgebra
-import ...LazyAlgebra: vcreate, apply!, HalfHessian
+import ...LazyAlgebra: vcreate, apply!, HalfHessian, is_same_mapping
 using  ...LazyAlgebra: @callable, fastrange, convert_multiplier
 
 # Define operator D which implements simple finite differences.  Make it
 # callable.
 struct SimpleFiniteDifferences <: LinearMapping end
 @callable SimpleFiniteDifferences
+
+is_same_mapping(::SimpleFiniteDifferences, ::SimpleFiniteDifferences) = true
 
 # Extend the vcreate() and apply!() methods for these operators.  The apply!()
 # method does all the checking and, then, calls a private method specialized
