@@ -70,3 +70,6 @@
   trying to apply).  Or decide the opposite.
 
 * Optimize `FiniteDifferences` for other multipliers.
+
+* `Hessian` and `HalfHessian` should not both exist (one is 1/2 or 2 times the
+  other).
