@@ -55,11 +55,10 @@ struct SparseOperator{T,M,N,
         I::Ti,
         J::Tj
     ) where {
+        T,M,N,
         Tc<:DenseVector{T},
         Ti<:DenseVector{Int},
         Tj<:DenseVector{Int}
-    } where {
-        T,M,N
     }
         samedims = (M == N && outdims == inpdims)
         return new{T,M,N,Tc,Ti,Tj}(outdims, inpdims, C, I, J, samedims)
@@ -72,9 +71,10 @@ function SparseOperator(outdims::NTuple{M,Int},
                         inpdims::NTuple{N,Int},
                         C::Tc,
                         I::Ti,
-                        J::Tj) where {Tc<:DenseVector{T},
+                        J::Tj) where {T,M,N,
+                                      Tc<:DenseVector{T},
                                       Ti<:DenseVector{Int},
-                                      Tj<:DenseVector{Int}} where {T,M,N}
+                                      Tj<:DenseVector{Int}}
     return SparseOperator{T,M,N,Tc,Ti,Tj}(outdims, inpdims, C, I, J)
 end
 
@@ -259,12 +259,4 @@ function _apply_sparse!(y::DenseArray{<:Complex},
             y[i] += α*c*x[j]
         end
     end
-end
-
-function check_sizes(::Type{<:Union{Direct,InverseAdjoint}},
-                     A::Mapping, x::AbstractArray, y::AbstractArray)
-end
-
-function check_sizes(::Type{<:Union{Adjoint,Inverse}},
-                     A::Mapping, x::AbstractArray, y::AbstractArray)
 end
