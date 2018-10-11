@@ -1,3 +1,9 @@
+* Optimal, an more general, management of temporaries is now done via the
+  `scratch` argument of the `vcreate` and `apply!` methods.  `InPlaceType`
+  trait and `is_applicable_in_place` method have been removed.
+
+* `promote_scalar` has been modified and renamed as `convert_multipler`.
+
 * Provide `SimpleFiniteDifferences` operator.
 
 * Provide `SparseOperator`.

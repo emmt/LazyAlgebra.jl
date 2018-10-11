@@ -69,7 +69,7 @@ used as any other mapping:
 
 ```julia
 F*x     # yields the FFT of x
-F'*x    # yields the adjoint FFT of x
+F'*x    # yields the adjoint FFT of x, that is the backward FFT of x
 F\\x     # yields the inverse FFT of x
 ```
 
@@ -93,12 +93,11 @@ end
 
 # Real-to-complex FFT.
 function FFTOperator(::Type{T},
-                     _dims::NTuple{N,Integer};
+                     dims::NTuple{N,Int};
                      flags::Integer = FFTW.ESTIMATE,
                      timelimit::Real = FFTW.NO_TIMELIMIT) where {T<:fftwReal,N}
     # Check arguments and build dimension list of the result of the forward
     # real-to-complex (r2c) transform.
-    dims = map(Int, _dims)
     planning = check_flags(flags)
     ncols = check_dimensions(dims)
     zdims = ntuple(i -> (i == 1 ? (dims[i] >> 1) + 1 : dims[i]), Val(N))
@@ -123,12 +122,11 @@ end
 
 # Complex-to-complex FFT.
 function FFTOperator(::Type{Complex{T}},
-                     _dims::NTuple{N,Integer};
+                     dims::NTuple{N,Int};
                      flags::Integer = FFTW.ESTIMATE,
                      timelimit::Real = FFTW.NO_TIMELIMIT) where {T<:fftwReal,N}
     # Check arguments.  The input and output of the complex-to-complex
     # transform have the same dimensions.
-    dims = map(Int, _dims)
     planning = check_flags(flags)
     ncols = check_dimensions(dims)
     temp = Array{Complex{T}}(undef, dims)
@@ -147,6 +145,12 @@ function FFTOperator(::Type{Complex{T}},
                                                     forward, backward)
 end
 
+FFTOperator(T::Type{<:fftwReal}, dims::Tuple{Vararg{Integer}}; kwds...) =
+    FFTOperator(T, map(Int, dims); kwds...)
+
+FFTOperator(T::Type{Complex{<:fftwReal}}, dims::Tuple{Vararg{Integer}}; kwds...) =
+    FFTOperator(T, map(Int, dims); kwds...)
+
 FFTOperator(arr::Array{T,N}; kwds...) where {T<:fftwNumber,N} =
     FFTOperator(eltype(arr), size(arr); kwds...)
 
@@ -162,54 +166,60 @@ output_ndims(A::FFTOperator{T,C,N}) where {T,C,N} = N
 input_eltype(A::FFTOperator{T,C,N}) where {T,C,N} = T
 output_eltype(A::FFTOperator{T,C,N}) where {T,C,N} = C
 
-function vcreate(::Type{P},
+function vcreate(P::Type{<:Union{Forward,Direct,InverseAdjoint}},
                  A::FFTOperator{T,C,N},
-                 x::DenseArray{T,N}) where {P<:Union{Forward,Direct,
-                                                     InverseAdjoint},T,C,N}
-    return Array{C}(undef, output_size(A))
+                 x::DenseArray{T,N},
+                 scratch::Bool=false) where {T,C,N}
+    return (scratch && T === C && size(x) == output_size(A) ? x :
+            Array{C}(undef, output_size(A)))
 end
 
-function vcreate(::Type{P},
+function vcreate(P::Type{<:Union{Backward,Adjoint,Inverse}},
                  A::FFTOperator{T,C,N},
-                 x::DenseArray{C,N}) where {P<:Union{Backward,Adjoint,Inverse},
-                                            T,C,N}
-    return Array{T}(undef, input_size(A))
+                 x::DenseArray{C,N},
+                 scratch::Bool=false) where {T,C,N}
+    return (scratch && T === C && size(x) == input_size(A) ? x :
+            Array{T}(undef, input_size(A)))
 end
 
 function apply!(α::Real,
                 ::Type{Direct},
                 A::FFTOperator{T,C,N},
                 x::DenseArray{T,N},
+                scratch::Bool,
                 β::Real,
                 y::DenseArray{C,N}) where {T,C,N}
-    return apply!(α, Forward, A, x, β, y)
+    return apply!(α, Forward, A, x, scratch, β, y)
 end
 
 function apply!(α::Real,
                 ::Type{Adjoint},
                 A::FFTOperator{T,C,N},
                 x::DenseArray{C,N},
+                scratch::Bool,
                 β::Real,
                 y::DenseArray{T,N}) where {T,C,N}
-    return apply!(α, Backward, A, x, β, y)
+    return apply!(α, Backward, A, x, scratch, β, y)
 end
 
 function apply!(α::Real,
                 ::Type{Inverse},
                 A::FFTOperator{T,C,N},
                 x::DenseArray{C,N},
+                scratch::Bool,
                 β::Real,
                 y::DenseArray{T,N}) where {T,C,N}
-    return apply!(α/A.ncols, Backward, A, x, β, y)
+    return apply!(α/A.ncols, Backward, A, x, scratch, β, y)
 end
 
 function apply!(α::Real,
                 ::Type{InverseAdjoint},
                 A::FFTOperator{T,C,N},
                 x::DenseArray{T,N},
+                scratch::Bool,
                 β::Real,
                 y::DenseArray{C,N}) where {T,C,N}
-    return apply!(α/A.ncols, Forward, A, x, β, y)
+    return apply!(α/A.ncols, Forward, A, x, scratch, β, y)
 end
 
 # We want to compute:
@@ -225,6 +235,7 @@ function apply!(α::Real,
                 ::Type{Forward},
                 A::FFTOperator{T,C,N},
                 x::DenseArray{T,N},
+                scratch::Bool,
                 β::Real,
                 y::DenseArray{C,N}) where {T,C,N}
     size(x) == input_size(A) ||
@@ -237,7 +248,7 @@ function apply!(α::Real,
         mul!(y, A.forward, x)
         α == 1 || vscale!(y, α)
     else
-        z = vcreate(Forward, A, x)
+        z = vcreate(Forward, A, x, scratch)
         mul!(z, A.forward, x)
         vcombine!(y, α, z, β, y)
     end
@@ -247,10 +258,11 @@ end
 # Apply backward complex-to-complex transform.
 function apply!(α::Real,
                 ::Type{Backward},
-                A::FFTOperator{T,C,N},
+                A::FFTOperator{C,C,N},
                 x::DenseArray{C,N},
+                scratch::Bool,
                 β::Real,
-                y::DenseArray{T,N}) where {T<:fftwComplex,C,N}
+                y::DenseArray{C,N}) where {C<:fftwComplex,N}
     size(x) == output_size(A) ||
         throw(DimensionMismatch("x must have dimensions $(output_size(A))"))
     size(y) == input_size(A) ||
@@ -261,7 +273,7 @@ function apply!(α::Real,
         mul!(y, A.backward, x)
         α == 1 || vscale!(y, α)
     else
-        z = vcreate(Backward, A, x)
+        z = vcreate(Backward, A, x, scratch)
         mul!(z, A.backward, x)
         vcombine!(y, α, z, β, y)
     end
@@ -275,9 +287,9 @@ function apply!(α::Real,
                 ::Type{Backward},
                 A::FFTOperator{T,C,N},
                 x::DenseArray{C,N},
+                scratch::Bool,
                 β::Real,
-                y::DenseArray{T,N};
-                overwriteinput::Bool=false) where {T<:fftwReal,C,N}
+                y::DenseArray{T,N}) where {T<:fftwReal,C,N}
     size(x) == output_size(A) ||
         throw(DimensionMismatch("x must have dimensions $(output_size(A))"))
     size(y) == input_size(A) ||
@@ -285,11 +297,11 @@ function apply!(α::Real,
     if α == 0
         vscale!(y, β)
     elseif β == 0
-        mul!(y, A.backward, (overwriteinput ? x : vcopy(x)))
+        mul!(y, A.backward, (scratch ? x : vcopy(x)))
         α == 1 || vscale!(y, α)
     else
         z = vcreate(Backward, A, x)
-        mul!(z, A.backward, (overwriteinput ? x : vcopy(x)))
+        mul!(z, A.backward, (scratch ? x : vcopy(x)))
         vcombine!(y, α, z, β, y)
     end
     return y

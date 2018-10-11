@@ -21,7 +21,7 @@ using Compat
 using ..Coder
 using  ...LazyAlgebra
 import ...LazyAlgebra: vcreate, apply!, HalfHessian
-using  ...LazyAlgebra: fastrange, @callable
+using  ...LazyAlgebra: @callable, fastrange, convert_multiplier
 
 # Define operator D which implements simple finite differences.  Make it
 # callable.
@@ -32,13 +32,19 @@ struct SimpleFiniteDifferences <: LinearMapping end
 # method does all the checking and, then, calls a private method specialized
 # for the considered dimensionality.
 
-function vcreate(::Type{Direct}, ::SimpleFiniteDifferences,
-                 x::AbstractArray{T,N}) where {T<:Real,N}
+function vcreate(::Type{Direct},
+                 ::SimpleFiniteDifferences,
+                 x::AbstractArray{T,N},
+                 scratch::Bool=false) where {T<:Real,N}
+    # In-place operation never possible, so ignore the scratch flag.
     return Array{T}(undef, (N, size(x)...))
 end
 
-function vcreate(::Type{Adjoint}, ::SimpleFiniteDifferences,
-                 x::AbstractArray{T,N}) where {T<:Real,N}
+function vcreate(::Type{Adjoint},
+                 ::SimpleFiniteDifferences,
+                 x::AbstractArray{T,N},
+                 scratch::Bool=false) where {T<:Real,N}
+    # In-place operation never possible, so ignore the scratch flag.
     N ≥ 2 ||
         throw(DimensionMismatch("argument must have at least 2 dimensions"))
     dims = size(x)
@@ -52,13 +58,18 @@ end
 for P in (Direct, Adjoint)
     @eval function vcreate(::Type{$P},
                            ::HalfHessian{SimpleFiniteDifferences},
-                           x::AbstractArray{T,N}) where {T<:Real,N}
-        return Array{T}(undef, size(x))
+                           x::AbstractArray{T,N},
+                           scratch::Bool=false) where {T<:Real,N}
+        return (scratch ? x : Array{T}(undef, size(x)))
     end
 end
 
-function apply!(α::Real, ::Type{<:Direct}, ::SimpleFiniteDifferences,
-                x::AbstractArray{Tx,Nx}, β::Real,
+function apply!(α::Real,
+                ::Type{<:Direct},
+                ::SimpleFiniteDifferences,
+                x::AbstractArray{Tx,Nx},
+                scratch::Bool,
+                β::Real,
                 y::AbstractArray{Ty,Ny}) where {Tx<:Real,Nx,Ty<:Real,Ny}
     Ny == Nx + 1 ||
         throw(DimensionMismatch("incompatible number of dimensions"))
@@ -70,14 +81,17 @@ function apply!(α::Real, ::Type{<:Direct}, ::SimpleFiniteDifferences,
     if α == 0
         vscale!(y, β)
     else
-        T = promote_type(Tx, Ty)
-        _apply_D!(convert(T, α), x, convert(T, β), y)
+        _apply_D!(convert_multiplier(α, Tx), x, convert_multiplier(β, Ty), y)
     end
     return y
 end
 
-function apply!(α::Real, ::Type{<:Adjoint}, ::SimpleFiniteDifferences,
-                x::AbstractArray{Tx,Nx}, β::Real,
+function apply!(α::Real,
+                ::Type{<:Adjoint},
+                ::SimpleFiniteDifferences,
+                x::AbstractArray{Tx,Nx},
+                scratch::Bool,
+                β::Real,
                 y::AbstractArray{Ty,Ny}) where {Tx<:Real,Nx,Ty<:Real,Ny}
     Ny == Nx - 1 ||
         throw(DimensionMismatch("incompatible number of dimensions"))
@@ -86,37 +100,34 @@ function apply!(α::Real, ::Type{<:Adjoint}, ::SimpleFiniteDifferences,
         throw(DimensionMismatch("first dimension of source must be $Ny"))
     xdims[2:end] == size(y) ||
         throw(DimensionMismatch("dimensions 2:end of source must be $(size(y))"))
-    vscale!(y, β)
-    if α != 0
-        T = promote_type(Tx, Ty)
-        _apply_Dt!(convert(T, α), x, convert(T, β), y)
-    end
+    β == 1 || vscale!(y, β)
+    α == 0 || _apply_Dt!(convert_multiplier(α, Tx), x, y)
     return y
 end
 
-function apply!(α::Real, ::Type{<:Union{Direct,Adjoint}},
+function apply!(α::Real,
+                ::Type{<:Union{Direct,Adjoint}},
                 ::HalfHessian{SimpleFiniteDifferences},
-                x::AbstractArray{Tx,Nx}, β::Real,
+                x::AbstractArray{Tx,Nx},
+                scratch::Bool,
+                β::Real,
                 y::AbstractArray{Ty,Ny}) where {Tx<:Real,Nx,Ty<:Real,Ny}
     Ny == Nx ||
         throw(DimensionMismatch("incompatible number of dimensions"))
     size(x) == size(y) ||
         throw(DimensionMismatch("source and destination must have the same dimensions"))
-    vscale!(y, β)
-    if α != 0
-        T = promote_type(Tx, Ty)
-        _apply_DtD!(convert(T, α), x, convert(T, β), y)
-    end
+    β == 1 || vscale!(y, β)
+    α == 0 || _apply_DtD!(convert_multiplier(α, Tx), x, y)
     return y
 end
 
 offset(::Type{CartesianIndex{N}}, d::Integer, s::Integer=1) where {N} =
     CartesianIndex{N}(ntuple(i -> (i == d ? s : 0), N))
 
-@generated function _apply_D!(a::T, x::AbstractArray{<:Real,N},
-                              b::T, y::AbstractArray{<:Real,Np1}
-                              ) where {N,Np1,T<:Real}
-    # We know that a ≠ 0.
+@generated function _apply_D!(α::Real, x::AbstractArray{<:Number,N},
+                              β::Real, y::AbstractArray{<:Number,Np1}
+                              ) where {N,Np1}
+    # We know that α ≠ 0.
     @assert Np1 == N + 1
     D = generate_symbols("d", N)
     I = generate_symbols("i", N)
@@ -132,20 +143,20 @@ offset(::Type{CartesianIndex{N}}, d::Integer, s::Integer=1) where {N} =
         [:( $(S[d]) = $(offset(CartesianIndex{N}, d)) ) for d in 1:N]...,
         :inbounds,
         (
-            :if, :(b == 0),
+            :if, :(β == 0),
             (
                 :simd_for, :(i in inds),
                 (
                     common...,
-                    [:( y[$d,i] = a*$(D[d]) ) for d in 1:N]...
+                    [:( y[$d,i] = α*$(D[d]) ) for d in 1:N]...
                 )
             ),
-            :elseif, :(b == 1),
+            :elseif, :(β == 1),
             (
                 :simd_for, :(i in inds),
                 (
                     common...,
-                    [:( y[$d,i] += a*$(D[d]) ) for d in 1:N]...
+                    [:( y[$d,i] += α*$(D[d]) ) for d in 1:N]...
                 )
             ),
             :else,
@@ -153,17 +164,16 @@ offset(::Type{CartesianIndex{N}}, d::Integer, s::Integer=1) where {N} =
                 :simd_for, :(i in inds),
                 (
                     common...,
-                    [:( y[$d,i] = a*$(D[d]) + b*y[$d,i] ) for d in 1:N]...
+                    [:( y[$d,i] = α*$(D[d]) + β*y[$d,i] ) for d in 1:N]...
                 )
             )
         )
     )
 end
 
-@generated function _apply_Dt!(a::T, x::AbstractArray{<:Real,Np1},
-                               b::T, y::AbstractArray{<:Real,N}
-                               ) where {N,Np1,T<:Real}
-    # We know that a ≠ 0 and that y has been pre-multiplied by b.
+@generated function _apply_Dt!(α::Real, x::AbstractArray{<:Number,Np1},
+                               y::AbstractArray{<:Number,N}) where {N,Np1}
+    # We know that α ≠ 0 and that y has been pre-multiplied by β.
     @assert Np1 == N + 1
     D = generate_symbols("d", N)
     I = generate_symbols("i", N)
@@ -175,7 +185,7 @@ end
         [:( $(S[d]) = $(offset(CartesianIndex{N}, d)) ) for d in 1:N]...,
         :inbounds,
         (
-            :if, :(a == 1),
+            :if, :(α == 1),
             (
                 :simd_for, :(i in inds),
                 (
@@ -190,7 +200,7 @@ end
                 :simd_for, :(i in inds),
                 (
                     common...,
-                    [:( $(D[d]) = a*x[$d,i]               ) for d in 1:N]...,
+                    [:( $(D[d]) = α*x[$d,i]               ) for d in 1:N]...,
                     :(  y[i] -= $(encode_sum_of_terms(D)) ),
                     [:( y[$(I[d])] += $(D[d])             ) for d in 1:N]...
                 ),
@@ -199,10 +209,9 @@ end
     )
 end
 
-@generated function _apply_DtD!(a::T, x::AbstractArray{<:Real,N},
-                                b::T, y::AbstractArray{<:Real,N}
-                                ) where {N,T<:Real}
-    # We know that a ≠ 0 and that y has been pre-multiplied by b.
+@generated function _apply_DtD!(α::Real, x::AbstractArray{<:Number,N},
+                                y::AbstractArray{<:Number,N}) where {N}
+    # We know that α ≠ 0 and that y has been pre-multiplied by β.
     D = generate_symbols("d", N)
     I = generate_symbols("i", N)
     S = generate_symbols("s", N)
@@ -215,7 +224,7 @@ end
         [:( $(S[d]) = $(offset(CartesianIndex{N}, d)) ) for d in 1:N]...,
         :inbounds,
         (
-            :if, :(a == 1),
+            :if, :(α == 1),
             (
                 :simd_for, :(i in inds),
                 (
@@ -230,7 +239,7 @@ end
                 :simd_for, :(i in inds),
                 (
                     common...,
-                    [:( $(D[d]) = a*(x[$(I[d])] - xi)     ) for d in 1:N]...,
+                    [:( $(D[d]) = α*(x[$(I[d])] - xi)     ) for d in 1:N]...,
                     :(  y[i] -= $(encode_sum_of_terms(D)) ),
                     [:( y[$(I[d])] += $(D[d])             ) for d in 1:N]...
                 ),

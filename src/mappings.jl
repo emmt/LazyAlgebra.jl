@@ -22,7 +22,6 @@ const I = Identity()
 SelfAdjointType(::Identity) = SelfAdjoint
 MorphismType(::Identity) = Endomorphism
 DiagonalType(::Identity) = DiagonalMapping
-InPlaceType(::Type{<:Operations}, ::Identity) = InPlace
 
 # Never let the inverse, adjoint or inverse-adjoint of the identity yeild
 # something else than identity.
@@ -58,13 +57,13 @@ end
 ==(A::Scaled{Identity}, ::Identity) = (A.sc == one(A.sc))
 ==(A::Scaled{Identity}, B::Scaled{Identity}) = (A.sc == B.sc)
 
-apply(::Type{<:Operations}, ::Identity, x) = x
+apply(::Type{<:Operations}, ::Identity, x, scratch::Bool=false) = x
 
-apply!(α::Real, ::Type{<:Operations}, ::Identity, x, β::Real, y) =
+vcreate(::Type{<:Operations}, ::Identity, x, scratch::Bool=false) =
+    (scratch ? x : vcreate(x))
+
+apply!(α::Real, ::Type{<:Operations}, ::Identity, x, ::Bool, β::Real, y) =
     vcombine!(y, α, x, β, y)
-
-vcreate(::Type{<:Operations}, ::Identity, x) = vcreate(x)
-
 
 # Rules to automatically convert UniformScaling from standard library module
 # LinearAlgebra into λ*I.  For other operators, there is no needs to extend ⋅
@@ -120,7 +119,7 @@ creates a nonuniform scaling linear mapping whose effects is to apply
 elementwise multiplication of its argument by the scaling factors `A`.
 This mapping can be thought as a *diagonal* operator.
 
-See also: [`UniformScalingOperator`](@ref).
+See also: [`Diag`](@ref).
 
 """
 struct NonuniformScalingOperator{T} <: LinearMapping
@@ -132,7 +131,6 @@ end
 # Traits:
 MorphismType(::NonuniformScalingOperator) = Endomorphism
 DiagonalType(::NonuniformScalingOperator) = DiagonalMapping
-InPlaceType(::Type{<:Operations}, ::NonuniformScalingOperator) = InPlace
 SelfAdjointType(A::NonuniformScalingOperator) =
     _selfadjointtype(eltype(contents(A)), A)
 _selfadjointtype(::Type{<:Real}, ::NonuniformScalingOperator) =
@@ -278,6 +276,7 @@ function apply!(α::Real,
                 ::Type{P},
                 W::NonuniformScalingOperator{<:AbstractArray{Tw,N}},
                 x::AbstractArray{Tx,N},
+                scratch::Bool,
                 β::Real,
                 y::AbstractArray{Ty,N}) where {P<:Operations,
                                                Tw<:AbstractFloat,
@@ -288,8 +287,8 @@ function apply!(α::Real,
     if α == 0
         rmul!(y, β)
     else
-        T = promote_type(Tw, Tx, Ty)
-        a, b = convert(T, α), convert(T, β)
+        a = convert_multiplier(α, Tw, Tx) # FIXME: force float if there is a division?
+        b = convert_multiplier(β, Ty)
         I = eachindex(w, x, y)
         if P === Direct || P === Adjoint
             @axpby!(i, I, a, w[i]*x[i], b, y[i])
@@ -304,6 +303,7 @@ function apply!(α::Real,
                 ::Type{P},
                 W::NonuniformScalingOperator{<:AbstractArray{Complex{Tw},N}},
                 x::AbstractArray{Complex{Tx},N},
+                scratch::Bool,
                 β::Real,
                 y::AbstractArray{Complex{Ty},N}) where {P<:Operations,
                                                         Tw<:AbstractFloat,
@@ -314,10 +314,11 @@ function apply!(α::Real,
     if α == 0
         rmul!(y, β)
     else
-        T = promote_type(Tw, Tx, Ty)
-        a, b = convert(T, α), convert(T, β)
+        a = convert_multiplier(α, Tw, Tx) # FIXME: force float if there is a division?
+        b = convert_multiplier(β, Ty)
         I = eachindex(w, x, y)
         if P === Direct
+            # FIXME: expressions can be further optimized...
             @axpby!(i, I, a, w[i]*x[i], b, y[i])
         elseif P === Adjoint
             @axpby!(i, I, a, conj(w[i])*x[i], b, y[i])
@@ -332,22 +333,12 @@ end
 
 function vcreate(::Type{<:Operations},
                  W::NonuniformScalingOperator{<:AbstractArray{Tw,N}},
-                 x::AbstractArray{Tx,N}) where {Tw<:AbstractFloat,
-                                                Tx<:AbstractFloat,N}
+                 x::AbstractArray{Tx,N},
+                 scratch::Bool=false) where {Tw,Tx,N}
     inds = axes(W.diag)
     @assert axes(x) == inds
     T = promote_type(Tw, Tx)
-    return similar(Array{T}, inds)
-end
-
-function vcreate(::Type{<:Operations},
-                 W::NonuniformScalingOperator{<:AbstractArray{Complex{Tw},N}},
-                 x::AbstractArray{Complex{Tx},N}) where {Tw<:AbstractFloat,
-                                                         Tx<:AbstractFloat,N}
-    inds = axes(W.diag)
-    @assert axes(x) == inds
-    T = promote_type(Tw, Tx)
-    return similar(Array{Complex{T}}, inds)
+    return (scratch && Tx == T ? x : similar(Array{T}, inds))
 end
 
 #------------------------------------------------------------------------------
@@ -379,29 +370,33 @@ end
 
 @callable RankOneOperator
 
-function apply!(α::Real, ::Type{Direct}, A::RankOneOperator, x, β::Real, y)
+function apply!(α::Real, ::Type{Direct}, A::RankOneOperator, x, scratch::Bool,
+                β::Real, y)
+    return _apply_rank_one_operator!(α, A.u, A.v, x, β, y)
+end
+
+function apply!(α::Real, ::Type{Adjoint}, A::RankOneOperator, x, scratch::Bool,
+                β::Real, y)
+    return _apply_rank_one_operator!(α, A.v, A.u, x, β, y)
+end
+
+function _apply_rank_one_operator!(α::Real, u, v, x, β::Real, y)
     if α == 0
         # Lazily assume that y has correct type, dimensions, etc.
         vscale!(y, β)
     else
-        vcombine!(y, α*vdot(A.v, x), A.u, β, y)
+        vcombine!(y, α*vdot(v, x), u, β, y)
     end
     return y
 end
 
-function apply!(α::Real, ::Type{Adjoint}, A::RankOneOperator, x, β::Real, y)
-    if α == 0
-        # Lazily assume that y has correct type, dimensions, etc.
-        vscale!(y, β)
-    else
-        vcombine!(y, α*vdot(A.u, x), A.v, β, y)
-    end
-    return y
-end
 
 # Lazily assume that x has correct type, dimensions, etc.
-vcreate(::Type{Direct}, A::RankOneOperator, x) = vcreate(A.v)
-vcreate(::Type{Adjoint}, A::RankOneOperator, x) = vcreate(A.u)
+# FIXME: optimize when scratch=true
+vcreate(::Type{Direct}, A::RankOneOperator, x, scratch::Bool=false) =
+    vcreate(A.v)
+vcreate(::Type{Adjoint}, A::RankOneOperator, x, scratch::Bool=false) =
+    vcreate(A.u)
 
 input_type(A::RankOneOperator{U,V}) where {U,V} = V
 input_ndims(A::RankOneOperator) = ndims(A.v)
@@ -441,24 +436,17 @@ end
 
 # Traits:
 MorphismType(::SymmetricRankOneOperator) = Endomorphism
-InPlaceType(::Type{<:Operations}, ::SymmetricRankOneOperator) = InPlace
 SelfAdjointType(::SymmetricRankOneOperator) = SelfAdjoint
 
 function apply!(α::Real, ::Type{<:Union{Direct,Adjoint}},
-                A::SymmetricRankOneOperator, x, β::Real, y)
-    if α == 0
-        # Lazily assume that y has correct type, dimensions, etc.
-        vscale!(y, β)
-    else
-        vcombine!(y, α*vdot(A.u, x), A.u, β, y)
-    end
-    return y
+                A::SymmetricRankOneOperator, x, scratch::Bool, β::Real, y)
+    return _apply_rank_one_operator!(α, A.u, A.u, x, β, y)
 end
 
 function vcreate(::Type{<:Union{Direct,Adjoint}},
-                 A::SymmetricRankOneOperator, x)
+                 A::SymmetricRankOneOperator, x, scratch::Bool=false)
     # Lazily assume that x has correct type, dimensions, etc.
-    vcreate(A.u)
+    return (scratch ? x : vcreate(x))
 end
 
 input_type(A::SymmetricRankOneOperator{U}) where {U} = U
@@ -503,7 +491,7 @@ end
 
 @callable GeneralMatrix
 
-contents(A) = A.arr
+contents(A) = A.arr # FIXME: coefs(A) ?, rows(A), cols(A)/colums(A)
 
 # Make a GeneralMatrix behaves like an ordinary array.
 eltype(A::GeneralMatrix) = eltype(A.arr)
@@ -519,99 +507,104 @@ strides(A::GeneralMatrix) = strides(A.arr)
 eachindex(A::GeneralMatrix) = eachindex(A.arr)
 
 function apply!(α::Real,
-                ::Type{P},
+                P::Type{<:Operations},
                 A::GeneralMatrix{<:AbstractArray{<:AbstractFloat}},
                 x::AbstractArray{<:AbstractFloat},
+                scratch::Bool,
                 β::Real,
-                y::AbstractArray{<:AbstractFloat}) where {P<:Operations}
-    return apply!(α, P, A.arr, x, β, y)
+                y::AbstractArray{<:AbstractFloat})
+    return apply!(α, P, A.arr, x, scratch, β, y)
 end
 
-function vcreate(::Type{P},
+function vcreate(P::Type{<:Operations},
                  A::GeneralMatrix{<:AbstractArray{<:AbstractFloat}},
-                 x::AbstractArray{<:AbstractFloat}) where {P<:Operations}
-    return vcreate(P, A.arr, x)
+                 x::AbstractArray{<:AbstractFloat},
+                 scratch::Bool=false)
+    return vcreate(P, A.arr, x, scratch)
 end
 
-function apply(A::AbstractArray{<:Real},
-               x::AbstractArray{<:Real})
-    return apply(Direct, A, x)
+# FIXME: code all other cases for apply and apply!, do this by meta-code
+
+function apply(A::AbstractArray{<:Number},
+               x::AbstractArray{<:Number},
+               scratch::Bool=false)
+    return apply(Direct, A, x, scratch)
 end
 
-function apply(::Type{P},
-               A::AbstractArray{<:Real},
-               x::AbstractArray{<:Real}) where {P<:Operations}
-    return apply!(one(Scalar), P, A, x, zero(Scalar), vcreate(P, A, x))
+function apply(P::Type{<:Operations},
+               A::AbstractArray{<:Number},
+               x::AbstractArray{<:Number},
+               scratch::Bool=false)
+    return apply!(1, P, A, x, scratch, 0, vcreate(P, A, x, scratch))
 end
 
-function apply!(y::AbstractArray{<:Real},
-                A::AbstractArray{<:Real},
-                x::AbstractArray{<:Real})
-    return apply!(y, Direct, A, x)
+function apply!(y::AbstractArray{<:Number},
+                A::AbstractArray{<:Number},
+                x::AbstractArray{<:Number})
+    return apply!(1, Direct, A, x, false, 0, y)
 end
 
-function apply!(y::AbstractArray{<:Real},
-                ::Type{P},
-                A::AbstractArray{<:Real},
-                x::AbstractArray{<:Real}) where {P<:Operations}
-    return apply!(one(Scalar), P, A, x, zero(Scalar), y)
+function apply!(y::AbstractArray{<:Number},
+                P::Type{<:Operations},
+                A::AbstractArray{<:Number},
+                x::AbstractArray{<:Number})
+    return apply!(1, P, A, x, false, 0, y)
 end
 
 # By default, use pure Julia code for the generalized matrix-vector product.
 function apply!(α::Real,
-                ::Type{P},
+                P::Type{<:Union{Direct,InverseAdjoint}},
                 A::AbstractArray{<:Real},
                 x::AbstractArray{<:Real},
+                scratch::Bool,
                 β::Real,
-                y::AbstractArray{<:Real}) where {P<:Union{Direct,
-                                                          InverseAdjoint}}
-    if axes(A) != (axes(y)..., axes(x)...)
+                y::AbstractArray{<:Real})
+    axes(A) == (axes(y)..., axes(x)...) ||
         throw(DimensionMismatch("`x` and/or `y` have axes incompatible with `A`"))
-    end
     return _apply!(α, P, A, x, β, y)
 end
 
 function apply!(α::Real,
-                ::Type{P},
+                P::Type{<:Union{Adjoint,Inverse}},
                 A::AbstractArray{<:Real},
                 x::AbstractArray{<:Real},
+                scratch::Bool,
                 β::Real,
-                y::AbstractArray{<:Real}) where {P<:Union{Adjoint,Inverse}}
-    if axes(A) != (axes(x)..., axes(y)...)
+                y::AbstractArray{<:Real})
+    axes(A) == (axes(x)..., axes(y)...) ||
         throw(DimensionMismatch("`x` and/or `y` have axes incompatible with `A`"))
-    end
     return _apply!(α, P, A, x, β, y)
 end
 
-function vcreate(::Type{P},
+function vcreate(P::Type{<:Union{Direct,InverseAdjoint}},
                  A::AbstractArray{Ta,Na},
-                 x::AbstractArray{Tx,Nx}) where {Ta<:AbstractFloat, Na,
-                                                 Tx<:AbstractFloat, Nx,
-                                                 P<:Union{Direct,
-                                                          InverseAdjoint}}
-    inds = axes(A)
+                 x::AbstractArray{Tx,Nx},
+                 scratch::Bool=false) where {Ta,Na,Tx,Nx}
+    Ainds = axes(A)
+    xinds = axes(x)
     Ny = Na - Nx
-    if Nx ≥ Na || axes(x) != inds[Ny+1:end]
+    (Nx < Na && xinds == Ainds[Ny+1:end]) ||
         throw(DimensionMismatch("the axes of `x` do not match the trailing axes of `A`"))
-    end
     Ty = promote_type(Ta, Tx)
-    return similar(Array{Ty}, inds[1:Ny])
+    yinds = Ainds[1:Ny]
+    return (scratch && Nx == Ny && xinds == yinds ? x :
+            similar(Array{Ty}, yinds))
 end
 
-function vcreate(::Type{P},
+function vcreate(P::Type{<:Union{Adjoint,Inverse}},
                  A::AbstractArray{Ta,Na},
-                 x::AbstractArray{Tx,Nx}) where {Ta<:AbstractFloat, Na,
-                                                 Tx<:AbstractFloat, Nx,
-                                                 P<:Union{Adjoint,Inverse}}
-    inds = axes(A)
+                 x::AbstractArray{Tx,Nx},
+                 scratch::Bool=false) where {Ta,Na,Tx,Nx}
+    Ainds = axes(A)
+    xinds = axes(x)
     Ny = Na - Nx
-    if Nx ≥ Na || axes(x) != inds[1:Nx]
+    (Nx < Na && xinds == Ainds[1:Nx]) ||
         throw(DimensionMismatch("the axes of `x` do not match the leading axes of `A`"))
-    end
+    yinds = Ainds[Nx+1:end]
     Ty = promote_type(Ta, Tx)
-    return similar(Array{Ty}, inds[Nx+1:end])
+    return (scratch && Nx == Ny && xinds == yinds ? x :
+            similar(Array{Ty}, yinds))
 end
-
 
 # Pure Julia code implementations.
 
@@ -620,18 +613,17 @@ function _apply!(α::Real,
                  A::AbstractArray{Ta},
                  x::AbstractArray{Tx},
                  β::Real,
-                 y::AbstractArray{Ty}) where {Ta<:Real, Tx<:Real, Ty<:Real}
+                 y::AbstractArray{Ty}) where {Ta,Tx,Ty}
     if β != 1
         vscale!(y, β)
     end
     if α != 0
         # Loop through the coefficients of A assuming column-major storage
         # order.
-        T = promote_type(Ta, Tx, Ty)
-        alpha = convert(T, α)
-        I, J = CartesianIndices(axes(y)), CartesianIndices(axes(x))
+        alpha = convert_multiplier(α, Ta, Tx)
+        I, J = fastrange(axes(y)), fastrange(axes(x))
         @inbounds for j in J
-            xj = alpha*convert(T, x[j])
+            xj = alpha*x[j]
             if xj != zero(xj)
                 @simd for i in I
                     y[i] += A[i,j]*xj
@@ -645,7 +637,7 @@ end
 function _apply!(y::AbstractArray{Ty},
                  ::Type{Adjoint},
                  A::AbstractArray{Ta},
-                 x::AbstractArray{Tx}) where {Ta<:Real, Tx<:Real, Ty<:Real}
+                 x::AbstractArray{Tx}) where {Ta,Tx,Ty}
     return _apply!(promote_type(Ty, Ta, Tx), y, Adjoint, A, x)
 end
 
@@ -654,15 +646,15 @@ function _apply!(α::Real,
                  A::AbstractArray{Ta},
                  x::AbstractArray{Tx},
                  β::Real,
-                 y::AbstractArray{Ty}) where {Ta<:Real, Tx<:Real, Ty<:Real}
+                 y::AbstractArray{Ty}) where {Ta,Tx,Ty}
     if α == 0
         vscale!(y, β)
     else
         # Loop through the coefficients of A assuming column-major storage
         # order.
-        T = promote_type(Ta, Tx, Ty)
-        alpha = convert(T, α)
-        I, J = CartesianIndices(axes(x)), CartesianIndices(axes(y))
+        T = promote_type(Ta, Tx)
+        alpha = convert_multiplier(α, T)
+        I, J = fastrange(axes(x)), fastrange(axes(y))
         if β == 0
             @inbounds for j in J
                 local s::T = zero(T)
@@ -672,7 +664,7 @@ function _apply!(α::Real,
                 y[j] = alpha*s
             end
         else
-            beta = convert(T, β)
+            beta = convert_multiplier(β, Ty)
             @inbounds for j in J
                 local s::T = zero(T)
                 @simd for i in I

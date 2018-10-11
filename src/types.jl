@@ -124,9 +124,8 @@ these operations are assumed possible (except `Adjoint` and `InverseAdjoint`
 for a nonlinear mapping).
 
 See also: [`apply`](@ref), [`apply!`](@ref), [`vcreate`](@ref),
-          [`LinearType`](@ref), [`is_applicable_in_place`](@ref),
-          [`Scalar`](@ref), [`Direct`](@ref), [`Adjoint`](@ref),
-          [`Inverse`](@ref), [`InverseAdjoint`](@ref).
+          [`LinearType`](@ref), [`Scalar`](@ref), [`Direct`](@ref),
+          [`Adjoint`](@ref), [`Inverse`](@ref), [`InverseAdjoint`](@ref).
 
 """
 abstract type Mapping <: Function end
@@ -283,33 +282,6 @@ for T in (:DiagonalMapping, :NonDiagonalMapping)
     @eval begin
         struct $T <: DiagonalType end
         @doc @doc(DiagonalType) $T
-    end
-end
-
-"""
-
-The *in-place* trait indicates whether a mapping is applicable in-place.
-Abstract type `InPlaceType` has two concrete singleton sub-types: `InPlace` for
-mappings which are applicable with the same input and output arguments or
-`OutOfPlace` for mappings which must be applied with different input and output
-arguments.  The call:
-
-```julia
-InPlaceType([P=Direct,] A)
-```
-
-yields whether the mapping `A` is applicable in-place for operation `P`.  The
-retuned value is one of `InPlace` or `OutOfPlace`.
-
-See also: [`Trait`](@ref), [`is_applicable_in_place`](@ref).
-
-"""
-abstract type InPlaceType <: Trait end
-
-for T in (:InPlace, :OutOfPlace)
-    @eval begin
-        struct $T <: InPlaceType end
-        @doc @doc(InPlaceType) $T
     end
 end
 

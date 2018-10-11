@@ -68,3 +68,5 @@
 
 * Decide that, unless forbidden, inv is always possible (may be clash when
   trying to apply).  Or decide the opposite.
+
+* Optimize `FiniteDifferences` for other multipliers.

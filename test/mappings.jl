@@ -17,7 +17,8 @@ module LazyAlgebraMappingTests
 
 using LazyAlgebra
 using LazyAlgebra: Scaled, Sum, Composition, # not exported by default
-    Endomorphism, EndomorphismType
+    Endomorphism, EndomorphismType,
+    is_same_mutable_object
 
 # Deal with compatibility issues.
 using Compat
@@ -61,11 +62,13 @@ const OPERATIONS = (Direct, Adjoint, Inverse, InverseAdjoint)
 const FLOATS = (Float32, Float64)
 const COMPLEXES = (ComplexF32, ComplexF64)
 
-function almost_same(x::AbstractArray{Tx,Nx},
-                     y::AbstractArray{Ty,Ny};
-                     atol::Real=0,
-                     rtol::Real=relative_tolerance(Tx,Ty)) where {Tx<:Real,Nx,
-                                                                  Ty<:Real,Ny}
+function almost_equal(x::AbstractArray{Tx,Nx},
+                      y::AbstractArray{Ty,Ny};
+                      atol::Real=0,
+                      rtol::Real=relative_tolerance(Tx,Ty)) where {Tx<:Real,Nx,
+                                                                   Ty<:Real,Ny}
+    @assert isfinite(atol) && atol ≥ 0
+    @assert isfinite(rtol) && 0 ≤ rtol < 1
     return (axes(x) == axes(y) &&
             vnorm2(x - y) ≤ atol + rtol*max(vnorm2(x),vnorm2(y)))
 end
@@ -76,15 +79,19 @@ relative_tolerance(::Type{Tx}, ::Type{Ty}) where {Tx<:Real,Ty<:Real} =
 function test_all()
     @testset "Mappings" begin
         test_rules()
-        test_identity()
         test_standard_uniform_scaling()
-        test_scaling()
         test_rank_one_operator()
         test_non_uniform_scaling()
         test_generalized_matrices()
-        test_sparse_operator()
         test_finite_differences()
         test_fft_operator()
+        if VERSION ≥ v"0.7"
+            test_identity()
+            test_scaling()
+            test_sparse_operator()
+        else
+            @warn "Some tests are broken for Julia < 0.7"
+        end
     end
 end
 
@@ -97,7 +104,7 @@ function test_rules()
         A = SomeLinearMapping(:A)
         B = SomeLinearMapping(:B)
         C = SomeLinearMapping(:C)
-        C = SomeLinearMapping(:D)
+        D = SomeLinearMapping(:D)
         @test M !== P
         @test A !== B
         @test is_linear(M) == false
@@ -172,11 +179,18 @@ function test_rules()
         @test +M === M
         @test -(-M) === M
         if VERSION < v"0.7"
-             # FIXME: segmentation fault with Julia ≤ 0.7
-            @test -M === (-1)*M
-        end
-        if VERSION < v"0.7"
             # FIXME: segmentation fault with Julia ≤ 0.7
+            # -------------------------------------------------------------------
+            # Julia Options                                    Result
+            # --check-bounds=... --optimize=... --inline=...
+            # -------------------------------------------------------------------
+            #                yes            0            no    OK
+            #                yes            0            yes   Segmentation Fault
+            #                yes            3            no    OK
+            #                no             3            no    OK
+            #                no             3            yes   Segmentation Fault
+            # -------------------------------------------------------------------
+            @test -M === (-1)*M
             @test 3A === forceScaled(3,A)
             @test 7M === forceScaled(7,M)
             @test A+2M === forceSum(A,forceScaled(2,M))
@@ -213,20 +227,18 @@ function test_identity()
         @test SelfAdjointType(I) <: SelfAdjoint
         @test MorphismType(I) <: Endomorphism
         @test DiagonalType(I) <: DiagonalMapping
-        for P in OPERATIONS
-            @test InPlaceType(P, I) <: InPlace
-        end
         for T in FLOATS
             atol, rtol = zero(T), sqrt(eps(T))
             x = randn(T, dims)
             y = randn(T, dims)
-            @test pointer(I*x) == pointer(x)
+            @test is_same_mutable_object(I*x, x)
+            @test is_same_mutable_object(I*y, y)
             for P in OPERATIONS
-                @test pointer(apply(P,I,x)) == pointer(I*x)
-                z = vcreate(P, I, x)
+                @test is_same_mutable_object(apply(P,I,x), x)
+                z = vcreate(y)
                 for α in ALPHAS, β in BETAS
-                    vcopy!(z, y)
-                    @test apply!(α, P, I, x, β, z) ≈ α*x + β*y atol=atol rtol=rtol norm=vnorm2
+                    @test almost_equal(apply!(α, P, I, x, β, vcopy!(z, y)),
+                                      (α*x + β*y), rtol=rtol)
                 end
             end
         end
@@ -281,10 +293,10 @@ function test_scaling()
         γ = sqrt(2)
         U = γ*I
         atol, rtol = zero(T), sqrt(eps(T))
-        @test U*x  ≈ γ*x     atol=atol rtol=rtol norm=vnorm2
-        @test U'*x ≈ γ*x     atol=atol rtol=rtol norm=vnorm2
-        @test U\x  ≈ (1/γ)*x atol=atol rtol=rtol norm=vnorm2
-        @test U'\x ≈ (1/γ)*x atol=atol rtol=rtol norm=vnorm2
+        @test almost_equal(U*x  , γ*x     , rtol=rtol)
+        @test almost_equal(U'*x , γ*x     , rtol=rtol)
+        @test almost_equal(U\x  , (1/γ)*x , rtol=rtol)
+        @test almost_equal(U'\x , (1/γ)*x , rtol=rtol)
         for α in ALPHAS,
             β in BETAS
             for P in (Direct, Adjoint)
@@ -313,9 +325,6 @@ function test_rank_one_operator()
         @test LinearType(A) <: Linear
         @test LinearType(C) <: Linear
         @test MorphismType(C) <: Endomorphism
-        for P in OPERATIONS
-            @test InPlaceType(P, C) <: InPlace
-        end
         @test A*I === A
         @test I*A === A
         @test A*x  ≈ sum(w.*x)*w atol=atol rtol=rtol norm=vnorm2
@@ -427,9 +436,6 @@ function test_generalized_matrices()
 end
 
 function test_sparse_operator()
-    @static if VERSION < v"0.7"
-        @warn "Many sparse operators tests broken for Julia < 0.7"
-    end
     rows, cols = (2,3,4), (5,6)
     nrows, ncols = prod(rows), prod(cols)
     @testset "Sparse matrices ($T)" for T in FLOATS
@@ -447,33 +453,26 @@ function test_sparse_operator()
         mA = reshape(A, nrows, ncols)
         vx = reshape(x, ncols)
         vy = reshape(y, nrows)
-        @static if VERSION ≥ v"0.7"
-            Sx = S*x
-            @test almost_same(Sx, reshape(mA*vx,  rows))
-            Sty = S'*y
-            @test almost_same(Sty, reshape(mA'*vy, cols))
-        else
-            Sx = reshape(mA*vx,  rows)
-            Sty = reshape(mA'*vy, cols)
-        end
-        @test almost_same(Sx, G*x)
-        @test almost_same(Sty, G'*y)
+        Sx = S*x
+        @test almost_equal(Sx, reshape(mA*vx,  rows))
+        Sty = S'*y
+        @test almost_equal(Sty, reshape(mA'*vy, cols))
+        @test almost_equal(Sx, G*x)
+        @test almost_equal(Sty, G'*y)
         ## Use another constructor with integer conversion.
         R = SparseOperator(Int32.(output_size(S)),
                            Int64.(input_size(S)),
-                           S.A, Int32.(S.I), Int64.(S.J))
-        @static if VERSION ≥ v"0.7"
-            @test almost_same(Sx, R*x)
-        end
-        @test almost_same(Sty, R'*y)
+                           LazyAlgebra.coefs(S),
+                           Int32.(LazyAlgebra.rows(S)),
+                           Int64.(LazyAlgebra.cols(S)))
+        @test almost_equal(Sx, R*x)
+        @test almost_equal(Sty, R'*y)
         for α in ALPHAS,
             β in BETAS
-            @static if VERSION ≥ v"0.7"
-                @test almost_same(apply!(α, Direct, S, x, β, vcopy(y)),
-                                  T(α)*Sx + T(β)*y)
-                @test almost_same(apply!(α, Adjoint, S, y, β, vcopy(x)),
-                                  T(α)*Sty + T(β)*x)
-            end
+            @test almost_equal(apply!(α, Direct, S, x, β, vcopy(y)),
+                               T(α)*Sx + T(β)*y)
+            @test almost_equal(apply!(α, Adjoint, S, y, β, vcopy(x)),
+                               T(α)*Sty + T(β)*x)
         end
     end
 end

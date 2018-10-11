@@ -144,41 +144,34 @@ end
 
 """
 ```julia
-is_applicable_in_place([P,] A, x)
+convert_multiplier(α, T...)
 ```
 
-yields whether mapping `A` is applicable *in-place* for performing operation
-`P` with argument `x`, that is with the result stored into the argument `x`.
-This can be used to spare allocating ressources.
+converts the scalar `α` in a suitable type for operations involving arguments
+of types `T...`.  In general, `T...` is a single type and is the element type
+of the variables to be multiplied by `α`.
 
-See also: [`InPlaceType`](@ref), [`LinearMapping`](@ref), [`apply!`](@ref).
+!!! note
+    For now, complex-valued multipliers are not supported.  The type of the
+    multiplier `α` must be integer or floating-point.  If `α` and the real part
+    of all types `T...` are integers, the returned value is and integer;
+    otherwise, the returned value is a floating-point.
 
-"""
-is_applicable_in_place(::Type{<:Operations}, A::Mapping, x) = false
-is_applicable_in_place(A::Mapping, x) =
-    is_applicable_in_place(Direct, A, x)
-
-"""
-
-`promote_scalar(T1, [T2, ...] α)` yields scalar `α` converted to
-`promote_type(T1, T2, ...)`.
+See also: [`convert`](@ref) and [`promote_type`](@ref).
 
 """
-promote_scalar(::Type{T1}, alpha::Real) where {T1<:AbstractFloat} =
-    convert(T1, alpha)
+convert_multiplier(α::Real, T::Type{<:Number}, args::Type{<:Number}...) =
+    convert_multiplier(α, promote_type(T, args...))
 
-function promote_scalar(::Type{T1}, ::Type{T2},
-                        alpha::Real) where {T1<:AbstractFloat,
-                                            T2<:AbstractFloat}
-    return convert(promote_type(T1, T2), alpha)
-end
+# Sub-types of Number are: Complex and Real.
+convert_multiplier(α::Real, ::Type{Complex{T}}) where {T<:Real} =
+    convert_multiplier(α, T)
 
-function promote_scalar(::Type{T1}, ::Type{T2}, ::Type{T3},
-                        alpha::Real) where {T1<:AbstractFloat,
-                                            T2<:AbstractFloat,
-                                            T3<:AbstractFloat}
-    return convert(promote_type(T1, T2, T3), alpha)
-end
+# Sub-types of Real are: AbstractFloat, AbstractIrrational, Integer and
+# Rational.
+convert_multiplier(α::Integer, T::Type{<:Integer}) = convert(T, α)
+convert_multiplier(α::Real, T::Type{<:AbstractFloat}) = convert(T, α)
+convert_multiplier(α::Real, T::Type{<:Real}) = convert(float(T), α)
 
 """
 ```julia
@@ -301,7 +294,7 @@ fastrange(A::AbstractArray) = fastrange(axes(A))
         CartesianIndices(map((d) -> Base.OneTo(Int(d)), dims))
     fastrange(dims::NTuple{N,Int}) where {N} =
         CartesianIndices(map(Base.OneTo, dims))
-    fastrange(dims::NTuple{N,AbstractUnitRange{<:Integer}}) where {N} =
+    fastrange(inds::NTuple{N,AbstractUnitRange{<:Integer}}) where {N} =
         CartesianIndices(inds)
 else
     import Base: indices
@@ -312,7 +305,23 @@ else
         CartesianRange(start, stop)
     fastrange(dims::NTuple{N,Integer}) where {N} =
         CartesianRange(one(CartesianIndex{N}), CartesianIndex(dims))
-    fastrange(dims::NTuple{N,AbstractUnitRange{<:Integer}}) where {N} =
+    fastrange(inds::NTuple{N,AbstractUnitRange{<:Integer}}) where {N} =
         CartesianRange(CartesianIndex(map(first, inds)),
                        CartesianIndex(map(last,  inds)))
 end
+
+"""
+```julia
+is_same_mutable_object(a, b)
+```
+
+yields whether `a` and `b` are references to the same object.  This function
+can be used to check whether [`vcreate`](@ref) returns the same object as the
+input variables.
+
+This function is very fast, it takes a few nanoseonds on my laptop.
+
+"""
+is_same_mutable_object(a, b) =
+    (! isimmutable(a) && ! isimmutable(b) &&
+     pointer_from_objref(a) === pointer_from_objref(b))

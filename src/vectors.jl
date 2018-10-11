@@ -338,7 +338,7 @@ for (Td, Ts) in ((:Td,            :Ts),
                     dst[i] = -src[i]
                 end
             else
-                a = promote_scalar(Td, Ts, α)
+                a = convert_multiplier(α, Ts)
                 @inbounds @simd for i in eachindex(dst, src)
                     dst[i] = a*src[i]
                 end
@@ -359,7 +359,7 @@ function vscale!(x::AbstractArray{<:Union{T,Complex{T}}},
             x[i] = -x[i]
         end
     elseif α != 1
-        alpha = convert(T, α)
+        alpha = convert_multiplier(α, T)
         @inbounds @simd for i in eachindex(x)
             x[i] *= alpha
         end
@@ -504,7 +504,7 @@ for (Tx, Ty) in ((:Tx,            :Ty),
                 y[i] -= x[i]
             end
         elseif α != 0
-            a = promote_scalar(Tx, Ty, α)
+            a = convert_multiplier(α, Tx)
             @inbounds @simd for i in eachindex(y, x)
                 y[i] += a*x[i]
             end
@@ -532,7 +532,7 @@ for (Tx, Ty) in ((:Tx,            :Ty),
                 y[j] -= x[j]
             end
         elseif α != 0
-            a = promote_scalar(Tx, Ty, α)
+            a = convert_multiplier(α, Tx)
             @inbounds @simd for i in eachindex(sel)
                 j = sel[i]
                 y[j] += a*x[j]
@@ -613,7 +613,7 @@ for (Td, Tx, Ty) in ((:Td,            :Tx,            :Ty),
                         dst[i] = x[i] - y[i]
                     end
                 else
-                    b = promote_scalar(Td, Tx, Ty, β)
+                    b = convert_multiplier(β, Ty)
                     @inbounds @simd for i in eachindex(dst, x, y)
                         dst[i] = x[i] + b*y[i]
                     end
@@ -628,13 +628,13 @@ for (Td, Tx, Ty) in ((:Td,            :Tx,            :Ty),
                         dst[i] = -x[i] - y[i]
                     end
                 else
-                    b = promote_scalar(Td, Tx, Ty, β)
+                    b = convert_multiplier(β, Ty)
                     @inbounds @simd for i in eachindex(dst, x, y)
                         dst[i] = b*y[i] - x[i]
                     end
                 end
             else
-                a = promote_scalar(Td, Tx, Ty, α)
+                a = convert_multiplier(α, Tx)
                 if β == 1
                     @inbounds @simd for i in eachindex(dst, x, y)
                         dst[i] = a*x[i] + y[i]
@@ -644,7 +644,7 @@ for (Td, Tx, Ty) in ((:Td,            :Tx,            :Ty),
                         dst[i] = a*x[i] - y[i]
                     end
                 else
-                    b = promote_scalar(Td, Tx, Ty, β)
+                    b = convert_multiplier(β, Ty)
                     @inbounds @simd for i in eachindex(dst, x, y)
                         dst[i] = a*x[i] + b*y[i]
                     end
