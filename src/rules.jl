@@ -206,7 +206,7 @@ inv(A::T) where {T<:Mapping} = Inverse{T}(A)
 inv(A::Adjoint{T}) where {T} = InverseAdjoint{T}(A.op)
 inv(A::Inverse) = A.op
 inv(A::InverseAdjoint) = adjoint(A.op)
-inv(A::Scaled) = (one(A.sc)/A.sc)*inv(A.op)
+inv(A::Scaled) = inv(A.op)*(inv(A.sc)*I)
 inv(A::Sum) = error(UnsupportedInverseOfSumOfMappings)
 inv(A::Composition) = Composition(reversemap(inv, A.ops))
 
