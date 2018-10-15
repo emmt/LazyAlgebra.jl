@@ -55,14 +55,6 @@ const Complexes = Complex{<:Reals}
 
 """
 
-A `Scalar` is used to represent multipliers or scaling factors when combining
-mappings.  For now, scalars are double precision floating-point.
-
-"""
-const Scalar = Float64
-
-"""
-
 A `Mapping` is any function between two variables spaces.  Assuming upper case
 Latin letters denote mappings, lower case Latin letters denote variables, and
 Greek letters denote scalars, then:
@@ -382,9 +374,11 @@ should not use a `Scaled` constructor directly but rather use the `*` operator
 resulting in improved efficiency.
 
 """
-struct Scaled{T<:Mapping} <: Mapping
-    sc::Scalar
-    op::T
+struct Scaled{T<:Mapping,S<:Number} <: Mapping
+    λ::S
+    M::T
+    Scaled{T,S}(λ::S, M::Mapping) where {S<:Number,T<:Mapping} =
+        new{T,S}(λ, M)
 end
 
 """

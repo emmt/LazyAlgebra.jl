@@ -41,7 +41,6 @@ export
     NonuniformScalingOperator,
     Operations,
     RankOneOperator,
-    Scalar,
     SelfAdjoint,
     SelfAdjointType,
     SimpleFiniteDifferences,
@@ -53,7 +52,6 @@ export
     apply!,
     apply,
     conjgrad!,
-    conjgrad!,
     conjgrad,
     contents,
     input_eltype,
@@ -64,6 +62,9 @@ export
     is_endomorphism,
     is_linear,
     is_selfadjoint,
+    multiplier,
+    operand,
+    operands,
     output_eltype,
     output_ndims,
     output_size,
@@ -148,7 +149,7 @@ end
 
 import Base: *, ∘, +, -, \, /, ==, inv,
     show, showerror, convert, eltype, ndims, size, length, stride,
-    getindex, setindex!, eachindex
+    getindex, setindex!, eachindex, first, last
 
 include("types.jl")
 include("methods.jl")

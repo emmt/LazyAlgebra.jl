@@ -40,24 +40,24 @@ for T in (Scaled{Identity}, Mapping)
         *(A::$T, B::Identity) = A
     end
 end
-*(A::Scaled{Identity}, B::Scaled{Identity}) = (A.sc*B.sc)*I
-*(A::Scaled{Identity}, B::Mapping) = A.sc*B
-*(A::LinearMapping, B::Scaled{Identity}) = B.sc*A
+*(A::Scaled{Identity}, B::Scaled{Identity}) = (multiplier(A)*multiplier(B))*I
+*(A::Scaled{Identity}, B::Mapping) = multiplier(A)*B
+*(A::LinearMapping, B::Scaled{Identity}) = multiplier(B)*A
 *(A::Mapping, B::Scaled{Identity}) =
-    islinear(A) ? B.sc*A : Composition(A, B)
+    is_linear(A) ? multiplier(B)*A : Composition(A, B)
 
 # Extend addition for the (scaled) identity.  Extending subtraction is not
 # necessary.
 +(::Identity, ::Identity) = 2*I
-+(A::Identity, B::Scaled{Identity}) = (1 + B.sc)*I
-+(A::Scaled{Identity}, B::Identity) = (A.sc + 1)*I
-+(A::Scaled{Identity}, B::Scaled{Identity}) = (A.sc + B.sc)*I
++(A::Identity, B::Scaled{Identity}) = (1 + multiplier(B))*I
++(A::Scaled{Identity}, B::Identity) = (multiplier(A) + 1)*I
++(A::Scaled{Identity}, B::Scaled{Identity}) = (multiplier(A) + multiplier(B))*I
 
 # Extend equality for the (scaled) identity for a small gain in performances.
 ==(::Identity, ::Identity) = true
-==(::Identity, A::Scaled{Identity}) = (A.sc == one(A.sc))
-==(A::Scaled{Identity}, ::Identity) = (A.sc == one(A.sc))
-==(A::Scaled{Identity}, B::Scaled{Identity}) = (A.sc == B.sc)
+==(::Identity, A::Scaled{Identity}) = (multiplier(A) == one(multiplier(A)))
+==(A::Scaled{Identity}, ::Identity) = (multiplier(A) == one(multiplier(A)))
+==(A::Scaled{Identity}, B::Scaled{Identity}) = (multiplier(A) == multiplier(B))
 
 apply(::Type{<:Operations}, ::Identity, x, scratch::Bool=false) = x
 
@@ -98,7 +98,7 @@ UniformScalingOperator
 
 @deprecate UniformScalingOperator(α::Number) α*Identity()
 
-isinvertible(A::Scaled{Identity}) = (isfinite(A.sc) && A.sc != zero(A.sc))
+isinvertible(A::Scaled{Identity}) = (isfinite(multiplier(A)) && multiplier(A) != zero(multiplier(A)))
 
 ensureinvertible(A::Scaled{Identity}) =
     isinvertible(A) ||
@@ -106,7 +106,7 @@ ensureinvertible(A::Scaled{Identity}) =
 
 function inv(A::Scaled{Identity})
     ensureinvertible(A)
-    return (1/A.sc)*I
+    return (1/multiplier(A))*I
 end
 
 #------------------------------------------------------------------------------

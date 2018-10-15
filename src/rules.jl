@@ -22,35 +22,31 @@ Inverse(A) = error("use `inv(A)` instead of `Inverse(A)`")
 Adjoint(A) = error("use `A'` or `adjoint(A)` instead of `Adjoint(A)`")
 InverseAdjoint(A) = error("use `inv(A')`, `inv(A)'`, `inv(adjoint(A))` or `adjoint(inv(A))` instead of `InverseAdjoint(A)` or `AdjointInverse(A)")
 
-# Extend the `length` method to yield the number of components of a sum or
-# composition of mappings.
-length(::Union{Sum{N},Composition{N}}) where {N} = N
-
 # Non-specific constructors for the *linear* trait.
 LinearType(::LinearMapping) = Linear
 LinearType(::Scaled{<:LinearMapping}) = Linear
-LinearType(A::Union{Scaled,Inverse}) = LinearType(A.op)
+LinearType(A::Union{Scaled,Inverse}) = LinearType(operand(A))
 LinearType(::Mapping) = NonLinear # anything else is non-linear
 LinearType(A::Union{Sum,Composition}) =
-    all(is_linear, A.ops) ? Linear : NonLinear
+    all(is_linear, operands(A)) ? Linear : NonLinear
 
 # Non-specific constructors for the *self-adjoint* trait.
 SelfAdjointType(::Mapping) = NonSelfAdjoint
-SelfAdjointType(A::Union{Scaled,Inverse}) = SelfAdjointType(A.op)
+SelfAdjointType(A::Union{Scaled,Inverse}) = SelfAdjointType(operand(A))
 SelfAdjointType(A::Sum) =
-    all(is_selfadjoint, A.ops) ? SelfAdjoint : NonSelfAdjoint
+    all(is_selfadjoint, operands(A)) ? SelfAdjoint : NonSelfAdjoint
 
 # Non-specific constructors for the *morphism* trait.
 MorphismType(::Mapping) = Morphism
-MorphismType(A::Union{Scaled,Inverse}) = MorphismType(A.op)
+MorphismType(A::Union{Scaled,Inverse}) = MorphismType(operand(A))
 MorphismType(A::Union{Sum,Composition}) =
-    all(is_endomorphism, ops) ? Endomorphism : Morphism
+    all(is_endomorphism, operands(A)) ? Endomorphism : Morphism
 
 # Non-specific constructors for the *diagonal* trait.
 DiagonalType(::Mapping) = NonDiagonalMapping
-DiagonalType(A::Union{Scaled,Inverse}) = DiagonalType(A.op)
+DiagonalType(A::Union{Scaled,Inverse}) = DiagonalType(operand(A))
 DiagonalType(A::Union{Sum,Composition}) =
-    all(is_diagonal, A.ops) ? DiagonalMapping : NonDiagonalMapping
+    all(is_diagonal, operands(A)) ? DiagonalMapping : NonDiagonalMapping
 
 """
 ```julia
@@ -142,9 +138,9 @@ _is_diagonal(::Type{NonDiagonalMapping}) = false
 +(A::Mapping) = A
 
 # Sum of mappings.
-+(A::Sum, B::Mapping) = Sum(A.ops..., B)
-+(A::Mapping, B::Sum) = Sum(A, B.ops...)
-+(A::Sum, B::Sum) = Sum(A.ops..., B.ops...)
++(A::Sum, B::Mapping) = Sum(operands(A)..., B)
++(A::Mapping, B::Sum) = Sum(A, operands(B)...)
++(A::Sum, B::Sum) = Sum(operands(A)..., operands(B)...)
 +(A::Mapping, B::Mapping) = Sum(A, B)
 
 # Subtraction.
@@ -157,15 +153,15 @@ _is_diagonal(::Type{NonDiagonalMapping}) = false
 ⋅(A::T, B::Mapping) where {T} = A*B
 
 # Left scalar muliplication of a mapping.
-*(alpha::Real, A::Scaled) = (alpha*A.sc)*A.op
-*(alpha::Real, A::T) where {T<:Mapping} =
-    (alpha == one(alpha) ? A : Scaled{T}(alpha, A))
+*(α::Number, A::Scaled) = (α*multiplier(A))*operand(A)
+*(α::S, A::T) where {S<:Number,T<:Mapping} =
+    (α == one(α) ? A : Scaled{T,S}(α, A))
 
 # Composition of mappings and right multiplication of a mapping by a vector.
 ∘(A::Mapping, B::Mapping) = A*B
-*(A::Composition, B::Mapping) = Composition(A.ops..., B)
-*(A::Composition, B::Composition) = Composition(A.ops..., B.ops...)
-*(A::Mapping, B::Composition) = Composition(A, B.ops...)
+*(A::Composition, B::Mapping) = Composition(operands(A)..., B)
+*(A::Composition, B::Composition) = Composition(operands(A)..., operands(B)...)
+*(A::Mapping, B::Composition) = Composition(A, operands(B)...)
 *(A::Mapping, B::Mapping) = Composition(A, B)
 *(A::Mapping, x::T) where {T} = apply(A, x)
 
@@ -174,22 +170,22 @@ _is_diagonal(::Type{NonDiagonalMapping}) = false
 /(A::Mapping, B::Mapping) = A*inv(B)
 
 adjoint(A::Mapping) = _adjoint(SelfAdjointType(A), A)
-adjoint(A::Inverse) = inv(adjoint(A.op))
-adjoint(A::Adjoint) = A.op
-adjoint(A::InverseAdjoint) = inv(A.op)
-adjoint(A::Scaled) = conj(A.sc)*adjoint(A.op)
-adjoint(A::Sum) = Sum(map(adjoint, A.ops))
-adjoint(A::Composition) = Composition(reversemap(adjoint, A.ops))
+adjoint(A::Inverse) = inv(adjoint(operand(A)))
+adjoint(A::Adjoint) = operand(A)
+adjoint(A::InverseAdjoint) = inv(operand(A))
+adjoint(A::Scaled) = conj(multiplier(A))*adjoint(operand(A))
+adjoint(A::Sum) = Sum(map(adjoint, operands(A)))
+adjoint(A::Composition) = Composition(reversemap(adjoint, operands(A)))
 _adjoint(::Type{SelfAdjoint}, A::Mapping) = A
 _adjoint(::Type{NonSelfAdjoint}, A::T) where {T<:Mapping} = Adjoint{T}(A)
 
 inv(A::T) where {T<:Mapping} = Inverse{T}(A)
-inv(A::Adjoint{T}) where {T} = InverseAdjoint{T}(A.op)
-inv(A::Inverse) = A.op
-inv(A::InverseAdjoint) = adjoint(A.op)
-inv(A::Scaled) = inv(A.op)*(inv(A.sc)*I)
+inv(A::Adjoint{T}) where {T} = InverseAdjoint{T}(operand(A))
+inv(A::Inverse) = operand(A)
+inv(A::InverseAdjoint) = adjoint(operand(A))
+inv(A::Scaled) = inv(operand(A))*(inv(multiplier(A))*I)
 inv(A::Sum) = error(UnsupportedInverseOfSumOfMappings)
-inv(A::Composition) = Composition(reversemap(inv, A.ops))
+inv(A::Composition) = Composition(reversemap(inv, operands(A)))
 
 #------------------------------------------------------------------------------
 # APPLY AND VCREATE
@@ -353,17 +349,17 @@ mul!(y::Ty, A::Mapping, x::Tx) where {Tx,Ty} =
 
 # Implemention of the `apply!(α,P,A,x,scratch,β,y)` and
 # `vcreate(P,A,x,scratch)` methods for a scaled mapping.
-for (P, expr) in ((:Direct, :(α*A.sc)),
-                  (:Adjoint, :(α*conj(A.sc))),
-                  (:Inverse, :(α/A.sc)),
-                  (:InverseAdjoint, :(α/conj(A.sc))))
+for (P, expr) in ((:Direct, :(α*multiplier(A))),
+                  (:Adjoint, :(α*conj(multiplier(A)))),
+                  (:Inverse, :(α/multiplier(A))),
+                  (:InverseAdjoint, :(α/conj(multiplier(A)))))
     @eval begin
 
         vcreate(::Type{$P}, A::Scaled, x, scratch::Bool=false) =
-            vcreate($P, A.op, x)
+            vcreate($P, operand(A), x)
 
         apply!(α::Real, ::Type{$P}, A::Scaled, x, scratch::Bool, β::Real, y) =
-            apply!($expr, $P, A.op, x, scratch, β, y)
+            apply!($expr, $P, operand(A), x, scratch, β, y)
 
     end
 end
@@ -386,13 +382,13 @@ for (T1, T2, T3) in ((:Direct,         :Adjoint,        :Adjoint),
     @eval begin
 
         vcreate(::Type{$T1}, A::$T2, x, scratch::Bool=false) =
-            vcreate($T3, A.op, x, scratch)
+            vcreate($T3, operand(A), x, scratch)
 
-        apply!(α::Real, ::Type{$T1}, A::$T2, x, β::Real, y) = # FIXME: not needed!
-            apply!(α, $T3, A.op, x, false, β, y)
+        apply!(α::Real, ::Type{$T1}, A::$T2, x, β::Real, y) =
+            apply!(α, $T3, operand(A), x, false, β, y)
 
         apply!(α::Real, ::Type{$T1}, A::$T2, x, scratch::Bool, β::Real, y) =
-            apply!(α, $T3, A.op, x, scratch, β, y)
+            apply!(α, $T3, operand(A), x, scratch, β, y)
 
     end
 end
@@ -405,7 +401,7 @@ function vcreate(::Type{P}, A::Sum, x,
                  scratch::Bool=false) where {P<:Union{Direct,Adjoint}}
     # The sum only makes sense if all mappings yields the same kind of result.
     # Hence we just call the vcreate method for the first mapping of the sum.
-    vcreate(P, A.ops[1], x, scratch)
+    vcreate(P, A[1], x, scratch)
 end
 
 function apply!(α::Real, ::Type{P}, A::Sum{N}, x, scratch::Bool,
@@ -414,9 +410,9 @@ function apply!(α::Real, ::Type{P}, A::Sum{N}, x, scratch::Bool,
     # always false until last mapping because we must preserve x as there is
     # more than one term.
     @assert N ≥ 2 "bug in Sum constructor"
-    apply!(α, P, A.ops[1], x, false, β, y)
+    apply!(α, P, A[1], x, false, β, y)
     for i in 2:N
-        apply!(α, P, A.ops[i], x, (scratch && i == N), 1, y)
+        apply!(α, P, A[i], x, (scratch && i == N), 1, y)
     end
     return y
 end
@@ -440,14 +436,14 @@ end
 # The unrolled code (taking care of allowing as few temporaries as possible and
 # for the Direct or InverseAdjoint operation) writes:
 #
-#     w1 = apply(P, A.ops[N], x, scratch)
+#     w1 = apply(P, A[N], x, scratch)
 #     scratch = (scratch || ! is_same_mutable_object(w1, x))
-#     w2 = apply!(1, P, A.ops[N-1], w1, scratch)
+#     w2 = apply!(1, P, A[N-1], w1, scratch)
 #     scratch = (scratch || ! is_same_mutable_object(w2, w1))
-#     w3 = apply!(1, P, A.ops[N-2], w2, scratch)
+#     w3 = apply!(1, P, A[N-2], w2, scratch)
 #     scratch = (scratch || ! is_same_mutable_object(w3, w2))
 #     ...
-#     return apply!(α, P, A.ops[1], wNm1, scratch, β, y)
+#     return apply!(α, P, A[1], wNm1, scratch, β, y)
 #
 # To break the type barrier, this is done by a recursion.  The recursion is
 # just done in the other direction for the Adjoint or Inverse operation.
@@ -458,7 +454,7 @@ function apply!(α::Real, P::Type{<:Union{Direct,InverseAdjoint}},
     @assert N ≥ 2 "bug in Composition constructor"
     w = _apply!(P, A, Val(2), x, scratch)
     scratch = (scratch || ! is_same_mutable_object(w, x))
-    return apply!(α, P, A.ops[1], w, scratch, β, y)
+    return apply!(α, P, A[1], w, scratch, β, y)
 end
 
 function apply(P::Type{<:Union{Direct,InverseAdjoint}},
@@ -467,7 +463,7 @@ function apply(P::Type{<:Union{Direct,InverseAdjoint}},
     @assert N ≥ 2 "bug in Composition constructor"
     w = _apply!(P, A, Val(2), x, scratch)
     scratch = (scratch || ! is_same_mutable_object(w, x))
-    return apply(P, A.ops[1], w, scratch)
+    return apply(P, A[1], w, scratch)
 end
 
 function apply!(α::Real, P::Type{<:Union{Adjoint,Inverse}},
@@ -476,7 +472,7 @@ function apply!(α::Real, P::Type{<:Union{Adjoint,Inverse}},
     @assert N ≥ 2 "bug in Composition constructor"
     w = _apply!(P, A, Val(N-1), x, scratch)
     scratch = (scratch || ! is_same_mutable_object(w, x))
-    return apply!(α, P, A.ops[N], w, scratch, β, y)
+    return apply!(α, P, A[N], w, scratch, β, y)
 end
 
 function apply(P::Type{<:Union{Adjoint,Inverse}},
@@ -485,7 +481,7 @@ function apply(P::Type{<:Union{Adjoint,Inverse}},
     @assert N ≥ 2 "bug in Composition constructor"
     w = _apply!(P, A, Val(N-1), x, scratch)
     scratch = (scratch || ! is_same_mutable_object(w, x))
-    return apply(P, A.ops[N], w, scratch)
+    return apply(P, A[N], w, scratch)
 end
 
 # Apply intermediate mappings of a composition for Direct or InverseAdjoint
@@ -495,13 +491,13 @@ function _apply!(P::Type{<:Union{Direct,InverseAdjoint}}, A::Composition{N},
     @assert 1 < i < N
     w = _apply!(P, A, Val(i+1), x, scratch)
     scratch = (scratch || ! is_same_mutable_object(w, x))
-    return apply(P, A.ops[i], w, scratch)
+    return apply(P, A[i], w, scratch)
 end
 
 # Apply last mapping of a composition for Direct or InverseAdjoint operation.
 function _apply!(P::Type{<:Union{Direct,InverseAdjoint}}, A::Composition{N},
                  ::Val{N}, x, scratch::Bool) where {N}
-    return apply(P, A.ops[N], x, scratch)
+    return apply(P, A[N], x, scratch)
 end
 
 # Apply intermediate mappings of a composition for Adjoint or InverseDirect
@@ -511,13 +507,13 @@ function _apply!(P::Type{<:Union{Adjoint,Inverse}}, A::Composition{N},
     @assert 1 < i < N
     w = _apply!(P, A, Val(i-1), x, scratch)
     scratch = (scratch || ! is_same_mutable_object(w, x))
-    return apply(P, A.ops[i], w, scratch)
+    return apply(P, A[i], w, scratch)
 end
 
 # Apply first mapping of a composition for Adjoint or Inverse operation.
 function _apply!(P::Type{<:Union{Adjoint,Inverse}}, A::Composition{N},
                  ::Val{1}, x, scratch::Bool) where {N}
-    return apply(P, A.ops[1], x, scratch)
+    return apply(P, A[1], x, scratch)
 end
 
 """

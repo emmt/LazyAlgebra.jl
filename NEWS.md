@@ -1,3 +1,14 @@
+* `show` has been extend for mapping constructions.
+
+* `contents`, too vague, is about to be suppressed and replaced by `operands` or
+  `operand`.  Getter `multiplier` is provided to query the multiplier of a
+  scaled mapping.  Methods `getindex`, `first` and `last` are extended.  In
+  principle, direct reference to a field of any base mapping structures is no
+  longer needed.
+
+* The multiplier of a scaled mapping can now be any number although applying
+  linear combination of mappings is still limited to real-valued multipliers.
+
 * Add `fftfreq`, `rfftdims`, `goodfftdim` and `goodfftdims` in `LazyAlgebra.FFT`
   and re-export `fftshift` and `ifftshift` when `using LazyAlgebra.FFT`.
 

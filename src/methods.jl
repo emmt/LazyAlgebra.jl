@@ -54,41 +54,115 @@ Also see: [`map`](@ref), [`ntuple`](@ref).
 reversemap(f::Function, args::NTuple{N,Any}) where {N} =
     ntuple(i -> f(args[(N + 1) - i]), Val(N))
 
-"""
-# Containers and Marked Objects
+show(io::IO, ::MIME"text/plain", A::Mapping) = show(io, A)
+show(io::IO, A::Identity) = print(io, "I")
+show(io::IO, A::Scaled) =
+    (multiplier(A) ≠ -one(multiplier(A)) ?
+     print(io, multiplier(A), "⋅", operand(A)) :
+     print(io, "-", operand(A)))
+show(io::IO, A::Scaled{<:Sum}) =
+    (multiplier(A) ≠ -one(multiplier(A)) ?
+     print(io, multiplier(A), "⋅(", operand(A), ")") :
+     print(io, "-(", operand(A), ")"))
 
-Julia typing system can be exploited to "mark" some object instances so that
-they are seen as another specific type.  For instance, this feature is used to
-mark linear operators as being transposed (so that they behave as their
-adjoint) or inverted (so that they behave as their inverse).
+show(io::IO, A::Adjoint{<:Mapping}) = print(io, operand(A), "'")
+show(io::IO, A::Adjoint{T}) where {T<:Scaled,Composition,Sum} =
+    print(io, "(", operand(A), ")'")
+show(io::IO, A::Inverse{<:Mapping}) = print(io, "inv(", operand(A), ")")
+show(io::IO, A::InverseAdjoint{<:Mapping}) = print(io, "inv(", operand(A), "')")
 
-These marked objects have a single member: the object that is marked.  This
-single member can be retrieved by the `contents` method.  The following piece
-of code shows the idea:
-
-
-```julia
-struct MarkedType{T}
-    data::T
+function show(io::IO, A::Sum{N}) where {N}
+    for i in 1:N
+        B = A[i]
+        if i > 1
+            if isa(B, Scaled) && multiplier(B) < 0
+                B = -1*B
+                print(io, " - ")
+            else
+                print(io, " + ")
+            end
+        end
+        if isa(B, Sum)
+            print(io, "(", B, ")")
+        else
+            print(io, B)
+        end
+    end
 end
-MarkedType(obj::T) where {T} = MarkedType{T}(obj)
-contents(obj::MarkedType) = obj.data
-```
 
-More generally, the `contents` method can be used to retrieve the contents of a
-"container" object:
-
-```julia
-contents(C)
-```
-
-yields the contents of the container `C`.  By extension, a *container* is any
-type which implements the `contents` method.
+function show(io::IO, A::Composition{N}) where {N}
+    for i in 1:N
+        B = A[i]
+        if i > 1
+            print(io, "⋅")
+        end
+        if isa(B, Sum) || isa(B, Scaled)
+            print(io, "(", B, ")")
+        else
+            print(io, B)
+        end
+    end
+end
 
 """
-contents(H::Union{Hessian,HalfHessian}) = H.obj
-contents(A::Union{Adjoint,Inverse,InverseAdjoint}) = A.op
-contents(A::Union{Sum,Composition}) = A.ops
+```julia
+operands(A)
+```
+
+yields the list (as a tuple) of operands that compose operand `A`.
+If `A` is a sum or a composition, the list of operands is returned;
+otherwise, the single-element tuple `(A,)` is returned.
+
+!!! note
+    The [`operand`](@ref) method (without an "s") has a different meaning.
+
+"""
+operands(A::Mapping) = (A,)
+operands(A::Sum) = A.ops
+operands(A::Composition) = A.ops
+
+"""
+The calls:
+
+```julia
+operand(A)
+```
+
+respectively yield the operand `M` and the multiplier `λ` if `A = λ*M` is a
+scaled operand; yield `A` and `1` otherwise.
+
+!!! note
+    The [`operands`](@ref) method (with an "s") has a different meaning.
+
+"""
+operand(A::Scaled) = A.M
+operand(A::Adjoint) = A.op
+operand(A::Inverse) = A.op
+operand(A::InverseAdjoint) = A.op
+
+"""
+```julia
+multiplier(A)
+```
+
+yields the multiplier of `A`, a scaled operand.
+
+See also: [`Scaled`](@ref), [`operand`](@ref).
+
+"""
+multiplier(A::Scaled) = A.λ
+
+# Extend base methods to simplify the code for reducing expressions.
+first(A::Mapping) = A
+last(A::Mapping) = A
+first(A::Union{Sum,Composition}) = A.ops[1]
+last(A::Union{Sum{N},Composition{N}}) where {N} = A.ops[N]
+length(A::Union{Sum{N},Composition{N}}) where {N} = N
+getindex(A::Union{Sum,Composition}, i) = A.ops[i]
+
+# To complement first() and last() when applied to tuples.
+tail(A::NTuple{N}) where {N} = A[2:N]
+head(A::NTuple{N}) where {N} = A[1:N-1]
 
 """
 ```julia
