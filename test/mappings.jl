@@ -154,7 +154,8 @@ function test_rules()
             @test inv(F) === A'
         end
         @test inv(inv(M)) === M
-        @test inv(2M) === (1/2)*inv(M)
+        @test inv(2A) === (1/2)*inv(A)
+        @test inv(2M) === inv(M)*((1/2)*I)
         @test inv(A*B) === inv(B)*inv(A)
         # Test aliases for composition.
         @test isa(M*P, Composition)
