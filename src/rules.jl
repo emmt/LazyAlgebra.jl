@@ -178,6 +178,7 @@ iszero(A::Scaled) = iszero(multiplier(A))
 iszero(::Mapping) = false
 
 # The neutral element ("one") for the composition is the identity.
+const I = Identity()
 one(::Mapping) = I
 
 isone(::Identity) = true
@@ -241,7 +242,7 @@ adjoint(A::Sum) =
     # It is assumed that the sum has already been simplified, so we just apply
     # the mathematical formula for the adjoint of a sum (keeping the same
     # ordering of terms).
-    _merge_sum(map(adjoint, operands(A)))
+    _sort_sum(map(adjoint, operands(A)))
 
 #------------------------------------------------------------------------------
 # INVERSE TYPE
@@ -256,7 +257,7 @@ inv(A::Scaled) = (is_linear(operand(A)) ? inv(multiplier(A))*inv(operand(A)) :
                   inv(operand(A))*(inv(multiplier(A))*I))
 inv(A::Inverse) = operand(A)
 inv(A::AdjointInverse) = adjoint(operand(A))
-inv(A::Adjoint) = AdjointInverse{T}(operand(A))
+inv(A::Adjoint{T}) where {T<:Mapping} = AdjointInverse{T}(operand(A))
 inv(A::Composition) =
     # It is assumed that the composition has already been simplified, so we
     # just apply the mathematical formlu for the inverse of a composition.
@@ -327,41 +328,10 @@ function _simplify_sum(args::NTuple{N,Mapping}) where {N}
             end
         end
     end
-    if length(terms) == 1
-        # There remain only one term, this is the result.
-        return terms[1]
-    end
 
-    # Sort the resulting terms (so that all equivalent expressions eventually
-    # yield the same result after simplifications) and eliminate the "zeros"
-    # (if all terms are "zero", the sum simplifies to the first one).
-    perms = sortperm(map(_identifier, terms))
-    n = 0
-    @inbounds for i in 1:length(perms)
-        j = perms[i]
-        if ! iszero(terms[j])
-            n += 1
-            perms[n] = j
-        end
-    end
-    if n ≤ 1
-        # All terms are zero or only one term is non-zero, return the first
-        # sorted term.
-        return terms[perms[1]]
-    else
-        # Make a sum out of the remaing sorted terms.
-        return _merge_sum(ntuple(i -> terms[perms[i]], n))
-    end
+    # Make a sum out of the terms after having eliminated the zeros.
+    return _sort_sum(terms)
 end
-
-# `_identifier(A)` yields an (almost) unique identifier of operand `A` (of its
-# operand component for a scaled operand).  This identifier is suitable for
-# sorting terms in a sum of operands.
-#
-# FIXME: For now, the sorting is not perfect as it is based on objectid()
-#        which is a hashing method.
-_identifier(A::Mapping) = objectid(A)
-_identifier(A::Scaled) = objectid(operand(A))
 
 # `_simplify_sum!(terms, A, B)` is a helper function for the `_simplify_sum`
 # method which attempts to make a trivial simplification for `A + B` when
@@ -398,6 +368,40 @@ function _simplify_sum!(terms::Vector{Mapping},
     @inbounds terms[end] = 2*A
     return true
 end
+
+# Sort the terms of a sum (so that all equivalent expressions eventually yield
+# the same result after simplifications) and eliminate the "zeros"
+# (if all terms are "zero", the sum simplifies to the first one).
+_sort_sum(args::Mapping...) = _sort_sum(args)
+_sort_sum(args::Tuple{Mapping}) = args[1]
+function _sort_sum(terms::Union{Tuple{Vararg{Mapping}},Vector{<:Mapping}})
+    perms = sortperm([_identifier(terms[i]) for i in 1:length(terms)])
+    n = 0
+    @inbounds for i in 1:length(perms)
+        j = perms[i]
+        if ! iszero(terms[j])
+            n += 1
+            perms[n] = j
+        end
+    end
+    if n ≤ 1
+        # All terms are zero or only one term is non-zero, return the first
+        # sorted term.
+        return terms[perms[1]]
+    else
+        # Make a sum out of the remaing sorted terms.
+        return _merge_sum(ntuple(i -> terms[perms[i]], n))
+    end
+end
+
+# `_identifier(A)` yields an (almost) unique identifier of operand `A` (of its
+# operand component for a scaled operand).  This identifier is suitable for
+# sorting terms in a sum of operands.
+#
+# FIXME: For now, the sorting is not perfect as it is based on objectid()
+#        which is a hashing method.
+_identifier(A::Mapping) = objectid(A)
+_identifier(A::Scaled) = objectid(operand(A))
 
 #------------------------------------------------------------------------------
 # COMPOSITION OF OPERANDS

@@ -53,13 +53,6 @@ SomeLinearMapping(x) = SomeLinearMapping{Val{x}}()
 is_same_mapping(::SomeMapping{T}, ::SomeMapping{T}) where {T} = true
 is_same_mapping(::SomeLinearMapping{T}, ::SomeLinearMapping{T}) where {T} = true
 
-# Overcome outer constructors barrier.
-forceAdjoint(arg::T) where {T} = Adjoint{T}(arg)
-forceInverse(arg::T) where {T} = Inverse{T}(arg)
-forceInverseAdjoint(arg::T) where {T} = InverseAdjoint{T}(arg)
-forceScaled(α::Real, A::T) where {T} = Scaled{T}(convert(Float64,α),A)
-forceSum(args...) = Sum(args)
-
 const ALPHAS = (0, 1, -1,  2.71, π)
 const BETAS = (0, 1, -1, -1.33, φ)
 const OPERATIONS = (Direct, Adjoint, Inverse, InverseAdjoint)
@@ -144,10 +137,9 @@ function test_rules()
         for X in (A*A', A'*A, B'*A'*A*B, B'*A*A'*B)
             @test X' === X
         end
-        @test A' === forceAdjoint(A)
-        @test inv(M) === forceInverse(M)
-        @test inv(A)' === forceInverseAdjoint(A)
-        @test inv(A') === forceInverseAdjoint(A)
+        @test A' === adjoint(A)
+        @test inv(M) === I/M
+        @test inv(A)' === inv(A')
         @test (A')' === A'' === A
         let E = inv(A'), F = inv(A)'
             @test inv(E) === A'
@@ -181,7 +173,7 @@ function test_rules()
         @test (A + B' + C)' === A' + B + C'
         @test (A + B + C')' === A' + B' + C
         # Test inverse of sums and compositions.
-        @test_throws ErrorException inv(A + M) # FIXME: this should be done when applying
+
         # Test unary plus and negation.
         @test +M === M
         @test -(-M) === M
@@ -199,18 +191,12 @@ function test_rules()
             # -------------------------------------------------------------------
             # So it seems to be due to the `--inline=yes` option.
             @test -M === (-1)*M
-            @test 3A === forceScaled(3,A)
-            @test 7M === forceScaled(7,M)
-            @test A+2M === forceSum(A,forceScaled(2,M))
+            @test 3A === 2A + A
+            @test 7M === 10M - 3M
+            @test A + 2M === M + A + M
         end
-        @test_throws ErrorException Adjoint(A) # direct call forbidden
-        @test_throws ErrorException Inverse(A) # direct call forbidden
-        @test_throws ErrorException InverseAdjoint(A) # direct call forbidden
-        @test_throws ErrorException Sum(A) # too few arguments
-        @test_throws ErrorException Composition(M) # too few arguments
-        @test_throws ErrorException forceAdjoint(M) # non-linear
-        @test_throws ErrorException M' # non-linear
-        @test_throws ErrorException forceInverseAdjoint(M) # non-linear
+        @test_throws ArgumentError M' # non-linear
+        @test_throws ArgumentError inv(M)' # non-linear
     end
 end
 
