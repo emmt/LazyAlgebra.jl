@@ -21,6 +21,40 @@ function unimplemented(func::Union{AbstractString,Symbol},
 end
 
 """
+```julia
+@callable T
+```
+
+makes concrete type `T` callable as a regular mapping that is `A(x)` yields
+`apply(A,x)` for any `A` of type `T`.
+
+"""
+macro callable(T)
+    quote
+	(A::$(esc(T)))(x) = apply(A, x)
+    end
+end
+
+for T in (Adjoint, Inverse, InverseAdjoint, Scaled, Sum, Composition, Hessian)
+    @eval (A::$T)(x) = apply(A, x)
+end
+
+"""
+```julia
+reversemap(f, args)
+```
+
+applies the function `f` to arguments `args` in reverse order and return the
+result.  For now, the arguments `args` must be in the form of a simple tuple
+and the result is the tuple: `(f(args[end]),f(args[end-1]),...,f(args[1])`.
+
+Also see: [`map`](@ref), [`ntuple`](@ref).
+
+"""
+reversemap(f::Function, args::NTuple{N,Any}) where {N} =
+    ntuple(i -> f(args[(N + 1) - i]), Val(N))
+
+"""
 # Containers and Marked Objects
 
 Julia typing system can be exploited to "mark" some object instances so that

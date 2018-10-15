@@ -151,11 +151,11 @@ import Base: *, ∘, +, -, \, /, ==, inv,
     getindex, setindex!, eachindex
 
 include("types.jl")
-include("rules.jl")
 include("methods.jl")
 include("vectors.jl")
 include("blas.jl")
 include("coder.jl")
+include("rules.jl")
 include("mappings.jl")
 include("sparse.jl")
 include("finitedifferences.jl")
