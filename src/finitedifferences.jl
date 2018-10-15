@@ -129,7 +129,7 @@ offset(::Type{CartesianIndex{N}}, d::Integer, s::Integer=1) where {N} =
 @generated function _apply_D!(α::Real, x::AbstractArray{<:Number,N},
                               β::Real, y::AbstractArray{<:Number,Np1}
                               ) where {N,Np1}
-    # We know that α ≠ 0.
+    # We know that α ≠ 0.
     @assert Np1 == N + 1
     D = generate_symbols("d", N)
     I = generate_symbols("i", N)
@@ -175,7 +175,7 @@ end
 
 @generated function _apply_Dt!(α::Real, x::AbstractArray{<:Number,Np1},
                                y::AbstractArray{<:Number,N}) where {N,Np1}
-    # We know that α ≠ 0 and that y has been pre-multiplied by β.
+    # We know that α ≠ 0 and that y has been pre-multiplied by β.
     @assert Np1 == N + 1
     D = generate_symbols("d", N)
     I = generate_symbols("i", N)
@@ -213,7 +213,7 @@ end
 
 @generated function _apply_DtD!(α::Real, x::AbstractArray{<:Number,N},
                                 y::AbstractArray{<:Number,N}) where {N}
-    # We know that α ≠ 0 and that y has been pre-multiplied by β.
+    # We know that α ≠ 0 and that y has been pre-multiplied by β.
     D = generate_symbols("d", N)
     I = generate_symbols("i", N)
     S = generate_symbols("s", N)
