@@ -149,7 +149,7 @@ end
 
 import Base: *, ∘, +, -, \, /, ==, inv,
     show, showerror, convert, eltype, ndims, size, length, stride,
-    getindex, setindex!, eachindex, first, last
+    getindex, setindex!, eachindex, first, last, one, zero, isone, iszero
 
 include("types.jl")
 include("methods.jl")

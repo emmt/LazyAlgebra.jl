@@ -397,8 +397,6 @@ struct Sum{N,T<:NTuple{N,Mapping}} <: Mapping
         return new{N,T}(ops)
     end
 end
-Sum(ops::T) where {T<:NTuple{N,Mapping}} where {N} = Sum{N,T}(ops)
-Sum(ops::Mapping...) = Sum(ops)
 
 """
 
@@ -420,9 +418,6 @@ struct Composition{N,T<:NTuple{N,Mapping}} <: Mapping
         return new{N,T}(ops)
     end
 end
-Composition(ops::T) where {T<:NTuple{N,Mapping}} where {N} =
-    Composition{N,T}(ops)
-Composition(ops::Mapping...) = Composition(ops)
 
 """
 

@@ -1,3 +1,10 @@
+* Complete rewrite of the rules for simplying complex constructions involving
+  compositions and linear combination of mappings.
+
+* Add rule for left-division by a scalar.
+
+* `UniformScalingOperator` has been suppressed (was deprecated).
+
 * `show` has been extend for mapping constructions.
 
 * `contents`, too vague, is about to be suppressed and replaced by `operands` or

@@ -18,46 +18,10 @@ is_same_mapping(::Identity, ::Identity) = true
 
 @callable Identity
 
-const I = Identity()
-
 # Traits:
 SelfAdjointType(::Identity) = SelfAdjoint
 MorphismType(::Identity) = Endomorphism
 DiagonalType(::Identity) = DiagonalMapping
-
-# Never let the inverse, adjoint or inverse-adjoint of the identity yeild
-# something else than identity.
-inv(::Identity) = I
-adjoint(::Identity) = I
-
-# Extend multiplication for the (scaled) identity.  It is important to account
-# for all possible cases.  If all cases are covered, extend the left and right
-# divison is not needed.
-*(::Identity, ::Identity) = I
-for T in (Scaled{Identity}, Mapping)
-    @eval begin
-        *(A::Identity, B::$T) = B
-        *(A::$T, B::Identity) = A
-    end
-end
-*(A::Scaled{Identity}, B::Scaled{Identity}) = (multiplier(A)*multiplier(B))*I
-*(A::Scaled{Identity}, B::Mapping) = multiplier(A)*B
-*(A::LinearMapping, B::Scaled{Identity}) = multiplier(B)*A
-*(A::Mapping, B::Scaled{Identity}) =
-    is_linear(A) ? multiplier(B)*A : Composition(A, B)
-
-# Extend addition for the (scaled) identity.  Extending subtraction is not
-# necessary.
-+(::Identity, ::Identity) = 2*I
-+(A::Identity, B::Scaled{Identity}) = (1 + multiplier(B))*I
-+(A::Scaled{Identity}, B::Identity) = (multiplier(A) + 1)*I
-+(A::Scaled{Identity}, B::Scaled{Identity}) = (multiplier(A) + multiplier(B))*I
-
-# Extend equality for the (scaled) identity for a small gain in performances.
-==(::Identity, ::Identity) = true
-==(::Identity, A::Scaled{Identity}) = (multiplier(A) == one(multiplier(A)))
-==(A::Scaled{Identity}, ::Identity) = (multiplier(A) == one(multiplier(A)))
-==(A::Scaled{Identity}, B::Scaled{Identity}) = (multiplier(A) == multiplier(B))
 
 apply(::Type{<:Operations}, ::Identity, x, scratch::Bool=false) = x
 
@@ -78,35 +42,6 @@ for op in (:(+), :(-), :(*), :(∘), :(/), :(\))
         Base.$op(A::UniformScaling, B::Mapping) = $op(simplify(A), B)
         Base.$op(A::Mapping, B::UniformScaling) = $op(A, simplify(B))
     end
-end
-
-"""
-```julia
-UniformScalingOperator(α)
-```
-
-creates a uniform scaling linear mapping whose effects is to multiply its
-argument by the scalar `α`.  This is the same as `α*Identity()`.
-
-!!! note
-    This has been deprecated.  Use `α*Identity()` instead.
-
-See also: [`NonuniformScalingOperator`](@ref).
-
-"""
-UniformScalingOperator
-
-@deprecate UniformScalingOperator(α::Number) α*Identity()
-
-isinvertible(A::Scaled{Identity}) = (isfinite(multiplier(A)) && multiplier(A) != zero(multiplier(A)))
-
-ensureinvertible(A::Scaled{Identity}) =
-    isinvertible(A) ||
-    throw(SingularSystem("Uniform scaling operator is singular"))
-
-function inv(A::Scaled{Identity})
-    ensureinvertible(A)
-    return (1/multiplier(A))*I
 end
 
 #------------------------------------------------------------------------------
