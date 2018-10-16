@@ -45,6 +45,22 @@ for op in (:(+), :(-), :(*), :(∘), :(/), :(\))
 end
 
 #------------------------------------------------------------------------------
+# SYMBOLIC MAPPINGS (FOR TESTS)
+
+struct SymbolicMapping{T} <: Mapping end
+struct SymbolicLinearMapping{T} <: LinearMapping end
+SymbolicMapping(id::AbstractString) = SymbolicMapping(Symbol(id))
+SymbolicMapping(id::Symbol) = SymbolicMapping{Val{id}}()
+SymbolicLinearMapping(id::AbstractString) = SymbolicLinearMapping(Symbol(id))
+SymbolicLinearMapping(x::Symbol) = SymbolicLinearMapping{Val{x}}()
+
+show(io::IO, A::SymbolicMapping{Val{T}}) where {T} = print(io, T)
+show(io::IO, A::SymbolicLinearMapping{Val{T}}) where {T} = print(io, T)
+
+is_same_mapping(::SymbolicMapping{T}, ::SymbolicMapping{T}) where {T} = true
+is_same_mapping(::SymbolicLinearMapping{T}, ::SymbolicLinearMapping{T}) where {T} = true
+
+#------------------------------------------------------------------------------
 # NON-UNIFORM SCALING
 
 """

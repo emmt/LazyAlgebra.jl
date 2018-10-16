@@ -48,6 +48,8 @@ export
     SparseOperator,
     SymmetricRankOneOperator,
     UniformScalingOperator,
+    SymbolicLinearMapping,
+    SymbolicMapping,
     adjoint,
     apply!,
     apply,

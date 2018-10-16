@@ -21,6 +21,8 @@ using LazyAlgebra: Scaled, Sum, Composition, # not exported by default
     is_same_mutable_object
 import LazyAlgebra: is_same_mapping
 
+import Base: show
+
 # Deal with compatibility issues.
 using Compat
 using Compat.Test
@@ -44,14 +46,6 @@ const I = Identity()
 else
     using LinearAlgebra: UniformScaling, ⋅
 end
-
-struct SomeMapping{T} <: Mapping end
-struct SomeLinearMapping{T} <: LinearMapping end
-SomeMapping(x) = SomeMapping{Val{x}}()
-SomeLinearMapping(x) = SomeLinearMapping{Val{x}}()
-
-is_same_mapping(::SomeMapping{T}, ::SomeMapping{T}) where {T} = true
-is_same_mapping(::SomeLinearMapping{T}, ::SomeLinearMapping{T}) where {T} = true
 
 const ALPHAS = (0, 1, -1,  2.71, π)
 const BETAS = (0, 1, -1, -1.33, φ)
@@ -113,13 +107,14 @@ macro mytest(ex)
             if $(esc(:verbose))
                 printstyled("OK: "; color=:green, bold=true)
                 printstyled($msg; color=:green)
+                println()
             end
         else
             $(esc(:nfailures)) += 1
             printstyled("ERROR: "; color=:red, bold=true)
             printstyled($msg; color=:red)
+            println()
         end
-        println()
         nothing
     end
 end
@@ -199,13 +194,13 @@ function test_rules(verbose::Bool=false)
 
     dims = (3,4,5)
 
-    M = SomeMapping(:M)
-    Q = SomeMapping(:Q)
-    R = SomeMapping(:R)
-    A = SomeLinearMapping(:A)
-    B = SomeLinearMapping(:B)
-    C = SomeLinearMapping(:C)
-    D = SomeLinearMapping(:D)
+    M = SymbolicMapping(:M)
+    Q = SymbolicMapping(:Q)
+    R = SymbolicMapping(:R)
+    A = SymbolicLinearMapping(:A)
+    B = SymbolicLinearMapping(:B)
+    C = SymbolicLinearMapping(:C)
+    D = SymbolicLinearMapping(:D)
 
     # Test properties.
     @mytest M !== R
@@ -341,6 +336,11 @@ function test_rules(verbose::Bool=false)
         @mytest D*inv(D) === I
     end
     @mytest inv(M*Q*(A - B)) === inv(A - B)*inv(Q)*inv(M)
+    # FIXME: should be inv(M)*(3\A)*inv(B)
+    @mytest inv(A*B*3M) === inv(M)*(3\I)*inv(A)*inv(B)
+    println(inv(A*B*3M))
+    @mytest inv(A*B*3C) === (1/3)*inv(C)*inv(A)*inv(B)
+    println(inv(A*B*3C))
 
     # Inverse-adjoint.
     @mytest inv(A)' === inv(A')
