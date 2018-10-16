@@ -301,8 +301,8 @@ function test_rules(verbose::Bool=false)
     @mytest A + B*(M - Q) + 3A - 3B*(M - Q) === 4*A - 2*B*(M - Q)
     @mytest A*2M === 2*(A*M)
     @mytest A*2M === 2*(A*M)
-    @mytest (A + 2B)' - A' === 2*B'
-
+    @mytest 3A*2M === 6A*M
+    @mytest 3R*2M !== 6R*M
 
     # Test adjoint.
     @mytest (A*A')' === A*A'
@@ -311,6 +311,7 @@ function test_rules(verbose::Bool=false)
     end
     @mytest A' === adjoint(A)
     @mytest (A')' === A'' === A
+    @mytest (A + 2B)' - A' === 2*B'
 
     # Inverse.
     @mytest inv(M) === I/M
@@ -324,6 +325,9 @@ function test_rules(verbose::Bool=false)
     @mytest inv(2A) === 2\inv(A)
     @mytest inv(2A) === (1/2)*inv(A)
     @mytest inv(A*B) === inv(B)*inv(A)
+    @mytest A/3B === 3\A/B
+    @mytest 4A/4B === A/B
+    @mytest 4A\4B === A\B
     @mytest inv(A*M*B*Q) === inv(Q)*inv(B)*inv(M)*inv(A)
     @mytest inv(M)*M === I
     @mytest M*inv(M) === I
@@ -506,6 +510,8 @@ function test_non_uniform_scaling()
         y = randn(T, dims)
         z = vcreate(y)
         S = NonuniformScalingOperator(w)
+        @test diag(S) === w
+        @test Diag(w) === S
         atol, rtol = zero(T), sqrt(eps(T))
         @test S*x  ≈ w.*x atol=atol rtol=rtol norm=vnorm2
         @test S'*x ≈ w.*x atol=atol rtol=rtol norm=vnorm2
@@ -582,46 +588,55 @@ function test_generalized_matrices()
     end
 end
 
-function test_sparse_operator()
+function test_sparse_operator(verbose::Bool=false)
+    ntests = 0
+    nfailures = 0
     rows, cols = (2,3,4), (5,6)
     nrows, ncols = prod(rows), prod(cols)
-    @testset "Sparse matrices ($T)" for T in FLOATS
+    #@testset "Sparse matrices ($T)"
+    for T in FLOATS
         A = randn(T, rows..., cols...)
         A[rand(T, size(A)) .≤ 0.7] .= 0 # 70% of zeros
         x = randn(T, cols)
         y = randn(T, rows)
         G = GeneralMatrix(A)
         S = SparseOperator(A, length(rows))
-        @test is_endomorphism(S) == (rows == cols)
-        @test (EndomorphismType(S) == Endomorphism) == (rows == cols)
-        @test output_size(S) == rows
-        @test input_size(S) == cols
+        @mytest is_endomorphism(S) == (rows == cols)
+        @mytest (EndomorphismType(S) == Endomorphism) == (rows == cols)
+        @mytest output_size(S) == rows
+        @mytest input_size(S) == cols
+        @mytest_throws DimensionMismatch vcreate(Direct, S,
+                                                 randn(T, size(x) .+ 1))
+        @mytest_throws DimensionMismatch vcreate(Adjoint, S,
+                                                 randn(T, size(y) .+ 1))
         atol, rtol = zero(T), sqrt(eps(T))
         mA = reshape(A, nrows, ncols)
         vx = reshape(x, ncols)
         vy = reshape(y, nrows)
         Sx = S*x
-        @test almost_equal(Sx, reshape(mA*vx,  rows))
         Sty = S'*y
-        @test almost_equal(Sty, reshape(mA'*vy, cols))
-        @test almost_equal(Sx, G*x)
-        @test almost_equal(Sty, G'*y)
+        @mytest almost_equal(Sx, reshape(mA*vx,  rows))
+        @mytest almost_equal(Sty, reshape(mA'*vy, cols))
+        @mytest almost_equal(Sx, G*x)
+        @mytest almost_equal(Sty, G'*y)
         ## Use another constructor with integer conversion.
         R = SparseOperator(Int32.(output_size(S)),
                            Int64.(input_size(S)),
                            LazyAlgebra.coefs(S),
                            Int32.(LazyAlgebra.rows(S)),
                            Int64.(LazyAlgebra.cols(S)))
-        @test almost_equal(Sx, R*x)
-        @test almost_equal(Sty, R'*y)
+        @mytest almost_equal(Sx, R*x)
+        @mytest almost_equal(Sty, R'*y)
         for α in ALPHAS,
             β in BETAS
-            @test almost_equal(apply!(α, Direct, S, x, β, vcopy(y)),
-                               T(α)*Sx + T(β)*y)
-            @test almost_equal(apply!(α, Adjoint, S, y, β, vcopy(x)),
-                               T(α)*Sty + T(β)*x)
+            @mytest almost_equal(apply!(α, Direct, S, x, β, vcopy(y)),
+                                 T(α)*Sx + T(β)*y)
+            @mytest almost_equal(apply!(α, Adjoint, S, y, β, vcopy(x)),
+                                 T(α)*Sty + T(β)*x)
         end
     end
+
+    @mytest_report
 end
 
 function test_finite_differences()

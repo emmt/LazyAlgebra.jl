@@ -18,6 +18,7 @@ module LazyAlgebra
 export
     Adjoint,
     AdjointInverse,
+    Diag,
     DiagonalMapping,
     DiagonalType,
     Direct,
@@ -56,6 +57,7 @@ export
     conjgrad!,
     conjgrad,
     contents,
+    diag,
     input_eltype,
     input_ndims,
     input_size,
@@ -94,6 +96,8 @@ export
     vzero!,
     vzeros
 
+@static isdefined(Base, :I) || export I
+
 # Deal with compatibility issues.
 @static isdefined(Base, :apply) && import Base: apply
 @static if isdefined(Base, :adjoint)
@@ -108,8 +112,11 @@ else
     import Base: indices
     const axes = indices
 end
-@static if isdefined(Base, :isone)
-    import Base: isone
+@static isdefined(Base, :isone) && import Base: isone
+@static if isdefined(Base, :diag)
+    import Base: diag
+else
+    import LinearAlgebra: diag
 end
 using Compat
 using Compat.Printf
@@ -134,7 +141,7 @@ const BLAS = LinearAlgebra.BLAS
 import .BLAS: libblas, @blasfunc, BlasInt, BlasReal, BlasFloat, BlasComplex
 
 # Import/define `mul!` and `⋅`.
-if VERSION < v"0.7.0-DEV.3204"
+@static if VERSION < v"0.7.0-DEV.3204"
     # A_mul_B! not deprecated
     import Base: ⋅, A_mul_B!
     const mul! = A_mul_B!
@@ -143,7 +150,7 @@ else
 end
 
 # Define `rmul!`.
-if VERSION < v"0.7.0-DEV.3563"
+@static if VERSION < v"0.7.0-DEV.3563"
     # scale! not deprecated
     rmul!(A::AbstractArray, s::Number) = scale!(A, s)
     #export mul!, rmul!
