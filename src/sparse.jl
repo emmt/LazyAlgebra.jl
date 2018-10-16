@@ -139,13 +139,15 @@ end
 
 EndomorphismType(S::SparseOperator) = (S.samedims ? Endomorphism : Morphism)
 
+_bad_input_dimensions() = throw(DimensionMismatch("bad input dimensions"))
+_bad_output_dimensions() = throw(DimensionMismatch("bad output dimensions"))
+
 function vcreate(::Type{Direct},
                  S::SparseOperator{Ts,M,N},
                  x::DenseArray{Tx,N},
                  scratch::Bool=false) where {Ts<:Real,Tx<:Real,M,N}
     # In-place operation is not possible so we simply ignore the scratch flag.
-    size(x) == input_size(S) ||
-        throw(DimensionMismatch("bad dimensions for input"))
+    size(x) == input_size(S) || _bad_input_dimensions()
     return Array{promote_type(Ts,Tx)}(undef, output_size(S))
 end
 
@@ -154,8 +156,7 @@ function vcreate(::Type{Adjoint},
                  x::DenseArray{Tx,M},
                  scratch::Bool=false) where {Ts<:Real,Tx<:Real,M,N}
     # In-place operation is not possible so we simply ignore the scratch flag.
-    size(x) == output_size(S) ||
-        throw(DimensionMismatch("bad dimensions for input"))
+    size(x) == output_size(S) || _bad_input_dimensions()
     return Array{promote_type(Ts,Tx)}(undef, input_size(S))
 end
 
@@ -166,10 +167,8 @@ function apply!(α::Real,
                 scratch::Bool,
                 β::Real,
                 y::DenseArray{<:Number,M}) where {Ts<:Number,Tx<:Number,M,N}
-    size(x) == input_size(S) ||
-        throw(DimensionMismatch("bad dimensions for input"))
-    size(y) == output_size(S) ||
-        throw(DimensionMismatch("bad dimensions for output"))
+    size(x) == input_size(S) || _bad_input_dimensions()
+    size(y) == output_size(S) || _bad_output_dimensions()
     β == 1 || vscale!(y, β)
     α == 0 || _apply_sparse!(y, convert_multiplier(α, Ts, Tx),
                              coefs(S), rows(S), cols(S), x)
@@ -183,10 +182,8 @@ function apply!(α::Real,
                 scratch::Bool,
                 β::Real,
                 y::DenseArray{<:Number,N}) where {Ts<:Number,Tx<:Number,M,N}
-    size(x) == output_size(S) ||
-        throw(DimensionMismatch("bad dimensions for input"))
-    size(y) == input_size(S) ||
-        throw(DimensionMismatch("bad dimensions for output"))
+    size(x) == output_size(S) || _bad_input_dimensions()
+    size(y) == input_size(S) || _bad_output_dimensions()
     β == 1 || vscale!(y, β)
     α == 0 || _apply_sparse!(y, convert_multiplier(α, Ts, Tx),
                              coefs(S), cols(S), rows(S), x)
