@@ -428,7 +428,7 @@ _identifier(A::Scaled) = objectid(operand(A))
 *(A::Scaled, B::Mapping) = multiplier(A)*(operand(A)*B)
 *(A::Composition, B::Identity) = A
 *(A::Composition, B::Scaled) =
-    (is_linear(A) ? multiplier(B)*(A*operand(B)) : _merge_mul(A, B))
+    (is_linear(A) ? multiplier(B)*(A*operand(B)) : _simplify_mul(A, B))
 *(A::Composition, B::Composition) = _simplify_mul(A, B)
 *(A::Composition, B::Mapping) = _simplify_mul(A, B)
 *(A::Mapping, B::Identity) = A
@@ -469,7 +469,7 @@ _merge_mul(args::T) where {N,T<:NTuple{N,Mapping}} = Composition{N,T}(args)
 
 # `_simplify_mul(A, B)` simplifies the product of `A` and `B`.  The result is a
 # tuple `C` of the resulting operands if `A` and `B` are both tuples of
-# operands or an instance of `Mapping` if `A` and `B` are both operands.  If no
+# mappings or an instance of `Mapping` if `A` and `B` are both mappings.  If no
 # simplification can be made, the result is just the concatenation of the
 # operands in `A` and `B`.  To perform simplifications, it is assumed that, if
 # they are compositions, `A` and `B` have already been simplified.  It is also
