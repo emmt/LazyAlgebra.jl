@@ -336,11 +336,10 @@ function test_rules(verbose::Bool=false)
         @mytest D*inv(D) === I
     end
     @mytest inv(M*Q*(A - B)) === inv(A - B)*inv(Q)*inv(M)
-    # FIXME: should be inv(M)*(3\A)*inv(B)
-    @mytest inv(A*B*3M) === inv(M)*(3\I)*inv(A)*inv(B)
-    println(inv(A*B*3M))
-    @mytest inv(A*B*3C) === (1/3)*inv(C)*inv(A)*inv(B)
-    println(inv(A*B*3C))
+    @mytest inv(A*3M) === inv(M)*(3\inv(A))
+    @mytest inv(A*3B) === 3\inv(A*B) === 3\inv(B)*inv(A)
+    @mytest inv(A*B*3M) === inv(M)*(3\inv(B))*inv(A)
+    @mytest inv(A*B*3C) === 3\inv(A*B*C) === 3\inv(C)*inv(B)*inv(A)
 
     # Inverse-adjoint.
     @mytest inv(A)' === inv(A')

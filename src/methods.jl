@@ -162,7 +162,9 @@ getindex(A::Union{Sum,Composition}, i) = A.ops[i]
 
 # To complement first() and last() when applied to tuples.
 tail(A::NTuple{N}) where {N} = A[2:N]
+tail(A::Tuple) = A[2:end]
 head(A::NTuple{N}) where {N} = A[1:N-1]
+head(A::Tuple) = A[1:end-1]
 
 """
 ```julia

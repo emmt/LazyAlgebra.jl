@@ -70,8 +70,8 @@ lower case Latin letters denote *variables*, and Greek letters denote
 Simple constructions are allowed for any kind of mappings and can be used to
 create new instances of mappings which behave correctly.  For instance:
 
-* `B = α*A` (where `α` is a real) is a mapping which behaves as `A` times `α`;
-  that is `B(x)` yields the same result as `α*(A(x))`.
+* `B = α*A` (where `α` is a number) is a mapping which behaves as `A` times
+  `α`; that is `B(x)` yields the same result as `α*(A(x))`.
 
 * `C = A + B + ...` is a mapping which behaves as the sum of the mappings `A`,
   `B`, ...; that is `C(x)` yields the same result as `A(x) + B(x) + ...`.
@@ -163,18 +163,27 @@ mapping `C`.
 
 Using the `≡` to denote in the right-hand side the actual construction made by
 `LazyAlgebra` for the expression in the left-hand side and assuming `A`, `B`
-and `C` are mappings, the following simplications will occur:
+and `C` are linear mappings, the following simplications will occur:
 
 ```julia
-(A + B + 3C)' ≡ (A' + B' + 3C')
-(A*B*(3C))'   ≡ (3C'*A'*B')
-inv(A*B*(3C)) ≡ (((1/3)*inv(C))*inv(A)*inv(B))
+(A + C + B + 3C)' ≡ A' + B' + 4C'
+(A*B*3C)'         ≡ 3C'*B'*A'
+inv(A*B*3C)       ≡ 3\inv(C)*inv(B)*inv(A)
 ```
 
-Note the necessary parentheses around `3C` in the last examples above to
-overcome the associative rule applied by Julia.  Otherwise, `A*B*3C` is
-interpreted as `((A*B)*3)*C`; that is, compose `A` and `B`, apply `A*B` to `3`
-and right multiply the result by `C`.
+However, if `M` is a non-linear mapping, then:
+
+```julia
+inv(A*B*3M) ≡ inv(M)*(3\inv(B))*inv(A)
+```
+
+which can be compared to `inv(A*B*3C)` when all operands are liner mappings.
+
+Note that, due to the associative rules applied by Julia, parentheses are
+needed around constructions like `3*C` if it has to be interpreted as `3C` in
+all contexes.  Otherwise, `A*B*(3*C)` is equivalent to `A*B*3C` while `A*B*3*C`
+is interpreted as `((A*B)*3)*C`; that is, compose `A` and `B`, apply `A*B` to
+`3` and right multiply the result by `C`.
 
 
 ### Creating new mappings

@@ -259,9 +259,27 @@ inv(A::Inverse) = operand(A)
 inv(A::AdjointInverse) = adjoint(operand(A))
 inv(A::Adjoint{T}) where {T<:Mapping} = AdjointInverse{T}(operand(A))
 inv(A::Composition) =
-    # It is assumed that the composition has already been simplified, so we
-    # just apply the mathematical formlu for the inverse of a composition.
-    _merge_mul(reversemap(inv, operands(A)))
+    # Even though the composition has already been simplified, taking the
+    # inverse may trigger other simplifications, so we must rebuild the
+    # composition term by term in reverse order (i.e. applying the mathematical
+    # formula for the inverse of a composition).
+    _merge_inv_mul(operands(A))
+
+# `_merge_inv_mul([A,]B)` is recursively called to build the inverse of a
+# composition.  Argument A is a mapping (initially not specified or the
+# identity) of the resulting composition, argument `B` is a tuple (initially
+# full) of the remaing terms.
+_merge_inv_mul(B::NTuple{N,Mapping}) where {N} =
+    # Initialize recursion.
+    _merge_inv_mul(inv(last(B)), head(B))
+
+_merge_inv_mul(A::Mapping, B::NTuple{N,Mapping}) where {N} =
+    # Perform intermediate recursion step.
+    _merge_inv_mul(A*inv(last(B)), head(B))
+
+_merge_inv_mul(A::Mapping, B::Tuple{}) =
+    # Terminate the recursion.
+    A
 
 #------------------------------------------------------------------------------
 # SUM OF OPERANDS
