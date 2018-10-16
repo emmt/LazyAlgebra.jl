@@ -265,21 +265,20 @@ inv(A::Composition) =
     # formula for the inverse of a composition).
     _merge_inv_mul(operands(A))
 
-# `_merge_inv_mul([A,]B)` is recursively called to build the inverse of a
+# `_merge_inv_mul([A,i,]B)` is recursively called to build the inverse of a
 # composition.  Argument A is a mapping (initially not specified or the
-# identity) of the resulting composition, argument `B` is a tuple (initially
-# full) of the remaing terms.
+# identity) of the resulting composition, argument `i` is the index of the next
+# component to take (initially not specified or set to `N` the number of
+# operands), argument `B` is a tuple (initially full) of the remaining terms.
 _merge_inv_mul(B::NTuple{N,Mapping}) where {N} =
     # Initialize recursion.
-    _merge_inv_mul(inv(last(B)), head(B))
+    _merge_inv_mul(inv(last(B)), N - 1, B)
 
-_merge_inv_mul(A::Mapping, B::NTuple{N,Mapping}) where {N} =
-    # Perform intermediate recursion step.
-    _merge_inv_mul(A*inv(last(B)), head(B))
-
-_merge_inv_mul(A::Mapping, B::Tuple{}) =
-    # Terminate the recursion.
-    A
+function _merge_inv_mul(A::Mapping, i::Int, B::NTuple{N,Mapping}) where {N}
+    # Perform intermediate and last recursion step.
+    C = A*inv(B[i])
+    return (i > 1 ? _merge_inv_mul(C, i - 1, B) : C)
+end
 
 #------------------------------------------------------------------------------
 # SUM OF OPERANDS
