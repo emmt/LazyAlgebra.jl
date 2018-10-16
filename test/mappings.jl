@@ -73,7 +73,109 @@ end
 relative_tolerance(::Type{Tx}, ::Type{Ty}) where {Tx<:Real,Ty<:Real} =
     sqrt(max(Float64(eps(Tx)), Float64(eps(Ty))))
 
+# FIXME: The following tests result in segmentation fault with Julia ≤ 0.7
+#
+#     @test -M === (-1)*M
+#     @test 3A === 2A + A
+#     @test 7M === 10M - 3M
+#     @test A + 2M === M + A + M
+#
+# -------------------------------------------------------------------
+# Julia Options                                    Result
+# --check-bounds=... --optimize=... --inline=...
+# -------------------------------------------------------------------
+#                yes            0            no    OK
+#                yes            0            yes   Segmentation Fault
+#                yes            3            no    OK
+#                no             3            no    OK
+#                no             3            yes   Segmentation Fault
+# -------------------------------------------------------------------
+# So it seems to be due to the `--inline=yes` option.
+
+#module MyTest
+#
+#export
+#    @mytest,
+#    @mytest_report,
+#    @mytest_throws
+
+# Too many tests fail because of a segmentation fault when @test macros are
+# used with --inline=yes (the default) in Julia.  The following macro provides
+# a substitute.  A truth value is expected and indicate the success of a test;
+# otherwise a failure is assumed.  Variables `ntests` and `nfailures` are
+# updated.  Variable `verbose` is a boolean indicating whether successes shuld
+# also be reported.
+macro mytest(ex)
+    msg = :(Main.Base.string($(Expr(:quote,ex))))
+    quote
+        $(esc(:ntests)) += 1
+        if ($(esc(ex)))
+            if $(esc(:verbose))
+                printstyled("OK: "; color=:green, bold=true)
+                printstyled($msg; color=:green)
+            end
+        else
+            $(esc(:nfailures)) += 1
+            printstyled("ERROR: "; color=:red, bold=true)
+            printstyled($msg; color=:red)
+        end
+        println()
+        nothing
+    end
+end
+
+macro mytest_throws(typ, ex)
+    msg = :(Main.Base.string($(Expr(:quote, ex))))
+    quote
+        local err = nothing
+        $(esc(:ntests)) += 1
+        try
+            $(esc(ex))
+        catch err
+        end
+        if isa(err, $(esc(typ)))
+            if $(esc(:verbose))
+                printstyled("OK: "; color=:green, bold=true)
+                printstyled($msg,  " throws ", $(esc(typ)); color=:green)
+            end
+        else
+            $(esc(:nfailures)) += 1
+            printstyled("ERROR: "; color=:red, bold=true)
+            printstyled($msg, "(expected ", $(esc(typ)), " got ",
+                        typeof(err), ")"; color=:red)
+            printstyled($msg; color=:red)
+        end
+        println()
+        nothing
+    end
+end
+
+macro mytest_report()
+    ntests = esc(:ntests)
+    nfailures = esc(:nfailures)
+    quote
+        printstyled("Number of tests: ", $ntests, " ("; color=:cyan)
+        printstyled("passed: ", $ntests - $nfailures; color=:green)
+        if $nfailures ≥ 1
+            printstyled(", ", color=:cyan)
+            printstyled("failed: ", $nfailures; color=:red)
+        end
+        printstyled(")", color=:cyan)
+        println()
+        if $nfailures ≥ 1
+            error(string($nfailures, "/", $ntests, " test(s) failed"))
+        end
+        nothing
+    end
+end
+
+#end # module MyTest
+#
+#import .MyTest
+#using .MyTest
+
 function test_all()
+    nerrors = 0
     @testset "Mappings" begin
         test_rules()
         test_standard_uniform_scaling()
@@ -83,7 +185,6 @@ function test_all()
         test_finite_differences()
         test_fft_operator()
         if VERSION ≥ v"0.7"
-            test_identity()
             test_scaling()
             test_sparse_operator()
         else
@@ -92,151 +193,204 @@ function test_all()
     end
 end
 
-function test_rules()
-    @testset "Rules" begin
-        M = SomeMapping(:M)
-        P = SomeMapping(:P)
-        Q = SomeMapping(:Q)
-        R = SomeMapping(:R)
-        A = SomeLinearMapping(:A)
-        B = SomeLinearMapping(:B)
-        C = SomeLinearMapping(:C)
-        D = SomeLinearMapping(:D)
-        @test M !== P
-        @test A !== B
-        @test is_same_mapping(A, B) == false
-        let E = A; @test is_same_mapping(A, E) == true; end
-        @test is_linear(M) == false
-        @test is_linear(A) == true
-        @test is_linear(A + B) == true
-        @test is_linear(A') == true
-        @test is_linear(inv(A)) == true
-        @test is_linear(inv(M)) == false
-        @test is_linear(A + B + C) == true
-        @test is_linear(A' + B + C) == true
-        @test is_linear(A + B' + C) == true
-        @test is_linear(A + B + C') == true
-        @test is_linear(M + B + C) == false
-        @test is_linear(A + M + C) == false
-        @test is_linear(A + B + M) == false
-        @test is_linear(A*B*C) == true
-        @test is_linear(A'*B*C) == true
-        @test is_linear(A*B'*C) == true
-        @test is_linear(A*B*C') == true
-        @test is_linear(M*B*C) == false
-        @test is_linear(A*M*C) == false
-        @test is_linear(A*B*M) == false
-        @test is_endomorphism(M) == false
-        @test is_endomorphism(A) == false
-        @test is_selfadjoint(M) == false
-        @test is_selfadjoint(A) == false
-        @test is_selfadjoint(A'*A) == false # FIXME: should be true
-        @test is_selfadjoint(A*A') == false # FIXME: should be true
-        @test is_selfadjoint(B'*A*A'*B) == false # FIXME: should be true
-        @test (A*A')' === A*A'
-        for X in (A*A', A'*A, B'*A'*A*B, B'*A*A'*B)
-            @test X' === X
-        end
-        @test A' === adjoint(A)
-        @test inv(M) === I/M
-        @test inv(A)' === inv(A')
-        @test (A')' === A'' === A
-        let E = inv(A'), F = inv(A)'
-            @test inv(E) === A'
-            @test inv(F) === A'
-        end
-        @test inv(inv(M)) === M
-        @test inv(2A) === (1/2)*inv(A)
-        @test inv(2M) === inv(M)*((1/2)*I)
-        @test inv(A*B) === inv(B)*inv(A)
-        # Test aliases for composition.
-        @test isa(M*P, Composition)
-        @test M⋅P === M*P
-        @test M∘P === M*P
-        # Test associativity of sum and composition.
-        @test (M + P) + Q === M + P + Q
-        @test M + (P + Q) === (M + P) + Q
-        @test (M*P)*Q === M*P*Q
-        @test M*(P*Q) === (M*P)*Q
-        # Test adjoint of sums and compositions.
-        @test (A*B)' === (B')*(A') === B'*A'
-        @test (A'*B)' === B'*A
-        @test (A*B')' === B*A'
-        @test (A*B*C)' === C'*B'*A'
-        @test (A'*B*C)' === C'*B'*A
-        @test (A*B'*C)' === C'*B*A'
-        @test (A*B*C')' === C*B'*A'
-        @test (A + B)' === A' + B'
-        @test (A' + B)' === A + B'
-        @test (A + B')' === A' + B
-        @test (A' + B + C)' === A + B' + C'
-        @test (A + B' + C)' === A' + B + C'
-        @test (A + B + C')' === A' + B' + C
-        # Test inverse of sums and compositions.
+function test_rules(verbose::Bool=false)
+    ntests = 0
+    nfailures = 0
 
-        # Test unary plus and negation.
-        @test +M === M
-        @test -(-M) === M
-        if VERSION < v"0.7"
-            # FIXME: segmentation fault with Julia ≤ 0.7
-            # -------------------------------------------------------------------
-            # Julia Options                                    Result
-            # --check-bounds=... --optimize=... --inline=...
-            # -------------------------------------------------------------------
-            #                yes            0            no    OK
-            #                yes            0            yes   Segmentation Fault
-            #                yes            3            no    OK
-            #                no             3            no    OK
-            #                no             3            yes   Segmentation Fault
-            # -------------------------------------------------------------------
-            # So it seems to be due to the `--inline=yes` option.
-            @test -M === (-1)*M
-            @test 3A === 2A + A
-            @test 7M === 10M - 3M
-            @test A + 2M === M + A + M
-        end
-        @test_throws ArgumentError M' # non-linear
-        @test_throws ArgumentError inv(M)' # non-linear
-    end
-end
-
-function test_identity()
     dims = (3,4,5)
-    @testset "Identity" begin
-        @test I === LazyAlgebra.I
-        @test I' === I
-        @test inv(I) === I
-        @test I*I === I
-        @test I\I === I
-        @test I/I === I
-        @test I+I === 2I
-        @test I+2I === 3I
-        @test I+I === 2I
-        @test 2I+3I === 5I
-        @test 3I + (I + 2I) === 6I
-        @test inv(3I) === (1/3)*I
-        #@test I - I === 0I
-        @test I + I - 2I === 0I
-        @test 2I - (I + I) === 0I
-        @test SelfAdjointType(I) <: SelfAdjoint
-        @test MorphismType(I) <: Endomorphism
-        @test DiagonalType(I) <: DiagonalMapping
-        for T in FLOATS
-            atol, rtol = zero(T), sqrt(eps(T))
-            x = randn(T, dims)
-            y = randn(T, dims)
-            @test is_same_mutable_object(I*x, x)
-            @test is_same_mutable_object(I*y, y)
-            for P in OPERATIONS
-                @test is_same_mutable_object(apply(P,I,x), x)
+
+    M = SomeMapping(:M)
+    Q = SomeMapping(:Q)
+    R = SomeMapping(:R)
+    A = SomeLinearMapping(:A)
+    B = SomeLinearMapping(:B)
+    C = SomeLinearMapping(:C)
+    D = SomeLinearMapping(:D)
+
+    # Test properties.
+    @mytest M !== R
+    @mytest A !== B
+    @mytest is_same_mapping(A, B) == false
+    let E = A
+        @mytest is_same_mapping(A, E) == true
+    end
+    @mytest is_linear(M) == false
+    @mytest is_linear(A) == true
+    @mytest is_linear(A + B) == true
+    @mytest is_linear(A') == true
+    @mytest is_linear(inv(A)) == true
+    @mytest is_linear(inv(M)) == false
+    @mytest is_linear(A + B + C) == true
+    @mytest is_linear(A' + B + C) == true
+    @mytest is_linear(A + B' + C) == true
+    @mytest is_linear(A + B + C') == true
+    @mytest is_linear(M + B + C) == false
+    @mytest is_linear(A + M + C) == false
+    @mytest is_linear(A + B + M) == false
+    @mytest is_linear(A*B*C) == true
+    @mytest is_linear(A'*B*C) == true
+    @mytest is_linear(A*B'*C) == true
+    @mytest is_linear(A*B*C') == true
+    @mytest is_linear(M*B*C) == false
+    @mytest is_linear(A*M*C) == false
+    @mytest is_linear(A*B*M) == false
+    @mytest is_endomorphism(M) == false
+    @mytest is_endomorphism(A) == false
+    @mytest is_selfadjoint(M) == false
+    @mytest is_selfadjoint(A) == false
+    @mytest is_selfadjoint(A'*A) == false # FIXME: should be true
+    @mytest is_selfadjoint(A*A') == false # FIXME: should be true
+    @mytest is_selfadjoint(B'*A*A'*B) == false # FIXME: should be true
+
+    # Test identity.
+    @mytest I === LazyAlgebra.I
+    @mytest I' === I
+    @mytest inv(I) === I
+    @mytest 1I === I
+    @mytest I*M*I === M
+    @mytest I*I === I
+    @mytest I*I*I === I
+    @mytest I\I === I
+    @mytest I/I === I
+    @mytest I + I === 2I
+    @mytest I - I === 0I
+    @mytest I + 2I === 3I
+    @mytest 2I + 3I === 5I
+    @mytest -4I + (I + 2I) === -I
+    @mytest I + I - 2I === 0I
+    @mytest 2I - (I + I) === 0I
+    @mytest inv(3I) === (1/3)*I
+    @mytest SelfAdjointType(I) <: SelfAdjoint
+    @mytest MorphismType(I) <: Endomorphism
+    @mytest DiagonalType(I) <: DiagonalMapping
+    for T in FLOATS
+        atol, rtol = zero(T), sqrt(eps(T))
+        x = randn(T, dims)
+        y = randn(T, dims)
+        @mytest is_same_mutable_object(I*x, x)
+        @mytest is_same_mutable_object(I*y, y)
+        for P in OPERATIONS
+            @mytest is_same_mutable_object(apply(P,I,x), x)
+            @static if VERSION ≥ v"0.7"
                 z = vcreate(y)
                 for α in ALPHAS, β in BETAS
-                    @test almost_equal(apply!(α, P, I, x, β, vcopy!(z, y)),
-                                      (α*x + β*y), rtol=rtol)
+                    @mytest almost_equal(apply!(α, P, I, x, β, vcopy!(z, y)),
+                                         (α*x + β*y), rtol=rtol)
                 end
             end
         end
     end
+
+    # Neutral elements.
+    @mytest isone(I)
+    @mytest iszero(I) == false
+    @mytest iszero(A - A)
+    @mytest iszero(-M + M)
+    @mytest one(A) === I
+    @mytest one(M) === I
+    @mytest zero(A) === 0*A
+    @mytest zero(M) === 0*M
+
+    @mytest B + A === A + B
+    @mytest B + A + Q === Q + A + B
+    @mytest B + (M + A + Q) === A + B + M + Q
+    @mytest (-1)*A === -A
+    @mytest -(-A) === A
+    @mytest 2\A === (1/2)*A
+    @mytest A + A === 2A
+    @mytest A + B - A === B
+    @mytest 2R + A - Q + B - 2A + Q + 1R === 3R + B - A
+    # FIXME: for the following to work, we must impose the value of the
+    #        first multiplier of a sum
+    #@mytest A + B*(M - Q) + A - 2B*(Q - M) === 2*A + 3*B*(M - Q)
+    @mytest A + B*(M - Q) + 3A - 3B*(M - Q) === 4*A - 2*B*(M - Q)
+    @mytest A*2M === 2*(A*M)
+    @mytest A*2M === 2*(A*M)
+    @mytest (A + 2B)' - A' === 2*B'
+
+
+    # Test adjoint.
+    @mytest (A*A')' === A*A'
+    for X in (A*A', A'*A, B'*A'*A*B, B'*A*A'*B)
+        @mytest X' === X
+    end
+    @mytest A' === adjoint(A)
+    @mytest (A')' === A'' === A
+
+    # Inverse.
+    @mytest inv(M) === I/M
+    @mytest inv(inv(M)) === M
+    @mytest I/A === inv(A)
+    @mytest I\A === A
+    @mytest M/Q === M*inv(Q)
+    @mytest M\Q === inv(M)*Q
+    @mytest inv(2M) === inv(M)*(2\I)
+    @mytest inv(2M) === inv(M)*((1/2)*I)
+    @mytest inv(2A) === 2\inv(A)
+    @mytest inv(2A) === (1/2)*inv(A)
+    @mytest inv(A*B) === inv(B)*inv(A)
+    @mytest inv(A*M*B*Q) === inv(Q)*inv(B)*inv(M)*inv(A)
+    @mytest inv(M)*M === I
+    @mytest M*inv(M) === I
+    let D = M*Q*(A - B)
+        @mytest inv(D)*D === I
+        @mytest D*inv(D) === I
+    end
+    let D = A + 2B - C
+        @mytest inv(D)*D === I
+        @mytest D*inv(D) === I
+    end
+    @mytest inv(M*Q*(A - B)) === inv(A - B)*inv(Q)*inv(M)
+
+    # Inverse-adjoint.
+    @mytest inv(A)' === inv(A')
+    @mytest inv(A')*A' === I
+    @mytest A'*inv(A') === I
+    let E = inv(A'), F = inv(A)'
+        @mytest inv(E) === A'
+        @mytest inv(F) === A'
+    end
+
+    # Test aliases for composition.
+    @mytest isa(M*R, Composition)
+    @mytest M⋅R === M*R
+    @mytest M∘R === M*R
+
+    # Test associativity of sum and composition.
+    @mytest (M + R) + Q === M + R + Q
+    @mytest M + (R + Q) === (M + R) + Q
+    @mytest (M*R)*Q === M*R*Q
+    @mytest M*(R*Q) === (M*R)*Q
+
+    # Test adjoint of sums and compositions.
+    @mytest (A*B)' === (B')*(A') === B'*A'
+    @mytest (A'*B)' === B'*A
+    @mytest (A*B')' === B*A'
+    @mytest (A*B*C)' === C'*B'*A'
+    @mytest (A'*B*C)' === C'*B'*A
+    @mytest (A*B'*C)' === C'*B*A'
+    @mytest (A*B*C')' === C*B'*A'
+    @mytest (A + B)' === A' + B'
+    @mytest (A' + B)' === A + B'
+    @mytest (A + B')' === A' + B
+    @mytest (A' + B + C)' === A + B' + C'
+    @mytest (A + B' + C)' === A' + B + C'
+    @mytest (A + B + C')' === A' + B' + C
+
+    # Test inverse of sums and compositions.
+
+    # Test unary plus and negation.
+    @mytest +M === M
+    @mytest -(-M) === M
+    @mytest -M === (-1)*M
+    @mytest 2A + A === 3A
+    @mytest 10M - 3M === 7M
+    @mytest M + A + M === A + 2M
+
+    @mytest_throws ArgumentError M' # non-linear
+    @mytest_throws ArgumentError inv(M)' # non-linear
+
+    @mytest_report
 end
 
 function test_standard_uniform_scaling()
