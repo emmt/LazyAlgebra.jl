@@ -66,7 +66,7 @@ show(io::IO, A::Scaled{<:Sum}) =
      print(io, "-(", operand(A), ")"))
 
 show(io::IO, A::Adjoint{<:Mapping}) = print(io, operand(A), "'")
-show(io::IO, A::Adjoint{T}) where {T<:Scaled,Composition,Sum} =
+show(io::IO, A::Adjoint{T}) where {T<:Union{Scaled,Composition,Sum}} =
     print(io, "(", operand(A), ")'")
 show(io::IO, A::Inverse{<:Mapping}) = print(io, "inv(", operand(A), ")")
 show(io::IO, A::InverseAdjoint{<:Mapping}) = print(io, "inv(", operand(A), "')")
