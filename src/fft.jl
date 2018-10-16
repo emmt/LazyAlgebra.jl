@@ -32,6 +32,10 @@ import ..LazyAlgebra: apply!, vcreate, MorphismType, mul!,
     input_size, input_ndims, input_eltype,
     output_size, output_ndims, output_eltype,
     is_same_mapping
+using ..LazyAlgebra: _merge_mul
+
+
+import Base: *, /, \, adjoint, inv, show
 
 import AbstractFFTs: Plan, fftshift, ifftshift
 
@@ -167,6 +171,11 @@ FFTOperator(arr::Array{T,N}; kwds...) where {T<:fftwNumber,N} =
 # Traits:
 MorphismType(::FFTOperator{<:Complex}) = Endomorphism
 
+ncols(A::FFTOperator) = A.ncols
+ncols(A::Adjoint{<:FFTOperator}) = ncols(operand(A))
+ncols(A::Inverse{<:FFTOperator}) = ncols(operand(A))
+ncols(A::InverseAdjoint{<:FFTOperator}) = ncols(operand(A))
+
 input_size(A::FFTOperator) = A.inpdims
 input_size(A::FFTOperator, d) = A.inpdims[d]
 output_size(A::FFTOperator) = A.outdims
@@ -183,6 +192,23 @@ output_eltype(A::FFTOperator{T,C,N}) where {T,C,N} = C
 # of the plans as it is irrelevant here).
 is_same_mapping(A::FFTOperator{T,C,N}, B::FFTOperator{T,C,N}) where {T,C,N} =
     (input_size(A) == input_size(B))
+
+show(io::IO, A::FFTOperator) = print(io, "FFT")
+
+# Impose the following simplifying rules:
+#     inv(F) = n\F'
+#     ==> F⋅F' = F'⋅F = n⋅I
+#     ==> inv(F⋅F') = inv(F'⋅F) = inv(F)⋅inv(F') = inv(F')⋅inv(F) = n\I
+*(A::Adjoint{F}, B::F) where {F<:FFTOperator} =
+    (is_same_mapping(operand(A), B) ? ncols(A)*I : _merge_mul(A, B))
+*(A::F, B::Adjoint{F}) where {F<:FFTOperator} =
+    (is_same_mapping(A, operand(B)) ? ncols(A)*I : _merge_mul(A, B))
+*(A::InverseAdjoint{F}, B::Inverse{F}) where {F<:FFTOperator} =
+    (is_same_mapping(operand(A), operand(B)) ? (1//ncols(A))*I :
+     _merge_mul(A, B))
+*(A::Inverse{F}, B::InverseAdjoint{F}) where {F<:FFTOperator} =
+    (is_same_mapping(operand(A), operand(B)) ? (1//ncols(A))*I :
+     _merge_mul(A, B))
 
 function vcreate(P::Type{<:Union{Forward,Direct,InverseAdjoint}},
                  A::FFTOperator{T,C,N},
