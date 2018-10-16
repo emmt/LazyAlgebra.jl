@@ -1,27 +1,17 @@
 * Implement *preconditioned* conjugate gradient.
 
+* Write an implementation of the L-BFGS operator and of the SR1 operator and
+  perhaps of other low-rank operators.
+
 * Use more extensively BLAS subroutines.
 
-* Add tests for rules.
+* Cleanup: `is_identical` is not really needed? `===` does the job?
 
 * Rename traits types and us their constructors to return trait instances.
   This is more *natural* in Julia and avoid having different method names.
 
-* Make *scalars* any `Number`.
-
 * Provide simplification rules for sums and compositions of diagonal operators
   (which are also easy to invert).
-
-* Write rules when an operator is supplied as an instance of
-  `LinearAlgebra.UniformScaling`.
-
-* Extend basic methods for `Base.LinAlg.UniformScaling` and rename
-  `UniformScalingOperator` and `NonuniformScalingOperator` as `UniformScaling`
-  and `NonuniformScaling`?
-
-* Add rules so that: `A*B` yields `α*B` when `A` is a uniform scaling of
-  parameter `α`.  See remark above for rewriting uniform scaling as a scaled
-  identity.
 
 * Add rules so that the composition of two scaled linear operators, say
   `(αA)⋅(βB)`, automatically yields `((αβ)A)⋅B` when `A` is a linear mapping.
@@ -61,11 +51,6 @@
 * Concrete implementation of mappings on arrays is not consistent for
   complex valued arrays.
 
-* Write an implementation of the L-BFGS operator and of the SR1 operator and
-  perhaps of other low-rank operators.
-
-* Implement `isequal` and do simplifications like `A + 2A => 3A`
-
 * Decide that, unless forbidden, inv is always possible (may be clash when
   trying to apply).  Or decide the opposite.
 
@@ -84,7 +69,8 @@
   µ = 1e-3 # choose regularization level
   .... # deal with sizes, zero-padding, or cropping etc.
   F = FFTOperator(dat)    # make a FFT operator to work with arrays similar to dat
-  H = F\Diag(F*psf)*F     # H is the instrumental model (convolution by the PSF)
+  # Build instrumental model H (convolution by the PSF)
+  H = F\Diag(F*ifftshift(psf))*F
   W = Diag(wgt)           # W is the precision matrix for independent noise
   D = FiniteDifferences() # D will be used for the regularization
   A = H'*W*H + µ*D'*D     # left hand-side matrix of the normal equations
