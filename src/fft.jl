@@ -83,7 +83,7 @@ used as any other mapping:
 
 ```julia
 F*x     # yields the FFT of x
-F'*x    # yields the adjoint FFT of x, that is the backward FFT of x
+F'*x    # yields the adjoint FFT applied to x, that is the backward FFT of x
 F\\x     # yields the inverse FFT of x
 ```
 
@@ -214,16 +214,18 @@ function vcreate(P::Type{<:Union{Forward,Direct,InverseAdjoint}},
                  A::FFTOperator{T,C,N},
                  x::DenseArray{T,N},
                  scratch::Bool=false) where {T,C,N}
-    return (scratch && T === C && size(x) == output_size(A) ? x :
-            Array{C}(undef, output_size(A)))
+    size(x) == output_size(A) ||
+        throw(DimensionMismatch("x must have dimensions $(output_size(A))"))
+    return (scratch && T === C ? x : Array{C}(undef, output_size(A)))
 end
 
 function vcreate(P::Type{<:Union{Backward,Adjoint,Inverse}},
                  A::FFTOperator{T,C,N},
                  x::DenseArray{C,N},
                  scratch::Bool=false) where {T,C,N}
-    return (scratch && T === C && size(x) == input_size(A) ? x :
-            Array{T}(undef, input_size(A)))
+    size(x) == input_size(A) ||
+        throw(DimensionMismatch("x must have dimensions $(input_size(A))"))
+    return (scratch && T === C ? x : Array{T}(undef, input_size(A)))
 end
 
 function apply!(α::Real,
