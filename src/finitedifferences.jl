@@ -22,6 +22,7 @@ using ..Coder
 using  ...LazyAlgebra
 import ...LazyAlgebra: vcreate, apply!, HalfHessian, is_same_mapping
 using  ...LazyAlgebra: @callable, fastrange, convert_multiplier
+import Base: show
 
 # Define operator D which implements simple finite differences.  Make it
 # callable.
@@ -29,6 +30,8 @@ struct SimpleFiniteDifferences <: LinearMapping end
 @callable SimpleFiniteDifferences
 
 is_same_mapping(::SimpleFiniteDifferences, ::SimpleFiniteDifferences) = true
+
+show(io::IO, A::SimpleFiniteDifferences) = print(io, "D")
 
 # Extend the vcreate() and apply!() methods for these operators.  The apply!()
 # method does all the checking and, then, calls a private method specialized
