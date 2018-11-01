@@ -19,26 +19,37 @@
   yields `((αβγ)A)⋅B⋅C` when `A` and `B` are linear mappings.  Perhaps this
   could be solved with some `simplify(...)` method to be applied to constructed
   mappings.  In fact, the solution is to have `(αA)⋅(βB)` automatically
-  represented (by the magic of the constructors chain) as a *scaled compsition*
+  represented (by the magic of the constructors chain) as a *scaled composition*
   that is `(αβ)(A⋅B)` (that is pull the scale factor outside the expression).
   Indeed, `(αA)⋅(βB)⋅(γC)` will then automatically becomes `(αβ)(A⋅B)⋅(γC)` and
   then `(αβγ)(A⋅B⋅C)` with no additional efforts.
 
   - `α*A` => `A` if `α = 1`
-  - `α*A` => `O` if `α = 0` with `O` the null mapping, but how to represent it?
-  - `A*(β*B)` => `β*(A*B)` if `A` is a linear mapping
-  - `(α*A)*(β*B)` => `(α*β)*(A*B)` if `A` is a linear mapping
-  - as a consequence of the above `(α*A)*(β*B)*(γ*C)` => `(α*βγ*)*(A*B*C)`
-    if `A` and `B` are linears, and etc.
+
+  - `α*A` => `O` if `α = 0` with `O` the null mapping which is represented as
+    `0` times a mapping, here `A`.  This is needed to know the result of
+    applying the null mapping.  In other words, there is no *universal* neutral
+    element for the addition of mappings; whereas the identity `I` is the
+    *universal* neutral element for the composition of mappings.
+
+  - `A*(β*B)` => `β*(A*B)` if `A` is a a linear mapping.
+
+  - `(α*A)*(β*B)` => `(α*β)*(A*B)` if `A` is a linear mapping.
+
+  - As a consequence of the above rules, `(α*A)*(β*B)*(γ*C)` =>
+    `(α*βγ*)*(A*B*C)` if `A` and `B` are linear mappings, and so on.
 
   - `α\A` => `(1/α)*A`
-  - `A/(β*B)` => `β\(A/B)` if `A` is a linear mapping
-  - `(α*A)/(β*B)` => `(α/β)*(A/B)` if `A` is a linear mapping
 
-  - `A\(β*B)` => `β*(A\B)` if `A` is a linear mapping
-  - `(α*A)\(β*B)` => `(β/α)*(A\B)` if `A` is a linear mapping
+  - `A/(β*B)` => `β\(A/B)` if `A` is a linear mapping.
 
-  - `(α*I)*A` => `α*A` where `I` is the identity
+  - `(α*A)/(β*B)` => `(α/β)*(A/B)` if `A` is a linear mapping.
+
+  - `A\(β*B)` => `β*(A\B)` if `A` is a linear mapping.
+
+  - `(α*A)\(β*B)` => `(β/α)*(A\B)` if `A` is a linear mapping.
+
+  - `(α*I)*A` => `α*A` where `I` is the identity.
 
   - `A/A`, `A\A`, or `inv(A)*A` => `I` for `A` *invertible* (this trait means
     that `A` can be safely assumed invertible, possibilities: `Invertible`,
@@ -83,3 +94,5 @@
   construction whose application to a *vector*, say `x`, is faster than
   `D'*(D*x))`.  (2) The evaluation of `H'*W*H` automatically uses the least
   temporary workspace(s).
+
+* Replace `Coder` by using available meta-programming tools.
