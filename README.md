@@ -177,7 +177,7 @@ However, if `M` is a non-linear mapping, then:
 inv(A*B*3M) ≡ inv(M)*(3\inv(B))*inv(A)
 ```
 
-which can be compared to `inv(A*B*3C)` when all operands are liner mappings.
+which can be compared to `inv(A*B*3C)` when all operands are linear mappings.
 
 Note that, due to the associative rules applied by Julia, parentheses are
 needed around constructions like `3*C` if it has to be interpreted as `3C` in
