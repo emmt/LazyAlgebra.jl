@@ -97,7 +97,7 @@ relative_tolerance(::Type{Tx}, ::Type{Ty}) where {Tx<:Real,Ty<:Real} =
 # used with --inline=yes (the default) in Julia.  The following macro provides
 # a substitute.  A truth value is expected and indicate the success of a test;
 # otherwise a failure is assumed.  Variables `ntests` and `nfailures` are
-# updated.  Variable `verbose` is a boolean indicating whether successes shuld
+# updated.  Variable `verbose` is a boolean indicating whether successes should
 # also be reported.
 macro mytest(ex)
     msg = :(Main.Base.string($(Expr(:quote,ex))))
