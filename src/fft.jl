@@ -214,8 +214,8 @@ function vcreate(P::Type{<:Union{Forward,Direct,InverseAdjoint}},
                  A::FFTOperator{T,C,N},
                  x::DenseArray{T,N},
                  scratch::Bool=false) where {T,C,N}
-    size(x) == output_size(A) ||
-        throw(DimensionMismatch("x must have dimensions $(output_size(A))"))
+    size(x) == input_size(A) ||
+        throw(DimensionMismatch("argument must have dimensions $(input_size(A))"))
     return (scratch && T === C ? x : Array{C}(undef, output_size(A)))
 end
 
@@ -223,8 +223,8 @@ function vcreate(P::Type{<:Union{Backward,Adjoint,Inverse}},
                  A::FFTOperator{T,C,N},
                  x::DenseArray{C,N},
                  scratch::Bool=false) where {T,C,N}
-    size(x) == input_size(A) ||
-        throw(DimensionMismatch("x must have dimensions $(input_size(A))"))
+    size(x) == output_size(A) ||
+        throw(DimensionMismatch("argument must have dimensions $(output_size(A))"))
     return (scratch && T === C ? x : Array{T}(undef, input_size(A)))
 end
 
@@ -285,9 +285,9 @@ function apply!(α::Real,
                 β::Real,
                 y::DenseArray{C,N}) where {T,C,N}
     size(x) == input_size(A) ||
-        throw(DimensionMismatch("x must have dimensions $(input_size(A))"))
+        throw(DimensionMismatch("argument must have dimensions $(input_size(A))"))
     size(y) == output_size(A) ||
-        throw(DimensionMismatch("y must have dimensions $(output_size(A))"))
+        throw(DimensionMismatch("result must have dimensions $(output_size(A))"))
     if α == 0
         vscale!(y, β)
     elseif β == 0
@@ -310,9 +310,9 @@ function apply!(α::Real,
                 β::Real,
                 y::DenseArray{C,N}) where {C<:fftwComplex,N}
     size(x) == output_size(A) ||
-        throw(DimensionMismatch("x must have dimensions $(output_size(A))"))
+        throw(DimensionMismatch("argument must have dimensions $(output_size(A))"))
     size(y) == input_size(A) ||
-        throw(DimensionMismatch("y must have dimensions $(input_size(A))"))
+        throw(DimensionMismatch("result must have dimensions $(input_size(A))"))
     if α == 0
         vscale!(y, β)
     elseif β == 0
@@ -337,9 +337,9 @@ function apply!(α::Real,
                 β::Real,
                 y::DenseArray{T,N}) where {T<:fftwReal,C,N}
     size(x) == output_size(A) ||
-        throw(DimensionMismatch("x must have dimensions $(output_size(A))"))
+        throw(DimensionMismatch("argument must have dimensions $(output_size(A))"))
     size(y) == input_size(A) ||
-        throw(DimensionMismatch("y must have dimensions $(input_size(A))"))
+        throw(DimensionMismatch("result must have dimensions $(input_size(A))"))
     if α == 0
         vscale!(y, β)
     elseif β == 0
