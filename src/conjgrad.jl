@@ -177,7 +177,8 @@ function conjgrad!(x, A, b, x0 = vzeros(b),
     local xtest  :: Float64 = xtol
     local psimax :: Float64 = 0
     local psi    :: Float64 = 0
-    local oldrho :: Float64 = 0
+    local oldrho :: Float64
+    local gamma  :: Float64
 
     # Conjugate gradient iterations.
     k = 0
@@ -188,8 +189,7 @@ function conjgrad!(x, A, b, x0 = vzeros(b),
                         "Iter.    Δf(x)       ||∇f(x)||",
                         "-------------------------------")
             end
-            @printf(io, "%6d %12.4e %12.4e\n",
-                    k, Float64(psi), Float64(sqrt(rho)))
+            @printf(io, "%6d %12.4e %12.4e\n", k, psi, sqrt(rho))
         end
         k += 1
         if sqrt(rho) ≤ gtest
@@ -219,8 +219,10 @@ function conjgrad!(x, A, b, x0 = vzeros(b),
             beta = rho/oldrho
             vcombine!(p, beta, p, +1, r)
         end
+
+        # Compute optimal step size.
         A(q, p)
-        gamma = Float64(vdot(p, q))
+        gamma = vdot(p, q)
         if gamma ≤ 0
             if verb
                 @printf(io, "# %s\n", "Operator is not positive definite.")
@@ -232,8 +234,9 @@ function conjgrad!(x, A, b, x0 = vzeros(b),
             break
         end
         alpha = rho/gamma
+
+        # Update variables and check for convergence.
         vupdate!(x, +alpha, p)
-        vupdate!(r, -alpha, q) # FIXME: spare this update if next tests succeed
         psi = alpha*rho/2      # psi = f(x_{k}) - f(x_{k+1})
         psimax = max(psi, psimax)
         if psi ≤ ftest*psimax
@@ -250,8 +253,11 @@ function conjgrad!(x, A, b, x0 = vzeros(b),
             end
             break
         end
+
+        # Update residuals and related quantities.
+        vupdate!(r, -alpha, q)
         oldrho = rho
-        rho = Float64(vdot(r, r))
+        rho = vdot(r, r)
     end
     return x
 end
