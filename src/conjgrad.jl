@@ -93,7 +93,7 @@ There are several keywords to control the algorithm:
 * Keyword `ftol` specifies the function tolerance for convergence.  The
   convergence is assumed as soon as the variation of the objective function
   `f(x)` between two successive iterations is less or equal `ftol` times the
-  largest variation so far.  By default, `ftol = 1e-7`.
+  largest variation so far.  By default, `ftol = 1e-8`.
 
 * Keyword `gtol` specifies the gradient tolerances for convergence, it is a
   tuple of two values `(gatol, grtol)` where `gatol` and `grtol` are the
@@ -171,13 +171,13 @@ function conjgrad!(x, A, b, x0 = vzeros(b),
         # Save applying A since x = 0.
         vcopy!(r, b)
     end
-    rho = Float64(vdot(r, r))
-    ftest = Float64(ftol)
-    gtest = Float64(max(gtol[1], gtol[2]*sqrt(rho)))
-    xtest = Float64(xtol)
-    psimax = Float64(0)
-    psi = Float64(0)
-    oldrho = Float64(0)
+    local rho    :: Float64 = vdot(r, r)
+    local ftest  :: Float64 = ftol
+    local gtest  :: Float64 = max(gtol[1], gtol[2]*sqrt(rho))
+    local xtest  :: Float64 = xtol
+    local psimax :: Float64 = 0
+    local psi    :: Float64 = 0
+    local oldrho :: Float64 = 0
 
     # Conjugate gradient iterations.
     k = 0
