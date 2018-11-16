@@ -28,14 +28,13 @@ export
 using Compat
 
 using ..LazyAlgebra
-import ..LazyAlgebra: apply!, vcreate, MorphismType, mul!,
+import ..LazyAlgebra: adjoint, apply!, vcreate, MorphismType, mul!,
     input_size, input_ndims, input_eltype,
     output_size, output_ndims, output_eltype,
     is_same_mapping
 using ..LazyAlgebra: _merge_mul
 
-
-import Base: *, /, \, adjoint, inv, show
+import Base: *, /, \, inv, show
 
 import AbstractFFTs: Plan, fftshift, ifftshift
 
