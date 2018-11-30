@@ -112,11 +112,6 @@ else
     const axes = indices
 end
 @static isdefined(Base, :isone) && import Base: isone
-@static if isdefined(Base, :diag)
-    import Base: diag
-else
-    import LinearAlgebra: diag
-end
 using Compat
 using Compat.Printf
 using Compat: @debug, @error, @info, @warn
@@ -131,10 +126,10 @@ using Compat: @debug, @error, @info, @warn
 @static if VERSION < v"0.7.0-DEV.3449"
     # LinearAlgebra not in the stdlib
     const LinearAlgebra = Base.LinAlg
-    import Base.LinAlg: UniformScaling
+    import Base.LinAlg: UniformScaling, diag
 else
     import LinearAlgebra
-    import LinearAlgebra: UniformScaling
+    import LinearAlgebra: UniformScaling, diag
 end
 const BLAS = LinearAlgebra.BLAS
 import .BLAS: libblas, @blasfunc, BlasInt, BlasReal, BlasFloat, BlasComplex
