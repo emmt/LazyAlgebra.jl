@@ -399,7 +399,7 @@ fastrange(A::AbstractArray) = fastrange(axes(A))
     import Base: axes
     fastrange(R::CartesianIndices) = R
     fastrange(start::CartesianIndex{N}, stop::CartesianIndex{N}) where {N} =
-        CartesianIndices(map((i,j) -> i:j, start, stop))
+        CartesianIndices(map((i,j) -> i:j, start.I, stop.I))
     fastrange(dims::NTuple{N,Integer}) where {N} =
         CartesianIndices(map((d) -> Base.OneTo(Int(d)), dims))
     fastrange(dims::NTuple{N,Int}) where {N} =
