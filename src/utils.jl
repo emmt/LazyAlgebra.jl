@@ -61,6 +61,89 @@ is_flat_array(args...) = allof(is_flat_array, args...)
 
 """
 ```julia
+densearray([T=eltype(A),] A)
+```
+
+lazyly yields a dense array based on `A`.  Optional argument `T` is to specify
+the element type of the result.  Argument `A` is returned if it is already a
+dense array with the requested element type; otherwise, [`convert`](@ref) is
+called to produce the result.
+
+Similarly:
+
+```julia
+densevector([T=eltype(V),] V)
+densematrix([T=eltype(M),] M)
+```
+
+respectively yield a dense vector from `V` and a dense matrix from `M`.
+
+"""
+densearray(A::DenseArray) = A
+densearray(::Type{T}, A::DenseArray{T,N}) where {T,N} = A
+densearray(A::AbstractArray{T,N}) where {T,N} = densearray(T, A)
+densearray(::Type{T}, A::AbstractArray{<:Any,N}) where {T,N} =
+    convert(Array{T,N}, A)
+
+densevector(V::AbstractVector{T}) where {T} = densearray(T, V)
+densevector(::Type{T}, V::AbstractVector) where {T} = densearray(T, V)
+@doc @doc(densearray) densevector
+
+densematrix(M::AbstractMatrix{T}) where {T} = densearray(T, M)
+densematrix(::Type{T}, M::AbstractMatrix) where {T} = densearray(T, M)
+@doc @doc(densearray) densematrix
+
+"""
+Any of the following calls:
+
+```julia
+allindices(A)
+allindices((n1, n2, ...))
+allindices((i1:j1, i2:j2, ...))
+allindices(CartesianIndex(i1, i2, ...), CartesianIndex(j1, j2, ...))
+allindices(R)
+```
+
+yields an instance of `CartesianIndices` or `CartesianRange` (whichever is the
+most efficient depending on the version of Julia) for multi-dimensional
+indexing of all the elements of array `A`, a multi-dimensional array of
+dimensions `(n1,n2,...)`, a multi-dimensional region whose first and last
+indices are `(i1,i2,...)` and `(j1,j2,...)` or a Cartesian region defined by
+`R`, an instance of `CartesianIndices` or of `CartesianRange`.
+
+"""
+allindices(A::AbstractArray) = allindices(axes(A))
+allindices(dim::Int) = Base.OneTo(dim)
+allindices(dim::Integer) = Base.OneTo(Int(dim))
+allindices(rng::AbstractUnitRange{Int}) = rng
+allindices(rng::AbstractUnitRange{<:Integer}) = convert(UnitRange{Int}, rng)
+@static if isdefined(Base, :CartesianIndices)
+    import Base: axes
+    allindices(R::CartesianIndices) = R
+    allindices(start::CartesianIndex{N}, stop::CartesianIndex{N}) where {N} =
+        CartesianIndices(map((i,j) -> i:j, start.I, stop.I))
+    allindices(dims::Tuple{Vararg{Integer}}) =
+        CartesianIndices(map(allindices, dims))
+    allindices(rngs::NTuple{N,AbstractUnitRange{<:Integer}}) where {N} =
+        CartesianIndices(rngs)
+else
+    import Base: indices
+    const axes = indices
+    allindices(R::CartesianIndices) = allindices(R.indices)
+    allindices(R::CartesianRange) = R
+    allindices(start::CartesianIndex{N}, stop::CartesianIndex{N}) where {N} =
+        CartesianRange(start, stop)
+    allindices(dims::NTuple{N,Integer}) where {N} =
+        CartesianRange(one(CartesianIndex{N}), CartesianIndex(dims))
+    allindices(rngs::NTuple{N,AbstractUnitRange{<:Integer}}) where {N} =
+        CartesianRange(CartesianIndex(map(first, rngs)),
+                       CartesianIndex(map(last,  rngs)))
+end
+
+@deprecate fastrange allindices
+
+"""
+```julia
 allof(p, args...) -> Bool
 ```
 
@@ -162,3 +245,18 @@ end
 
 noneof(args...) = ! anyof(args...)
 @doc @doc(anyof) noneof
+
+"""
+```julia
+reversemap(f, args)
+```
+
+applies the function `f` to arguments `args` in reverse order and return the
+result.  For now, the arguments `args` must be in the form of a simple tuple
+and the result is the tuple: `(f(args[end]),f(args[end-1]),...,f(args[1])`.
+
+Also see: [`map`](@ref), [`ntuple`](@ref).
+
+"""
+reversemap(f::Function, args::NTuple{N,Any}) where {N} =
+    ntuple(i -> f(args[(N + 1) - i]), Val(N))
