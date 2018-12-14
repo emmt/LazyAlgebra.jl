@@ -1,3 +1,6 @@
+* Provide `lgemv` and `lgemv!` for *Loosely Generalized Matrix Vector
+  Mutiplication*.
+
 * Deprecated `fastrange` is replaced by `allindices` which is extended to
   scalar dimension and index intervals.
 
