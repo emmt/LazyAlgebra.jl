@@ -621,12 +621,12 @@ function _apply!(α::Real,
         # Loop through the coefficients of A assuming column-major storage
         # order.
         alpha = convert_multiplier(α, Ta, Tx)
-        I, J = fastrange(axes(y)), fastrange(axes(x))
+        I, J = allindices(y), allindices(x)
         @inbounds for j in J
-            xj = alpha*x[j]
-            if xj != zero(xj)
+            axj = alpha*x[j]
+            if axj != zero(axj)
                 @simd for i in I
-                    y[i] += A[i,j]*xj
+                    y[i] += A[i,j]*axj
                 end
             end
         end
@@ -654,7 +654,7 @@ function _apply!(α::Real,
         # order.
         T = promote_type(Ta, Tx)
         alpha = convert_multiplier(α, T)
-        I, J = fastrange(axes(x)), fastrange(axes(y))
+        I, J = allindices(x), allindices(y)
         if β == 0
             @inbounds for j in J
                 local s::T = zero(T)

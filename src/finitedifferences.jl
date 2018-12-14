@@ -21,7 +21,7 @@ using Compat
 using ..Coder
 using  ...LazyAlgebra
 import ...LazyAlgebra: vcreate, apply!, HalfHessian, is_same_mapping
-using  ...LazyAlgebra: @callable, fastrange, convert_multiplier
+using  ...LazyAlgebra: @callable, convert_multiplier
 import Base: show
 
 # Define operator D which implements simple finite differences.  Make it
@@ -143,7 +143,7 @@ offset(::Type{CartesianIndex{N}}, d::Integer, s::Integer=1) where {N} =
         [:( $(D[d]) = x[$(I[d])] - xi        ) for d in 1:N]...
     )
     return encode(
-        :(  inds = fastrange(size(x))                 ),
+        :(  inds = allindices(size(x))                ),
         :(  imax = last(inds)                         ),
         [:( $(S[d]) = $(offset(CartesianIndex{N}, d)) ) for d in 1:N]...,
         :inbounds,
@@ -185,7 +185,7 @@ end
     S = generate_symbols("s", N)
     common = [:( $(I[d]) = min(i + $(S[d]), imax) ) for d in 1:N]
     return encode(
-        :(  inds = fastrange(size(y))                 ),
+        :(  inds = allindices(size(y))                ),
         :(  imax = last(inds)                         ),
         [:( $(S[d]) = $(offset(CartesianIndex{N}, d)) ) for d in 1:N]...,
         :inbounds,
@@ -224,7 +224,7 @@ end
         [:( $(I[d]) = min(i + $(S[d]), imax) ) for d in 1:N]...,
         :(  xi = x[i]                        ))
     return encode(
-        :(  inds = fastrange(size(x))                 ),
+        :(  inds = allindices(size(x))                ),
         :(  imax = last(inds)                         ),
         [:( $(S[d]) = $(offset(CartesianIndex{N}, d)) ) for d in 1:N]...,
         :inbounds,

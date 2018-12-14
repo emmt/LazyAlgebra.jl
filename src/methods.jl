@@ -128,11 +128,19 @@ The calls:
 operand(A)
 ```
 
+and
+
+```julia
+multiplier(A)
+```
+
 respectively yield the operand `M` and the multiplier `λ` if `A = λ*M` is a
 scaled operand; yield `A` and `1` otherwise.
 
 !!! note
     The [`operands`](@ref) method (with an "s") has a different meaning.
+
+See also: [`Scaled`](@ref).
 
 """
 operand(A::Scaled) = A.M
@@ -140,17 +148,9 @@ operand(A::Adjoint) = A.op
 operand(A::Inverse) = A.op
 operand(A::InverseAdjoint) = A.op
 
-"""
-```julia
-multiplier(A)
-```
-
-yields the multiplier of `A`, a scaled operand.
-
-See also: [`Scaled`](@ref), [`operand`](@ref).
-
-"""
 multiplier(A::Scaled) = A.λ
+multiplier(A::Mapping) = 1 # FIXME: should never be used!
+@doc @doc(operand) multiplier
 
 # Extend base methods to simplify the code for reducing expressions.
 first(A::Mapping) = A
@@ -264,7 +264,7 @@ of the variables to be multiplied by `α`.
 !!! note
     For now, complex-valued multipliers are not supported.  The type of the
     multiplier `α` must be integer or floating-point.  If `α` and the real part
-    of all types `T...` are integers, the returned value is and integer;
+    of all types `T...` are integers, the returned value is an integer;
     otherwise, the returned value is a floating-point.
 
 See also: [`convert`](@ref) and [`promote_type`](@ref).
@@ -379,11 +379,11 @@ densematrix(::Type{T}, M::AbstractMatrix) where {T} = densearray(T, M)
 Any of the following calls:
 
 ```julia
-fastrange(A)
-fastrange((n1, n2, ...))
-fastrange((i1:j1, i2:j2, ...))
-fastrange(CartesianIndex(i1, i2, ...), CartesianIndex(j1, j2, ...))
-fastrange(R)
+allindices(A)
+allindices((n1, n2, ...))
+allindices((i1:j1, i2:j2, ...))
+allindices(CartesianIndex(i1, i2, ...), CartesianIndex(j1, j2, ...))
+allindices(R)
 ```
 
 yields an instance of `CartesianIndices` or `CartesianRange` (whichever is the
@@ -394,31 +394,35 @@ indices are `(i1,i2,...)` and `(j1,j2,...)` or a Cartesian region defined by
 `R`, an instance of `CartesianIndices` or of `CartesianRange`.
 
 """
-fastrange(A::AbstractArray) = fastrange(axes(A))
+allindices(A::AbstractArray) = allindices(axes(A))
+allindices(dim::Int) = Base.OneTo(dim)
+allindices(dim::Integer) = Base.OneTo(Int(dim))
+allindices(rng::AbstractUnitRange{Int}) = rng
+allindices(rng::AbstractUnitRange{<:Integer}) = convert(UnitRange{Int}, rng)
 @static if isdefined(Base, :CartesianIndices)
     import Base: axes
-    fastrange(R::CartesianIndices) = R
-    fastrange(start::CartesianIndex{N}, stop::CartesianIndex{N}) where {N} =
+    allindices(R::CartesianIndices) = R
+    allindices(start::CartesianIndex{N}, stop::CartesianIndex{N}) where {N} =
         CartesianIndices(map((i,j) -> i:j, start.I, stop.I))
-    fastrange(dims::NTuple{N,Integer}) where {N} =
-        CartesianIndices(map((d) -> Base.OneTo(Int(d)), dims))
-    fastrange(dims::NTuple{N,Int}) where {N} =
-        CartesianIndices(map(Base.OneTo, dims))
-    fastrange(inds::NTuple{N,AbstractUnitRange{<:Integer}}) where {N} =
-        CartesianIndices(inds)
+    allindices(dims::Tuple{Vararg{Integer}}) =
+        CartesianIndices(map(allindices, dims))
+    allindices(rngs::NTuple{N,AbstractUnitRange{<:Integer}}) where {N} =
+        CartesianIndices(rngs)
 else
     import Base: indices
     const axes = indices
-    fastrange(R::CartesianIndices) = fastrange(R.indices)
-    fastrange(R::CartesianRange) = R
-    fastrange(start::CartesianIndex{N}, stop::CartesianIndex{N}) where {N} =
+    allindices(R::CartesianIndices) = allindices(R.indices)
+    allindices(R::CartesianRange) = R
+    allindices(start::CartesianIndex{N}, stop::CartesianIndex{N}) where {N} =
         CartesianRange(start, stop)
-    fastrange(dims::NTuple{N,Integer}) where {N} =
+    allindices(dims::NTuple{N,Integer}) where {N} =
         CartesianRange(one(CartesianIndex{N}), CartesianIndex(dims))
-    fastrange(inds::NTuple{N,AbstractUnitRange{<:Integer}}) where {N} =
-        CartesianRange(CartesianIndex(map(first, inds)),
-                       CartesianIndex(map(last,  inds)))
+    allindices(rngs::NTuple{N,AbstractUnitRange{<:Integer}}) where {N} =
+        CartesianRange(CartesianIndex(map(first, rngs)),
+                       CartesianIndex(map(last,  rngs)))
 end
+
+@deprecate fastrange allindices
 
 """
 ```julia
@@ -449,13 +453,13 @@ simplifications and optimizations.
     The returned result may be true although `A` and `B` are not necessarily
     the same objects.  For instance, if `A` and `B` are two sparse matrices
     whose coefficients and indices are stored in the same vectors (as can be
-    tested with [`is_same_mutable_object`](@ref)) this mesthod should return
+    tested with [`is_same_mutable_object`](@ref)) this method should return
     `true` because the two operators will behave identically (any changes in
     the coefficients or indices of `A` will be reflected in `B`).  If any of
     the vectors storing the coefficients or the indices are not the same
     objects, then `is_same_mapping(A,B)` must return `false` even though the
     stored values may be the same because it is possible, later, to change one
-    operator with affecting identically the other.
+    operator without affecting identically the other.
 
 """
 is_same_mapping(::Mapping, ::Mapping) = false  # always false by default

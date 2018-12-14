@@ -1,3 +1,6 @@
+* Deprecated `fastrange` is replaced by `allindices` which is extended to
+  scalar dimension and index intervals.
+
 * Complete rewrite of the rules for simplying complex constructions involving
   compositions and linear combination of mappings.
 

@@ -51,6 +51,7 @@ export
     SymbolicLinearMapping,
     SymbolicMapping,
     adjoint,
+    allindices,
     apply!,
     apply,
     conjgrad!,
