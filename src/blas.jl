@@ -14,10 +14,10 @@
 # The idea is to generalize the dot product as follows:
 #
 #   `vdot(x,y)` yields the sum of `conj(x[i])*y[i]` for each `i` in
-#               `eachindex(x,y)` provided `x` and `y` have the same dimensions
+#               `eachindex(x,y)` providing `x` and `y` have the same dimensions
 #               (i.e., same `indices`).
 #
-#   `A*x` yields the matrix-vector product provided that the trailing
+#   `A*x` yields the matrix-vector product providing that the trailing
 #                dimensions of `A` match the dimensions of `x`.  The result has
 #                the same dimensions as the leading dimensions of `A`.
 #
