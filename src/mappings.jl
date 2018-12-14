@@ -558,8 +558,8 @@ function vcreate(P::Type{<:Union{Direct,InverseAdjoint}},
                  scratch::Bool=false) where {Ta,Na,Tx,Nx}
     # Non-transposed matrix.  Trailing dimensions of X must match those of A,
     # leading dimensions of A are those of the result.  Whatever the scratch
-    # parameter, a new array is returned as the operation cannot be done in
-    # place.
+    # parameter, a new array is returned as the operation cannot be done
+    # in-place.
     @noinline incompatible_dimensions() =
         throw(DimensionMismatch("the indices of `x` do not match the trailing indices of `A`"))
     1 ≤ Nx < Na || incompatible_dimensions()
@@ -577,10 +577,10 @@ function vcreate(P::Type{<:Union{Adjoint,Inverse}},
                  scratch::Bool=false) where {Ta,Na,Tx,Nx}
     # Transposed matrix.  Leading dimensions of X must match those of A,
     # trailing dimensions of A are those of the result.  Whatever the scratch
-    # parameter, a new array is returned as the operation cannot be done in
-    # place (unless β=0).
+    # parameter, a new array is returned as the operation cannot be done
+    # in-place.
     @noinline incompatible_dimensions() =
-        throw(DimensionMismatch("the indices of `x` do not match the trailing indices of `A`"))
+        throw(DimensionMismatch("the indices of `x` do not match the leading indices of `A`"))
     1 ≤ Nx < Na || incompatible_dimensions()
     Ny = Na - Nx
     @inbounds for d in 1:Nx
