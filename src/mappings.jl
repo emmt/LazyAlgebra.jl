@@ -506,175 +506,88 @@ function is_same_mapping(A::GeneralMatrix{T},
     return is_same_mutable_object(A.arr, B.arr)
 end
 
-function apply!(α::Real,
+function apply!(α::Number,
                 P::Type{<:Operations},
-                A::GeneralMatrix{<:AbstractArray{<:AbstractFloat}},
-                x::AbstractArray{<:AbstractFloat},
+                A::GeneralMatrix{<:AbstractArray{<:LGEMV.Floats}},
+                x::AbstractArray{<:LGEMV.Floats},
                 scratch::Bool,
-                β::Real,
-                y::AbstractArray{<:AbstractFloat})
+                β::Number,
+                y::AbstractArray{<:LGEMV.Floats})
     return apply!(α, P, A.arr, x, scratch, β, y)
 end
 
 function vcreate(P::Type{<:Operations},
-                 A::GeneralMatrix{<:AbstractArray{<:AbstractFloat}},
-                 x::AbstractArray{<:AbstractFloat},
+                 A::GeneralMatrix{<:AbstractArray{<:LGEMV.Floats}},
+                 x::AbstractArray{<:LGEMV.Floats},
                  scratch::Bool=false)
     return vcreate(P, A.arr, x, scratch)
 end
 
-# FIXME: code all other cases for apply and apply!, do this by meta-code
-
-function apply(A::AbstractArray{<:Number},
-               x::AbstractArray{<:Number},
-               scratch::Bool=false)
-    return apply(Direct, A, x, scratch)
+for (T, L) in ((:Direct, 'N'), (:Adjoint, 'C'))
+    @eval begin
+        function apply!(α::Number,
+                        ::Type{$T},
+                        A::AbstractArray{<:LGEMV.Floats},
+                        x::AbstractArray{<:LGEMV.Floats},
+                        scratch::Bool,
+                        β::Number,
+                        y::AbstractArray{<:LGEMV.Floats})
+            return lgemv!($L, α, A, x, β, y)
+        end
+    end
 end
 
-function apply(P::Type{<:Operations},
-               A::AbstractArray{<:Number},
-               x::AbstractArray{<:Number},
-               scratch::Bool=false)
-    return apply!(1, P, A, x, scratch, 0, vcreate(P, A, x, scratch))
-end
+# To have apply and apply! methods callable with an array (instead of a
+# mapping), we have to provide the different possibilities.
 
-function apply!(y::AbstractArray{<:Number},
-                A::AbstractArray{<:Number},
-                x::AbstractArray{<:Number})
-    return apply!(1, Direct, A, x, false, 0, y)
-end
+apply(A::AbstractArray, x::AbstractArray, scratch::Bool=false) =
+    apply(Direct, A, x, scratch)
 
-function apply!(y::AbstractArray{<:Number},
-                P::Type{<:Operations},
-                A::AbstractArray{<:Number},
-                x::AbstractArray{<:Number})
-    return apply!(1, P, A, x, false, 0, y)
-end
+apply(P::Type{<:Operations}, A::AbstractArray, x::AbstractArray, scratch::Bool=false) =
+    apply!(1, P, A, x, scratch, 0, vcreate(P, A, x, scratch))
 
-# By default, use pure Julia code for the generalized matrix-vector product.
-function apply!(α::Real,
-                P::Type{<:Union{Direct,InverseAdjoint}},
-                A::AbstractArray{<:Real},
-                x::AbstractArray{<:Real},
-                scratch::Bool,
-                β::Real,
-                y::AbstractArray{<:Real})
-    axes(A) == (axes(y)..., axes(x)...) ||
-        throw(DimensionMismatch("`x` and/or `y` have axes incompatible with `A`"))
-    return _apply!(α, P, A, x, β, y)
-end
+apply!(y::AbstractArray, A::AbstractArray, x::AbstractArray) =
+    apply!(1, Direct, A, x, false, 0, y)
 
-function apply!(α::Real,
-                P::Type{<:Union{Adjoint,Inverse}},
-                A::AbstractArray{<:Real},
-                x::AbstractArray{<:Real},
-                scratch::Bool,
-                β::Real,
-                y::AbstractArray{<:Real})
-    axes(A) == (axes(x)..., axes(y)...) ||
-        throw(DimensionMismatch("`x` and/or `y` have axes incompatible with `A`"))
-    return _apply!(α, P, A, x, β, y)
-end
+apply!(y::AbstractArray, P::Type{<:Operations}, A::AbstractArray, x::AbstractArray) =
+    apply!(1, P, A, x, false, 0, y)
 
 function vcreate(P::Type{<:Union{Direct,InverseAdjoint}},
                  A::AbstractArray{Ta,Na},
                  x::AbstractArray{Tx,Nx},
                  scratch::Bool=false) where {Ta,Na,Tx,Nx}
-    Ainds = axes(A)
-    xinds = axes(x)
+    # Non-transposed matrix.  Trailing dimensions of X must match those of A,
+    # leading dimensions of A are those of the result.  Whatever the scratch
+    # parameter, a new array is returned as the operation cannot be done in
+    # place.
+    @noinline incompatible_dimensions() =
+        throw(DimensionMismatch("the indices of `x` do not match the trailing indices of `A`"))
+    1 ≤ Nx < Na || incompatible_dimensions()
     Ny = Na - Nx
-    (Nx < Na && xinds == Ainds[Ny+1:end]) ||
-        throw(DimensionMismatch("the axes of `x` do not match the trailing axes of `A`"))
-    Ty = promote_type(Ta, Tx)
-    yinds = Ainds[1:Ny]
-    return (scratch && Nx == Ny && xinds == yinds ? x :
-            similar(Array{Ty}, yinds))
+    @inbounds for d in 1:Nx
+        axes(x, d) == axes(A, Ny + d) || incompatible_dimensions()
+    end
+    shape = ntuple(d -> axes(A, d), Val(Ny))
+    return similar(A, promote_type(Ta, Tx), shape)
 end
 
 function vcreate(P::Type{<:Union{Adjoint,Inverse}},
                  A::AbstractArray{Ta,Na},
                  x::AbstractArray{Tx,Nx},
                  scratch::Bool=false) where {Ta,Na,Tx,Nx}
-    Ainds = axes(A)
-    xinds = axes(x)
+    # Transposed matrix.  Leading dimensions of X must match those of A,
+    # trailing dimensions of A are those of the result.  Whatever the scratch
+    # parameter, a new array is returned as the operation cannot be done in
+    # place (unless β=0).
+    @noinline incompatible_dimensions() =
+        throw(DimensionMismatch("the indices of `x` do not match the trailing indices of `A`"))
+    1 ≤ Nx < Na || incompatible_dimensions()
     Ny = Na - Nx
-    (Nx < Na && xinds == Ainds[1:Nx]) ||
-        throw(DimensionMismatch("the axes of `x` do not match the leading axes of `A`"))
-    yinds = Ainds[Nx+1:end]
-    Ty = promote_type(Ta, Tx)
-    return (scratch && Nx == Ny && xinds == yinds ? x :
-            similar(Array{Ty}, yinds))
-end
-
-# Pure Julia code implementations.
-
-function _apply!(α::Real,
-                 ::Type{Direct},
-                 A::AbstractArray{Ta},
-                 x::AbstractArray{Tx},
-                 β::Real,
-                 y::AbstractArray{Ty}) where {Ta,Tx,Ty}
-    if β != 1
-        vscale!(y, β)
+    @inbounds for d in 1:Nx
+        axes(x, d) == axes(A, d) || incompatible_dimensions()
     end
-    if α != 0
-        # Loop through the coefficients of A assuming column-major storage
-        # order.
-        alpha = convert_multiplier(α, Ta, Tx)
-        I, J = allindices(y), allindices(x)
-        @inbounds for j in J
-            axj = alpha*x[j]
-            if axj != zero(axj)
-                @simd for i in I
-                    y[i] += A[i,j]*axj
-                end
-            end
-        end
-    end
-    return y
-end
-
-function _apply!(y::AbstractArray{Ty},
-                 ::Type{Adjoint},
-                 A::AbstractArray{Ta},
-                 x::AbstractArray{Tx}) where {Ta,Tx,Ty}
-    return _apply!(promote_type(Ty, Ta, Tx), y, Adjoint, A, x)
-end
-
-function _apply!(α::Real,
-                 ::Type{Adjoint},
-                 A::AbstractArray{Ta},
-                 x::AbstractArray{Tx},
-                 β::Real,
-                 y::AbstractArray{Ty}) where {Ta,Tx,Ty}
-    if α == 0
-        vscale!(y, β)
-    else
-        # Loop through the coefficients of A assuming column-major storage
-        # order.
-        T = promote_type(Ta, Tx)
-        alpha = convert_multiplier(α, T)
-        I, J = allindices(x), allindices(y)
-        if β == 0
-            @inbounds for j in J
-                local s::T = zero(T)
-                @simd for i in I
-                    s += A[i,j]*x[i]
-                end
-                y[j] = alpha*s
-            end
-        else
-            beta = convert_multiplier(β, Ty)
-            @inbounds for j in J
-                local s::T = zero(T)
-                @simd for i in I
-                    s += A[i,j]*x[i]
-                end
-                y[j] = alpha*s + beta*y[j]
-            end
-        end
-    end
-    return y
+    shape = ntuple(d -> axes(A, Nx + d), Val(Ny))
+    return similar(A, promote_type(Ta, Tx), shape)
 end
 
 #------------------------------------------------------------------------------
