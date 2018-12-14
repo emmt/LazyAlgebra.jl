@@ -52,6 +52,8 @@ export
     SymbolicMapping,
     adjoint,
     allindices,
+    allof,
+    anyof,
     apply!,
     apply,
     conjgrad!,
@@ -64,11 +66,13 @@ export
     input_type,
     is_diagonal,
     is_endomorphism,
+    is_flat_array,
     is_linear,
     is_selfadjoint,
     isone,
     iszero,
     multiplier,
+    noneof,
     operand,
     operands,
     output_eltype,
@@ -161,6 +165,7 @@ import Base: *, ∘, +, -, \, /, ==, inv,
     getindex, setindex!, eachindex, first, last, one, zero, iszero
 
 include("types.jl")
+include("utils.jl")
 include("methods.jl")
 include("vectors.jl")
 include("blas.jl")
