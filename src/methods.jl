@@ -239,37 +239,6 @@ end
 
 """
 ```julia
-convert_multiplier(α, T...)
-```
-
-converts the scalar `α` in a suitable type for operations involving arguments
-of types `T...`.  In general, `T...` is a single type and is the element type
-of the variables to be multiplied by `α`.
-
-!!! note
-    For now, complex-valued multipliers are not supported.  The type of the
-    multiplier `α` must be integer or floating-point.  If `α` and the real part
-    of all types `T...` are integers, the returned value is an integer;
-    otherwise, the returned value is a floating-point.
-
-See also: [`convert`](@ref) and [`promote_type`](@ref).
-
-"""
-convert_multiplier(α::Real, T::Type{<:Number}, args::Type{<:Number}...) =
-    convert_multiplier(α, promote_type(T, args...))
-
-# Sub-types of Number are: Complex and Real.
-convert_multiplier(α::Real, ::Type{Complex{T}}) where {T<:Real} =
-    convert_multiplier(α, T)
-
-# Sub-types of Real are: AbstractFloat, AbstractIrrational, Integer and
-# Rational.
-convert_multiplier(α::Integer, T::Type{<:Integer}) = convert(T, α)
-convert_multiplier(α::Real, T::Type{<:AbstractFloat}) = convert(T, α)
-convert_multiplier(α::Real, T::Type{<:Real}) = convert(float(T), α)
-
-"""
-```julia
 checkmapping(y, A, x) -> (v1, v2, v1 - v2)
 ```
 

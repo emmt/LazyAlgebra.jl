@@ -260,3 +260,57 @@ Also see: [`map`](@ref), [`ntuple`](@ref).
 """
 reversemap(f::Function, args::NTuple{N,Any}) where {N} =
     ntuple(i -> f(args[(N + 1) - i]), Val(N))
+
+"""
+
+```julia
+convert_multiplier(λ, T [, S=T])
+```
+
+yields multiplier `λ` converted to a suitable type for multiplying array whose
+elements have type `T` and for storage in a destination array whose elements
+have type `S`.
+
+The following rules are applied:
+
+1. Convert `λ` to the same floating-point precision as `T`.
+
+2. The result is a real if `λ` is a real or both `T` and `S` are real types;
+   otherwise (that is if `λ` is complex and at least one of `T` or `S` is a
+   complex type), the result is a complex.
+
+Result can be a real if imaginary part of `λ` is zero but this would break the
+rule of type-stability at compilation time.
+
+"""
+function convert_multiplier(λ::Number, ::Type{T}) where {T<:Reals}
+    return convert(T, λ)
+end
+
+function convert_multiplier(λ::Real, ::Type{Complex{T}}) where {T<:Reals}
+    return convert(T, λ)
+end
+
+function convert_multiplier(λ::Complex, ::Type{T}) where {T<:Complexes}
+    return convert(T, λ)
+end
+
+function convert_multiplier(λ::Number, ::Type{T},
+                            ::Type{<:Reals}) where {T<:Reals}
+    return convert(T, λ)
+end
+
+function convert_multiplier(λ::Real, ::Type{Complex{T}},
+                            ::Type{<:Union{Reals,Complexes}}) where {T<:Reals}
+    return convert(T, λ)
+end
+
+function convert_multiplier(λ::Complex, ::Type{T},
+                            ::Type{Complexes}) where {T<:Reals}
+    return convert(Complex{T}, λ)
+end
+
+function convert_multiplier(λ::Complex, ::Type{T},
+                            ::Type{Complexes}) where {T<:Complexes}
+    return convert(T, λ)
+end

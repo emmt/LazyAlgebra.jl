@@ -338,7 +338,7 @@ for (Td, Ts) in ((:Td,            :Ts),
                     dst[i] = -src[i]
                 end
             else
-                a = convert_multiplier(α, Ts)
+                a = convert_multiplier(α, Ts, Td)
                 @inbounds @simd for i in eachindex(dst, src)
                     dst[i] = a*src[i]
                 end
@@ -504,7 +504,7 @@ for (Tx, Ty) in ((:Tx,            :Ty),
                 y[i] -= x[i]
             end
         elseif α != 0
-            a = convert_multiplier(α, Tx)
+            a = convert_multiplier(α, Tx, Ty)
             @inbounds @simd for i in eachindex(y, x)
                 y[i] += a*x[i]
             end
@@ -532,7 +532,7 @@ for (Tx, Ty) in ((:Tx,            :Ty),
                 y[j] -= x[j]
             end
         elseif α != 0
-            a = convert_multiplier(α, Tx)
+            a = convert_multiplier(α, Tx, Ty)
             @inbounds @simd for i in eachindex(sel)
                 j = sel[i]
                 y[j] += a*x[j]
@@ -613,7 +613,7 @@ for (Td, Tx, Ty) in ((:Td,            :Tx,            :Ty),
                         dst[i] = x[i] - y[i]
                     end
                 else
-                    b = convert_multiplier(β, Ty)
+                    b = convert_multiplier(β, Ty, Td)
                     @inbounds @simd for i in eachindex(dst, x, y)
                         dst[i] = x[i] + b*y[i]
                     end
@@ -628,13 +628,13 @@ for (Td, Tx, Ty) in ((:Td,            :Tx,            :Ty),
                         dst[i] = -x[i] - y[i]
                     end
                 else
-                    b = convert_multiplier(β, Ty)
+                    b = convert_multiplier(β, Ty, Td)
                     @inbounds @simd for i in eachindex(dst, x, y)
                         dst[i] = b*y[i] - x[i]
                     end
                 end
             else
-                a = convert_multiplier(α, Tx)
+                a = convert_multiplier(α, Tx, Td)
                 if β == 1
                     @inbounds @simd for i in eachindex(dst, x, y)
                         dst[i] = a*x[i] + y[i]
@@ -644,7 +644,7 @@ for (Td, Tx, Ty) in ((:Td,            :Tx,            :Ty),
                         dst[i] = a*x[i] - y[i]
                     end
                 else
-                    b = convert_multiplier(β, Ty)
+                    b = convert_multiplier(β, Ty, Td)
                     @inbounds @simd for i in eachindex(dst, x, y)
                         dst[i] = a*x[i] + b*y[i]
                     end

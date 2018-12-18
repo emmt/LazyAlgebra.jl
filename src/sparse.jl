@@ -166,11 +166,13 @@ function apply!(α::Real,
                 x::DenseArray{Tx,N},
                 scratch::Bool,
                 β::Real,
-                y::DenseArray{<:Number,M}) where {Ts<:Number,Tx<:Number,M,N}
+                y::DenseArray{Ty,M}) where {Ts<:Number,Tx<:Number,
+                                            Ty<:Number,M,N}
     size(x) == input_size(S) || _bad_input_dimensions()
     size(y) == output_size(S) || _bad_output_dimensions()
     β == 1 || vscale!(y, β)
-    α == 0 || _apply_sparse!(y, convert_multiplier(α, Ts, Tx),
+    α == 0 || _apply_sparse!(y,
+                             convert_multiplier(α, promote_type(Ts, Tx), Ty),
                              coefs(S), rows(S), cols(S), x)
     return y
 end
@@ -181,11 +183,12 @@ function apply!(α::Real,
                 x::DenseArray{Tx,M},
                 scratch::Bool,
                 β::Real,
-                y::DenseArray{<:Number,N}) where {Ts<:Number,Tx<:Number,M,N}
+                y::DenseArray{Ty,N}) where {Ts<:Number,Tx<:Number,
+                                            Ty<:Number,M,N}
     size(x) == output_size(S) || _bad_input_dimensions()
     size(y) == input_size(S) || _bad_output_dimensions()
     β == 1 || vscale!(y, β)
-    α == 0 || _apply_sparse!(y, convert_multiplier(α, Ts, Tx),
+    α == 0 || _apply_sparse!(y, convert_multiplier(α, promote_type(Ts, Tx), Ty),
                              coefs(S), cols(S), rows(S), x)
     return y
 end

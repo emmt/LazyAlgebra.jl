@@ -86,7 +86,7 @@ function apply!(α::Real,
     if α == 0
         vscale!(y, β)
     else
-        _apply_D!(convert_multiplier(α, Tx), x, convert_multiplier(β, Ty), y)
+        _apply_D!(convert_multiplier(α, Tx, Ty), x, convert_multiplier(β, Ty), y)
     end
     return y
 end
@@ -106,7 +106,7 @@ function apply!(α::Real,
     xdims[2:end] == size(y) ||
         throw(DimensionMismatch("dimensions 2:end of source must be $(size(y))"))
     β == 1 || vscale!(y, β)
-    α == 0 || _apply_Dt!(convert_multiplier(α, Tx), x, y)
+    α == 0 || _apply_Dt!(convert_multiplier(α, Tx, Ty), x, y)
     return y
 end
 
@@ -122,7 +122,7 @@ function apply!(α::Real,
     size(x) == size(y) ||
         throw(DimensionMismatch("source and destination must have the same dimensions"))
     β == 1 || vscale!(y, β)
-    α == 0 || _apply_DtD!(convert_multiplier(α, Tx), x, y)
+    α == 0 || _apply_DtD!(convert_multiplier(α, Tx, Ty), x, y)
     return y
 end
 

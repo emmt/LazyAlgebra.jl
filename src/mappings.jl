@@ -271,7 +271,7 @@ function apply!(α::Real,
     if α == 0
         rmul!(y, β)
     else
-        a = convert_multiplier(α, Tw, Tx) # FIXME: force float if there is a division?
+        a = convert_multiplier(α, promote_type(Tw, Tx), Ty)
         b = convert_multiplier(β, Ty)
         I = eachindex(w, x, y)
         if P === Direct || P === Adjoint
@@ -298,7 +298,7 @@ function apply!(α::Real,
     if α == 0
         rmul!(y, β)
     else
-        a = convert_multiplier(α, Tw, Tx) # FIXME: force float if there is a division?
+        a = convert_multiplier(α, promote_type(Tw, Tx), Ty)
         b = convert_multiplier(β, Ty)
         I = eachindex(w, x, y)
         if P === Direct
