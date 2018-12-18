@@ -43,7 +43,6 @@ approximation of reals in the mathematical sense.
 """
 const Reals = AbstractFloat
 
-
 """
 
 Type `Complexes` is the set of the complexes whose real and imaginary parts are
@@ -52,6 +51,13 @@ mathematical sense.
 
 """
 const Complexes = Complex{<:Reals}
+
+"""
+
+Type `Floats` is the union of all floating-point types (reals and complexes).
+
+"""
+const Floats = Union{Reals,Complexes}
 
 """
 

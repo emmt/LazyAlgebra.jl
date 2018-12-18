@@ -21,14 +21,16 @@ export
 
 using Compat
 using ..LazyAlgebra # for `allindices`, `is_flat_array`, etc.
-using ..LazyAlgebra: LinearAlgebra, axes, convert_multiplier
+using ..LazyAlgebra:
+    Complexes,
+    Floats,
+    LinearAlgebra,
+    Reals,
+    axes,
+    convert_multiplier
 
 const BLAS = LinearAlgebra.BLAS
 using .BLAS: libblas, @blasfunc, BlasInt, BlasReal, BlasFloat, BlasComplex
-
-const Reals = AbstractFloat
-const Complexes = Complex{<:AbstractFloat}
-const Floats = Union{Reals,Complexes}
 
 """
 
