@@ -71,6 +71,8 @@ export
     is_selfadjoint,
     isone,
     iszero,
+    lgemm!,
+    lgemm,
     lgemv!,
     lgemv,
     multiplier,
@@ -170,8 +172,8 @@ include("types.jl")
 include("utils.jl")
 include("methods.jl")
 include("vectors.jl")
-include("lgemv.jl")
-import .LGEMV: lgemv!, lgemv
+include("genmult.jl")
+import .GenMult: lgemm!, lgemm, lgemv!, lgemv
 include("blas.jl")
 include("coder.jl")
 include("rules.jl")

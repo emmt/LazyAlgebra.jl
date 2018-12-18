@@ -508,17 +508,17 @@ end
 
 function apply!(α::Number,
                 P::Type{<:Operations},
-                A::GeneralMatrix{<:AbstractArray{<:LGEMV.Floats}},
-                x::AbstractArray{<:LGEMV.Floats},
+                A::GeneralMatrix{<:AbstractArray{<:GenMult.Floats}},
+                x::AbstractArray{<:GenMult.Floats},
                 scratch::Bool,
                 β::Number,
-                y::AbstractArray{<:LGEMV.Floats})
+                y::AbstractArray{<:GenMult.Floats})
     return apply!(α, P, A.arr, x, scratch, β, y)
 end
 
 function vcreate(P::Type{<:Operations},
-                 A::GeneralMatrix{<:AbstractArray{<:LGEMV.Floats}},
-                 x::AbstractArray{<:LGEMV.Floats},
+                 A::GeneralMatrix{<:AbstractArray{<:GenMult.Floats}},
+                 x::AbstractArray{<:GenMult.Floats},
                  scratch::Bool=false)
     return vcreate(P, A.arr, x, scratch)
 end
@@ -527,12 +527,12 @@ for (T, L) in ((:Direct, 'N'), (:Adjoint, 'C'))
     @eval begin
         function apply!(α::Number,
                         ::Type{$T},
-                        A::AbstractArray{<:LGEMV.Floats},
-                        x::AbstractArray{<:LGEMV.Floats},
+                        A::AbstractArray{<:GenMult.Floats},
+                        x::AbstractArray{<:GenMult.Floats},
                         scratch::Bool,
                         β::Number,
-                        y::AbstractArray{<:LGEMV.Floats})
-            return lgemv!($L, α, A, x, β, y)
+                        y::AbstractArray{<:GenMult.Floats})
+            return lgemv!(α, $L, A, x, β, y)
         end
     end
 end
