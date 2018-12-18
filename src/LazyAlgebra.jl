@@ -11,7 +11,7 @@
 # Copyright (c) 2017-2018 Éric Thiébaut.
 #
 
-isdefined(Base, :__precompile__) && __precompile__(true)
+__precompile__(true)
 
 module LazyAlgebra
 
