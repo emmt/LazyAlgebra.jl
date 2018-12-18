@@ -51,10 +51,10 @@ function test_utilities()
             Tc = C[rand(1:length(C))]
             @test convert_multiplier(1, Tr) == convert(Tr, 1)
             @test isa(convert_multiplier(π, Tc), AbstractFloat)
-            @test convert_multiplier(2.0, Tr) === convert(Tr, 2)
-            @test convert_multiplier(2.0, Tr, Trp) === convert(Tr, 2)
-            @test convert_multiplier(2.0, Tr, Tc) === convert(Tr, 2)
-            @test convert_multiplier(2.0, Tc, Tc) === convert(real(Tc), 2)
+            @test (v = convert_multiplier(2.0, Tr)) == 2 && isa(v, Tr)
+            @test (v = convert_multiplier(2.0, Tr, Trp)) == 2 && isa(v, Tr)
+            @test (v = convert_multiplier(2.0, Tr, Tc)) == 2 && isa(v, Tr)
+            @test (v = convert_multiplier(2.0, Tc, Tc)) == 2 && isa(v, real(Tc))
             @test convert_multiplier(1+0im, Tr) == 1
             @test convert_multiplier(1+0im, Tr, Trp) == 1
             @test_throws InexactError convert_multiplier(1+2im, Tr)
