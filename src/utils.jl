@@ -283,34 +283,21 @@ Result can be a real if imaginary part of `λ` is zero but this would break the
 rule of type-stability at compilation time.
 
 """
-function convert_multiplier(λ::Number, ::Type{T}) where {T<:Reals}
-    return convert(T, λ)
-end
+convert_multiplier(λ::Number, ::Type{T}) where {T<:Reals} = convert(T, λ)
+convert_multiplier(λ::Real, ::Type{Complex{T}}) where {T<:Reals} = convert(T, λ)
+convert_multiplier(λ::Complex, ::Type{T}) where {T<:Complexes} = convert(T, λ)
 
-function convert_multiplier(λ::Real, ::Type{Complex{T}}) where {T<:Reals}
-    return convert(T, λ)
-end
+convert_multiplier(λ::Real, ::Type{T}, ::Type{<:Number}) where {T<:Reals} =
+    convert(T, λ)
 
-function convert_multiplier(λ::Complex, ::Type{T}) where {T<:Complexes}
-    return convert(T, λ)
-end
+convert_multiplier(λ::Real, ::Type{Complex{T}}, ::Type{<:Complex}) where {T<:Reals} =
+    convert(T, λ)
 
-function convert_multiplier(λ::Number, ::Type{T},
-                            ::Type{<:Reals}) where {T<:Reals}
-    return convert(T, λ)
-end
+convert_multiplier(λ::Complex, ::Type{T}, ::Type{<:Real}) where {T<:Reals} =
+    convert(T, λ)
 
-function convert_multiplier(λ::Real, ::Type{Complex{T}},
-                            ::Type{<:Union{Reals,Complexes}}) where {T<:Reals}
-    return convert(T, λ)
-end
+convert_multiplier(λ::Complex, ::Type{T}, ::Type{<:Complex}) where {T<:Reals} =
+    convert(Complex{T}, λ)
 
-function convert_multiplier(λ::Complex, ::Type{T},
-                            ::Type{Complexes}) where {T<:Reals}
-    return convert(Complex{T}, λ)
-end
-
-function convert_multiplier(λ::Complex, ::Type{T},
-                            ::Type{Complexes}) where {T<:Complexes}
-    return convert(T, λ)
-end
+convert_multiplier(λ::Complex, ::Type{T}, ::Type{<:Complex}) where {T<:Complexes} =
+    convert(T, λ)
