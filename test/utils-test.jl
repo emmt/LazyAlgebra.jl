@@ -1,21 +1,33 @@
+using Random
 function test_utilities()
     is_flat_array = LazyAlgebra.is_flat_array
     convert_multiplier = LazyAlgebra.convert_multiplier
     @testset "Utilities" begin
         A = ones((2, 3, 4))
-        @test is_flat_array(A) == true
-        @test is_flat_array(view(A, :, :, 2:3)) == true
-        @test is_flat_array(view(A, :, 2:2, :)) == false
-        @test is_flat_array(view(A, :, 2, :)) == false
-        @test is_flat_array(view(A, :, 2:2, 3)) == true
-        @test is_flat_array(view(A, :, 2, 3)) == true
-        @test is_flat_array(view(A, :, 2, 3:3)) == false
+        L = ((nothing,             false),
+             ("a",                 false),
+             ((),                  false),
+             (1,                   false),
+             (A,                   true ),
+             (view(A, :, :, 2:3),  true ),
+             (view(A, :, 2:2, :),  false),
+             (view(A, :, 2, :),    false),
+             (view(A, :, 2:2, 3),  true ),
+             (view(A, :, 2, 3),    true ),
+             (view(A, :, 2, 3:3),  false))
+        for i in randperm(length(L)) # prevent compilation-time optimization
+            x, b = L[i]
+            @test is_flat_array(x) == b
+        end
         @test is_flat_array(A, view(A, :, 2, 3), view(A, :, 2:2, 3)) == true
         @test is_flat_array(A, view(A, :, 2:2, :), view(A, :, 2:2, 3)) == false
 
-        A = ones(Bool, (3, 7))
+        A = (true, true, true)
         B = [true, false]
         C = (false, false)
+        for i in randperm(length(B)) # prevent compilation-time optimization
+            @test anyof(B[i]) == B[i]
+        end
         @test allof(true) == true
         @test anyof(true) == true
         @test noneof(true) == false
@@ -25,6 +37,9 @@ function test_utilities()
         @test allof(A) == true
         @test anyof(A) == true
         @test noneof(A) == false
+        @test allof(collect(A)) == allof(A)
+        @test anyof(collect(A)) == anyof(A)
+        @test noneof(collect(A)) == noneof(A)
         @test allof(B) == false
         @test anyof(B) == true
         @test noneof(B) == false
@@ -37,18 +52,19 @@ function test_utilities()
             @test noneof(x, y) == (noneof(x) && noneof(y))
         end
         for x in (A, B, C)
-            @test allof(x) == (allof(minimum, x) && allof(maximum, x))
-            @test noneof(x) == (noneof(minimum, x) && noneof(maximum, x))
-            @test anyof(x) == (anyof(minimum, x) || anyof(maximum, x))
+            @test allof(x) == (allof(minimum, x, x) && allof(maximum, x))
+            @test noneof(x) == (noneof(minimum, x, x) && noneof(maximum, x))
+            @test anyof(x) == (anyof(minimum, x, x) || anyof(maximum, x))
         end
 
         R = (Float32, Float16, BigFloat, Float64)
         C = (ComplexF32, ComplexF64)
-        for k in 1:2
-            i = rand(1:length(R))
+        for i in randperm(length(R)) # prevent compilation-time optimization
             Tr = R[i]
             Trp = R[i < length(R) ? i + 1 : 1]
-            Tc = C[rand(1:length(C))]
+            j = rand(1:length(C))
+            Tc = C[j]
+            Tcp = C[length(C) + 1 - j]
             @test convert_multiplier(1, Tr) == convert(Tr, 1)
             @test isa(convert_multiplier(π, Tc), AbstractFloat)
             @test (v = convert_multiplier(2.0, Tr)) == 2 && isa(v, Tr)
@@ -59,6 +75,7 @@ function test_utilities()
             @test convert_multiplier(1+0im, Tr, Trp) == 1
             @test_throws InexactError convert_multiplier(1+2im, Tr)
             @test convert_multiplier(1+2im, Tr, Tc) == 1+2im
+            @test convert_multiplier(1+2im, Tc, Tcp) == 1+2im
         end
     end
 end
