@@ -3,6 +3,9 @@ function test_utilities()
     is_flat_array = LazyAlgebra.is_flat_array
     convert_multiplier = LazyAlgebra.convert_multiplier
     @testset "Utilities" begin
+        #
+        # Tests for `is_flat_array`.
+        #
         A = ones((2, 3, 4))
         L = ((nothing,             false),
              ("a",                 false),
@@ -21,7 +24,9 @@ function test_utilities()
         end
         @test is_flat_array(A, view(A, :, 2, 3), view(A, :, 2:2, 3)) == true
         @test is_flat_array(A, view(A, :, 2:2, :), view(A, :, 2:2, 3)) == false
-
+        #
+        # Tests for `allof`, `anyof` and `noneof`.
+        #
         A = (true, true, true)
         B = [true, false]
         C = (false, false)
@@ -56,7 +61,34 @@ function test_utilities()
             @test noneof(x) == (noneof(minimum, x, x) && noneof(maximum, x))
             @test anyof(x) == (anyof(minimum, x, x) || anyof(maximum, x))
         end
-
+        #
+        # Tests for `allindices`.
+        #
+        dims = (3,4)
+        dim = 5
+        A = randn(dims)
+        V = randn(dim)
+        R = allindices(A)
+        I1 = one(CartesianIndex{2})
+        I2 = CartesianIndex(dims)
+        L = ((dim,                  1:dim),
+             (Int16(dim),           Base.OneTo(dim)),
+             (1:dim,                Base.OneTo(dim)),
+             (Int16(2):Int16(dim),  2:dim),
+             (V,                    allindices(size(V))),
+             (A,                    allindices(size(A))),
+             ((I1,I2),              R))
+        for i in randperm(length(L)) # prevent compilation-time optimization
+            arg, inds = L[i]
+            if isa(arg, NTuple{2,CartesianIndex})
+                @test allindices(arg[1], arg[2]) == inds
+            else
+                @test allindices(arg) == inds
+            end
+        end
+        #
+        # Tests for `convert_multiplier`.
+        #
         R = (Float32, Float16, BigFloat, Float64)
         C = (ComplexF32, ComplexF64)
         for i in randperm(length(R)) # prevent compilation-time optimization
