@@ -283,21 +283,34 @@ Result can be a real if imaginary part of `λ` is zero but this would break the
 rule of type-stability at compilation time.
 
 """
-convert_multiplier(λ::Number, ::Type{T}) where {T<:Reals} = convert(T, λ)
-convert_multiplier(λ::Real, ::Type{Complex{T}}) where {T<:Reals} = convert(T, λ)
-convert_multiplier(λ::Complex, ::Type{T}) where {T<:Complexes} = convert(T, λ)
+convert_multiplier(λ::Real, ::Type{T}) where {T<:Floats} =
+    (isconcretetype(T) ? convert(real(T), λ) : operand_type_not_concrete(T))
+convert_multiplier(λ::Complex, ::Type{T}) where {T<:Floats} =
+    # Call to `convert` will clash if `T` is real and `imag(λ)` is non-zero
+    # (this is what we want).
+    (isconcretetype(T) ? convert(T, λ) : operand_type_not_concrete(T))
 
-convert_multiplier(λ::Real, ::Type{T}, ::Type{<:Number}) where {T<:Reals} =
-    convert(T, λ)
-
-convert_multiplier(λ::Real, ::Type{Complex{T}}, ::Type{<:Complex}) where {T<:Reals} =
-    convert(T, λ)
-
+convert_multiplier(λ::Real, ::Type{T}, ::Type{<:Number}) where {T<:Floats} =
+    (isconcretetype(T) ? convert(real(T), λ) : operand_type_not_concrete(T))
 convert_multiplier(λ::Complex, ::Type{T}, ::Type{<:Real}) where {T<:Reals} =
-    convert(T, λ)
+    # Call to `convert` will clash if `imag(λ)` is non-zero (this is what we
+    # want).
+    (isconcretetype(T) ? convert(T, λ) : operand_type_not_concrete(T))
+convert_multiplier(λ::Complex, ::Type{T}, ::Type{<:Complex}) where {T<:Floats} =
+    (isconcretetype(T) ? convert(Complex{real(T)}, λ) : operand_type_not_concrete(T))
 
-convert_multiplier(λ::Complex, ::Type{T}, ::Type{<:Complex}) where {T<:Reals} =
-    convert(Complex{T}, λ)
+convert_multiplier(λ::L, ::Type{T}) where {L<:Number,T} =
+    (isconcretetype(T) ? unsupported_multiplier_conversion(L, T, T) :
+     operand_type_not_concrete(T))
 
-convert_multiplier(λ::Complex, ::Type{T}, ::Type{<:Complex}) where {T<:Complexes} =
-    convert(T, λ)
+convert_multiplier(λ::L, ::Type{T}, ::Type{S}) where {L<:Number,T,S} =
+    (isconcretetype(T) ? unsupported_multiplier_conversion(L, T, S) :
+     operand_type_not_concrete(T))
+
+@noinline unsupported_multiplier_conversion(::Type{L}, ::Type{O}, ::Type{S}) where {L<:Number,O,S} =
+    error("unsupported conversion of multiplier with type $L for operand with element type $O and storage with element type $S")
+
+# Note: the only direct sub-types of `Number` are abstract types `Real` and
+# `Complex`.
+@noinline operand_type_not_concrete(::Type{T}) where {T} =
+    error("operand type $T is not a concrete type")

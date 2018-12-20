@@ -109,5 +109,8 @@ function test_utilities()
             @test convert_multiplier(1+2im, Tr, Tc) == 1+2im
             @test convert_multiplier(1+2im, Tc, Tcp) == 1+2im
         end
+        for T in (AbstractFloat, Complex, Number)[randperm(3)]
+            @test_throws ErrorException convert_multiplier(1, T)
+        end
     end
 end

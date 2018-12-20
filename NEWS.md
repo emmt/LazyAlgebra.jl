@@ -1,6 +1,6 @@
 * Provide `lgemv` and `lgemv!` for *Lazily Generalized Matrix-Vector
   mutiplication* and `lgemm` and `lgemm!` for *Lazily Generalized Matrix-Matrix
-  mutiplication*.  The names of these methods is reminiscent of `xGEMV` and
+  mutiplication*.  The names of these methods are reminiscent of `xGEMV` and
   `xGEMM` BLAS subroutines in LAPACK (with `x` the prefix corresponding to the
   type of the arguments).
 
