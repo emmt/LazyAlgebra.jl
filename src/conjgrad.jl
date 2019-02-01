@@ -20,14 +20,19 @@ solves the linear system `A⋅x = b` starting at `x0` by means of the iterative
 conjugate gradient method.  Argument `A` implements a symmetric positive
 definite linear map, `A` can be a Julia array (interpreted as a general matrix,
 see [`GeneralMatrix`](@ref)), an instance of [`LinearMapping`](@ref) or a
-callable object which is used as:
+callable object (like a function) which is used as:
 
 ```julia
 A(q, p)
 ```
 
-to overwrite `q` with `q = A⋅p`.  This method can be extended to be specialized
-for the specific type of `A`.
+to overwrite `q` with `q = A⋅p`.  If you have implemented `A` as a callable
+object such that `A(p)` yields `A.q`, then call `conjgrad` with an inline
+function:
+
+```julia
+conjgrad((dst,src) -> (dst .= A(src); return dst), b, ...)
+```
 
 See [`conjgrad!`][@ref) for accepted keywords and more details.
 
@@ -51,14 +56,20 @@ solves the linear system `A⋅x = b` starting at `x0` by means of the iterative
 conjugate gradient method.  The result is stored in `x` which is returned.
 Argument `A` implements a symmetric positive definite linear map, `A` can be a
 Julia array (interpreted as a general matrix, see [`GeneralMatrix`](@ref)), an
-instance of [`LinearMapping`](@ref) or a callable object which is used as:
+instance of [`LinearMapping`](@ref) or a callable object (like a function)
+which is used as:
 
 ```julia
 A(q, p)
 ```
 
-to overwrite `q` with `q = A⋅p`.  This method can be extended to be specialized
-for the specific type of `A`.
+to overwrite `q` with `q = A⋅p`.  If you have implemented `A` as a callable
+object such that `A(p)` yields `A.q`, then call `conjgrad!` with an inline
+function:
+
+```julia
+conjgrad!(x, (dst,src) -> (dst .= A(src); return dst), b, ...)
+```
 
 If no initial variables are specified, the default is to start with all
 variables set to zero.
@@ -67,7 +78,8 @@ Optional arguments `p`, `q` and `r` are writable workspace *vectors*.  On
 return, `p` is the last search direction, `q = A⋅p` and `r = b - A.xp` with
 `xp` the previous or last solution.  If provided, these workspaces must be
 distinct.  All *vectors* must have the same sizes.  If all workspace vectors
-are provided, no other memory allocation is necessary.
+are provided, no other memory allocation is necessary (unless `A` needs
+to allocate some temporaries).
 
 Providing `A` is positive definite, the solution `x` of the equations
 `A⋅x = b` is also the minimum of the quadratic function:
@@ -75,8 +87,9 @@ Providing `A` is positive definite, the solution `x` of the equations
     f(x) = (1/2) x'⋅A⋅x - b'⋅x + ϵ
 
 where `ϵ` is an arbitrary constant.  The variations of `f(x)` between
-successive iterations or the norm of the gradient `f(x)` of may be used to
-decide the convergence of the algorithm (see keywords `ftol` and `gtol` below).
+successive iterations, the norm of the gradient of `f(x)` or the variations of
+`x` may be used to decide the convergence of the algorithm (see keywords
+`ftol`, `gtol` and `xtol` below).
 
 
 ## Saving memory
@@ -96,11 +109,11 @@ There are several keywords to control the algorithm:
   largest variation so far.  By default, `ftol = 1e-8`.
 
 * Keyword `gtol` specifies the gradient tolerances for convergence, it is a
-  tuple of two values `(gatol, grtol)` where `gatol` and `grtol` are the
-  absolute and relative tolerances.  Convergence occurs when the Euclidean norm
-  of the residuals (which is that of the gradient of the associated objective
-  function) is less or equal the largest of `gatol` and `grtol` times the
-  Euclidean norm of the initial residuals.  By default, `gtol = (0.0, 0.0)`.
+  tuple of two values `(gatol, grtol)` which are the absolute and relative
+  tolerances.  Convergence occurs when the Euclidean norm of the residuals
+  (which is that of the gradient of the associated objective function) is less
+  or equal the largest of `gatol` and `grtol` times the Euclidean norm of the
+  initial residuals.  By default, `gtol = (0.0, 0.0)`.
 
 * Keyword `xtol` specifies the variables tolerance for convergence.  The
   convergence is assumed as soon as the Euclidean norm of the change of
