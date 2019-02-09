@@ -232,18 +232,12 @@ vfill!(x, α) -> x
 
 sets all elements of `x` with the scalar value `α` and return `x`.
 
-Also see [`vzero!`](@ref).
+Also see [`vzero!`](@ref), [`fill!`](@ref).
 
 """
-vfill!(x::AbstractArray{T}, α::Real) where {T<:AbstractFloat} =
-    __vfill!(x, convert(T, α))
-
-function vfill!(x::AbstractArray{Complex{R}},
-                α::Union{Real,Complex{<:Real}}) where {R<:AbstractFloat}
-    __vfill!(x, convert(Complex{R}, α))
-end
-
-function __vfill!(x::AbstractArray{T}, α::T) where {T}
+vfill!(x, α) = fill!(x, α)
+vfill!(x::AbstractArray{T}, α) where {T} = vfill!(x, convert(T, α))
+function vfill!(x::AbstractArray{T}, α::T) where {T}
     @inbounds @simd for i in eachindex(x)
         x[i] = α
     end
@@ -315,7 +309,7 @@ vscale!(dst, src, α) -> dst
 vscale!(α, x) -> x
 ```
 
-Also see [`vscale`](@ref).
+Also see [`vscale`](@ref), [`LinearAlgebra.rmul!](@ref).
 
 """ vscale!
 
