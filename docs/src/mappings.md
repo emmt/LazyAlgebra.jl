@@ -1,4 +1,4 @@
-# Implementation of new mappings or linear operators
+# Methods for mappings
 
 `LazyAlgebra` provides a number of mappings and linear operators.  To create
 new primitive mapping types (not by combining existing mappings) and benefit

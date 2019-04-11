@@ -1,10 +1,11 @@
-## Methods for vectors
+# Methods for vectors
 
 A *vector* is that which has the algebra of a vector space (Peano 1888, van der
 Waerden 1931).  See talk by Jiahao Chen:
 [*Taking Vector Transposes Seriously*](https://www.youtube.com/watch?v=C2RO34b_oPM) at JuliaCon 2017.
 
-### Vectorized methods
+
+## Vectorized methods
 
 Most necessary operations on the variables of interest are linear operations.
 Hence variables (whatever their specific type and size) are just called
@@ -85,7 +86,7 @@ arrays with floating-point type elements.  This implementation assumes that an
 array is a valid *vector* providing it has suitable type and dimensions.
 
 
-### Implementing a new vector type
+## Implementing a new vector type
 
 To have a numerical method based on `LazyAlgebra` be applicable to a new given
 type of variables, it is sufficient to implement a subset of these basic
