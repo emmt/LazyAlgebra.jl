@@ -47,13 +47,6 @@ variable whatever the value of this argument (e.g. because applying the
 considered mapping *in-place* is not possible or because the considered mapping
 is not an endomorphism).  Of course, the opposite behavior (i.e., assuming that
 `scratch=true` while the method was called with `scratch=false`) is forbidden.
-If `vcreate` always behaves as if `scratch=false`, then it is sufficient to
-implement a version without this argument:
-
-```julia
-vcreate(::Type{P}, A::Ta, x::Tx) -> y
-```
-
 
 
 ## The `apply!` method
@@ -78,13 +71,7 @@ operations.
 
 Argument `scratch` is a boolean to let the caller indicate whether the contents
 of the input variable `x` may be overwritten during the operations.  If
-`scratch=false`, the `apply!` method shall not modify the contents of `x`.  If
-the `apply!` method for the considered mapping never modify the contents of
-`x`, then it is sufficient to implement a version without this argument:
-
-```julia
-apply!(α::Real, ::Type{P}, A::Ta, x::Tx, β::Real, y::Ty) -> y
-```
+`scratch=false`, the `apply!` method shall not modify the contents of `x`.
 
 
 ## Example
