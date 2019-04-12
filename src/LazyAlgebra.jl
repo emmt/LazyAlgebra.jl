@@ -8,7 +8,7 @@
 # This file is part of LazyAlgebra (https://github.com/emmt/LazyAlgebra.jl)
 # released under the MIT "Expat" license.
 #
-# Copyright (c) 2017-2018 Éric Thiébaut.
+# Copyright (c) 2017-2019 Éric Thiébaut.
 #
 
 __precompile__(true)
@@ -125,23 +125,21 @@ using Compat
 using Compat.Printf
 using Compat: @debug, @error, @info, @warn
 
+# Make paths to LinearAlgebra and BLAS available as constants.  To import/using
+# from these, prefix the alias with a dot (relative module path).
+const LinearAlgebra = Compat.LinearAlgebra
+const BLAS = Compat.LinearAlgebra.BLAS
+
+# Import/using from LinearAlgebra and BLAS.
+using .LinearAlgebra
+import .LinearAlgebra: UniformScaling, diag
+using .BLAS: libblas, @blasfunc, BlasInt, BlasReal, BlasFloat, BlasComplex
+
 # Important revision numbers:
 #   * 0.7.0-DEV.3204: A_mul_B! is deprecated (as mul! or scale!)
 #   * 0.7.0-DEV.3449: LinearAlgebra in the stdlib
 #   * 0.7.0-DEV.3563: scale! -> mul1!
 #   * 0.7.0-DEV.3665: mul1! -> rmul!
-
-# Define `LinearAlgebra`.
-@static if VERSION < v"0.7.0-DEV.3449"
-    # LinearAlgebra not in the stdlib
-    const LinearAlgebra = Base.LinAlg
-    import Base.LinAlg: UniformScaling, diag
-else
-    import LinearAlgebra
-    import LinearAlgebra: UniformScaling, diag
-end
-const BLAS = LinearAlgebra.BLAS
-import .BLAS: libblas, @blasfunc, BlasInt, BlasReal, BlasFloat, BlasComplex
 
 # Import/define `mul!` and `⋅`.
 @static if VERSION < v"0.7.0-DEV.3204"
@@ -165,7 +163,7 @@ else
 end
 
 import Base: *, ∘, +, -, \, /, ==, inv,
-    show, showerror, convert, eltype, ndims, size, length, stride,
+    show, showerror, convert, eltype, ndims, size, length, stride, strides,
     getindex, setindex!, eachindex, first, last, one, zero, iszero
 
 include("types.jl")

@@ -21,16 +21,12 @@ export
 
 using Compat
 using ..LazyAlgebra # for `allindices`, `is_flat_array`, etc.
-using ..LazyAlgebra:
-    Complexes,
-    Floats,
-    LinearAlgebra,
-    Reals,
-    axes,
-    convert_multiplier
+using ..LazyAlgebra: Complexes, Floats, Reals, axes, convert_multiplier,
+    libblas, @blasfunc, BlasInt, BlasReal, BlasFloat, BlasComplex
 
-const BLAS = LinearAlgebra.BLAS
-using .BLAS: libblas, @blasfunc, BlasInt, BlasReal, BlasFloat, BlasComplex
+# Make paths to LinearAlgebra and BLAS available (see notes in LazyAlgebra.jl).
+const LinearAlgebra = LazyAlgebra.LinearAlgebra
+const BLAS = LazyAlgebra.BLAS
 
 """
 

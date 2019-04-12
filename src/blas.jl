@@ -75,5 +75,3 @@ function vupdate!(y::BlasVec{T}, alpha::Number,
                pointer(y), stride(y, 1))
     return y
 end
-
-#end # module
