@@ -3,6 +3,7 @@ module GenMultTests
 using Compat
 using Compat.Test
 using Compat.Test: print_test_results
+using Compat: axes
 
 #Test.TESTSET_PRINT_ENABLE[] = true
 
@@ -30,6 +31,20 @@ _transp(t::Char, A::AbstractMatrix) =
     t == 'N' ? A :
     t == 'T' ? transpose(A) :
     t == 'C' ? A' : error("invalid transpose character")
+
+# in Julia < 0.7 randn() does not generate complex numbers.
+_randn(::Type{T}, ::Tuple{}) where {T} = _randn(T)
+_randn(::Type{T}, dims::Integer...) where {T} = _randn(T, map(Int, dims))
+_randn(::Type{T}) where {T<:AbstractFloat} = randn(T)
+_randn(::Type{<:Complex{T}}) where {T<:AbstractFloat} =
+    Complex(randn(T), randn(T))
+function _randn(::Type{T}, dims::NTuple{N,Int}) where {T,N}
+    A = Array{T,N}(undef, dims)
+    @inbounds for i in eachindex(A)
+        A[i] =  _randn(T)
+    end
+    return A
+end
 
 function ref_lgemv(α::Number,
                    trans::Char,
@@ -180,9 +195,9 @@ function test_lgemv(reduced::Bool=false)
             Ta <: Real && transA == 'C' && continue
             m, n = dims
             Ty = promote_type(Ta, Tx)
-            A = randn(Ta, (m..., n...))
-            x = randn(Tx, transA == 'N' ? n : m)
-            y = randn(Ty, transA == 'N' ? m : n)
+            A = _randn(Ta, (m..., n...))
+            x = _randn(Tx, transA == 'N' ? n : m)
+            y = _randn(Ty, transA == 'N' ? m : n)
             Tw = worst_type(Ta, Tx)
             ref = ref_lgemv(α, transA, A, x) + β*y
             if β == 0
@@ -238,10 +253,10 @@ function test_lgemm(reduced::Bool=false)
             Tb <: Real && transB == 'C' && continue
             m, n, p = dims
             Tc = promote_type(Ta, Tb)
-            C = randn(Tc, (m..., n...))
+            C = _randn(Tc, (m..., n...))
             Nc = ndims(C)
-            A = randn(Ta, transA == 'N' ? (m..., p...) : (p..., m...))
-            B = randn(Tb, transB == 'N' ? (p..., n...) : (n..., p...))
+            A = _randn(Ta, transA == 'N' ? (m..., p...) : (p..., m...))
+            B = _randn(Tb, transB == 'N' ? (p..., n...) : (n..., p...))
             Tw = worst_type(Ta, Tb)
             ref = ref_lgemm(α, transA, A, transB, B, Nc) + β*C
             #ref = generic_lgemm(α, transA, A, transB, B) + β*C

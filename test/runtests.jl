@@ -1,5 +1,3 @@
-isdefined(Main, :LazyAlgebra) || include("../src/LazyAlgebra.jl")
-
 module LazyAlgebraTests
 
 using LazyAlgebra

@@ -1,4 +1,5 @@
-using Random
+using Compat.Random
+
 function test_utilities()
     is_flat_array = LazyAlgebra.is_flat_array
     convert_multiplier = LazyAlgebra.convert_multiplier
