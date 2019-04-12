@@ -8,7 +8,7 @@
 # This file is part of LazyAlgebra (https://github.com/emmt/LazyAlgebra.jl)
 # released under the MIT "Expat" license.
 #
-# Copyright (c) 2017-2018 Éric Thiébaut.
+# Copyright (c) 2017-2019 Éric Thiébaut.
 #
 
 """
@@ -17,8 +17,8 @@ is_flat_array(A) -> boolean
 ```
 
 yields whether array `A` can be indexed as a *flat* array, that is an array
-with contiguous elements and first element at index 1.  This also means that
-`A` has 1-based indices along all its dimensions.
+with contiguous elements in colum-major order and first element at index 1.
+This also means that `A` has 1-based indices along all its dimensions.
 
 Several arguments can be checked in a single call:
 
@@ -33,20 +33,24 @@ is_flat_array(A) && is_flat_array(B) && is_flat_array(C) && ...
 ```
 
 """
-is_flat_array(A::DenseArray) = true
+is_flat_array(A::Array) = true
+is_flat_array() = false
+is_flat_array(::Any) = false
 
-function is_flat_array(A::AbstractArray{T,N}) where {T,N}
-    Base.has_offset_axes(A) && return false
+function is_flat_array(A::StridedArray{T,N}) where {T,N}
+    inds = axes(A)
+    dims = size(A)
+    stds = strides(A)
     n = 1
     @inbounds for d in 1:N
-        stride(A, d) == n || return false
-        n *= size(A, d)
+        if first(inds[d]) != 1 || stds[d] != n
+            return false
+        end
+        n *= dims[d]
     end
     return true
 end
 
-is_flat_array() = false
-is_flat_array(::Any) = false
 is_flat_array(args...) = allof(is_flat_array, args...)
 #
 # Above version could be:
@@ -58,6 +62,23 @@ is_flat_array(args...) = allof(is_flat_array, args...)
 # Julia 0.6) while using `allof` takes 0.02ns (i.e. is eliminated by the
 # compiler).
 #
+
+"""
+```julia
+has_oneto_axes(A)
+has_oneto_axes(A, B, ...)
+```
+
+Return `true` if the indices of `A` start with 1 along all axes.  If multiple
+arguments are passed, equivalent to `has_oneto_axes(A) | has_oneto_axes(B) |
+...`.
+
+Opposite of `Base.has_offset_axes` which is not available in version of Julia
+older than 0.7.
+
+"""
+has_oneto_axes(arg) = allof(x -> first(x) == 1, axes(arg)...)
+has_oneto_axes(args...) = allof(has_oneto_axes, args...)
 
 """
 ```julia
@@ -118,7 +139,6 @@ allindices(dim::Integer) = Base.OneTo(Int(dim))
 allindices(rng::AbstractUnitRange{Int}) = rng
 allindices(rng::AbstractUnitRange{<:Integer}) = convert(UnitRange{Int}, rng)
 @static if isdefined(Base, :CartesianIndices)
-    import Base: axes
     allindices(R::CartesianIndices) = R
     allindices(start::CartesianIndex{N}, stop::CartesianIndex{N}) where {N} =
         CartesianIndices(map((i,j) -> i:j, start.I, stop.I))
@@ -127,8 +147,6 @@ allindices(rng::AbstractUnitRange{<:Integer}) = convert(UnitRange{Int}, rng)
     allindices(rngs::NTuple{N,AbstractUnitRange{<:Integer}}) where {N} =
         CartesianIndices(rngs)
 else
-    import Base: indices
-    const axes = indices
     allindices(R::CartesianIndices) = allindices(R.indices)
     allindices(R::CartesianRange) = R
     allindices(start::CartesianIndex{N}, stop::CartesianIndex{N}) where {N} =
