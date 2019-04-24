@@ -1,3 +1,7 @@
+* Skip bound checking when applying a `SparseOperator` (unless the operator
+  structure has been corrupted, checking the dimensions of the arguments is
+  sufficient to insure that inidices are correct).
+
 * Methods `is_flat_array`, `has_oneto_axes`, `densearray`, `densevector` and
   `densematrix` have been deprecated in favor of `isflatarray`,
   `has_standard_indexing`, `flatarray`, `flatvector` and `flatmatrix`.

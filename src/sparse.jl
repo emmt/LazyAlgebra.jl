@@ -244,18 +244,18 @@ function _apply_sparse!(y::AbstractArray{<:Real},
     length(I) == length(J) == length(C) ||
         error("corrupted sparse operator structure")
     if α == 1
-        for k in 1:length(C)
-            @inbounds c, i, j = C[k], I[k], J[k]
+        @inbounds for k in 1:length(C)
+            c, i, j = C[k], I[k], J[k]
             y[i] += c*x[j]
         end
     elseif α == -1
-        for k in 1:length(C)
-            @inbounds c, i, j = C[k], I[k], J[k]
+        @inbounds for k in 1:length(C)
+            c, i, j = C[k], I[k], J[k]
             y[i] -= c*x[j]
         end
     else
-        for k in 1:length(C)
-            @inbounds c, i, j = C[k], I[k], J[k]
+        @inbounds for k in 1:length(C)
+            c, i, j = C[k], I[k], J[k]
             y[i] += α*c*x[j]
         end
     end
@@ -269,18 +269,18 @@ function _apply_sparse!(y::AbstractArray{<:Complex},
                         x::AbstractArray{<:Real})
     # We already known that α is non-zero.
     if α == 1
-        for k in 1:length(C)
-            @inbounds c, i, j = C[k], I[k], J[k]
+        @inbounds for k in 1:length(C)
+            c, i, j = C[k], I[k], J[k]
             y[i] += c*x[j]
         end
     elseif α == -1
-        for k in 1:length(C)
-            @inbounds c, i, j = C[k], I[k], J[k]
+        @inbounds for k in 1:length(C)
+            c, i, j = C[k], I[k], J[k]
             y[i] -= c*x[j]
         end
     else
-        for k in 1:length(C)
-            @inbounds c, i, j = C[k], I[k], J[k]
+        @inbounds for k in 1:length(C)
+            c, i, j = C[k], I[k], J[k]
             y[i] += c*(α*x[j])
         end
     end
@@ -294,18 +294,18 @@ function _apply_sparse!(y::AbstractArray{<:Complex},
                         x::AbstractArray{<:Complex})
     # We already known that α is non-zero.
     if α == 1
-        for k in 1:length(C)
-            @inbounds c, i, j = C[k], I[k], J[k]
+        @inbounds for k in 1:length(C)
+            c, i, j = C[k], I[k], J[k]
             y[i] += c*x[j]
         end
     elseif α == -1
-        for k in 1:length(C)
-            @inbounds c, i, j = C[k], I[k], J[k]
+        @inbounds for k in 1:length(C)
+            c, i, j = C[k], I[k], J[k]
             y[i] -= c*x[j]
         end
     else
-        for k in 1:length(C)
-            @inbounds c, i, j = C[k], I[k], J[k]
+        @inbounds for k in 1:length(C)
+            c, i, j = C[k], I[k], J[k]
             y[i] += α*c*x[j]
         end
     end

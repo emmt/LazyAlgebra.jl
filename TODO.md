@@ -1,8 +1,5 @@
 * Implement *preconditioned* conjugate gradient.
 
-* Compute extrema of indices in sparse arrays to be able to quickly check
-  for bounds when applying a sparse operator.
-
 * Write an implementation of the L-BFGS operator and of the SR1 operator and
   perhaps of other low-rank operators.
 
