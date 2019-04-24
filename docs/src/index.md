@@ -7,7 +7,7 @@ The sources are [here](https://github.com/emmt/LazyAlgebra.jl).
 ## Contents
 
 ```@contents
-Pages = ["install.md", "introduction.md", "vectors.md", "mappings.md"]
+Pages = ["install.md", "introduction.md", "vectors.md", "sparse.md", "mappings.md"]
 ```
 
 ## Index
