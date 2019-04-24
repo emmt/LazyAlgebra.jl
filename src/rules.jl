@@ -8,7 +8,7 @@
 # This file is part of LazyAlgebra (https://github.com/emmt/LazyAlgebra.jl)
 # released under the MIT "Expat" license.
 #
-# Copyright (c) 2017-2018 Éric Thiébaut.
+# Copyright (c) 2017-2019 Éric Thiébaut.
 #
 
 const UnsupportedInverseOfSumOfMappings =
@@ -49,7 +49,7 @@ SelfAdjointType(A)
 ```
 
 yields the *self-adjoint* trait of mapping `A` indicating whether `A` is
-certainly a self-adjoint linear map.  The returned value is one og the
+certainly a self-adjoint linear map.  The returned value is one of the
 singletons `SelfAdjoint()` for self-adjoint linear maps and `NonSelfAdjoint()`
 for other mappings.
 
