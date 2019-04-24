@@ -13,11 +13,11 @@
 
 """
 ```julia
-SparseOperator(outdims, inpdims, C, I, J)
+SparseOperator(rowdims, coldims, C, I, J)
 ```
 
 yields a sparse linear map whose *rows* and *columns* have respective
-dimensions `outdims` and `inpdims` and whose non-zero coefficients are given by
+dimensions `rowdims` and `coldims` and whose non-zero coefficients are given by
 `C` with corresponding row and column linear indices respectively given by `I`
 and `J`.
 
@@ -43,18 +43,18 @@ struct SparseOperator{T,M,N,
                       Tc<:AbstractVector{T},
                       Ti<:AbstractVector{Int},
                       Tj<:AbstractVector{Int}} <: LinearMapping
-    outdims::NTuple{M,Int}
-    inpdims::NTuple{N,Int}
-    C::Tc
-    I::Ti
-    J::Tj
-    samedims::Bool
+    rowdims::NTuple{M,Int} # dimensions of rows
+    coldims::NTuple{N,Int} # dimensions of columns
+    C::Tc                  # non-zero coefficients
+    I::Ti                  # row indices
+    J::Tj                  # column indices
+    samedims::Bool         # rows and columns have same dimensions
 
     # The inner constructor checks whether arguments are indeed flat arrays,
     # it is not meant to be directly called.
     function SparseOperator{T,M,N,Tc,Ti,Tj}(
-        outdims::NTuple{M,Int},
-        inpdims::NTuple{N,Int},
+        rowdims::NTuple{M,Int},
+        coldims::NTuple{N,Int},
         C::Tc,
         I::Ti,
         J::Tj
@@ -62,33 +62,32 @@ struct SparseOperator{T,M,N,
              Tc<:AbstractVector{T},
              Ti<:AbstractVector{Int},
              Tj<:AbstractVector{Int}}
-        @assert isflatarray(C, I, J)
-        samedims = (M == N && outdims == inpdims)
-        return new{T,M,N,Tc,Ti,Tj}(outdims, inpdims, C, I, J, samedims)
+        samedims = (M == N && rowdims == coldims)
+        return check(new{T,M,N,Tc,Ti,Tj}(rowdims, coldims, C, I, J, samedims))
     end
 end
 
 @callable SparseOperator
 
 # helper to call inner constructor
-function _sparseoperator(outdims::NTuple{M,Int},
-                         inpdims::NTuple{N,Int},
+function _sparseoperator(rowdims::NTuple{M,Int},
+                         coldims::NTuple{N,Int},
                          C::Tc,
                          I::Ti,
                          J::Tj) where {T,M,N,
                                        Tc<:AbstractVector{T},
                                        Ti<:AbstractVector{Int},
                                        Tj<:AbstractVector{Int}}
-    return SparseOperator{T,M,N,Tc,Ti,Tj}(outdims, inpdims, C, I, J)
+    return SparseOperator{T,M,N,Tc,Ti,Tj}(rowdims, coldims, C, I, J)
 end
 
-function SparseOperator(outdims::NTuple{M,Integer},
-                        inpdims::NTuple{N,Integer},
+function SparseOperator(rowdims::NTuple{M,Integer},
+                        coldims::NTuple{N,Integer},
                         C::AbstractVector{T},
                         I::AbstractVector{<:Integer},
                         J::AbstractVector{<:Integer}) where {T,M,N}
-    return _sparseoperator(map(Int, outdims),
-                           map(Int, inpdims),
+    return _sparseoperator(map(Int, rowdims),
+                           map(Int, coldims),
                            flatvector(T,   C),
                            flatvector(Int, I),
                            flatvector(Int, J))
@@ -96,12 +95,12 @@ end
 
 function SparseOperator(A::AbstractArray{T,N}, n::Integer = 1) where {T,N}
     1 ≤ n < N || throw(ArgumentError("bad number of of leading dimensions"))
-    has_standard_indexing(A) || throw(ArgumentError("array has non-standard indices"))
+    has_standard_indexing(A) || _bad_indexing()
     dims = size(A)
-    outdims = dims[1:n]
-    inpdims = dims[n+1:end]
-    nrows = prod(outdims)
-    ncols = prod(inpdims)
+    rowdims = dims[1:n]
+    coldims = dims[n+1:end]
+    nrows = prod(rowdims)
+    ncols = prod(coldims)
     nz = 0
     @inbounds for k in eachindex(A)
         if A[k] != zero(T)
@@ -127,15 +126,36 @@ function SparseOperator(A::AbstractArray{T,N}, n::Integer = 1) where {T,N}
         end
     end
     @assert l == nz
-    return SparseOperator(outdims, inpdims, C, I, J)
+    return SparseOperator(rowdims, coldims, C, I, J)
 end
 
 coefs(S::SparseOperator) = S.C
 rows(S::SparseOperator) = S.I
 cols(S::SparseOperator) = S.J
+rowdims(S::SparseOperator) = S.rowdims
+coldims(S::SparseOperator) = S.coldims
+samedims(S::SparseOperator) = S.samedims
 
-input_size(S::SparseOperator) = S.inpdims
-output_size(S::SparseOperator) = S.outdims
+input_size(S::SparseOperator) = coldims(S)
+output_size(S::SparseOperator) = rowdims(S)
+
+"""
+```julia
+check(A) -> A
+```
+
+checks integrity of operator `A` and returns it.
+
+"""
+function check(S::SparseOperator{T,M,N}) where {T,M,N}
+    @assert isflatarray(coefs(S), rows(S), cols(S))
+    @assert samedims(S) == (M == N && rowdims(S) == coldims(S))
+    imin, imax = extrema(rows(S))
+    jmin, jmax = extrema(cols(S))
+    @assert 1 ≤ imin ≤ imax ≤ prod(rowdims(S))
+    @assert 1 ≤ jmin ≤ jmax ≤ prod(coldims(S))
+    return S
+end
 
 function is_same_mapping(A::SparseOperator{T,M,N,Tc,Ti,Tj},
                          B::SparseOperator{T,M,N,Tc,Ti,Tj}) where {T,M,N,
@@ -143,15 +163,17 @@ function is_same_mapping(A::SparseOperator{T,M,N,Tc,Ti,Tj},
     return (is_same_mutable_object(coefs(A), coefs(B)) &&
             is_same_mutable_object(rows(A), rows(B)) &&
             is_same_mutable_object(cols(A), cols(B)) &&
-            input_size(A) == input_size(B) &&
-            output_size(A) == output_size(B))
+            rowdims(A) == rowdims(B) &&
+            coldims(A) == coldims(B))
 end
 
-EndomorphismType(S::SparseOperator) = (S.samedims ? Endomorphism : Morphism)
+EndomorphismType(S::SparseOperator) = (samedims(S) ? Endomorphism : Morphism)
 
 _bad_input_dimensions() = throw(DimensionMismatch("bad input dimensions"))
 _bad_output_dimensions() = throw(DimensionMismatch("bad output dimensions"))
 
+_bad_indexing() =
+    throw(ArgumentError("array has non-standard indices"))
 _bad_input_indexing() =
     throw(ArgumentError("input array has non-standard indices"))
 _bad_output_indexing() =
@@ -162,8 +184,8 @@ function vcreate(::Type{Direct},
                  x::AbstractArray{Tx,N},
                  scratch::Bool=false) where {Ts<:Real,Tx<:Real,M,N}
     # In-place operation is not possible so we simply ignore the scratch flag.
-    size(x) == input_size(S) || _bad_input_dimensions()
-    return Array{promote_type(Ts,Tx)}(undef, output_size(S))
+    size(x) == coldims(S) || _bad_input_dimensions()
+    return Array{promote_type(Ts,Tx)}(undef, rowdims(S))
 end
 
 function vcreate(::Type{Adjoint},
@@ -171,8 +193,8 @@ function vcreate(::Type{Adjoint},
                  x::AbstractArray{Tx,M},
                  scratch::Bool=false) where {Ts<:Real,Tx<:Real,M,N}
     # In-place operation is not possible so we simply ignore the scratch flag.
-    size(x) == output_size(S) || _bad_input_dimensions()
-    return Array{promote_type(Ts,Tx)}(undef, input_size(S))
+    size(x) == rowdims(S) || _bad_input_dimensions()
+    return Array{promote_type(Ts,Tx)}(undef, coldims(S))
 end
 
 function apply!(α::Real,
@@ -183,10 +205,10 @@ function apply!(α::Real,
                 β::Real,
                 y::AbstractArray{Ty,M}) where {Ts<:Number,Tx<:Number,
                                                Ty<:Number,M,N}
-    size(x) == input_size(S)  || _bad_input_dimensions()
-    has_standard_indexing(x)  || _bad_input_indexing()
-    size(y) == output_size(S) || _bad_output_dimensions()
-    has_standard_indexing(y)  || _bad_output_indexing()
+    size(x) == coldims(S)    || _bad_input_dimensions()
+    has_standard_indexing(x) || _bad_input_indexing()
+    size(y) == rowdims(S)    || _bad_output_dimensions()
+    has_standard_indexing(y) || _bad_output_indexing()
     β == 1 || vscale!(y, β)
     α == 0 || _apply_sparse!(y,
                              convert_multiplier(α, promote_type(Ts, Tx), Ty),
@@ -202,10 +224,10 @@ function apply!(α::Real,
                 β::Real,
                 y::AbstractArray{Ty,N}) where {Ts<:Number,Tx<:Number,
                                                Ty<:Number,M,N}
-    size(x) == output_size(S) || _bad_input_dimensions()
-    has_standard_indexing(x)  || _bad_input_indexing()
-    size(y) == input_size(S)  || _bad_output_dimensions()
-    has_standard_indexing(y)  || _bad_output_indexing()
+    size(x) == rowdims(S)    || _bad_input_dimensions()
+    has_standard_indexing(x) || _bad_input_indexing()
+    size(y) == coldims(S)    || _bad_output_dimensions()
+    has_standard_indexing(y) || _bad_output_indexing()
     β == 1 || vscale!(y, β)
     α == 0 || _apply_sparse!(y, convert_multiplier(α, promote_type(Ts, Tx), Ty),
                              coefs(S), cols(S), rows(S), x)
