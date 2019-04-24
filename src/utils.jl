@@ -170,6 +170,21 @@ flatmatrix(::Type{T}, M::AbstractMatrix) where {T} = flatarray(T, M)
 @doc @doc(flatarray) flatmatrix
 
 """
+```julia
+makedims(args...) -> dims
+```
+
+yields a list of dimensions (as a tuple of `Int`) out of arguments
+`args...`.
+
+"""
+makedims(dim::Integer) = (Int(dim),)
+makedims(dim::Int) = (dim,)
+makedims(dims::Tuple{}) = dims
+makedims(dims::NTuple{N,Integer}) where {N} = map(Int, dims)
+makedims(dims::NTuple{N,Int}) where {N} = dims
+
+"""
 Any of the following calls:
 
 ```julia

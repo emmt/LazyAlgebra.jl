@@ -13,13 +13,12 @@
 
 """
 ```julia
-SparseOperator(rowdims, coldims, C, I, J)
+SparseOperator(C, I, J, rowdims, coldims)
 ```
 
-yields a sparse linear map whose *rows* and *columns* have respective
-dimensions `rowdims` and `coldims` and whose non-zero coefficients are given by
-`C` with corresponding row and column linear indices respectively given by `I`
-and `J`.
+yields a sparse linear map whose non-zero coefficients are given by `C` with
+corresponding row and column linear indices given by `I` and `J` and whose
+*rows* and *columns* have respective dimensions `rowdims` and `coldims`.
 
 ```julia
 SparseOperator(A, n=1)
@@ -44,54 +43,53 @@ struct SparseOperator{T,M,N,
                       Tc<:AbstractVector{T},
                       Ti<:AbstractVector{Int},
                       Tj<:AbstractVector{Int}} <: LinearMapping
-    rowdims::NTuple{M,Int} # dimensions of rows
-    coldims::NTuple{N,Int} # dimensions of columns
-    C::Tc                  # non-zero coefficients
-    I::Ti                  # row indices
-    J::Tj                  # column indices
-    samedims::Bool         # rows and columns have same dimensions
+    C::Tc                  # Non-zero coefficients
+    I::Ti                  # Row indices
+    J::Tj                  # Column indices
+    rowdims::NTuple{M,Int} # Dimensions of rows
+    coldims::NTuple{N,Int} # Dimensions of columns
+    samedims::Bool         # Rows and columns have same dimensions
 
     # The inner constructor checks whether arguments are indeed flat arrays,
     # it is not meant to be directly called.
-    function SparseOperator{T,M,N,Tc,Ti,Tj}(
-        rowdims::NTuple{M,Int},
-        coldims::NTuple{N,Int},
-        C::Tc,
-        I::Ti,
-        J::Tj
-    ) where {T,M,N,
-             Tc<:AbstractVector{T},
-             Ti<:AbstractVector{Int},
-             Tj<:AbstractVector{Int}}
+    function SparseOperator{T,M,N,Tc,Ti,Tj}(C::Tc,
+                                            I::Ti,
+                                            J::Tj,
+                                            rowdims::NTuple{M,Int},
+                                            coldims::NTuple{N,Int}
+                                            ) where {T,M,N,
+                                                     Tc<:AbstractVector{T},
+                                                     Ti<:AbstractVector{Int},
+                                                     Tj<:AbstractVector{Int}}
         samedims = (M == N && rowdims == coldims)
-        return check(new{T,M,N,Tc,Ti,Tj}(rowdims, coldims, C, I, J, samedims))
+        return check(new{T,M,N,Tc,Ti,Tj}(C, I, J, rowdims, coldims, samedims))
     end
 end
 
 @callable SparseOperator
 
 # helper to call inner constructor
-function _sparseoperator(rowdims::NTuple{M,Int},
-                         coldims::NTuple{N,Int},
-                         C::Tc,
+function _sparseoperator(C::Tc,
                          I::Ti,
-                         J::Tj) where {T,M,N,
-                                       Tc<:AbstractVector{T},
-                                       Ti<:AbstractVector{Int},
-                                       Tj<:AbstractVector{Int}}
-    return SparseOperator{T,M,N,Tc,Ti,Tj}(rowdims, coldims, C, I, J)
+                         J::Tj,
+                         rowdims::NTuple{M,Int},
+                         coldims::NTuple{N,Int}) where {T,M,N,
+                                                        Tc<:AbstractVector{T},
+                                                        Ti<:AbstractVector{Int},
+                                                        Tj<:AbstractVector{Int}}
+    return SparseOperator{T,M,N,Tc,Ti,Tj}(C, I, J, rowdims, coldims)
 end
 
-function SparseOperator(rowdims::NTuple{M,Integer},
-                        coldims::NTuple{N,Integer},
-                        C::AbstractVector{T},
+function SparseOperator(C::AbstractVector{T},
                         I::AbstractVector{<:Integer},
-                        J::AbstractVector{<:Integer}) where {T,M,N}
-    return _sparseoperator(map(Int, rowdims),
-                           map(Int, coldims),
-                           flatvector(T,   C),
+                        J::AbstractVector{<:Integer},
+                        rowdims::Union{Integer,Tuple{Vararg{Integer}}},
+                        coldims::Union{Integer,Tuple{Vararg{Integer}}}) where T
+    return _sparseoperator(flatvector(T,   C),
                            flatvector(Int, I),
-                           flatvector(Int, J))
+                           flatvector(Int, J),
+                           makedims(rowdims),
+                           makedims(coldims))
 end
 
 function SparseOperator(A::AbstractArray{T,N}, n::Integer = 1) where {T,N}
@@ -127,7 +125,7 @@ function SparseOperator(A::AbstractArray{T,N}, n::Integer = 1) where {T,N}
         end
     end
     @assert l == nz
-    return SparseOperator(rowdims, coldims, C, I, J)
+    return SparseOperator(C, I, J, rowdims, coldims)
 end
 
 function SparseOperator(A::SparseMatrixCSC{Tv,Ti};
@@ -147,11 +145,10 @@ function SparseOperator(A::SparseMatrixCSC{Tv,Ti};
             J[k] = j
         end
     end
-    return SparseOperator((nrows,), (ncols,),
-                          (copy ? copyto!(Vector{Tv}(undef, nz), A.nzval) :
+    return SparseOperator((copy ? copyto!(Vector{Tv}(undef, nz), A.nzval) :
                            flatvector(Tv, A.nzval)),
                           (copy ? copyto!(Vector{Int}(undef, nz), A.rowval) :
-                           flatvector(Int, A.rowval)), J)
+                           flatvector(Int, A.rowval)), J, nrows, ncols)
 end
 
 coefs(S::SparseOperator) = S.C

@@ -1,3 +1,9 @@
+* Make constructor of a sparse operator (`SparseOperator`) reminiscent of the
+  `sparse` method.  Row and column dimensions can be a single scalar.
+
+* Provide utility method `makedims` which yields a dimension list out of its
+  arguments.
+
 * A sparse operator (`SparseOperator`) can be converted to a regular array or
   to a sparse matrix (`SparseMatrixCSC`) and reciprocally.
 
