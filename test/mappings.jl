@@ -621,9 +621,9 @@ function test_sparse_operator(verbose::Bool=false)
         @mytest almost_equal(Sx, G*x)
         @mytest almost_equal(Sty, G'*y)
         ## Use another constructor with integer conversion.
-        R = SparseOperator(LazyAlgebra.coefs(S),
-                           Int32.(LazyAlgebra.rows(S)),
+        R = SparseOperator(Int32.(LazyAlgebra.rows(S)),
                            Int64.(LazyAlgebra.cols(S)),
+                           LazyAlgebra.coefs(S),
                            Int32.(output_size(S)),
                            Int64.(input_size(S)))
         @mytest almost_equal(Sx, R*x)

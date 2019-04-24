@@ -10,14 +10,14 @@ columns may be multi-dimensional.
 A sparse operator can be built as follows:
 
 ```julia
-SparseOperator(C, I, J, rowdims, coldims)
+SparseOperator(I, J, C, rowdims, coldims)
 ```
 
-where `C` specifies the values of the non-zero coefficients with `I` and `J`
-the corresponding row and column indices and with `rowdims` and `coldims` the
-dimensions of the rows and of the columns.  Appart from the fact that the rows
-and columns may be multi-dimensional, this is very similar to the `sparse`
-method in `SparseArrays` standard Julia module.
+where `I` and `J` are row and column indices of the non-zero coefficients whose
+values are specified by `C` and with `rowdims` and `coldims` the dimensions of
+the rows and of the columns.  Appart from the fact that the rows and columns
+may be multi-dimensional, this is very similar to the `sparse` method in
+`SparseArrays` standard Julia module.
 
 Another possibility is to build a sparse operator from an array or from
 a sparse matrix:

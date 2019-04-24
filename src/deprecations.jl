@@ -12,4 +12,4 @@ import Base: @deprecate
                           C::AbstractVector,
                           I::AbstractVector{<:Integer},
                           J::AbstractVector{<:Integer}),
-           SparseOperator(C, I, J, rowdims, coldims))
+           SparseOperator(I, J, C, rowdims, coldims))
