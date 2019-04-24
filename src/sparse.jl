@@ -111,7 +111,7 @@ function SparseOperator(A::AbstractArray{T,N}, n::Integer = 1) where {T,N}
     C = Array{T}(undef, nz)
     I = Array{Int}(undef, nz)
     J = Array{Int}(undef, nz)
-    i = j = l = 0
+    i, j, l = 0, 1, 0
     @inbounds for k in eachindex(A)
         if i < nrows
             i += 1
