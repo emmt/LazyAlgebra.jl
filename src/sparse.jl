@@ -205,6 +205,21 @@ Base.Array(S::SparseOperator{T}) where {T} =
 Base.Matrix(S::SparseOperator{T}) where {T} =
     unpack!(zeros(T, (nrows(S), ncols(S))), S)
 
+"""
+```julia
+unpack!(A, S) -> A
+```
+
+unpacks the non-zero coefficients of the sparse operator `S` into the array `A`
+and returns `A`.
+
+Here `A` must have the same element type as the coefficients of `S` and the
+same number of elements as the products of the row and of the column dimensions
+of `S`.  Unpacking is perfomed by adding the non-zero coefficients of `S` to
+the correponding element of `A` (or using the `|` operator for boolean
+elements).
+
+"""
 function unpack!(A::Array{T}, S::SparseOperator{T}) where {T}
     @assert length(A) == nrows(S)*ncols(S)
     I, J, C = rows(S), cols(S), coefs(S)
@@ -229,6 +244,23 @@ function unpack!(A::Array{Bool}, S::SparseOperator{Bool})
         A[l] |= C[k]
     end
     return A
+end
+
+function Base.reshape(S::SparseOperator,
+                      rowdims::Union{Integer,Tuple{Vararg{Integer}}},
+                      coldims::Union{Integer,Tuple{Vararg{Integer}}})
+    return reshape(S, makedims(rowdims), makedims(coldims))
+end
+
+
+function Base.reshape(S::SparseOperator,
+                      rowdims::Tuple{Vararg{Int}},
+                      coldims::Tuple{Vararg{Int}})
+    prod(rowdims) == nrows(S) ||
+        throw(DimensionMismatch("product of row dimensions must be equal"))
+    prod(coldims) == ncols(S)) ||
+        throw(DimensionMismatch("product of column dimensions must be equal"))
+    return SparseOperator(coefs(S), rows(S), cols(S), rowdims, coldims)
 end
 
 _bad_input_dimensions() = throw(DimensionMismatch("bad input dimensions"))

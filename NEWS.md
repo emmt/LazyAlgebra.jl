@@ -1,3 +1,6 @@
+* Provide `unpack!` method to unpack the non-zero coefficients of a sparse
+  operator and extend `reshape` to be applicable to a sparse operator.
+
 * Make constructor of a sparse operator (`SparseOperator`) reminiscent of the
   `sparse` method.  Row and column dimensions can be a single scalar.
 
