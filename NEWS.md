@@ -1,3 +1,6 @@
+* Trait constructors now return trait instances (instead of type).  This is
+  more *natural* in Julia and avoid having different method names.
+
 * Skip bound checking when applying a `SparseOperator` (unless the operator
   structure has been corrupted, checking the dimensions of the arguments is
   sufficient to insure that inidices are correct).

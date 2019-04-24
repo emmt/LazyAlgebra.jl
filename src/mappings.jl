@@ -19,9 +19,9 @@ is_same_mapping(::Identity, ::Identity) = true
 @callable Identity
 
 # Traits:
-SelfAdjointType(::Identity) = SelfAdjoint
-MorphismType(::Identity) = Endomorphism
-DiagonalType(::Identity) = DiagonalMapping
+SelfAdjointType(::Identity) = SelfAdjoint()
+MorphismType(::Identity) = Endomorphism()
+DiagonalType(::Identity) = DiagonalMapping()
 
 apply(::Type{<:Operations}, ::Identity, x, scratch::Bool=false) = x
 
@@ -94,14 +94,14 @@ end
 @callable NonuniformScalingOperator
 
 # Traits:
-MorphismType(::NonuniformScalingOperator) = Endomorphism
-DiagonalType(::NonuniformScalingOperator) = DiagonalMapping
+MorphismType(::NonuniformScalingOperator) = Endomorphism()
+DiagonalType(::NonuniformScalingOperator) = DiagonalMapping()
 SelfAdjointType(A::NonuniformScalingOperator) =
     _selfadjointtype(eltype(contents(A)), A)
 _selfadjointtype(::Type{<:Real}, ::NonuniformScalingOperator) =
-    SelfAdjoint
+    SelfAdjoint()
 _selfadjointtype(::Type{<:Complex}, ::NonuniformScalingOperator) =
-    NonSelfAdjoint
+    NonSelfAdjoint()
 
 """
 ```
@@ -425,8 +425,8 @@ end
 @callable SymmetricRankOneOperator
 
 # Traits:
-MorphismType(::SymmetricRankOneOperator) = Endomorphism
-SelfAdjointType(::SymmetricRankOneOperator) = SelfAdjoint
+MorphismType(::SymmetricRankOneOperator) = Endomorphism()
+SelfAdjointType(::SymmetricRankOneOperator) = SelfAdjoint()
 
 function apply!(α::Real, ::Type{<:Union{Direct,Adjoint}},
                 A::SymmetricRankOneOperator, x, scratch::Bool, β::Real, y)

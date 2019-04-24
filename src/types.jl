@@ -169,11 +169,6 @@ both yield `inv(A)` for any LazyAlgebra mappings `A`.
 """
 struct Identity <: LinearMapping; end
 
-# Trait used to determine the storage of array elements.
-abstract type StorageType end
-struct AnyStorage <: StorageType end
-struct FlatStorage <: StorageType end
-
 """
 
 The abstract type `Trait` is inherited by types indicating specific traits.
@@ -184,109 +179,30 @@ See also: [`LinearType`](@ref), [`SelfAdjointType`](@ref),
 """
 abstract type Trait end
 
-"""
+# Trait used to determine the storage of array elements.
+abstract type StorageType <: Trait end
+struct AnyStorage <: StorageType end
+struct FlatStorage <: StorageType end
 
-The *linear* trait indicates whether a mapping is certainly linear.  Abstract
-type `LinearType` has two concrete singleton sub-types: `Linear` for linear
-mappings and `NonLinear` for other mappings.  The call:
-
-```julia
-LinearType(A)
-```
-
-yields the *linear* type of mapping `A`, that is one of `Linear` for linear
-maps or `NonLinear` for other mappings.
-
-See also: [`Trait`](@ref), [`is_linear`](@ref).
-
-"""
+# Trait indicating whether a mapping is certainly linear.
 abstract type LinearType <: Trait end
+struct NonLinear <: LinearType end
+struct Linear <: LinearType end
 
-for T in (:NonLinear, :Linear)
-    @eval begin
-        struct $T <: LinearType end
-        @doc @doc(LinearType) $T
-    end
-end
-
-"""
-
-The *self-adjoint* trait indicates whether a mapping is certainly a
-self-adjoint linear map.  Abstract type `SelfAdjointType` has two concrete
-singleton sub-types: `SelfAdjoint` for self-adjoint linear maps and
-`NonSelfAdjoint` for other mappings.  The call:
-
-```julia
-SelfAdjointType(A)
-```
-
-yields the *self-adjoint* type of mapping `A`, that is one of `SelfAdjoint` for
-self-adjoint linear maps or `NonSelfAdjoint` for other mappings.
-
-See also: [`Trait`](@ref), [`is_selfadjoint`](@ref).
-
-"""
+# Trait indicating whether a mapping is certainly a self-adjoint linear map.
 abstract type SelfAdjointType <: Trait end
+struct NonSelfAdjoint <: SelfAdjointType end
+struct SelfAdjoint <: SelfAdjointType end
 
-for T in (:NonSelfAdjoint, :SelfAdjoint)
-    @eval begin
-        struct $T <: SelfAdjointType end
-        @doc @doc(SelfAdjointType) $T
-    end
-end
-
-"""
-
-The *morphism* trait indicates whether a mapping is certainly an endomorphism
-(its input and output spaces are the same).  Abstract type `MorphismType` has
-two concrete singleton sub-types: `Endomorphism` for endomorphisms and
-`Morphism` for other mappings.  The call:
-
-```julia
-MorphismType(A)
-```
-
-yields the *morphism* type of mapping `A`, that is one of `Endomorphism` for
-mappings whose input and output spaces are the same or `Morphism` for other
-mappings.
-
-See also: [`Trait`](@ref), [`is_endomorphism`](@ref).
-
-"""
+# Trait indicating whether a mapping is certainly an endomorphism.
 abstract type MorphismType <: Trait end
+struct Morphism <: MorphismType end
+struct Endomorphism <: MorphismType end
 
-for T in (:Morphism, :Endomorphism)
-    @eval begin
-        struct $T <: MorphismType end
-        @doc @doc(MorphismType) $T
-    end
-end
-
-"""
-
-The *diagonal* trait indicates whether a mapping is certainly a diagonal linear
-mapping.  Abstract type `DiagonalType` has two concrete singleton sub-types:
-`DiagonalMapping` for diagonal linear mappings and `NonDiagonalMapping` for
-other mappings.  The call:
-
-```julia
-DiagonalType(A)
-```
-
-yields the *diagonal* type of mapping `A`, that is one of `DiagonalMapping` for
-diagonal linear maps or `NonDiagonalMapping` for other mappings.
-
-See also: [`Trait`](@ref), [`is_diagonal`](@ref).
-
-"""
+# Trait indicating whether a mapping is certainly a diagonal linear mapping.
 abstract type DiagonalType <: Trait end
-
-for T in (:DiagonalMapping, :NonDiagonalMapping)
-    @eval begin
-        struct $T <: DiagonalType end
-        @doc @doc(DiagonalType) $T
-    end
-end
+struct NonDiagonalMapping <: DiagonalType end
+struct DiagonalMapping <: DiagonalType end
 
 """
 

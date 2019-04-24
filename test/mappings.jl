@@ -255,9 +255,9 @@ function test_rules(verbose::Bool=false)
     @mytest I + I - 2I === 0I
     @mytest 2I - (I + I) === 0I
     @mytest inv(3I) === (1/3)*I
-    @mytest SelfAdjointType(I) <: SelfAdjoint
-    @mytest MorphismType(I) <: Endomorphism
-    @mytest DiagonalType(I) <: DiagonalMapping
+    @mytest SelfAdjointType(I) === SelfAdjoint()
+    @mytest MorphismType(I) === Endomorphism()
+    @mytest DiagonalType(I) === DiagonalMapping()
     for T in FLOATS
         atol, rtol = zero(T), sqrt(eps(T))
         x = randn(T, dims)
@@ -473,9 +473,9 @@ function test_rank_one_operator()
         B = RankOneOperator(w, y)
         C = SymmetricRankOneOperator(w)
         atol, rtol = zero(T), sqrt(eps(T))
-        @test LinearType(A) <: Linear
-        @test LinearType(C) <: Linear
-        @test MorphismType(C) <: Endomorphism
+        @test LinearType(A) === Linear()
+        @test LinearType(C) === Linear()
+        @test MorphismType(C) === Endomorphism()
         @test A*I === A
         @test I*A === A
         @test A*x  ≈ sum(w.*x)*w atol=atol rtol=rtol norm=vnorm2

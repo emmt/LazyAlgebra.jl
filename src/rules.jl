@@ -14,35 +14,102 @@
 const UnsupportedInverseOfSumOfMappings =
     "automatic dispatching of the inverse of a sum of mappings is not supported"
 
-# Non-specific constructors for the *linear* trait.
-LinearType(::LinearMapping) = Linear
-LinearType(::Scaled{<:LinearMapping}) = Linear
+"""
+
+```julia
+LinearType(A)
+```
+
+yields the *linear* trait of mapping `A` indicating whether `A` is certainly
+linear.  The returned value is one of the singletons `Linear()` for linear maps
+or `NonLinear()` for other mappings.
+
+See also: [`Trait`](@ref), [`is_linear`](@ref).
+
+"""
+LinearType(::LinearMapping) = Linear()
+LinearType(::Scaled{<:LinearMapping}) = Linear()
 LinearType(A::Union{Scaled,Inverse}) = LinearType(operand(A))
-LinearType(::Mapping) = NonLinear # anything else is non-linear
+LinearType(::Mapping) = NonLinear() # anything else is non-linear
 LinearType(A::Union{Sum,Composition}) =
-    all(is_linear, operands(A)) ? Linear : NonLinear
+    (allof(x -> LinearType(x) === Linear(), operands(A)...) ?
+     Linear() : NonLinear())
 LinearType(A::Scaled{T,S}) where {T,S} =
     # If the multiplier λ of a scaled mapping A = (λ⋅M) is zero, then
     # A behaves linearly even though M is not a linear mapping.
-    (multiplier(A) == zero(S) ? Linear : LinearType(operand(A)))
+    (multiplier(A) == zero(S) ? Linear() : LinearType(operand(A)))
 
-# Non-specific constructors for the *self-adjoint* trait.
-SelfAdjointType(::Mapping) = NonSelfAdjoint
+@doc @doc(LinearType) Linear
+@doc @doc(LinearType) NonLinear
+
+"""
+
+```julia
+SelfAdjointType(A)
+```
+
+yields the *self-adjoint* trait of mapping `A` indicating whether `A` is
+certainly a self-adjoint linear map.  The returned value is one og the
+singletons `SelfAdjoint()` for self-adjoint linear maps and `NonSelfAdjoint()`
+for other mappings.
+
+See also: [`Trait`](@ref), [`is_selfadjoint`](@ref).
+
+"""
+SelfAdjointType(::Mapping) = NonSelfAdjoint()
 SelfAdjointType(A::Union{Scaled,Inverse}) = SelfAdjointType(operand(A))
 SelfAdjointType(A::Sum) =
-    all(is_selfadjoint, operands(A)) ? SelfAdjoint : NonSelfAdjoint
+    (allof(x -> SelfAdjointType(x) === SelfAdjoint(), operands(A)...) ?
+     SelfAdjoint() : NonSelfAdjoint())
 
-# Non-specific constructors for the *morphism* trait.
-MorphismType(::Mapping) = Morphism
+@doc @doc(SelfAdjointType) SelfAdjoint
+@doc @doc(SelfAdjointType) NonSelfAdjoint
+
+"""
+
+```julia
+MorphismType(A)
+```
+
+yields the *morphism* trait of mapping `A` indicating whether `A` is certainly
+an endomorphism (its input and output spaces are the same).  The returned value
+is one of the singletons `Endomorphism()` for mappings whose input and output
+spaces are the same or `Morphism()` for other mappings.
+
+See also: [`Trait`](@ref), [`is_endomorphism`](@ref).
+
+"""
+MorphismType(::Mapping) = Morphism()
 MorphismType(A::Union{Scaled,Inverse}) = MorphismType(operand(A))
 MorphismType(A::Union{Sum,Composition}) =
-    all(is_endomorphism, operands(A)) ? Endomorphism : Morphism
+    (allof(x -> MorphismType(x) === Endomorphism(), operands(A)...) ?
+     Endomorphism() : Morphism())
 
-# Non-specific constructors for the *diagonal* trait.
-DiagonalType(::Mapping) = NonDiagonalMapping
+@doc @doc(MorphismType) Morphism
+@doc @doc(MorphismType) Endomorphism
+
+"""
+
+```julia
+DiagonalType(A)
+```
+
+yields the *diagonal* trait of mapping `A` indicating whether `A` is certainly
+a diagonal linear mapping.  The returned value is one of the singletons
+`DiagonalMapping()` for diagonal linear maps or `NonDiagonalMapping()` for other
+mappings.
+
+See also: [`Trait`](@ref), [`is_diagonal`](@ref).
+
+"""
+DiagonalType(::Mapping) = NonDiagonalMapping()
 DiagonalType(A::Union{Scaled,Inverse}) = DiagonalType(operand(A))
 DiagonalType(A::Union{Sum,Composition}) =
-    all(is_diagonal, operands(A)) ? DiagonalMapping : NonDiagonalMapping
+    (allof(x -> DiagonalType(x) === DiagonalMapping(), operands(A)...) ?
+     DiagonalMapping() : NonDiagonalMapping())
+
+@doc @doc(DiagonalType) NonDiagonalMapping
+@doc @doc(DiagonalType) DiagonalMapping
 
 """
 ```julia
@@ -63,8 +130,8 @@ See also: [`LinearType`](@ref).
 """
 is_linear(A::LinearMapping) = true
 is_linear(A::Mapping) = _is_linear(LinearType(A))
-_is_linear(::Type{Linear}) = true
-_is_linear(::Type{NonLinear}) = false
+_is_linear(::Linear) = true
+_is_linear(::NonLinear) = false
 
 """
 ```julia
@@ -85,8 +152,8 @@ See also: [`SelfAdjointType`](@ref).
 
 """
 is_selfadjoint(A::Mapping) = _is_selfadjoint(SelfAdjointType(A))
-_is_selfadjoint(::Type{SelfAdjoint}) = true
-_is_selfadjoint(::Type{NonSelfAdjoint}) = false
+_is_selfadjoint(::SelfAdjoint) = true
+_is_selfadjoint(::NonSelfAdjoint) = false
 
 """
 ```julia
@@ -106,8 +173,8 @@ See also: [`MorphismType`](@ref).
 
 """
 is_endomorphism(A::Mapping) = _is_endomorphism(MorphismType(A))
-_is_endomorphism(::Type{Endomorphism}) = true
-_is_endomorphism(::Type{Morphism}) = false
+_is_endomorphism(::Endomorphism) = true
+_is_endomorphism(::Morphism) = false
 
 """
 ```julia
@@ -127,8 +194,8 @@ See also: [`DiagonalType`](@ref).
 
 """
 is_diagonal(A::Mapping) = _is_diagonal(DiagonalType(A))
-_is_diagonal(::Type{DiagonalMapping}) = true
-_is_diagonal(::Type{NonDiagonalMapping}) = false
+_is_diagonal(::DiagonalMapping) = true
+_is_diagonal(::NonDiagonalMapping) = false
 
 #------------------------------------------------------------------------------
 # General simplification rules:
@@ -216,11 +283,10 @@ Composition(args::Mapping...) =
 #------------------------------------------------------------------------------
 # ADJOINT TYPE
 
-# Adjoint for non-specific operands.  FIXME: SelfAdjoint should not be a trait?
-# Perhaps better to extend adjoint(A::T) = A when T is self-adjoint.
+# Adjoint for non-specific operands.
 adjoint(A::LinearMapping) = _adjoint(SelfAdjointType(A), A)
-_adjoint(::Type{SelfAdjoint}, A::LinearMapping) = A
-_adjoint(::Type{NonSelfAdjoint}, A::T) where {T<:LinearMapping} = Adjoint{T}(A)
+_adjoint(::SelfAdjoint, A::LinearMapping) = A
+_adjoint(::NonSelfAdjoint, A::T) where {T<:LinearMapping} = Adjoint{T}(A)
 function adjoint(A::T) where {T<:Mapping}
     is_linear(A) ||
         throw(ArgumentError("undefined adjoint of a non-linear operand"))

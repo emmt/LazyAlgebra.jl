@@ -168,7 +168,7 @@ FFTOperator(arr::Array{T,N}; kwds...) where {T<:fftwNumber,N} =
     FFTOperator(eltype(arr), size(arr); kwds...)
 
 # Traits:
-MorphismType(::FFTOperator{<:Complex}) = Endomorphism
+MorphismType(::FFTOperator{<:Complex}) = Endomorphism()
 
 ncols(A::FFTOperator) = A.ncols
 ncols(A::Adjoint{<:FFTOperator}) = ncols(operand(A))

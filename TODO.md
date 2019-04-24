@@ -1,5 +1,13 @@
 * Implement *preconditioned* conjugate gradient.
 
+* Simplify left multiplication of a sparse operator by a diagonal operator.
+  Same thing for sparse interpolator.
+
+* Automatically simplify composition of diagonal operators.
+
+* Provide means to convert a sparse operator to a regular array or to a sparse
+  matrix and reciprocally.  Use BLAS/LAPACK routines for sparse operators?
+
 * Write an implementation of the L-BFGS operator and of the SR1 operator and
   perhaps of other low-rank operators.
 
@@ -8,8 +16,8 @@
 
 * Cleanup: `is_identical` is not really needed? `===` does the job?
 
-* Rename traits types and use their constructors to return trait instances.
-  This is more *natural* in Julia and avoid having different method names.
+* SelfAdjoint should not be a trait?  Perhaps better to extend `adjoint(A::T) =
+  A` when `T` is self-adjoint.
 
 * Provide simplification rules for sums and compositions of diagonal operators
   (which are also easy to invert).
