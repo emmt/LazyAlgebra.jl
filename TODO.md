@@ -5,6 +5,8 @@
 
 * Automatically simplify composition of diagonal operators.
 
+* Do not make `A*x` equivalent to `A(x)` for non-linear mappings.
+
 * Provide means to convert a sparse operator to a regular array or to a sparse
   matrix and reciprocally.  Use BLAS/LAPACK routines for sparse operators?
 

@@ -1,3 +1,6 @@
+* A sparse operator (`SparseOperator`) can be converted to a regular array or
+  to a sparse matrix (`SparseMatrixCSC`) and reciprocally.
+
 * Trait constructors now return trait instances (instead of type).  This is
   more *natural* in Julia and avoid having different method names.
 

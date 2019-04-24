@@ -22,14 +22,14 @@ dimensions `rowdims` and `coldims` and whose non-zero coefficients are given by
 and `J`.
 
 ```julia
-SparseOperator(C, n=1)
+SparseOperator(A, n=1)
 ```
 
 yields an instance of `SparseOperator` whose coefficients are the non-zero
-coefficients of array `C` and which implements generalized matrix
-multiplication by `C` in such a way that the result of applying the operator
-are arrays whose dimensions are the `n` leading dimensions of `C` for input
-arrays whose dimensions are the remaining trailing dimensions of `C`.
+coefficients of array `A` and which implements generalized matrix
+multiplication by `A` in such a way that the result of applying the operator
+are arrays whose dimensions are the `n` leading dimensions of `A` for input
+arrays whose dimensions are the remaining trailing dimensions of `A`.
 
 !!! note
     For efficiency reasons, sparse operators are currently limited to *flat*
@@ -37,7 +37,8 @@ arrays whose dimensions are the remaining trailing dimensions of `C`.
     performances.  If `C`, `I` and/or `J` are not flat arrays, they will be
     automatically converted to regular arrays.
 
-See also [`isflatarray`](@ref).
+See also [`isflatarray`](@ref), [`GeneralMatrix`](@ref) and [`lgemv`](@ref).
+
 """
 struct SparseOperator{T,M,N,
                       Tc<:AbstractVector{T},
@@ -129,12 +130,38 @@ function SparseOperator(A::AbstractArray{T,N}, n::Integer = 1) where {T,N}
     return SparseOperator(rowdims, coldims, C, I, J)
 end
 
+function SparseOperator(A::SparseMatrixCSC{Tv,Ti};
+                        copy::Bool=false) where {Tv,Ti<:Integer}
+    nz = length(A.nzval)
+    @assert length(A.rowval) == nz
+    nrows, ncols = A.m, A.n
+    colptr = A.colptr
+    @assert length(colptr) == ncols + 1
+    @assert colptr[end] == nz + 1
+    J = Vector{Int}(undef, nz)
+    k2 = colptr[1]
+    for j in 1:ncols
+        k1, k2 = k2, colptr[j+1]
+        @assert k1 ≤ k2 ≤ nz + 1
+        @inbounds for k in k1:(k2-1)
+            J[k] = j
+        end
+    end
+    return SparseOperator((nrows,), (ncols,),
+                          (copy ? copyto!(Vector{Tv}(undef, nz), A.nzval) :
+                           flatvector(Tv, A.nzval)),
+                          (copy ? copyto!(Vector{Int}(undef, nz), A.rowval) :
+                           flatvector(Int, A.rowval)), J)
+end
+
 coefs(S::SparseOperator) = S.C
 rows(S::SparseOperator) = S.I
 cols(S::SparseOperator) = S.J
 rowdims(S::SparseOperator) = S.rowdims
 coldims(S::SparseOperator) = S.coldims
 samedims(S::SparseOperator) = S.samedims
+nrows(S::SparseOperator) = prod(rowdims(S))
+ncols(S::SparseOperator) = prod(coldims(S))
 
 input_size(S::SparseOperator) = coldims(S)
 output_size(S::SparseOperator) = rowdims(S)
@@ -167,7 +194,45 @@ function is_same_mapping(A::SparseOperator{T,M,N,Tc,Ti,Tj},
             coldims(A) == coldims(B))
 end
 
-EndomorphismType(S::SparseOperator) = (samedims(S) ? Endomorphism : Morphism)
+EndomorphismType(S::SparseOperator) =
+    (samedims(S) ? Endomorphism() : Morphism())
+
+# Convert to a sparse matrix (silently "flatten" the operator if columns/rows
+# were multi-dimensional).
+sparse(A::SparseOperator) =
+    sparse(rows(A), cols(A), coefs(A), nrows(A), ncols(A))
+
+Base.Array(S::SparseOperator{T}) where {T} =
+    unpack!(zeros(T, (rowdims(S)..., coldims(S)...)), S)
+
+Base.Matrix(S::SparseOperator{T}) where {T} =
+    unpack!(zeros(T, (nrows(S), ncols(S))), S)
+
+function unpack!(A::Array{T}, S::SparseOperator{T}) where {T}
+    @assert length(A) == nrows(S)*ncols(S)
+    I, J, C = rows(S), cols(S), coefs(S)
+    len = length(C)
+    @assert length(I) == length(J) == len
+    stride = nrows(S)
+    @inbounds for k in 1:len
+        l = (J[k] - 1)*stride + I[k]
+        A[l] += C[k]
+    end
+    return A
+end
+
+function unpack!(A::Array{Bool}, S::SparseOperator{Bool})
+    @assert length(A) == nrows(S)*ncols(S)
+    I, J, C = rows(S), cols(S), coefs(S)
+    len = length(C)
+    @assert length(I) == length(J) == len
+    stride = nrows(S)
+    @inbounds for k in 1:len
+        l = (J[k] - 1)*stride + I[k]
+        A[l] |= C[k]
+    end
+    return A
+end
 
 _bad_input_dimensions() = throw(DimensionMismatch("bad input dimensions"))
 _bad_output_dimensions() = throw(DimensionMismatch("bad output dimensions"))

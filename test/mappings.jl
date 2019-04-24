@@ -609,6 +609,7 @@ function test_sparse_operator(verbose::Bool=false)
                                                  randn(T, size(x) .+ 1))
         @mytest_throws DimensionMismatch vcreate(Adjoint, S,
                                                  randn(T, size(y) .+ 1))
+        @mytest A == Array(S)
         atol, rtol = zero(T), sqrt(eps(T))
         mA = reshape(A, nrows, ncols)
         vx = reshape(x, ncols)

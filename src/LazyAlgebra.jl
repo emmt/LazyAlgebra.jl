@@ -88,6 +88,7 @@ export
     output_size,
     output_type,
     reversemap,
+    unpack!,
     vcombine!,
     vcombine,
     vcopy!,
@@ -134,10 +135,12 @@ using Compat: @debug, @error, @info, @warn
 const LinearAlgebra = Compat.LinearAlgebra
 const BLAS = Compat.LinearAlgebra.BLAS
 
-# Import/using from LinearAlgebra and BLAS.
+# Import/using from LinearAlgebra, BLAS and SparseArrays.
 using .LinearAlgebra
 import .LinearAlgebra: UniformScaling, diag
 using .BLAS: libblas, @blasfunc, BlasInt, BlasReal, BlasFloat, BlasComplex
+using Compat.SparseArrays # for SparseMatrixCSC
+import Compat.SparseArrays: sparse
 
 # Important revision numbers:
 #   * 0.7.0-DEV.3204: A_mul_B! is deprecated (as mul! or scale!)
