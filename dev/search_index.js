@@ -21,7 +21,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Home",
     "title": "Contents",
     "category": "section",
-    "text": "Pages = [\"install.md\", \"introduction.md\", \"vectors.md\", \"mappings.md\"]"
+    "text": "Pages = [\"install.md\", \"introduction.md\", \"vectors.md\", \"sparse.md\", \"mappings.md\"]"
 },
 
 {
@@ -134,6 +134,38 @@ var documenterSearchIndex = {"docs": [
     "title": "Implementing a new vector type",
     "category": "section",
     "text": "To have a numerical method based on LazyAlgebra be applicable to a new given type of variables, it is sufficient to implement a subset of these basic methods specialized for this kind of variables.The various operations that should be implemented for a vector are:compute the inner product of two vectors of the same kind (vdot(x,y) method);\ncreate a vector of a given kind (vcreate(x) method);\ncopy a vector (vcopy!(dst,src));\nfill a vector with a given value (vfill!(x,α) method);\nexchange the contents of two vectors (vswap!(x,y) method);\nlinearly combine several vectors (vcombine!(dst,α,x,β,y) method).Derived methods are:compute the Euclidean norm of a vector (vnorm2 method, based on vdot by default);\nmultiply a vector by a scalar: vscale!(dst,α,src) and/or vscale!(x,α) methods (based on vcombine! by default);\nupdate a vector by a scaled step: vupdate!(y,α,x) method (based on vcombine! by default) and, for some constrained optimization methods, vupdate!(y,sel,α,x) method;\nerase a vector: vzero!(x) method (based on vfill! by default);\nvscale and vcopy methods are implemented with vcreate and respectivelyvscale! and vcopy!.Other methods which may be required by some packages:compute the L-1 norm of a vector: vnorm1(x) method;\ncompute the L-∞ norm of a vector: vnorminf(x) method;Methods that must be implemented (V represent the vector type):vdot(::Type{T}, x::Tx, y::Ty) :: T where {T<:AbstractFloat,Tx,Ty}vscale!(dst::V, alpha::Real, src::V) -> dstmethods that may be implemented:vscale!(alpha::Real, x::V) -> xFor mappings and linear operators (see Implementation of new mappings for details), implement:apply!(α::Scalar, P::Type{<:Operations}, A::Ta, x::Tx, β::Scalar, y::Ty) -> yandvcreate(P::Type{P}, A::Ta, x::Tx) -> yfor Ta<:Mapping and the supported operations P<:Operations."
+},
+
+{
+    "location": "sparse/#",
+    "page": "Sparse operators",
+    "title": "Sparse operators",
+    "category": "page",
+    "text": ""
+},
+
+{
+    "location": "sparse/#Sparse-operators-1",
+    "page": "Sparse operators",
+    "title": "Sparse operators",
+    "category": "section",
+    "text": "A sparse operator (SparseOperator) in LazyAlgebra is the generalization of a sparse matrix.  Like a GeneralMatrix, rows and columns may be multi-dimensional."
+},
+
+{
+    "location": "sparse/#Construction-1",
+    "page": "Sparse operators",
+    "title": "Construction",
+    "category": "section",
+    "text": "A sparse operator can be built as follows:SparseOperator(I, J, C, rowdims, coldims)where I and J are row and column indices of the non-zero coefficients whose values are specified by C and with rowdims and coldims the dimensions of the rows and of the columns.  Appart from the fact that the rows and columns may be multi-dimensional, this is very similar to the sparse method in SparseArrays standard Julia module.Another possibility is to build a sparse operator from an array or from a sparse matrix:S = SparseOperator(A)where A is an array or a sparse matrix (of type SparseMatrixCSC and provided by the SparseArrays standard Julia module).  If A is an array with more than 2 dimensions, the number n of dimensions corresponding to the rows of the operator can be specified:S = SparseOperator(A, n)If not specified, n=1 is assumed.A sparse operator can be converted to a regular array, to a regular matrix or to a sparse matrix.  Assuming S is a SparseOperator, convertions to other representations are done by:A = Array(S)     # convert S to an array\nM = Matrix(S)    # convert S to a matrix\nsp = sparse(S)   # convert S to a sparse matrixnote: Note\nIf the sparse operator S has multi-dimensional columns/rows, these dimensions are preserved when S is converted to an array but are silently flatten when S is converted to a matrix or to a sparse matrix.Package LinearInterpolators provides a SparseInterpolator which is a LazyAlgebra LinearMapping and which can also be converted to a SparseOperator (sse the documentation of this package)."
+},
+
+{
+    "location": "sparse/#Usage-1",
+    "page": "Sparse operators",
+    "title": "Usage",
+    "category": "section",
+    "text": "A sparse operator can be used as any other LazyAlgebra linear mapping, e.g., S*x yields the result of applying the sparse operator S to x (unless x is a scalar, see below).A sparse operator can be reshaped:reshape(S, rowdims, coldims)where rowdims and coldims are the new list of dimensions for the rows and the columns, their product must be equal to the product of the former lists of dimensions.  The reshaped sparse operator and S share the arrays of non-zero coefficients and corresponding row and column indices.Left or right composition of a by a sparse operator by NonuniformScalingOperator (with comptable dimensions) yields another sparse operator whith same row and column indices but scaled coefficients.  A similar simplification is performed when a sparse operator is left or right multiplied by a scalar.The non-zero coefficients of a sparse operator S can be unpacked into a provided array A:unpack!(A, S) -> Awhere A must have the same element type as the coefficients of S and the same number of elements as the the products of the row and of the column dimensions of S.  Unpacking is perfomed by adding the non-zero coefficients of S to the correponding element of A (or using the | operator for boolean elements).  Hence unpacking into an array of zeros with appropriate dimensions yields the same result as Array(S)."
 },
 
 {
