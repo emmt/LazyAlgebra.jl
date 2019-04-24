@@ -66,7 +66,11 @@ export
     input_type,
     is_diagonal,
     is_endomorphism,
-    is_flat_array,
+    has_standard_indexing,
+    isflatarray,
+    StorageType,
+    AnyStorage,
+    FlatStorage,
     is_linear,
     is_selfadjoint,
     isone,
@@ -182,5 +186,6 @@ import .FiniteDifferences: SimpleFiniteDifferences
 include("fft.jl")
 import .FFT: FFTOperator
 include("conjgrad.jl")
+include("deprecations.jl")
 
 end

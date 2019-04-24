@@ -8,7 +8,7 @@
 # This file is part of LazyAlgebra (https://github.com/emmt/LazyAlgebra.jl)
 # released under the MIT "Expat" license.
 #
-# Copyright (c) 2017-2018 Éric Thiébaut.
+# Copyright (c) 2017-2019 Éric Thiébaut.
 #
 
 struct SingularSystem <: Exception
@@ -168,6 +168,11 @@ both yield `inv(A)` for any LazyAlgebra mappings `A`.
 
 """
 struct Identity <: LinearMapping; end
+
+# Trait used to determine the storage of array elements.
+abstract type StorageType end
+struct AnyStorage <: StorageType end
+struct FlatStorage <: StorageType end
 
 """
 

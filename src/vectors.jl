@@ -12,7 +12,7 @@
 # This file is part of LazyAlgebra (https://github.com/emmt/LazyAlgebra.jl)
 # released under the MIT "Expat" license.
 #
-# Copyright (c) 2017-2018 Éric Thiébaut.
+# Copyright (c) 2017-2019 Éric Thiébaut.
 #
 
 # FIXME: To simplify the code, we rely on the fact that converting `x::T` to
@@ -208,7 +208,7 @@ function vswap!(x::AbstractArray{T,N},
     __mayswap!(x, y)
 end
 
-__mayswap!(x::DenseArray{T,N}, y::DenseArray{T,N}) where {T,N} =
+__mayswap!(x::Array{T,N}, y::Array{T,N}) where {T,N} =
     pointer(x) == pointer(y) || __swap!(x, y)
 
 __mayswap!(x::AbstractArray{T,N}, y::AbstractArray{T,N}) where {T,N} =
@@ -439,13 +439,13 @@ for (Td, Tx, Ty) in ((:Td,            :Tx,            :Ty),
         return dst
     end
 
-    @eval function vproduct!(dst::DenseArray{$Td,N},
+    @eval function vproduct!(dst::Array{$Td,N},
                              sel::AbstractVector{Int},
-                             x::DenseArray{$Tx,N},
-                             y::DenseArray{$Ty,N}) where {Td<:AbstractFloat,
-                                                          Tx<:AbstractFloat,
-                                                          Ty<:AbstractFloat,
-                                                          N}
+                             x::Array{$Tx,N},
+                             y::Array{$Ty,N}) where {Td<:AbstractFloat,
+                                                     Tx<:AbstractFloat,
+                                                     Ty<:AbstractFloat,
+                                                     N}
         size(dst) == size(x) == size(y) ||
             __baddims("`x` and `y` must have the same dimensions as `dst`")
         jmin, jmax = extrema(sel)
@@ -506,11 +506,11 @@ for (Tx, Ty) in ((:Tx,            :Ty),
         return y
     end
 
-    @eval function vupdate!(y::DenseArray{$Ty,N},
+    @eval function vupdate!(y::Array{$Ty,N},
                             sel::AbstractVector{Int},
                             α::Real,
-                            x::DenseArray{$Tx,N}) where {Ty<:AbstractFloat,
-                                                         Tx<:AbstractFloat,N}
+                            x::Array{$Tx,N}) where {Ty<:AbstractFloat,
+                                                    Tx<:AbstractFloat,N}
         size(x) == size(y) ||
             __baddims("`x` and `y` must have the same dimensions")
         jmin, jmax = extrema(sel)
@@ -807,8 +807,8 @@ end
 
 function vdot(::Type{T},
               sel::AbstractVector{Int},
-              x::DenseArray{<:Real,N},
-              y::DenseArray{<:Real,N})::T where {T<:AbstractFloat,N}
+              x::Array{<:Real,N},
+              y::Array{<:Real,N})::T where {T<:AbstractFloat,N}
     size(y) == size(x) ||
         __baddims("`x` and `y` must have same dimensions")
     jmin, jmax = extrema(sel)
@@ -824,16 +824,16 @@ function vdot(::Type{T},
 end
 
 function vdot(sel::AbstractVector{Int},
-              x::DenseArray{Tx,N},
-              y::DenseArray{Ty,N}) where {Tx<:Real,Ty<:Real,N}
+              x::Array{Tx,N},
+              y::Array{Ty,N}) where {Tx<:Real,Ty<:Real,N}
     return vdot(float(promote_type(Tx, Ty)), sel, x, y)
 end
 
 function vdot(::Type{Complex{T}},
               sel::AbstractVector{Int},
-              x::DenseArray{Complex{Tx},N},
-              y::DenseArray{Complex{Ty},N}
-              )::Complex{T} where {T<:AbstractFloat,Tx<:Real,Ty<:Real,N}
+              x::Array{Complex{Tx},N},
+              y::Array{Complex{Ty},N})::Complex{T} where {T<:AbstractFloat,
+                                                          Tx<:Real,Ty<:Real,N}
     size(y) == size(x) ||
         __baddims("`x` and `y` must have same dimensions")
     jmin, jmax = extrema(sel)
@@ -850,9 +850,9 @@ end
 
 function vdot(::Type{T},
               sel::AbstractVector{Int},
-              x::DenseArray{Complex{Tx},N},
-              y::DenseArray{Complex{Ty},N})::T where {T<:AbstractFloat,
-                                                      Tx<:Real,Ty<:Real,N}
+              x::Array{Complex{Tx},N},
+              y::Array{Complex{Ty},N})::T where {T<:AbstractFloat,
+                                                 Tx<:Real,Ty<:Real,N}
     size(y) == size(x) ||
         __baddims("`x` and `y` must have same dimensions")
     jmin, jmax = extrema(sel)
@@ -868,7 +868,7 @@ function vdot(::Type{T},
 end
 
 function vdot(sel::AbstractVector{Int},
-              x::DenseArray{Complex{Tx},N},
-              y::DenseArray{Complex{Ty},N}) where {Tx<:Real,Ty<:Real,N}
+              x::Array{Complex{Tx},N},
+              y::Array{Complex{Ty},N}) where {Tx<:Real,Ty<:Real,N}
     return vdot(Complex{float(promote_type(Tx, Ty))}, sel, x, y)
 end

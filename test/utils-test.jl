@@ -1,11 +1,11 @@
 using Compat.Random
 
 function test_utilities()
-    is_flat_array = LazyAlgebra.is_flat_array
+    isflatarray = LazyAlgebra.isflatarray
     convert_multiplier = LazyAlgebra.convert_multiplier
     @testset "Utilities" begin
         #
-        # Tests for `is_flat_array`.
+        # Tests for `isflatarray`.
         #
         A = ones((2, 3, 4))
         L = ((nothing,             false),
@@ -21,10 +21,10 @@ function test_utilities()
              (view(A, :, 2, 3:3),  false))
         for i in randperm(length(L)) # prevent compilation-time optimization
             x, b = L[i]
-            @test is_flat_array(x) == b
+            @test isflatarray(x) == b
         end
-        @test is_flat_array(A, view(A, :, 2, 3), view(A, :, 2:2, 3)) == true
-        @test is_flat_array(A, view(A, :, 2:2, :), view(A, :, 2:2, 3)) == false
+        @test isflatarray(A, view(A, :, 2, 3), view(A, :, 2:2, 3)) == true
+        @test isflatarray(A, view(A, :, 2:2, :), view(A, :, 2:2, 3)) == false
         #
         # Tests for `allof`, `anyof` and `noneof`.
         #

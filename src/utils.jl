@@ -13,51 +13,99 @@
 
 """
 ```julia
-is_flat_array(A) -> boolean
+StorageType(A)
+```
+
+yields the type of storage of the elements of argument `A`.  If `A` is a *flat*
+array, that is an array with contiguous elements in column-major order and
+first element at index 1, the singleton `FlatStorage()` is returned; otherwise,
+the singleton `AnyStorage()` is returned.
+
+This method can be extended for custom array types to quickly return the
+correct answer.
+
+See also [`isflatarray`](@ref), [`flatarray`](@ref).
+
+"""
+StorageType(::Array) = FlatStorage()
+StorageType() = AnyStorage()
+StorageType(::Any) = AnyStorage()
+function StorageType(A::StridedVector)::StorageType
+    (first(axes(A,1)) == 1 && stride(A,1) == 1) ? FlatStorage() : AnyStorage()
+end
+function StorageType(A::StridedMatrix)
+    inds, dims, stds = axes(A), size(A), strides(A)
+    (first(inds[1]) == 1 && stds[1] == 1 &&
+     first(inds[2]) == 1 && stds[2] == dims[1]) ?
+     FlatStorage() : AnyStorage()
+end
+function StorageType(A::StridedArray{T,3})::StorageType where {T}
+    inds, dims, stds = axes(A), size(A), strides(A)
+    (first(inds[1]) == 1 && stds[1] == 1 &&
+     first(inds[2]) == 1 && stds[2] == dims[1] &&
+     first(inds[3]) == 1 && stds[3] == dims[1]*dims[2]) ?
+     FlatStorage() : AnyStorage()
+end
+function StorageType(A::StridedArray{T,4})::StorageType where {T}
+    inds, dims, stds = axes(A), size(A), strides(A)
+    (first(inds[1]) == 1 && stds[1] == 1 &&
+     first(inds[2]) == 1 && stds[2] == dims[1] &&
+     first(inds[3]) == 1 && stds[3] == dims[1]*dims[2] &&
+     first(inds[4]) == 1 && stds[4] == dims[1]*dims[2]*dims[3]) ?
+     FlatStorage() : AnyStorage()
+end
+function StorageType(A::StridedArray{T,N})::StorageType where {T,N}
+    inds, dims, stds = axes(A), size(A), strides(A)
+    n = 1
+    @inbounds for d in 1:N
+        if first(inds[d]) != 1 || stds[d] != n
+            return AnyStorage()
+        end
+        n *= dims[d]
+    end
+    return FlatStorage()
+end
+
+@doc @doc(StorageType) FlatStorage
+@doc @doc(StorageType) AnyStorage
+
+
+"""
+```julia
+isflatarray(A) -> boolean
 ```
 
 yields whether array `A` can be indexed as a *flat* array, that is an array
-with contiguous elements in colum-major order and first element at index 1.
+with contiguous elements in column-major order and first element at index 1.
 This also means that `A` has 1-based indices along all its dimensions.
 
 Several arguments can be checked in a single call:
 
 ```julia
-is_flat_array(A, B, C, ...)
+isflatarray(A, B, C, ...)
 ```
 
 is the same as:
 
 ```julia
-is_flat_array(A) && is_flat_array(B) && is_flat_array(C) && ...
+isflatarray(A) && isflatarray(B) && isflatarray(C) && ...
 ```
 
+See also [`StorageType`](@ref), [`flatarray`](@ref),
+[`has_standard_indexing`](@ref).
+
 """
-is_flat_array(A::Array) = true
-is_flat_array() = false
-is_flat_array(::Any) = false
-
-function is_flat_array(A::StridedArray{T,N}) where {T,N}
-    inds = axes(A)
-    dims = size(A)
-    stds = strides(A)
-    n = 1
-    @inbounds for d in 1:N
-        if first(inds[d]) != 1 || stds[d] != n
-            return false
-        end
-        n *= dims[d]
-    end
-    return true
-end
-
-is_flat_array(args...) = allof(is_flat_array, args...)
+isflatarray(::Array) = true
+isflatarray(A::AbstractArray) = (StorageType(A) === FlatStorage())
+isflatarray() = false
+isflatarray(::Any) = false
+isflatarray(args...) = allof(isflatarray, args...)
 #
 # Above version could be:
 #
-#     is_flat_array(args...) = all(is_flat_array, args)
+#     isflatarray(args...) = all(isflatarray, args)
 #
-# but using `all(is_flat_array, A, x, y)` for `A`, `x` and `y` flat arrays of
+# but using `all(isflatarray, A, x, y)` for `A`, `x` and `y` flat arrays of
 # sizes (3,4,5,6), (5,6) and (3,4) takes 9.0ns (with Julia 1.0, 29.1ns with
 # Julia 0.6) while using `allof` takes 0.02ns (i.e. is eliminated by the
 # compiler).
@@ -65,54 +113,61 @@ is_flat_array(args...) = allof(is_flat_array, args...)
 
 """
 ```julia
-has_oneto_axes(A)
-has_oneto_axes(A, B, ...)
+has_standard_indexing(A)
+has_standard_indexing(A, B, ...)
 ```
 
 Return `true` if the indices of `A` start with 1 along all axes.  If multiple
-arguments are passed, equivalent to `has_oneto_axes(A) | has_oneto_axes(B) |
+arguments are passed, equivalent to `has_standard_indexing(A) && has_standard_indexing(B) &&
 ...`.
 
 Opposite of `Base.has_offset_axes` which is not available in version of Julia
 older than 0.7.
 
 """
-has_oneto_axes(arg) = allof(x -> first(x) == 1, axes(arg)...)
-has_oneto_axes(args...) = allof(has_oneto_axes, args...)
+has_standard_indexing(arg) = allof(x -> first(x) == 1, axes(arg)...)
+has_standard_indexing(args...) = allof(has_standard_indexing, args...)
 
 """
 ```julia
-densearray([T=eltype(A),] A)
+flatarray([T=eltype(A),] A)
 ```
 
-lazyly yields a dense array based on `A`.  Optional argument `T` is to specify
-the element type of the result.  Argument `A` is returned if it is already a
-dense array with the requested element type; otherwise, [`convert`](@ref) is
-called to produce the result.
+lazily yields a *flat* array based on `A`, that is an array with contiguous
+elements in column-major order and first element at index 1.  Optional argument
+`T` is to specify the element type of the result.  Argument `A` is returned if
+it is already a flat array with the requested element type; otherwise,
+[`convert`](@ref) is called to produce the result (an `Array{T}` in that case).
 
 Similarly:
 
 ```julia
-densevector([T=eltype(V),] V)
-densematrix([T=eltype(M),] M)
+flatvector([T=eltype(V),] V)
+flatmatrix([T=eltype(M),] M)
 ```
 
-respectively yield a dense vector from `V` and a dense matrix from `M`.
+respectively yield a *flat* vector from `V` and a *flat* matrix from `M`.
 
+See also [`isflatarray`](@ref), [`convert`](@ref).
 """
-densearray(A::DenseArray) = A
-densearray(::Type{T}, A::DenseArray{T,N}) where {T,N} = A
-densearray(A::AbstractArray{T,N}) where {T,N} = densearray(T, A)
-densearray(::Type{T}, A::AbstractArray{<:Any,N}) where {T,N} =
+flatarray(A::Array) = A
+flatarray(::Type{T}, A::Array{T,N}) where {T,N} = A
+flatarray(A::AbstractArray{T,N}) where {T,N} =
+    _flatarray(StorageType(A), A)
+flatarray(::Type{T}, A::AbstractArray{<:Any,N}) where {T,N} =
     convert(Array{T,N}, A)
 
-densevector(V::AbstractVector{T}) where {T} = densearray(T, V)
-densevector(::Type{T}, V::AbstractVector) where {T} = densearray(T, V)
-@doc @doc(densearray) densevector
+_flatarray(::FlatStorage, A::AbstractArray) = A
+_flatarray(::StorageType, A::AbstractArray{T,N}) where {T,N} =
+    convert(Array{T,N}, A)
 
-densematrix(M::AbstractMatrix{T}) where {T} = densearray(T, M)
-densematrix(::Type{T}, M::AbstractMatrix) where {T} = densearray(T, M)
-@doc @doc(densearray) densematrix
+flatvector(V::AbstractVector{T}) where {T} = flatarray(T, V)
+flatvector(::Type{T}, V::AbstractVector) where {T} = flatarray(T, V)
+@doc @doc(flatarray) flatvector
+
+flatmatrix(M::AbstractMatrix{T}) where {T} = flatarray(T, M)
+flatmatrix(::Type{T}, M::AbstractMatrix) where {T} = flatarray(T, M)
+@doc @doc(flatarray) flatmatrix
 
 """
 Any of the following calls:

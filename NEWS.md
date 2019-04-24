@@ -1,3 +1,7 @@
+* Methods `is_flat_array`, `has_oneto_axes`, `densearray`, `densevector` and
+  `densematrix` have been deprecated in favor of `isflatarray`,
+  `has_standard_indexing`, `flatarray`, `flatvector` and `flatmatrix`.
+
 * Provide `lgemv` and `lgemv!` for *Lazily Generalized Matrix-Vector
   mutiplication* and `lgemm` and `lgemm!` for *Lazily Generalized Matrix-Matrix
   mutiplication*.  The names of these methods are reminiscent of `xGEMV` and

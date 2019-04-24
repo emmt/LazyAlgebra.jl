@@ -8,7 +8,7 @@
 # This file is part of LazyAlgebra (https://github.com/emmt/LazyAlgebra.jl)
 # released under the MIT "Expat" license.
 #
-# Copyright (c) 2017-2018 Éric Thiébaut.
+# Copyright (c) 2017-2019 Éric Thiébaut.
 #
 
 """
@@ -74,9 +74,9 @@ for (atyp, eltyp) in ((Real,   BlasReal),
         function Implementation(::Val{:lgemm},
                                 α::$atyp,
                                 transA::Char,
-                                A::DenseMatrix{T},
+                                A::Matrix{T},
                                 transB::Char,
-                                B::DenseMatrix{T},
+                                B::Matrix{T},
                                 Nc::Int) where {T<:$eltyp}
             return Blas()
         end
@@ -84,11 +84,11 @@ for (atyp, eltyp) in ((Real,   BlasReal),
         function Implementation(::Val{:lgemm},
                                 α::$atyp,
                                 transA::Char,
-                                A::DenseMatrix{T},
+                                A::Matrix{T},
                                 transB::Char,
-                                B::DenseMatrix{T},
+                                B::Matrix{T},
                                 β::$atyp,
-                                C::DenseMatrix{T}) where {T<:$eltyp}
+                                C::Matrix{T}) where {T<:$eltyp}
             return Blas()
         end
 
@@ -99,7 +99,7 @@ for (atyp, eltyp) in ((Real,   BlasReal),
                                 transB::Char,
                                 B::AbstractMatrix{T},
                                 Nc::Int) where {T<:$eltyp}
-            return (is_flat_array(A, B) ? Blas() : Basic())
+            return (isflatarray(A, B) ? Blas() : Basic())
         end
 
         function Implementation(::Val{:lgemm},
@@ -110,15 +110,15 @@ for (atyp, eltyp) in ((Real,   BlasReal),
                                 B::AbstractMatrix{T},
                                 β::$atyp,
                                 C::AbstractMatrix{T}) where {T<:$eltyp}
-            return (is_flat_array(A, B, C) ? Blas() : Basic())
+            return (isflatarray(A, B, C) ? Blas() : Basic())
         end
 
         function Implementation(::Val{:lgemm},
                                 α::$atyp,
                                 transA::Char,
-                                A::DenseArray{T},
+                                A::Array{T},
                                 transB::Char,
-                                B::DenseArray{T},
+                                B::Array{T},
                                 Nc::Int) where {T<:$eltyp}
             return Blas()
         end
@@ -126,11 +126,11 @@ for (atyp, eltyp) in ((Real,   BlasReal),
         function Implementation(::Val{:lgemm},
                                 α::$atyp,
                                 transA::Char,
-                                A::DenseArray{T},
+                                A::Array{T},
                                 transB::Char,
-                                B::DenseArray{T},
+                                B::Array{T},
                                 β::$atyp,
-                                C::DenseArray{T}) where {T<:$eltyp}
+                                C::Array{T}) where {T<:$eltyp}
             return Blas()
         end
 
@@ -141,7 +141,7 @@ for (atyp, eltyp) in ((Real,   BlasReal),
                                 transB::Char,
                                 B::AbstractArray{T},
                                 Nc::Int) where {T<:$eltyp}
-            return (is_flat_array(A, B) ? Blas() : Basic())
+            return (isflatarray(A, B) ? Blas() : Basic())
         end
 
         function Implementation(::Val{:lgemm},
@@ -152,7 +152,7 @@ for (atyp, eltyp) in ((Real,   BlasReal),
                                 B::AbstractArray{T},
                                 β::$atyp,
                                 C::AbstractArray{T}) where {T<:$eltyp}
-            return (is_flat_array(A, B, C) ? Blas() : Basic())
+            return (isflatarray(A, B, C) ? Blas() : Basic())
         end
     end
 end
@@ -185,7 +185,7 @@ function Implementation(::Val{:lgemm},
                         transB::Char,
                         B::AbstractArray,
                         Nc::Int)
-    return (is_flat_array(A, B) ? Linear() : Generic())
+    return (isflatarray(A, B) ? Linear() : Generic())
 end
 
 function Implementation(::Val{:lgemm},
@@ -196,7 +196,7 @@ function Implementation(::Val{:lgemm},
                         B::AbstractArray,
                         β::Number,
                         C::AbstractArray)
-    return (is_flat_array(A, B, C) ? Linear() : Generic())
+    return (isflatarray(A, B, C) ? Linear() : Generic())
 end
 
 """
@@ -401,13 +401,13 @@ end
 
 #
 # Call low-level BLAS version.  The differences with LinearAlgebra.BLAS.gemm!
-# are that inputs are assumed to be flat arrays (see is_flat_array) and that
+# are that inputs are assumed to be flat arrays (see isflatarray) and that
 # multipliers are automatically converted.
 #
 for (f, T) in ((:dgemm_, Float64),
-                      (:sgemm_, Float32),
-                      (:zgemm_, ComplexF64),
-                      (:cgemm_, ComplexF32))
+               (:sgemm_, Float32),
+               (:zgemm_, ComplexF64),
+               (:cgemm_, ComplexF32))
     @eval begin
         #
         # FORTRAN prototype:

@@ -8,7 +8,7 @@
 # This file is part of LazyAlgebra (https://github.com/emmt/LazyAlgebra.jl)
 # released under the MIT "Expat" license.
 #
-# Copyright (C) 2017-2018, Éric Thiébaut.
+# Copyright (C) 2017-2019, Éric Thiébaut.
 # Copyright (C) 2015-2016, Éric Thiébaut, Jonathan Léger & Matthew Ozon.
 #
 

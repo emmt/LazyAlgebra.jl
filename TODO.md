@@ -1,13 +1,17 @@
 * Implement *preconditioned* conjugate gradient.
 
+* Compute extrema of indices in sparse arrays to be able to quickly check
+  for bounds when applying a sparse operator.
+
 * Write an implementation of the L-BFGS operator and of the SR1 operator and
   perhaps of other low-rank operators.
 
-* Use more extensively BLAS subroutines.
+* Use more extensively BLAS subroutines.  Fix usage of BLAX `dot` and `axpy`
+  routines for dense arrays (use flat arrays).
 
 * Cleanup: `is_identical` is not really needed? `===` does the job?
 
-* Rename traits types and us their constructors to return trait instances.
+* Rename traits types and use their constructors to return trait instances.
   This is more *natural* in Julia and avoid having different method names.
 
 * Provide simplification rules for sums and compositions of diagonal operators

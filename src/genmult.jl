@@ -8,7 +8,7 @@
 # This file is part of LazyAlgebra (https://github.com/emmt/LazyAlgebra.jl)
 # released under the MIT "Expat" license.
 #
-# Copyright (c) 2017-2018 Éric Thiébaut.
+# Copyright (c) 2017-2019 Éric Thiébaut.
 #
 
 module GenMult
@@ -20,7 +20,7 @@ export
     lgemv
 
 using Compat
-using ..LazyAlgebra # for `allindices`, `is_flat_array`, etc.
+using ..LazyAlgebra # for `allindices`, `isflatarray`, etc.
 using ..LazyAlgebra: Complexes, Floats, Reals, axes, convert_multiplier,
     libblas, @blasfunc, BlasInt, BlasReal, BlasFloat, BlasComplex
 
