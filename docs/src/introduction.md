@@ -85,10 +85,6 @@ example:
   `A(B(x) + 3*C(x))`.
 
 
-Beware that, due to the priority of operators in Julia, `A*B(x)` is the same
-as `A(B(x))` not `(A*B)(x)`.
-
-
 ### Linear mappings
 
 A `LinearMapping` can be any linear mapping between two spaces.  This abstract
@@ -107,8 +103,12 @@ subtype of `Mapping` is introduced to extend the notion of *matrices* and
 
 * `B = A'` is a mapping such that `B⋅x` yields the same result as `A'⋅x`.
 
+!!! note
+    Beware that, due to the priority of operators in Julia, `A*B(x)` is the
+    same as `A(B(x))` not `(A*B)(x)`.
 
-### Automatic simplifications
+
+## Automatic simplifications
 
 An important feature of LazyAlgebra framework for mappings is that a *number
 of simplifications are automatically made at contruction time*.  For instance,
@@ -119,7 +119,7 @@ B = A'
 C = B'
 ```
 
-yields `C` which is just a reference to `A`. In other words, that is
+yields `C` which is just a reference to `A`. In other words,
 `adjoint(adjoint(A)) -> A` holds.  Likely
 
 ```julia
@@ -130,7 +130,7 @@ E = inv(D)
 yields `E` which is another reference to `A`.  In other words,
 `inv(inv(A)) -> A` holds assuming by default that `A` is invertible.  This
 follows the principles of laziness.  It is however, possible to prevent this by
-extended the `Base.inv` method so as to throw an exception when applied to the
+extending the `Base.inv` method so as to throw an exception when applied to the
 specific type of `A`:
 
 ```julia
@@ -148,8 +148,8 @@ C = 7B'
 
 where mappings `B` and `C` are such that `B*x ≡ 3*(A*x)` and `C*x ≡ 21*(A*x)`
 for any *vector* `x`.  That is `C*x` is evaluated as `21*(A*x)` not as
-`7*(3*(A*x))` thanks to simplifications occurring at the contruction of the
-mapping `C`.
+`7*(3*(A*x))` thanks to simplifications occurring while the mapping `C` is
+constructed.
 
 Using the `≡` to denote in the right-hand side the actual construction made by
 LazyAlgebra for the expression in the left-hand side and assuming `A`, `B`
@@ -169,14 +169,15 @@ inv(A*B*3M) ≡ inv(M)*(3\inv(B))*inv(A)
 
 which can be compared to `inv(A*B*3C)` when all operands are linear mappings.
 
-Note that, due to the associative rules applied by Julia, parentheses are
-needed around constructions like `3*C` if it has to be interpreted as `3C` in
-all contexes.  Otherwise, `A*B*(3*C)` is equivalent to `A*B*3C` while `A*B*3*C`
-is interpreted as `((A*B)*3)*C`; that is, compose `A` and `B`, apply `A*B` to
-`3` and right multiply the result by `C`.
+!!! note
+    Due to the associative rules applied by Julia, parentheses are needed
+    around constructions like `3*C` if it has to be interpreted as `3C` in
+    all contexes.  Otherwise, `A*B*(3*C)` is equivalent to `A*B*3C` while
+    `A*B*3*C` is interpreted as `((A*B)*3)*C`; that is, compose `A` and `B`,
+    apply `A*B` to `3` and right multiply the result by `C`.
 
 
-### Creating new mappings
+## Creating new mappings
 
 LazyAlgebra provides a number of simple mappings.  Creating new primitive
 mapping types (not by combining existing mappings as explained above) which
