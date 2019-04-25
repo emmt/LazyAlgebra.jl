@@ -416,8 +416,8 @@ Optional argument `sel` is a selection of indices to which apply the operation.
 """
 vproduct(x::V, y::V) where {V} = vproduct!(vcreate(x), x, y)
 
-@doc @doc(vproduct) vproduct!
-
+vproduct(x::AbstractArray{Tx,N}, y::AbstractArray{Ty,N}) where {Tx,Ty,N} =
+    vproduct!(similar(x, promote_type(Tx,Ty)), x, y)
 
 for (Td, Tx, Ty) in ((:Td,            :Tx,            :Ty),
                      (:(Complex{Td}), :Tx,            :Ty),
@@ -458,6 +458,8 @@ for (Td, Tx, Ty) in ((:Td,            :Tx,            :Ty),
     end
 
 end
+
+@doc @doc(vproduct) vproduct!
 
 #--- VECTOR UPDATE ------------------------------------------------------------
 

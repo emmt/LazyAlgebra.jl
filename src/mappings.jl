@@ -178,6 +178,18 @@ for pfx in (:input, :output)
     end
 end
 
+# Simplify left multiplication (and division) by a scalar.
+*(α::Number, A::NonuniformScalingOperator)::NonuniformScalingOperator =
+    (α == one(α) ? A :
+     # FIXME: α = zero(α) should be treated specifically
+     NonuniformScalingOperator(vscale(α, contents(A))))
+
+# Extend composition of diagonal operators.
+function *(A::NonuniformScalingOperator,
+           B::NonuniformScalingOperator)::NonuniformScalingOperator
+    return NonuniformScalingOperator(vproduct(contents(A), contents(B)))
+end
+
 """
 ```julia
 @axpby!(I, a, xi, b, yi)
