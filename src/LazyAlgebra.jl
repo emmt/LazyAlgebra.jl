@@ -18,6 +18,7 @@ module LazyAlgebra
 export
     Adjoint,
     AdjointInverse,
+    CroppingOperator,
     Diag,
     DiagonalMapping,
     DiagonalType,
@@ -47,9 +48,10 @@ export
     SimpleFiniteDifferences,
     SingularSystem,
     SparseOperator,
-    SymmetricRankOneOperator,
     SymbolicLinearMapping,
     SymbolicMapping,
+    SymmetricRankOneOperator,
+    ZeroPaddingOperator,
     adjoint,
     allindices,
     allof,
@@ -184,6 +186,8 @@ include("coder.jl")
 include("rules.jl")
 include("mappings.jl")
 include("sparse.jl")
+include("cropping.jl")
+import .CroppingOperators: CroppingOperator, ZeroPaddingOperator, defaultoffset
 include("finitedifferences.jl")
 import .FiniteDifferences: SimpleFiniteDifferences
 include("fft.jl")

@@ -1,3 +1,5 @@
+* Add cropping and zero-padding operators.
+
 * Left multiplication by a scalar and left/right multiplication by a
   non-uniform scaling (a.k.a. diagonal operator) is optimized for sparse
   and non-uniform scaling operators.

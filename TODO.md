@@ -1,3 +1,9 @@
+* Optimize composition of cropping and zero-padding operators.  The adjoint of
+  a cropping or zero-padding operator is the pseudo-inverse of the operator,
+  hence extend the `pinv` method.  If input and ouput dimnesions are the same
+  (and offsets are all zeros), a cropping/zero-padding operator is the
+  identity.
+
 * `vscale`, `vscale!` and others should be able to take a complex multiplier.
 
 * Implement *preconditioned* conjugate gradient.
