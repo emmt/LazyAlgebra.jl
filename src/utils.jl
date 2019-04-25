@@ -171,18 +171,28 @@ flatmatrix(::Type{T}, M::AbstractMatrix) where {T} = flatarray(T, M)
 
 """
 ```julia
-makedims(args...) -> dims
+dimensions(arg) -> dims
 ```
 
-yields a list of dimensions (as a tuple of `Int`) out of arguments
-`args...`.
+yields a list of dimensions (as a tuple of `Int`) out of argument `arg`.  The
+union `Dimensions` matches the types of argument `arg` acceptable for
+`dimensions(arg)`: scalar integer and tuple of integers.
 
 """
-makedims(dim::Integer) = (Int(dim),)
-makedims(dim::Int) = (dim,)
-makedims(dims::Tuple{}) = dims
-makedims(dims::NTuple{N,Integer}) where {N} = map(Int, dims)
-makedims(dims::NTuple{N,Int}) where {N} = dims
+dimensions(dims::Tuple{}) = dims
+dimensions(dim::Integer) = (Int(dim),)
+dimensions(dims::Tuple{Vararg{Integer}}) = map(Int, dims)
+dimensions(dims::Integer...) = map(Int, dims)
+dimensions(dim::Int) = (dim,)
+dimensions(dims::Tuple{Vararg{Int}}) = dims
+dimensions(dims::Int...) = dims
+
+# FIXME: this should be in julia/base/multidimensional.jl
+Base.CartesianIndex(I::CartesianIndex) = I
+
+const Dimensions = Union{Integer,Tuple{Vararg{Integer}}}
+
+@doc @doc(dimensions) Dimensions
 
 """
 Any of the following calls:

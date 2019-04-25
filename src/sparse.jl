@@ -83,13 +83,13 @@ end
 function SparseOperator(I::AbstractVector{<:Integer},
                         J::AbstractVector{<:Integer},
                         C::AbstractVector{T},
-                        rowdims::Union{Integer,Tuple{Vararg{Integer}}},
-                        coldims::Union{Integer,Tuple{Vararg{Integer}}}) where T
+                        rowdims::Dimensions,
+                        coldims::Dimensions) where T
     return _sparseoperator(flatvector(Int, I),
                            flatvector(Int, J),
                            flatvector(T,   C),
-                           makedims(rowdims),
-                           makedims(coldims))
+                           dimensions(rowdims),
+                           dimensions(coldims))
 end
 
 function SparseOperator(A::AbstractArray{T,N}, n::Integer = 1) where {T,N}
@@ -247,9 +247,9 @@ function unpack!(A::Array{Bool}, S::SparseOperator{Bool})
 end
 
 function Base.reshape(S::SparseOperator,
-                      rowdims::Union{Integer,Tuple{Vararg{Integer}}},
-                      coldims::Union{Integer,Tuple{Vararg{Integer}}})
-    return reshape(S, makedims(rowdims), makedims(coldims))
+                      rowdims::Dimensions,
+                      coldims::Dimensions)
+    return reshape(S, dimensions(rowdims), dimensions(coldims))
 end
 
 

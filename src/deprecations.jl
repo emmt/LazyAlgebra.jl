@@ -2,7 +2,8 @@
 
 import Base: @deprecate
 
-@deprecate(densearray(args...),  flatarray(args...))
+@deprecate(makedims(args...), dimensions(args...))
+@deprecate(densearray(args...), flatarray(args...))
 @deprecate(densevector(args...), flatvector(args...))
 @deprecate(densematrix(args...), flatmatrix(args...))
 @deprecate(is_flat_array(args...), isflatarray(args...))
