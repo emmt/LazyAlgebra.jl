@@ -1,7 +1,10 @@
+* `vscale`, `vscale!` and others should be able to take a complex multiplier.
+
 * Implement *preconditioned* conjugate gradient.
 
-* Simplify left multiplication of a sparse operator by a diagonal operator.
-  Same thing for sparse interpolator.
+* Simplify left/right multiplication of a sparse/diagonal operator by a diagonal
+  operator. Same thing for sparse interpolator.  Take care of scaling by
+  a multiplier (otherwise this makes little sense).
 
 * Automatically simplify composition of diagonal operators.
 

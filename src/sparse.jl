@@ -263,6 +263,71 @@ function Base.reshape(S::SparseOperator,
     return SparseOperator(rows(S), cols(S), coefs(S), rowdims, coldims)
 end
 
+# Extend left multiplication (and division) by a scalar.
+function *(α::Number, A::SparseOperator{T})::SparseOperator where {T}
+    if α == one(α)
+        return A
+    elseif α == zero(α)
+        nil = Vector{Int}(undef, 0)
+        return SparseOperator(nil, nil, Vector{T}(undef, 0),
+                              rowdims(A), coldims(A))
+    else
+        return SparseOperator(rows(A), cols(A), vscale(α, coefs(A)),
+                              rowdims(A), coldims(A))
+    end
+end
+
+# Extend left and right composition by a diagonal operator.
+function *(W::NonuniformScalingOperator, S::SparseOperator)::SparseOperator
+    D = contents(W)
+    @assert has_standard_indexing(D)
+    size(D) == rowdims(S) ||
+        throw(DimensionMismatch("the non-uniform scaling array and the rows of the sparse operator must have the same dimensions"))
+    I, J, C = rows(S), cols(S), coefs(S)
+    T = promote_type(eltype(D), eltype(C))
+    return SparseOperator(I, J, _leftscalesparse(T, D, I, C),
+                          rowdims(S), coldims(S))
+end
+
+function *(S::SparseOperator, W::NonuniformScalingOperator)::SparseOperator
+    D = contents(W)
+    @assert has_standard_indexing(D)
+    size(D) == coldims(S) ||
+        throw(DimensionMismatch("the non-uniform scaling array and the columns of the sparse operator must have the same dimensions"))
+    I, J, C = rows(S), cols(S), coefs(S)
+    T = promote_type(eltype(D), eltype(C))
+    return SparseOperator(I, J, _rightscalesparse(T, C, D, J),
+                          rowdims(S), coldims(S))
+end
+
+function _leftscalesparse(::Type{T},
+                          D::AbstractArray,
+                          I::AbstractVector{Int},
+                          C::AbstractVector) where {T}
+    # FIXME: If the sparse operator is "optimized", Q can be undefined and
+    #        set instead of incremented.
+    len = length(C)
+    @assert length(I) == len
+    Q = zeros(T, len)
+    @inbounds for k in 1:len
+        Q[k] += D[I[k]]*C[k]
+    end
+    return Q
+end
+
+function _rightscalesparse(::Type{T},
+                           C::AbstractVector,
+                           D::AbstractArray,
+                           J::AbstractVector{Int}) where {T}
+    len = length(C)
+    @assert length(J) == len
+    Q = zeros(T, len)
+    @inbounds for k in 1:len
+        Q[k] += C[k]*D[J[k]]
+    end
+    return Q
+end
+
 _bad_input_dimensions() = throw(DimensionMismatch("bad input dimensions"))
 _bad_output_dimensions() = throw(DimensionMismatch("bad output dimensions"))
 

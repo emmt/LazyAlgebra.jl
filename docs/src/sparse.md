@@ -16,8 +16,8 @@ SparseOperator(I, J, C, rowdims, coldims)
 where `I` and `J` are row and column indices of the non-zero coefficients whose
 values are specified by `C` and with `rowdims` and `coldims` the dimensions of
 the rows and of the columns.  Appart from the fact that the rows and columns
-may be multi-dimensional, this is very similar to the `sparse` method in
-`SparseArrays` standard Julia module.
+may be multi-dimensional, this is very similar to the [`sparse`][sparse] method
+in [`SparseArrays`][SparseArrays] standard Julia module.
 
 Another possibility is to build a sparse operator from an array or from
 a sparse matrix:
@@ -26,10 +26,10 @@ a sparse matrix:
 S = SparseOperator(A)
 ```
 
-where `A` is an array or a sparse matrix (of type `SparseMatrixCSC` and
-provided by the `SparseArrays` standard Julia module).  If `A` is an array with
-more than 2 dimensions, the number `n` of dimensions corresponding to the
-*rows* of the operator can be specified:
+where `A` is an array (of an y sub-type of `AbstractArray`) or a sparse matrix
+(of type [`SparseMatrixCSC`][SparseMatrixCSC]).  If `A` is an array with more
+than 2 dimensions, the number `n` of dimensions corresponding to the *rows* of
+the operator can be specified:
 
 ```julia
 S = SparseOperator(A, n)
@@ -44,18 +44,20 @@ representations are done by:
 ```julia
 A = Array(S)     # convert S to an array
 M = Matrix(S)    # convert S to a matrix
+
+using SparseArrays
 sp = sparse(S)   # convert S to a sparse matrix
 ```
 
 !!! note
     If the sparse operator `S` has multi-dimensional columns/rows, these
     dimensions are preserved when `S` is converted to an array but are
-    silently flatten when `S` is converted to a matrix or to a sparse matrix.
+    silently flattened when `S` is converted to a matrix or to a sparse
+    matrix.
 
-Package [LinearInterpolators](https://github.com/emmt/LinearInterpolators.jl)
-provides a `SparseInterpolator` which is a LazyAlgebra `LinearMapping` and
-which can also be converted to a `SparseOperator` (sse the documentation of
-this package).
+Package [LinearInterpolators][LinearInterpolators] provides a
+`SparseInterpolator` which is a LazyAlgebra `LinearMapping` and which can also
+be converted to a `SparseOperator` (sse the documentation of this package).
 
 
 ## Usage
@@ -91,6 +93,11 @@ unpack!(A, S) -> A
 where `A` must have the same element type as the coefficients of `S` and the
 same number of elements as the the products of the row and of the column
 dimensions of `S`.  Unpacking is perfomed by adding the non-zero coefficients
-of `S` to the correponding element of `A` (or using the `|` operator for
+of `S` to the correponding elements of `A` (or using the `|` operator for
 boolean elements).  Hence unpacking into an array of zeros with appropriate
 dimensions yields the same result as `Array(S)`.
+
+[LinearInterpolators]: https://github.com/emmt/LinearInterpolators.jl
+[SparseArrays]: https://docs.julialang.org/en/latest/stdlib/SparseArrays/#Sparse-Arrays-1
+[sparse]: https://docs.julialang.org/en/latest/stdlib/SparseArrays/#SparseArrays.sparse
+[SparseMatrixCSC]: https://docs.julialang.org/en/latest/stdlib/SparseArrays/#SparseArrays.SparseMatrixCSC

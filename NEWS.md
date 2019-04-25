@@ -1,3 +1,7 @@
+* Left multiplication by a scalar and left/right multiplication by a
+  non-uniform scaling (a.k.a. diagonal operator) is optimized for a sparse
+  operator.
+
 * Provide `unpack!` method to unpack the non-zero coefficients of a sparse
   operator and extend `reshape` to be applicable to a sparse operator.
 
