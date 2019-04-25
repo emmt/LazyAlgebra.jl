@@ -47,7 +47,7 @@ four possible singletons:
 - `Linear()` when *vector* and *matrix* arguments can be efficiently indexed
   by, respectively, one and two linear indices.
 
-- `Generic()` to use generic implementation which can accomodate from any type
+- `Generic()` to use generic implementation which can accommodate from any type
   of arguments and of multi-dimensional indices.  This implementation should be
   always safe to use and should provide the reference implementation of the
   algorithm `alg`.
