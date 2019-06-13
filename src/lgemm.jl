@@ -939,7 +939,7 @@ function _lgemm_dims(transA::Char,
     end
 end
 #
-# This method yields the lenghts of the meta-dimensions for lgemm! assuming
+# This method yields the lengths of the meta-dimensions for lgemm! assuming
 # linear indexing and check arguments.
 #
 @inline function _lgemm_dims(transA::Char,
