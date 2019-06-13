@@ -118,8 +118,11 @@ has_standard_indexing(A, B, ...)
 ```
 
 Return `true` if the indices of `A` start with 1 along all axes.  If multiple
-arguments are passed, equivalent to `has_standard_indexing(A) && has_standard_indexing(B) &&
-...`.
+arguments are passed, equivalent to:
+
+```julia
+has_standard_indexing(A) && has_standard_indexing(B) && ...
+```
 
 Opposite of `Base.has_offset_axes` which is not available in version of Julia
 older than 0.7.
