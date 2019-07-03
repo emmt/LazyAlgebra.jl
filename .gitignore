@@ -20,3 +20,4 @@ doc/*.out
 doc/*.pdf
 doc/*.synctex.gz
 test/*.out
+Manifest.toml
