@@ -1,3 +1,4 @@
+# See example script at https://github.com/JuliaLang/Example.jl
 language: julia
 
 os:
@@ -14,6 +15,7 @@ julia:
 matrix:
   allow_failures:
     - julia: 0.6
+    - julia: 0.7
     - julia: nightly
 
 notifications:
