@@ -1,25 +1,30 @@
 language: julia
+
 os:
   - linux
   - osx
+
 julia:
 # - 0.6
   - 0.7
   - 1.0
+  - 1.1
+  - nightly
+
 matrix:
   allow_failures:
     - julia: 0.6
+    - julia: nightly
+
 notifications:
   email: false
-# uncomment the following lines to override the default test script
-script:
-  - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
-  - julia --check-bounds=yes --inline=no -e 'if VERSION >= v"0.7.0-DEV.5183"; using Pkg; end; Pkg.clone(pwd()); Pkg.build("LazyAlgebra"); Pkg.test("LazyAlgebra"; coverage=true)'
+
+#script: # the default script is equivalent to the following
+#  - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
+#  - julia -e 'Pkg.clone(pwd()); Pkg.build("LazyAlgebra"); Pkg.test("LazyAlgebra"; coverage=true)';
+
 after_success:
-  # push coverage results to Coveralls
-  - julia -e 'if VERSION >= v"0.7.0-DEV.5183"; using Pkg; end; cd(Pkg.dir("LazyAlgebra")); Pkg.add("Coverage"); using Coverage; Coveralls.submit(Coveralls.process_folder())'
-  # push coverage results to Codecov
-  - julia -e 'if VERSION >= v"0.7.0-DEV.5183"; using Pkg; end; cd(Pkg.dir("LazyAlgebra")); Pkg.add("Coverage"); using Coverage; Codecov.submit(Codecov.process_folder())'
+  - julia -e 'if VERSION >= v"0.7.0-" using Pkg end; cd(Pkg.dir("LazyAlgebra")); Pkg.add("Coverage"); using Coverage; Coveralls.submit(Coveralls.process_folder())';
 
 jobs:
   include:
@@ -29,6 +34,7 @@ jobs:
       script:
         - julia --project=docs/ -e 'using Pkg;
                                     Pkg.develop(PackageSpec(path=pwd()));
+                                    Pkg.build("LazyAlgebra");
                                     Pkg.instantiate()'
         - julia --project=docs/ docs/make.jl
       after_success: skip
