@@ -45,23 +45,23 @@ var documenterSearchIndex = {"docs": [
     "page": "Installation",
     "title": "Installation",
     "category": "section",
-    "text": ""
+    "text": "LazyAlgebra.jl is not yet an offical Julia package but it is easy to install it from Julia as explained below."
 },
 
 {
-    "location": "install/#Installation-with-the-package-manager-1",
+    "location": "install/#Using-the-package-manager-1",
     "page": "Installation",
-    "title": "Installation with the package manager",
+    "title": "Using the package manager",
     "category": "section",
-    "text": "LazyAlgebra.jl is not yet an offical Julia package but it is easy to install it from Julia. At the REPL of Julia, hit the ] key to switch to the package manager REPL (you should get a ... pkg> prompt) and type:pkg> add https://github.com/emmt/LazyAlgebra.jl.gitwhere pkg> represents the package manager prompt and https protocol has been assumed; if ssh is more suitable for you, then type:pkg> add git@github.com:emmt/LazyAlgebra.jl.gitinstead.  To check whether the LazyAlgebra package works correctly, type:pkg> test LazyAlgebraLater, to update to the last version (and run tests), you can type:pkg> update LazyAlgebra\npkg> build LazyAlgebra\npkg> test LazyAlgebraIf something goes wrong, it may be because you already have an old version of LazyAlgebra.  Uninstall LazyAlgebra as follows:pkg> rm LazyAlgebra\npkg> gc\npkg> add https://github.com/emmt/LazyAlgebra.jl.gitbefore re-installing.To revert to Julia\'s REPL, hit the Backspace key at the ... pkg> prompt."
+    "text": "At the REPL of Julia, hit the ] key to switch to the package manager REPL (you should get a ... pkg> prompt) and type:pkg> add https://github.com/emmt/LazyAlgebra.jlwhere pkg> represents the package manager prompt and https protocol has been assumed; if ssh is more suitable for you, then type:pkg> add git@github.com:emmt/LazyAlgebra.jlinstead.  To check whether the LazyAlgebra package works correctly, type:pkg> test LazyAlgebraLater, to update to the last version (and run tests), you can type:pkg> update LazyAlgebra\npkg> build LazyAlgebra\npkg> test LazyAlgebraIf something goes wrong, it may be because you already have an old version of LazyAlgebra.  Uninstall LazyAlgebra as follows:pkg> rm LazyAlgebra\npkg> gc\npkg> add https://github.com/emmt/LazyAlgebra.jlbefore re-installing.To revert to Julia\'s REPL, hit the Backspace key at the ... pkg> prompt."
 },
 
 {
-    "location": "install/#Installation-in-Julia-scripts-1",
+    "location": "install/#Installation-in-scripts-1",
     "page": "Installation",
-    "title": "Installation in Julia scripts",
+    "title": "Installation in scripts",
     "category": "section",
-    "text": "To install LazyAlgebra in a Julia script, write:if VERSION >= v\"0.7.0-\"; using Pkg; end\nPkg.add(PackageSpec(url=\"https://github.com/emmt/LazyAlgebra.jl\", rev=\"master\"));or with url=\"git@github.com:emmt/LazyAlgebra.jl.git\" if you want to use ssh.This also works from the Julia REPL."
+    "text": "To install LazyAlgebra in a Julia script, write:if VERSION >= v\"0.7.0-\"; using Pkg; end\nPkg.add(PackageSpec(url=\"https://github.com/emmt/LazyAlgebra.jl\", rev=\"master\"));or with url=\"git@github.com:emmt/LazyAlgebra.jl\" if you want to use ssh.This also works from the Julia REPL."
 },
 
 {
