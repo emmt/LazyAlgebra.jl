@@ -130,6 +130,7 @@ older than 0.7.
 """
 has_standard_indexing(arg) = allof(x -> first(x) == 1, axes(arg)...)
 has_standard_indexing(args...) = allof(has_standard_indexing, args...)
+has_standard_indexing(arg::Array) = true
 
 """
 ```julia
