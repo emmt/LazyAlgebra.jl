@@ -22,7 +22,7 @@ using ..Coder
 using  ...LazyAlgebra
 import ...LazyAlgebra: vcreate, apply!, HalfHessian, is_same_mapping
 using  ...LazyAlgebra: @callable, convert_multiplier
-import Base: show
+import Base: show, *
 
 # Define operator D which implements simple finite differences.  Make it
 # callable.
@@ -31,7 +31,12 @@ struct SimpleFiniteDifferences <: LinearMapping end
 
 is_same_mapping(::SimpleFiniteDifferences, ::SimpleFiniteDifferences) = true
 
-show(io::IO, A::SimpleFiniteDifferences) = print(io, "D")
+show(io::IO, ::SimpleFiniteDifferences) = print(io, "Diff")
+show(io::IO, ::HalfHessian{SimpleFiniteDifferences}) = print(io, "(Diff'⋅Diff)")
+
+# Automatically convert D'*D into HalfHessian(D).
+const DtD = HalfHessian(SimpleFiniteDifferences())
+*(::Adjoint{SimpleFiniteDifferences}, ::SimpleFiniteDifferences) = DtD
 
 # Extend the vcreate() and apply!() methods for these operators.  The apply!()
 # method does all the checking and, then, calls a private method specialized
