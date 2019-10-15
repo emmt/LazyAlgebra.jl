@@ -268,61 +268,72 @@ function _compile_axpby!(i::Symbol, I, a, xi, b, yi)
     end
 end
 
-function apply!(α::Real,
+# Apply nonuniform scaling. All arguments are assumed to be correct.
+function _applynonuniformscaling!(a::Number, ::Type{Direct},
+                                  w::AbstractArray,
+                                  x::AbstractArray,
+                                  b::Number, y::AbstractArray)
+    I = eachindex(w, x, y)
+    @axpby!(i, I, a, w[i]*x[i], b, y[i])
+end
+
+function _applynonuniformscaling!(a::Number, ::Type{Inverse},
+                                  w::AbstractArray,
+                                  x::AbstractArray,
+                                  b::Number, y::AbstractArray)
+    I = eachindex(w, x, y)
+    @axpby!(i, I, a, x[i]/w[i], b, y[i])
+end
+
+function _applynonuniformscaling!(a::Number, ::Type{Adjoint},
+                                  w::AbstractArray{<:Real},
+                                  x::AbstractArray,
+                                  b::Number, y::AbstractArray)
+    I = eachindex(w, x, y)
+    @axpby!(i, I, a, w[i]*x[i], b, y[i])
+end
+
+function _applynonuniformscaling!(a::Number, ::Type{Adjoint},
+                                  w::AbstractArray{<:Complex},
+                                  x::AbstractArray,
+                                  b::Number, y::AbstractArray)
+    I = eachindex(w, x, y)
+    @axpby!(i, I, a, conj(w[i])*x[i], b, y[i])
+end
+
+function _applynonuniformscaling!(a::Number, ::Type{InverseAdjoint},
+                                  w::AbstractArray{<:Real},
+                                  x::AbstractArray, b::Number, y::AbstractArray)
+    I = eachindex(w, x, y)
+    @axpby!(i, I, a, x[i]/w[i], b, y[i])
+end
+
+function _applynonuniformscaling!(a::Number, ::Type{InverseAdjoint},
+                                  w::AbstractArray{<:Complex},
+                                  x::AbstractArray,
+                                  b::Number, y::AbstractArray)
+    I = eachindex(w, x, y)
+    @axpby!(i, I, a, x[i]/conj(w[i]), b, y[i])
+end
+
+function apply!(α::Number,
                 ::Type{P},
                 W::NonuniformScalingOperator{<:AbstractArray{Tw,N}},
                 x::AbstractArray{Tx,N},
                 scratch::Bool,
-                β::Real,
+                β::Number,
                 y::AbstractArray{Ty,N}) where {P<:Operations,
-                                               Tw<:AbstractFloat,
-                                               Tx<:AbstractFloat,
-                                               Ty<:AbstractFloat,N}
+                                               Tw<:Floats,
+                                               Tx<:Floats,
+                                               Ty<:Floats,N}
     w = contents(W)
     @assert axes(w) == axes(x) == axes(y)
     if α == 0
-        rmul!(y, β)
+        rmul!(y, β) # FIXME: call vscale!()
     else
         a = convert_multiplier(α, promote_type(Tw, Tx), Ty)
         b = convert_multiplier(β, Ty)
-        I = eachindex(w, x, y)
-        if P === Direct || P === Adjoint
-            @axpby!(i, I, a, w[i]*x[i], b, y[i])
-        elseif P === Inverse || P === InverseAdjoint
-            @axpby!(i, I, a, x[i]/w[i], b, y[i])
-        end
-    end
-    return y
-end
-
-function apply!(α::Real,
-                ::Type{P},
-                W::NonuniformScalingOperator{<:AbstractArray{Complex{Tw},N}},
-                x::AbstractArray{Complex{Tx},N},
-                scratch::Bool,
-                β::Real,
-                y::AbstractArray{Complex{Ty},N}) where {P<:Operations,
-                                                        Tw<:AbstractFloat,
-                                                        Tx<:AbstractFloat,
-                                                        Ty<:AbstractFloat,N}
-    w = contents(W)
-    @assert axes(w) == axes(x) == axes(y)
-    if α == 0
-        rmul!(y, β)
-    else
-        a = convert_multiplier(α, promote_type(Tw, Tx), Ty)
-        b = convert_multiplier(β, Ty)
-        I = eachindex(w, x, y)
-        if P === Direct
-            # FIXME: expressions can be further optimized...
-            @axpby!(i, I, a, w[i]*x[i], b, y[i])
-        elseif P === Adjoint
-            @axpby!(i, I, a, conj(w[i])*x[i], b, y[i])
-        elseif P === Inverse
-            @axpby!(i, I, a, x[i]/w[i], b, y[i])
-        elseif P === InverseAdjoint
-            @axpby!(i, I, a, x[i]/conj(w[i]), b, y[i])
-        end
+        _applynonuniformscaling!(a, P, w, x, b, y)
     end
     return y
 end
