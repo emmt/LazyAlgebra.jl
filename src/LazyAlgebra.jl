@@ -53,9 +53,6 @@ export
     SymmetricRankOneOperator,
     ZeroPaddingOperator,
     adjoint,
-    allindices,
-    allof,
-    anyof,
     apply!,
     apply,
     conjgrad!,
@@ -68,11 +65,6 @@ export
     input_type,
     is_diagonal,
     is_endomorphism,
-    has_standard_indexing,
-    isflatarray,
-    StorageType,
-    AnyStorage,
-    FlatStorage,
     is_linear,
     is_selfadjoint,
     isone,
@@ -82,14 +74,12 @@ export
     lgemv!,
     lgemv,
     multiplier,
-    noneof,
     operand,
     operands,
     output_eltype,
     output_ndims,
     output_size,
     output_type,
-    reversemap,
     unpack!,
     vcombine!,
     vcombine,
@@ -174,6 +164,8 @@ end
 import Base: *, ∘, +, -, \, /, ==, inv,
     show, showerror, convert, eltype, ndims, size, length, stride, strides,
     getindex, setindex!, eachindex, first, last, one, zero, iszero
+
+using ArrayTools
 
 include("types.jl")
 include("utils.jl")

@@ -179,11 +179,6 @@ See also: [`LinearType`](@ref), [`SelfAdjointType`](@ref),
 """
 abstract type Trait end
 
-# Trait used to determine the storage of array elements.
-abstract type StorageType <: Trait end
-struct AnyStorage <: StorageType end
-struct FlatStorage <: StorageType end
-
 # Trait indicating whether a mapping is certainly linear.
 abstract type LinearType <: Trait end
 struct NonLinear <: LinearType end

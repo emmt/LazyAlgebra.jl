@@ -1,3 +1,12 @@
+* `convert_multiplier` should have 2 different behaviors: to allow for using
+  BLAS routines, all multipliers must be converted to complexes if array
+  arguments are complex-valued.
+
+* Remove `REQUIRE` file (`Project.toml` is sufficient) and re-enable Julia 0.7
+  in TravisCI.
+
+* Fix `H'` when `H = HalfHessian(SimpleFiniteDifferences())`.
+
 * Optimize composition of cropping and zero-padding operators.  The adjoint of
   a cropping or zero-padding operator is the pseudo-inverse of the operator,
   hence extend the `pinv` method.  If input and ouput dimnesions are the same

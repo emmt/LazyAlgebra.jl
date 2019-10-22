@@ -376,7 +376,7 @@ function _lgemm(::Generic,
                 Nc::Int) where {Ta<:Floats,Tb<:Floats}
     I, J, K = _lgemm_indices(transA, A, transB, B, Nc)
     Tab, Tc = _lgemm_types(α, Ta, Tb)
-    return _generic_lgemm!(allindices(I), allindices(J), allindices(K),
+    return _generic_lgemm!(indices(I), indices(J), indices(K),
                            convert_multiplier(α, Tab, Tc), transA, A,
                            transB, B,
                            convert_multiplier(0, Tc),
@@ -393,7 +393,7 @@ function _lgemm!(::Generic,
                  C::AbstractArray{Tc}) where {Ta<:Floats,Tb<:Floats,Tc<:Floats}
     I, J, K = _lgemm_indices(transA, A, transB, B, C)
     Tab = promote_type(Ta, Tb)
-    return _generic_lgemm!(allindices(I), allindices(J), allindices(K),
+    return _generic_lgemm!(indices(I), indices(J), indices(K),
                            convert_multiplier(α, Tab, Tc), transA, A,
                            transB, B,
                            convert_multiplier(β, Tc), C)

@@ -3,3 +3,4 @@ AbstractFFTs
 FFTW
 Compat 0.66
 LinearAlgebra
+ArrayTools
