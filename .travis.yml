@@ -24,7 +24,7 @@ before_script:
               Pkg.add(PackageSpec(url="https://github.com/emmt/ArrayTools.jl"));'
 
 after_success:
-  - julia -e 'using Pkg end;
+  - julia -e 'using Pkg;
               cd(Pkg.dir("LazyAlgebra"));
               Pkg.add("Coverage");
               using Coverage;
