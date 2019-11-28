@@ -58,16 +58,14 @@ for T in (Float32, Float64)
 end
 
 @inline function __call_blas_dot(f, x, y)
-    size(x) == size(y) ||
-        __baddims("`x` and `y` must have the same dimensions")
+    size(x) == size(y) || throw_dimensions_mismatch()
     return f(length(x), pointer(x), stride(x, 1), pointer(y), stride(y, 1))
 end
 
-function vupdate!(y::BlasVec{T}, alpha::Number,
+function vupdate!(y::BlasVec{T}, alpha::Real,
                   x::BlasVec{T}) where {T<:BlasFloat}
-    size(x) == size(y) ||
-        __baddims("`x` and `y` must have the same dimensions")
-    BLAS.axpy!(length(x), convert(T, alpha),
+    size(x) == size(y) || throw_dimensions_mismatch()
+    BLAS.axpy!(length(x), T(alpha),
                pointer(x), stride(x, 1),
                pointer(y), stride(y, 1))
     return y

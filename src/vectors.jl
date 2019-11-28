@@ -15,10 +15,11 @@
 # Copyright (c) 2017-2019 Éric Thiébaut.
 #
 
-# FIXME: To simplify the code, we rely on the fact that converting `x::T` to
-# type `T` does nothing.  According to julia/base/essentials.jl:
+# To simplify the code, we rely on the fact that converting `x::T` to type `T`
+# does nothing.  According to Julia code (e.g. number.jl):
 #
-#     convert(::Type{T}, x::T) where {T} = x
+#     convert(::Type{T}, x::T)      where {T<:Number} = x
+#     convert(::Type{T}, x::Number) where {T<:Number} = T(x)
 #
 
 """
@@ -31,22 +32,19 @@ can be imposed by optional argument `T`.  Also see [`vnorm1`](@ref) and
 [`vnorminf`](@ref).
 
 """
-function vnorm2(::Type{T},
-                v::AbstractArray{<:Real})::T where {T<:AbstractFloat}
+function vnorm2(::Type{T}, v::AbstractArray{<:Real}) where {T<:AbstractFloat}
     s = zero(T)
     @inbounds @simd for i in eachindex(v)
-        x = convert(T, v[i])
-        s += x*x
+        s += T(v[i])^2
     end
     return sqrt(s)
 end
 
 function vnorm2(::Type{T},
-                v::AbstractArray{<:Complex{<:Real}})::T where {T<:AbstractFloat}
+                v::AbstractArray{<:Complex{<:Real}}) where {T<:AbstractFloat}
     s = zero(T)
     @inbounds @simd for i in eachindex(v)
-        z = convert(Complex{T}, v[i])
-        s += abs2(z)
+        s += abs2(Complex{T}(v[i]))
     end
     return sqrt(s)
 end
@@ -66,21 +64,19 @@ absolute values of the real part and of the imaginary part of the elements
 See also [`vnorm2`](@ref) and [`vnorminf`](@ref).
 
 """
-function vnorm1(::Type{T},
-                v::AbstractArray{<:Real})::T where {T<:AbstractFloat}
+function vnorm1(::Type{T}, v::AbstractArray{<:Real}) where {T<:AbstractFloat}
     s = zero(T)
     @inbounds @simd for i in eachindex(v)
-        x = convert(T, v[i])
-        s += abs(x)
+        s += abs(T(v[i]))
     end
     return s
 end
 
 function vnorm1(::Type{T},
-                v::AbstractArray{<:Complex{<:Real}})::T where {T<:AbstractFloat}
+                v::AbstractArray{<:Complex{<:Real}}) where {T<:AbstractFloat}
     s = zero(T)
     @inbounds @simd for i in eachindex(v)
-        z = convert(Complex{T}, v[i])
+        z = Complex{T}(v[i])
         s += abs(real(z)) + abs(imag(z))
     end
     return s
@@ -96,29 +92,27 @@ elements.  The floating point type of the result can be imposed by optional
 argument `T`.  Also see [`vnorm1`](@ref) and [`vnorm2`](@ref).
 
 """
-function vnorminf(::Type{T}, v::AbstractArray{T})::T where {T<:AbstractFloat}
+function vnorminf(::Type{T}, v::AbstractArray{T}) where {T<:AbstractFloat}
     amax = zero(T)
     @inbounds @simd for i in eachindex(v)
-        x = v[i]
-        amax = max(amax, abs(x))
+        amax = max(amax, abs(v[i]))
     end
     return amax
 end
 
-function vnorminf(::Type{T}, v::AbstractArray{R})::T where {T<:AbstractFloat,
-                                                            R<:Real}
-    return convert(T, vnorminf(R, v))
-end
-
-# FIXME: avoid overflows?
 function vnorminf(::Type{T},
-                  v::AbstractArray{<:Complex{<:Real}})::T where {T<:AbstractFloat}
+                  v::AbstractArray{Complex{T}}) where {T<:AbstractFloat}
     amax = zero(T)
     @inbounds @simd for i in eachindex(v)
-        z = convert(Complex{T}, v[i])
-        amax = max(amax, abs2(z))
+        amax = max(amax, abs2(v[i]))
     end
     return sqrt(amax)
+end
+
+function vnorminf(::Type{T},
+                  v::AbstractArray{E}) where {T<:AbstractFloat,R<:Real,
+                                              E<:Union{R,Complex{R}}}
+    T(vnorminf(R, v))
 end
 
 for norm in (:vnorm2, :vnorm1, :vnorminf)
@@ -163,19 +157,21 @@ Also see [`copyto!`](@ref), [`vcopy`](@ref), [`vswap!`](@ref).
 """
 function vcopy!(dst::AbstractArray{<:Real,N},
                 src::AbstractArray{<:Real,N}) where {N}
-    axes(dst) == axes(src) ||
-        __baddims("`dst` and `src` must have the same axes")
+    axes(dst) == axes(src) || throw_dimensions_mismatch()
     copyto!(dst, src)
 end
 
 function vcopy!(dst::AbstractArray{<:Complex{<:Real},N},
                 src::AbstractArray{<:Complex{<:Real},N}) where {N}
-    axes(dst) == axes(src) ||
-        __baddims("`dst` and `src` must have the same axes")
+    axes(dst) == axes(src) || throw_dimensions_mismatch()
     copyto!(dst, src)
 end
 
-@inline __baddims(msg::AbstractString) = throw(DimensionMismatch(msg))
+@noinline throw_dimensions_mismatch() =
+    throw_dimensions_mismatch("arguments have incompatible dimensions/indices")
+
+@noinline throw_dimensions_mismatch(mesg::AbstractString) =
+    throw(DimensionMismatch(mesg))
 
 """
 ```julia
@@ -203,8 +199,7 @@ Also see [`vcopy!`](@ref).
 """
 function vswap!(x::AbstractArray{T,N},
                 y::AbstractArray{T,N}) where {R<:Real,T<:Union{R,Complex{R}},N}
-    axes(x) == axes(y) ||
-        __baddims("`x` and `y` must have the same axes")
+    axes(x) == axes(y) || throw_dimensions_mismatch()
     __mayswap!(x, y)
 end
 
@@ -236,7 +231,7 @@ Also see [`vzero!`](@ref), [`fill!`](@ref).
 
 """
 vfill!(x, α) = fill!(x, α)
-vfill!(x::AbstractArray{T}, α) where {T} = vfill!(x, convert(T, α))
+vfill!(x::AbstractArray{T}, α) where {T} = vfill!(x, T(α))
 function vfill!(x::AbstractArray{T}, α::T) where {T}
     @inbounds @simd for i in eachindex(x)
         x[i] = α
@@ -256,6 +251,7 @@ Also see [`vfill!`](@ref).
 
 """
 vzero!(x) = vfill!(x, 0)
+vzero!(x::AbstractArray{T}) where {T} = vfill!(x, zero(T))
 
 """
 
@@ -321,12 +317,11 @@ for (Td, Ts) in ((:Td,            :Ts),
                          α::Real,
                          src::AbstractArray{$Ts,N}) where {Td<:AbstractFloat,
                                                            Ts<:AbstractFloat,N}
-            axes(dst) == axes(src) ||
-                __baddims("`dst` and `src` must have the same axes")
+            axes(dst) == axes(src) || throw_dimensions_mismatch()
             if α == 1
                 copyto!(dst, src)
             elseif α == 0
-                fill!(dst, 0)
+                vzero!(dst)
             elseif α == -1
                 @inbounds @simd for i in eachindex(dst, src)
                     dst[i] = -src[i]
@@ -431,8 +426,7 @@ for (Td, Tx, Ty) in ((:Td,            :Tx,            :Ty),
                                                              Tx<:AbstractFloat,
                                                              Ty<:AbstractFloat,
                                                              N}
-        axes(dst) == axes(x) == axes(y) ||
-            __baddims("`x` and `y` must have the same axes as `dst`")
+        axes(dst) == axes(x) == axes(y) || throw_dimensions_mismatch()
         @inbounds @simd for i in eachindex(dst, x, y)
             dst[i] = x[i]*y[i]
         end
@@ -446,8 +440,7 @@ for (Td, Tx, Ty) in ((:Td,            :Tx,            :Ty),
                                                      Tx<:AbstractFloat,
                                                      Ty<:AbstractFloat,
                                                      N}
-        size(dst) == size(x) == size(y) ||
-            __baddims("`x` and `y` must have the same dimensions as `dst`")
+        size(dst) == size(x) == size(y) || throw_dimensions_mismatch()
         jmin, jmax = extrema(sel)
         1 ≤ jmin ≤ jmax ≤ length(dst) || throw(BoundsError())
         @inbounds @simd for i in eachindex(sel)
@@ -489,8 +482,7 @@ for (Tx, Ty) in ((:Tx,            :Ty),
                             x::AbstractArray{$Tx,N}) where {Ty<:AbstractFloat,
                                                             Tx<:AbstractFloat,
                                                             N}
-        axes(x) == axes(y) ||
-            __baddims("`x` and `y` must have the same axes")
+        axes(x) == axes(y) || throw_dimensions_mismatch()
         if α == 1
             @inbounds @simd for i in eachindex(y, x)
                 y[i] += x[i]
@@ -513,8 +505,7 @@ for (Tx, Ty) in ((:Tx,            :Ty),
                             α::Real,
                             x::Array{$Tx,N}) where {Ty<:AbstractFloat,
                                                     Tx<:AbstractFloat,N}
-        size(x) == size(y) ||
-            __baddims("`x` and `y` must have the same dimensions")
+        size(x) == size(y) || throw_dimensions_mismatch()
         jmin, jmax = extrema(sel)
         1 ≤ jmin ≤ jmax ≤ length(x) || throw(BoundsError())
         if α == 1
@@ -593,8 +584,7 @@ for (Td, Tx, Ty) in ((:Td,            :Tx,            :Ty),
                            y::AbstractArray{$Ty,N}) where {Td<:AbstractFloat,
                                                            Tx<:AbstractFloat,
                                                            Ty<:AbstractFloat,N}
-            axes(dst) == axes(x) == axes(y) ||
-                __baddims("`x` and `y` must have the same axes as `dst`")
+            axes(dst) == axes(x) == axes(y) || throw_dimensions_mismatch()
             if α == 0
                 vscale!(dst, β, y)
             elseif β == 0
@@ -691,8 +681,7 @@ vdot(T::Type{AbstractFloat}, x, y) = x[1].re*y[1].re + x[1].im*y[1].im +
 function vdot(::Type{T},
               x::AbstractArray{<:Real,N},
               y::AbstractArray{<:Real,N})::T where {T<:AbstractFloat,N}
-    axes(x) == axes(y) ||
-        __baddims("`x` and `y` must have the same axes")
+    axes(x) == axes(y) || throw_dimensions_mismatch()
     s = zero(T)
     @inbounds @simd for i in eachindex(x, y)
         s += convert(T, x[i]*y[i])
@@ -709,8 +698,7 @@ function vdot(::Type{Complex{T}},
               x::AbstractArray{Complex{Tx},N},
               y::AbstractArray{Complex{Ty},N}
               )::Complex{T} where {T<:AbstractFloat,Tx<:Real,Ty<:Real,N}
-    axes(x) == axes(y) ||
-        __baddims("`x` and `y` must have the same axes")
+    axes(x) == axes(y) || throw_dimensions_mismatch()
     s = zero(Complex{T})
     @inbounds @simd for i in eachindex(x, y)
         xi = convert(Complex{T}, x[i])
@@ -726,8 +714,7 @@ function vdot(::Type{T},
               x::AbstractArray{Complex{Tx},N},
               y::AbstractArray{Complex{Ty},N})::T where {T<:AbstractFloat,
                                                          Tx<:Real,Ty<:Real,N}
-    axes(x) == axes(y) ||
-        __baddims("`x` and `y` must have the same axes")
+    axes(x) == axes(y) || throw_dimensions_mismatch()
     s = zero(T)
     @inbounds @simd for i in eachindex(x, y)
         xi = convert(Complex{T}, x[i])
@@ -748,8 +735,7 @@ function vdot(::Type{T},
               w::AbstractArray{<:Real,N},
               x::AbstractArray{<:Real,N},
               y::AbstractArray{<:Real,N})::T where {T<:AbstractFloat,N}
-    axes(w) == axes(x) == axes(y) ||
-        __baddims("`w`, `x` and `y` must have the same axes")
+    axes(w) == axes(x) == axes(y) || throw_dimensions_mismatch()
     s = zero(T)
     @inbounds @simd for i in eachindex(w, x, y)
         wi = convert(T, w[i])
@@ -771,8 +757,7 @@ function vdot(::Type{Complex{T}},
               x::AbstractArray{Complex{Tx},N},
               y::AbstractArray{Complex{Ty},N}
               )::Complex{T} where {T<:AbstractFloat,Tx<:Real,Ty<:Real,N}
-    axes(w) == axes(x) == axes(y) ||
-        __baddims("`w`, `x` and `y` must have the same axes")
+    axes(w) == axes(x) == axes(y) || throw_dimensions_mismatch()
     s = zero(Complex{T})
     @inbounds @simd for i in eachindex(w, x, y)
         wi = convert(T, w[i])
@@ -788,8 +773,7 @@ function vdot(::Type{T},
               x::AbstractArray{Complex{Tx},N},
               y::AbstractArray{Complex{Ty},N})::T where {T<:AbstractFloat,
                                                          Tx<:Real,Ty<:Real,N}
-    axes(w) == axes(x) == axes(y) ||
-        __baddims("`w`, `x` and `y` must have the same axes")
+    axes(w) == axes(x) == axes(y) || throw_dimensions_mismatch()
     s = zero(T)
     @inbounds @simd for i in eachindex(w, x, y)
         wi = convert(T, w[i])
@@ -811,8 +795,7 @@ function vdot(::Type{T},
               sel::AbstractVector{Int},
               x::Array{<:Real,N},
               y::Array{<:Real,N})::T where {T<:AbstractFloat,N}
-    size(y) == size(x) ||
-        __baddims("`x` and `y` must have same dimensions")
+    size(y) == size(x) || throw_dimensions_mismatch()
     jmin, jmax = extrema(sel)
     1 ≤ jmin ≤ jmax ≤ length(x) || throw(BoundsError())
     s = zero(T)
@@ -836,8 +819,7 @@ function vdot(::Type{Complex{T}},
               x::Array{Complex{Tx},N},
               y::Array{Complex{Ty},N})::Complex{T} where {T<:AbstractFloat,
                                                           Tx<:Real,Ty<:Real,N}
-    size(y) == size(x) ||
-        __baddims("`x` and `y` must have same dimensions")
+    size(y) == size(x) || throw_dimensions_mismatch()
     jmin, jmax = extrema(sel)
     1 ≤ jmin ≤ jmax ≤ length(x) || throw(BoundsError())
     s = zero(Complex{T})
@@ -855,8 +837,7 @@ function vdot(::Type{T},
               x::Array{Complex{Tx},N},
               y::Array{Complex{Ty},N})::T where {T<:AbstractFloat,
                                                  Tx<:Real,Ty<:Real,N}
-    size(y) == size(x) ||
-        __baddims("`x` and `y` must have same dimensions")
+    size(y) == size(x) || throw_dimensions_mismatch()
     jmin, jmax = extrema(sel)
     1 ≤ jmin ≤ jmax ≤ length(x) || throw(BoundsError())
     s = zero(T)
