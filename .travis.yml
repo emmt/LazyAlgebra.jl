@@ -22,13 +22,17 @@ matrix:
 notifications:
   email: false
 
-script: # the default script is equivalent to the following
-  - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
+before_script:
   - julia -e 'using Pkg;
-              Pkg.add(PackageSpec(url="https://github.com/emmt/ArrayTools.jl"));
-              Pkg.add(PackageSpec(url="https://github.com/emmt/LazyAlgebra.jl"));
-              Pkg.build();
-              Pkg.test("LazyAlgebra"; coverage=true);';
+              Pkg.add(PackageSpec(url="https://github.com/emmt/ArrayTools.jl"));'
+
+#script: # the default script is equivalent to the following
+#  - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
+#  - julia -e 'using Pkg;
+#              Pkg.add(PackageSpec(url="https://github.com/emmt/ArrayTools.jl"));
+#              Pkg.add(PackageSpec(url="https://github.com/emmt/LazyAlgebra.jl"));
+#              Pkg.build();
+#              Pkg.test("LazyAlgebra"; coverage=true);';
 
 after_success:
   - julia -e 'using Pkg end;
