@@ -22,9 +22,9 @@ matrix:
 notifications:
   email: false
 
-#script: # the default script is equivalent to the following
-#  - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
-#  - julia -e 'Pkg.clone(pwd()); Pkg.build("LazyAlgebra"); Pkg.test("LazyAlgebra"; coverage=true)';
+script: # the default script is equivalent to the following
+  - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
+  - julia -e 'if VERSION >= v"0.7.0-DEV.5183"; using Pkg; end; Pkg.clone("https://github.com/emmt/ArrayTools.jl.git"); Pkg.clone(pwd()); Pkg.build("LazyAlgebra"); Pkg.test("LazyAlgebra"; coverage=true)';
 
 after_success:
   - julia -e 'if VERSION >= v"0.7.0-" using Pkg end; cd(Pkg.dir("LazyAlgebra")); Pkg.add("Coverage"); using Coverage; Coveralls.submit(Coveralls.process_folder())';
