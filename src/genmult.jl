@@ -19,15 +19,12 @@ export
     lgemv!,
     lgemv
 
-using Compat
 using ..LazyAlgebra
 using ..LazyAlgebra: Complexes, Floats, Reals, axes, convert_multiplier,
     libblas, @blasfunc, BlasInt, BlasReal, BlasFloat, BlasComplex
-using ArrayTools  # for `indices`, `isflatarray`, etc.
-
-# Make paths to LinearAlgebra and BLAS available (see notes in LazyAlgebra.jl).
-const LinearAlgebra = LazyAlgebra.LinearAlgebra
-const BLAS = LazyAlgebra.BLAS
+using ArrayTools  # for `cartesianindices`, `isflatarray`, etc.
+using LinearAlgebra
+using LinearAlgebra.BLAS
 
 """
 

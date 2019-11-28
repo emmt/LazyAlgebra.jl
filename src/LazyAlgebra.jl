@@ -11,8 +11,6 @@
 # Copyright (c) 2017-2019 Éric Thiébaut.
 #
 
-__precompile__(true)
-
 module LazyAlgebra
 
 export
@@ -103,69 +101,22 @@ export
 
 @static isdefined(Base, :I) || export I
 
-# Deal with compatibility issues.
-@static isdefined(Base, :apply) && import Base: apply
-@static if isdefined(Base, :adjoint)
-    import Base: adjoint
-else
-    import Base: ctranspose
-    const adjoint = ctranspose
-end
-@static if isdefined(Base, :axes)
-    import Base: axes
-else
-    import Base: indices
-    const axes = indices
-end
-@static isdefined(Base, :isone) && import Base: isone
-using Compat
-using Compat.Printf
-using Compat: @debug, @error, @info, @warn
+using Printf
+using ArrayTools
 
-# Make paths to LinearAlgebra and BLAS available as constants.  To import/using
-# from these, prefix the alias with a dot (relative module path).
-const LinearAlgebra = Compat.LinearAlgebra
-const BLAS = Compat.LinearAlgebra.BLAS
+import Base: *, ∘, +, -, \, /, ==, adjoint, inv, axes,
+    show, showerror, convert, eltype, ndims, size, length, stride, strides,
+    getindex, setindex!, eachindex, first, last, one, zero, isone, iszero
 
 # Import/using from LinearAlgebra, BLAS and SparseArrays.
-using .LinearAlgebra
-import .LinearAlgebra: UniformScaling, diag
-using .BLAS: libblas, @blasfunc, BlasInt, BlasReal, BlasFloat, BlasComplex
-using Compat.SparseArrays # for SparseMatrixCSC
-import Compat.SparseArrays: sparse
+using LinearAlgebra
+import LinearAlgebra: UniformScaling, diag, ⋅, mul!, rmul!
+using LinearAlgebra.BLAS
+using LinearAlgebra.BLAS: libblas, @blasfunc,
+    BlasInt, BlasReal, BlasFloat, BlasComplex
 
-# Important revision numbers:
-#   * 0.7.0-DEV.3204: A_mul_B! is deprecated (as mul! or scale!)
-#   * 0.7.0-DEV.3449: LinearAlgebra in the stdlib
-#   * 0.7.0-DEV.3563: scale! -> mul1!
-#   * 0.7.0-DEV.3665: mul1! -> rmul!
-
-# Import/define `mul!` and `⋅`.
-@static if VERSION < v"0.7.0-DEV.3204"
-    # A_mul_B! not deprecated
-    import Base: ⋅, A_mul_B!
-    const mul! = A_mul_B!
-else
-    import .LinearAlgebra: ⋅, mul!
-end
-
-# Define `rmul!`.
-@static if VERSION < v"0.7.0-DEV.3563"
-    # scale! not deprecated
-    rmul!(A::AbstractArray, s::Number) = scale!(A, s)
-    #export mul!, rmul!
-elseif VERSION < v"0.7.0-DEV.3665"
-    # scale! -> mul1!
-    rmul!(A::AbstractArray, s::Number) = rmul1!(A, s)
-else
-    import .LinearAlgebra: rmul!
-end
-
-import Base: *, ∘, +, -, \, /, ==, inv,
-    show, showerror, convert, eltype, ndims, size, length, stride, strides,
-    getindex, setindex!, eachindex, first, last, one, zero, iszero
-
-using ArrayTools
+using SparseArrays # for SparseMatrixCSC
+import SparseArrays: sparse
 
 include("types.jl")
 include("utils.jl")

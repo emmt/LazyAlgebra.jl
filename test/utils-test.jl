@@ -1,4 +1,4 @@
-using Compat.Random
+using Random
 
 function test_utilities()
     convert_multiplier = LazyAlgebra.convert_multiplier

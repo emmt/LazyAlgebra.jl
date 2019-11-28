@@ -1,10 +1,7 @@
 module LazyAlgebraTests
 
 using LazyAlgebra
-
-# Deal with compatibility issues.
-using Compat
-using Compat.Test
+using Test
 
 include("utils-test.jl")
 test_utilities()

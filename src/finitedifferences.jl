@@ -8,7 +8,7 @@
 # This file is part of LazyAlgebra (https://github.com/emmt/LazyAlgebra.jl)
 # released under the MIT "Expat" license.
 #
-# Copyright (c) 2017-2018 Éric Thiébaut.
+# Copyright (c) 2017-2019 Éric Thiébaut.
 #
 
 module FiniteDifferences
@@ -17,7 +17,6 @@ export
     SimpleFiniteDifferences
 
 
-using Compat
 using ..Coder
 using  ...LazyAlgebra
 import ...LazyAlgebra: vcreate, apply!, HalfHessian, is_same_mapping

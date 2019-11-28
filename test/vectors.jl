@@ -9,10 +9,9 @@
 module LazyAlgebraVectorsTests
 
 using LazyAlgebra
+using Test
 
 # Deal with compatibility issues.
-using Compat
-using Compat.Test
 @static if isdefined(Base, :MathConstants)
     import Base.MathConstants: φ
 end

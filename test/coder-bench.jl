@@ -13,8 +13,7 @@
 
 module CoderBench
 
-using Compat
-using Compat.Printf
+using Printf
 using BenchmarkTools
 include("../src/coder.jl")
 import .Coder

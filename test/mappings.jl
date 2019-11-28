@@ -8,7 +8,7 @@
 # This file is part of LazyAlgebra (https://github.com/emmt/LazyAlgebra.jl)
 # released under the MIT "Expat" license.
 #
-# Copyright (c) 2017-2018 Éric Thiébaut.
+# Copyright (c) 2017-2019 Éric Thiébaut.
 #
 
 #isdefined(:LazyAlgebra) || include("../src/LazyAlgebra.jl")
@@ -21,23 +21,14 @@ using LazyAlgebra: Scaled, Sum, Composition, # not exported by default
     is_same_mutable_object
 import LazyAlgebra: is_same_mapping
 
-import Base: show
+using FFTW
+using Test
+using Printf
+import Base: show, axes
 
 # Deal with compatibility issues.
-using Compat
-using Compat.Test
-using Compat: @warn
 @static if isdefined(Base, :MathConstants)
     import Base.MathConstants: φ
-end
-@static if VERSION ≥ v"0.7.0-DEV.1776"
-    using FFTW
-end
-@static if isdefined(Base, :axes)
-    import Base: axes
-else
-    import Base: indices
-    const axes = indices
 end
 
 const I = Identity()

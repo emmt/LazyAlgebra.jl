@@ -1,9 +1,7 @@
 module GenMultTests
 
-using Compat
-using Compat.Test
-using Compat.Test: print_test_results
-using Compat: axes
+using Test
+using Test: print_test_results
 
 #Test.TESTSET_PRINT_ENABLE[] = true
 

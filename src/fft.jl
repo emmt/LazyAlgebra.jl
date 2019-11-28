@@ -25,8 +25,6 @@ export
     ifftshift,
     rfftdims
 
-using Compat
-
 using ..LazyAlgebra
 import ..LazyAlgebra: adjoint, apply!, vcreate, MorphismType, mul!,
     input_size, input_ndims, input_eltype,

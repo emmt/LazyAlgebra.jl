@@ -34,9 +34,6 @@
 #     BLAS   3.4 µs     2.0 µs   65 ns
 #     Julia  4.5 µs    24.2 μs   65 ns
 
-#import LinearAlgebra.BLAS
-#import Compat.LinearAlgebra.BLAS: libblas, BlasInt, BlasReal, BlasFloat, BlasComplex, @blasfunc
-
 const BlasVec{T} = Union{DenseVector{T},StridedVector{T}}
 const BlasArr{T,N} = DenseArray{T,N}
 

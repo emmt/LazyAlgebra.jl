@@ -13,27 +13,10 @@
 module CoderTests
 
 # Deal with compatibility issues.
-using Compat
-using Compat.Printf
-using Compat.Test
-@static if isdefined(Base, :axes)
-    import Base: axes
-    const FastRange = CartesianIndices
-else
-    import Base: indices
-    const axes = indices
-    const FastRange = CartesianRange
-end
-if VERSION < v"0.7.0-DEV.3563"
-    # scale! not deprecated
-    rmul!(A::AbstractArray, s::Number) = scale!(A, s)
-    #export mul!, rmul!
-elseif VERSION < v"0.7.0-DEV.3665"
-    # scale! -> mul1!
-    rmul!(A::AbstractArray, s::Number) = rmul1!(A, s)
-else
-    import LinearAlgebra: rmul!
-end
+using Printf
+using Test
+import Base: axes
+import LinearAlgebra: rmul!
 
 include("../src/coder.jl")
 import .Coder

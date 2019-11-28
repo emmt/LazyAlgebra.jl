@@ -8,7 +8,7 @@
 # This file is part of LazyAlgebra (https://github.com/emmt/LazyAlgebra.jl)
 # released under the MIT "Expat" license.
 #
-# Copyright (c) 2017-2018 Éric Thiébaut.
+# Copyright (c) 2017-2019 Éric Thiébaut.
 #
 
 module Coder
@@ -18,16 +18,8 @@ export
     encode_sum_of_terms,
     generate_symbols
 
-# Deal with compatibility issues.
-using Compat
-const OLD_STYLE = (VERSION < v"0.7")
-@static if OLD_STYLE
-    _macrocall(name::AbstractString, expr::Expr) =
-        Expr(:macrocall, Symbol(name), expr)
-else
-    _macrocall(name::AbstractString, expr::Expr) =
-        Expr(:macrocall, Symbol(name), (), expr)
-end
+_macrocall(name::AbstractString, expr::Expr) =
+    Expr(:macrocall, Symbol(name), (), expr)
 
 # A token is an expression or a symbol.
 const Token = Union{Expr,Symbol}
@@ -314,17 +306,9 @@ function _encode(kwd::Val{:if}, args::Tuple)
             expr = body
             k -= 2
         else
-            if OLD_STYLE
-                if noexpr
-                    expr = Expr(:if, args[k-1], body)
-                else
-                    expr = Expr(:if, args[k-1], body, _quote(expr))
-                end
-            else
-                expr = (noexpr ?
-                        Expr(head, args[k-1], body) :
-                        Expr(head, args[k-1], body, expr))
-            end
+            expr = (noexpr ?
+                    Expr(head, args[k-1], body) :
+                    Expr(head, args[k-1], body, expr))
             k -= 3
         end
         if k > 2

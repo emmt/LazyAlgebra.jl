@@ -9,10 +9,7 @@
 module LazyAlgebraConjGradTests
 
 using LazyAlgebra
-
-# Deal with compatibility issues.
-using Compat
-using Compat.Test
+using Test
 
 const DEBUG = true
 
