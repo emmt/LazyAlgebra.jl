@@ -24,11 +24,18 @@ notifications:
 
 script: # the default script is equivalent to the following
   - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
-  - julia -e 'using Pkg; Pkg.add(PackageSpec(url="https://github.com/emmt/ArrayTools.jl"));';
-  - julia -e 'using Pkg; Pkg.clone(pwd()); Pkg.build("LazyAlgebra"); Pkg.test("LazyAlgebra"; coverage=true)';
+  - julia -e 'using Pkg;
+              Pkg.add(PackageSpec(url="https://github.com/emmt/ArrayTools.jl"));
+              Pkg.add(PackageSpec(url="https://github.com/emmt/LazyAlgebra.jl"));
+              Pkg.build();
+              Pkg.test("LazyAlgebra"; coverage=true);';
 
 after_success:
-  - julia -e 'if VERSION >= v"0.7.0-" using Pkg end; cd(Pkg.dir("LazyAlgebra")); Pkg.add("Coverage"); using Coverage; Coveralls.submit(Coveralls.process_folder())';
+  - julia -e 'using Pkg end;
+              cd(Pkg.dir("LazyAlgebra"));
+              Pkg.add("Coverage");
+              using Coverage;
+              Coveralls.submit(Coveralls.process_folder())';
 
 jobs:
   include:
