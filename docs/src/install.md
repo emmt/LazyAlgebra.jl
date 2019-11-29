@@ -1,8 +1,9 @@
 # Installation
 
-LazyAlgebra.jl is not yet an [offical Julia
-package](https://pkg.julialang.org/) but it is easy to install it from Julia as
-explained below.
+LazyAlgebra is not yet an [offical Julia package](https://pkg.julialang.org/)
+but it is easy to install it from Julia as explained below.  Note that
+LazyAlgebra requires the [ArrayTools](https://github.com/emmt/ArrayTools.jl)
+package.
 
 
 ## Using the package manager
@@ -14,6 +15,7 @@ hit the `]` key to switch to the package manager REPL (you should get a
 `... pkg>` prompt) and type:
 
 ```julia
+pkg> add https://github.com/emmt/ArrayTools.jl
 pkg> add https://github.com/emmt/LazyAlgebra.jl
 ```
 
@@ -21,6 +23,7 @@ where `pkg>` represents the package manager prompt and `https` protocol has
 been assumed; if `ssh` is more suitable for you, then type:
 
 ```julia
+pkg> add git@github.com:emmt/ArrayTools.jl
 pkg> add git@github.com:emmt/LazyAlgebra.jl
 ```
 
