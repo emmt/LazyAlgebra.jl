@@ -19,6 +19,10 @@ matrix:
 notifications:
   email: false
 
+codecov: true
+
+coveralls: true
+
 jobs:
   include:
     - stage: "Documentation"
