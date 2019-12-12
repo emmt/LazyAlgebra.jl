@@ -1,0 +1,8 @@
+# This file is machine-generated - editing it directly is not advised
+
+[[ArrayTools]]
+git-tree-sha1 = "f576422adfd33eba481591297ea42c1ec3fb7a63"
+repo-rev = "master"
+repo-url = "https://github.com/emmt/ArrayTools.jl"
+uuid = "1dc0ca97-c5ce-4e77-ac6d-c576ac9d7f27"
+version = "0.1.0"
