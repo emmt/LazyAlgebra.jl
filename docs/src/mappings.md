@@ -95,14 +95,16 @@ input_size(S::SparseOperator) = S.inpdims
 output_size(S::SparseOperator) = S.outdims
 
 function vcreate(::Type{Direct}, S::SparseOperator{Ts,M,N},
-                 x::DenseArray{Tx,N}) where {Ts<:Real,Tx<:Real,M,N}
+                 x::DenseArray{Tx,N},
+                 scratch::Bool=false) where {Ts<:Real,Tx<:Real,M,N}
     @assert size(x) == input_size(S)
     Ty = promote_type(Ts, Tx)
     return Array{Ty}(undef, output_size(S))
 end
 
 function vcreate(::Type{Adjoint}, S::SparseOperator{Ts,M,N},
-                 x::DenseArray{Tx,M}) where {Ts<:Real,Tx<:Real,M,N}
+                 x::DenseArray{Tx,M},
+                 scratch::Bool=false) where {Ts<:Real,Tx<:Real,M,N}
     @assert size(x) == output_size(S)
     Ty = promote_type(Ts, Tx)
     return Array{Ty}(undef, input_size(S))
@@ -112,6 +114,7 @@ function apply!(alpha::Real,
                 ::Type{Direct},
                 S::SparseOperator{Ts,M,N},
                 x::DenseArray{Tx,N},
+                scratch::Bool,
                 beta::Real,
                 y::DenseArray{Ty,M}) where {Ts<:Real,Tx<:Real,Ty<:Real,M,N}
     @assert size(x) == input_size(S)
@@ -132,6 +135,7 @@ end
 function apply!(alpha::Real, ::Type{Adjoint},
                 S::SparseOperator{Ts,M,N},
                 x::DenseArray{Tx,M},
+                scratch::Bool,
                 beta::Real,
                 y::DenseArray{Ty,N}) where {Ts<:Real,Tx<:Real,Ty<:Real,M,N}
     @assert size(x) == output_size(S)
