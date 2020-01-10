@@ -12,7 +12,7 @@ include("utils.jl")
 include("vectors.jl")
 include("mappings.jl")
 LazyAlgebraMappingTests.test_all()
-
+include("fft-test.jl")
 include("conjgrad.jl")
 
 end

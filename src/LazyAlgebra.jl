@@ -8,7 +8,7 @@
 # This file is part of LazyAlgebra (https://github.com/emmt/LazyAlgebra.jl)
 # released under the MIT "Expat" license.
 #
-# Copyright (c) 2017-2019 Éric Thiébaut.
+# Copyright (c) 2017-2020 Éric Thiébaut.
 #
 
 module LazyAlgebra
@@ -16,6 +16,7 @@ module LazyAlgebra
 export
     Adjoint,
     AdjointInverse,
+    CirculantConvolution,
     CroppingOperator,
     Diag,
     DiagonalMapping,
@@ -134,7 +135,7 @@ import .CroppingOperators: CroppingOperator, ZeroPaddingOperator, defaultoffset
 include("finitedifferences.jl")
 import .FiniteDifferences: SimpleFiniteDifferences
 include("fft.jl")
-import .FFT: FFTOperator
+import .FFT: CirculantConvolution, FFTOperator
 include("conjgrad.jl")
 include("deprecations.jl")
 
