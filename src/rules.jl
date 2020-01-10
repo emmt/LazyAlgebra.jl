@@ -927,70 +927,54 @@ end
 
 function apply!(α::Real, P::Type{<:Union{Direct,InverseAdjoint}},
                 A::Composition{N}, x, scratch::Bool, β::Real, y) where {N}
-    # Apply mappings in order.
     @assert N ≥ 2 "bug in Composition constructor"
-    w = _apply!(P, A, Val(2), x, scratch)
+    ops = operands(A)
+    w = _apply(P, ops[2:N], x, scratch)
     scratch = overwritable(scratch, w, x)
-    return apply!(α, P, A[1], w, scratch, β, y)
+    return apply!(α, P, ops[1], w, scratch, β, y)
 end
 
 function apply(P::Type{<:Union{Direct,InverseAdjoint}},
                A::Composition{N}, x, scratch::Bool=false) where {N}
-    # Apply mappings in order.
     @assert N ≥ 2 "bug in Composition constructor"
-    w = _apply!(P, A, Val(2), x, scratch)
-    scratch = overwritable(scratch, w, x)
-    return apply(P, A[1], w, scratch)
+    return _apply(P, operands(A), x, scratch)
+end
+
+function _apply(P::Type{<:Union{Direct,InverseAdjoint}},
+                ops::NTuple{N,Mapping}, x, scratch::Bool) where {N}
+    w = apply(P, ops[N], x, scratch)
+    if N > 1
+        scratch = overwritable(scratch, w, x)
+        return _apply(P, ops[1:N-1], w, scratch)
+    else
+        return w
+    end
 end
 
 function apply!(α::Real, P::Type{<:Union{Adjoint,Inverse}},
                 A::Composition{N}, x, scratch::Bool, β::Real, y) where {N}
-    # Apply mappings in reverse order.
     @assert N ≥ 2 "bug in Composition constructor"
-    w = _apply!(P, A, Val(N-1), x, scratch)
+    ops = operands(A)
+    w = _apply(P, ops[1:N-1], x, scratch)
     scratch = overwritable(scratch, w, x)
-    return apply!(α, P, A[N], w, scratch, β, y)
+    return apply!(α, P, ops[N], w, scratch, β, y)
 end
 
 function apply(P::Type{<:Union{Adjoint,Inverse}},
                A::Composition{N}, x, scratch::Bool=false) where {N}
-    # Apply mappings in reverse order.
     @assert N ≥ 2 "bug in Composition constructor"
-    w = _apply!(P, A, Val(N-1), x, scratch)
-    scratch = overwritable(scratch, w, x)
-    return apply(P, A[N], w, scratch)
+    return _apply(P, operands(A), x, scratch)
 end
 
-# Apply intermediate mappings of a composition for Direct or InverseAdjoint
-# operation.
-function _apply!(P::Type{<:Union{Direct,InverseAdjoint}}, A::Composition{N},
-                 ::Val{i}, x, scratch::Bool) where {N,i}
-    @assert 1 < i < N
-    w = _apply!(P, A, Val(i+1), x, scratch)
-    scratch = overwritable(scratch, w, x)
-    return apply(P, A[i], w, scratch)
-end
-
-# Apply last mapping of a composition for Direct or InverseAdjoint operation.
-function _apply!(P::Type{<:Union{Direct,InverseAdjoint}}, A::Composition{N},
-                 ::Val{N}, x, scratch::Bool) where {N}
-    return apply(P, A[N], x, scratch)
-end
-
-# Apply intermediate mappings of a composition for Adjoint or InverseDirect
-# operation.
-function _apply!(P::Type{<:Union{Adjoint,Inverse}}, A::Composition{N},
-                 ::Val{i}, x, scratch::Bool) where {N,i}
-    @assert 1 < i < N
-    w = _apply!(P, A, Val(i-1), x, scratch)
-    scratch = overwritable(scratch, w, x)
-    return apply(P, A[i], w, scratch)
-end
-
-# Apply first mapping of a composition for Adjoint or Inverse operation.
-function _apply!(P::Type{<:Union{Adjoint,Inverse}}, A::Composition{N},
-                 ::Val{1}, x, scratch::Bool) where {N}
-    return apply(P, A[1], x, scratch)
+function _apply(P::Type{<:Union{Adjoint,Inverse}},
+                ops::NTuple{N,Mapping}, x, scratch::Bool) where {N}
+    w = apply(P, ops[1], x, scratch)
+    if N > 1
+        scratch = overwritable(scratch, w, x)
+        return _apply(P, ops[2:N], w, scratch)
+    else
+        return w
+    end
 end
 
 """
