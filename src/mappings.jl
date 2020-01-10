@@ -127,7 +127,7 @@ end
 
 function inv(A::NonuniformScalingOperator{<:AbstractArray{T,N}}
              ) where {T<:AbstractFloat, N}
-    q = A.diag
+    q = diag(A)
     r = similar(q)
     @inbounds @simd for i in eachindex(q, r)
         r[i] = one(T)/q[i]
@@ -205,10 +205,10 @@ and `b`.
 
 """
 macro axpby!(i, I, a, xi, b, yi)
-    esc(_compile_axpby!(i, I, a, xi, b, yi))
+    esc(_axpby!(i, I, a, xi, b, yi))
 end
 
-function _compile_axpby!(i::Symbol, I, a, xi, b, yi)
+function _axpby!(i::Symbol, I, a, xi, b, yi)
     quote
         if $a == 1
             if $b == 0
@@ -303,7 +303,8 @@ end
 
 function _applynonuniformscaling!(a::Number, ::Type{InverseAdjoint},
                                   w::AbstractArray{<:Real},
-                                  x::AbstractArray, b::Number, y::AbstractArray)
+                                  x::AbstractArray,
+                                  b::Number, y::AbstractArray)
     I = eachindex(w, x, y)
     @axpby!(i, I, a, x[i]/w[i], b, y[i])
 end
@@ -329,7 +330,7 @@ function apply!(α::Number,
     w = contents(W)
     @assert axes(w) == axes(x) == axes(y)
     if α == 0
-        rmul!(y, β) # FIXME: call vscale!()
+        vscale!(y, β)
     else
         a = convert_multiplier(α, promote_type(Tw, Tx), Ty)
         b = convert_multiplier(β, Ty)
