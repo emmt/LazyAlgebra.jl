@@ -724,11 +724,11 @@ See also: [`Mapping`](@ref), [`apply`](@ref), [`vcreate`](@ref).
 # Provide fallbacks so that `Direct` is the default operation and only the
 # method with signature:
 #
-#     apply!(α::Real, ::Type{P}, A::MappingType, x, scratch::Bool,
-#            β::Real, y) where {P<:Operations}
+#     apply!(α::Real, ::Type{P}, A::MappingType, x::X, scratch::Bool,
+#            β::Real, y::Y) where {P<:Operations,X,Y}
 #
-# has to be implemented by mapping subtypes so we provide the necessary
-# mechanism to dispatch derived methods.
+# has to be implemented (possibly with restrictions on X and Y) by subtypes of
+# Mapping so we provide the necessary mechanism to dispatch derived methods.
 apply!(A::Mapping, x, y) =
     apply!(1, Direct, A, x, false, 0, y)
 apply!(α::Real, A::Mapping, x, y) =
@@ -780,8 +780,7 @@ apply!(β::Real, y, α::Real, P::Type{<:Operations}, A::Mapping, x, scratch::Boo
     apply!(α, P, A, x, scratch, β, y)
 
 # Extend `mul!` so that `A'*x`, `A*B*C*x`, etc. yield the expected result.
-mul!(y::Ty, A::Mapping, x::Tx) where {Tx,Ty} =
-    apply!(1, Direct, A, x, false, 0, y)
+mul!(y, A::Mapping, x) = apply!(1, Direct, A, x, false, 0, y)
 
 # Implemention of the `apply!(α,P,A,x,scratch,β,y)` and
 # `vcreate(P,A,x,scratch)` methods for a scaled mapping.
@@ -791,14 +790,50 @@ for (P, expr) in ((:Direct, :(α*multiplier(A))),
                   (:InverseAdjoint, :(α/conj(multiplier(A)))))
     @eval begin
 
-        vcreate(::Type{$P}, A::Scaled, x, scratch::Bool=false) =
-            vcreate($P, operand(A), x)
-
         apply!(α::Real, ::Type{$P}, A::Scaled, x, scratch::Bool, β::Real, y) =
             apply!($expr, $P, operand(A), x, scratch, β, y)
 
     end
 end
+
+"""
+
+```julia
+overwritable(scratch, x, y) -> bool
+```
+
+yields whether the result `y` of applying a mapping to `x` with scratch flag
+`scratch` can overwritten.  Arguments `x` and `y` can be reversed.
+
+"""
+overwritable(scratch::Bool, x, y) =
+    (scratch || ! is_same_mutable_object(x, y))
+
+# Implement `apply` for scaled operators to avoid the needs of explicitly
+# calling `vcreate` as done by the default implementation of `apply`.  This is
+# needed for scaled compositions among others.
+function apply(::Type{Direct}, A::Scaled, x, scratch::Bool)
+    y = apply(Direct, operand(A), x, scratch)
+    vscale!((overwritable(scratch, x, y) ? y : vcopy(y)), multiplier(A))
+end
+
+function apply(::Type{Adjoint}, A::Scaled, x, scratch::Bool)
+    y = apply(Direct, operand(A), x, scratch)
+    vscale!((overwritable(scratch, x, y) ? y : vcopy(y)), conj(multiplier(A)))
+end
+
+function apply(::Type{Inverse}, A::Scaled, x, scratch::Bool)
+    y = apply(Direct, operand(A), x, scratch)
+    vscale!((overwritable(scratch, x, y) ? y : vcopy(y)), 1/multiplier(A))
+end
+
+function apply(::Type{InverseAdjoint}, A::Scaled, x, scratch::Bool)
+    y = apply(Direct, operand(A), x, scratch)
+    vscale!((overwritable(scratch, x, y) ? y : vcopy(y)), 1/conj(multiplier(A)))
+end
+
+vcreate(P::Type{<:Operations}, A::Scaled, x, scratch::Bool=false) =
+    vcreate(P, operand(A), x)
 
 # Implemention of the `apply!(α,P,A,x,scratch,β,y)` and
 # `vcreate(P,A,x,scratch=false)` methods for the various decorations of a
@@ -820,9 +855,6 @@ for (T1, T2, T3) in ((:Direct,         :Adjoint,        :Adjoint),
         vcreate(::Type{$T1}, A::$T2, x, scratch::Bool=false) =
             vcreate($T3, operand(A), x, scratch)
 
-        apply!(α::Real, ::Type{$T1}, A::$T2, x, β::Real, y) =
-            apply!(α, $T3, operand(A), x, false, β, y)
-
         apply!(α::Real, ::Type{$T1}, A::$T2, x, scratch::Bool, β::Real, y) =
             apply!(α, $T3, operand(A), x, scratch, β, y)
 
@@ -840,8 +872,8 @@ function vcreate(::Type{P}, A::Sum, x,
     vcreate(P, A[1], x, scratch)
 end
 
-function apply!(α::Real, ::Type{P}, A::Sum{N}, x, scratch::Bool,
-                β::Real, y) where {N,P<:Union{Direct,Adjoint}}
+function apply!(α::Real, P::Type{<:Union{Direct,Adjoint}}, A::Sum{N},
+                x, scratch::Bool, β::Real, y) where {N}
     # Apply first mapping with β and then other with β=1.  Scratch flag is
     # always false until last mapping because we must preserve x as there is
     # more than one term.
@@ -853,14 +885,18 @@ function apply!(α::Real, ::Type{P}, A::Sum{N}, x, scratch::Bool,
     return y
 end
 
-vcreate(::Type{<:Union{Inverse,InverseAdjoint}}, A::Sum, x, scratch::Bool=false) =
+function vcreate(::Type{<:Union{Inverse,InverseAdjoint}}, A::Sum,
+                 x, scratch::Bool=false)
     error(UnsupportedInverseOfSumOfMappings)
+end
 
-apply(::Type{<:Union{Inverse,InverseAdjoint}}, A::Sum, x, scratch::Bool=false) =
+function apply(::Type{<:Union{Inverse,InverseAdjoint}}, A::Sum,
+               x, scratch::Bool=false)
     error(UnsupportedInverseOfSumOfMappings)
+end
 
-function apply!(α::Real, ::Type{<:Union{Inverse,InverseAdjoint}}, A::Sum, x,
-                scratch::Bool, β::Real, y)
+function apply!(α::Real, ::Type{<:Union{Inverse,InverseAdjoint}}, A::Sum,
+                x, scratch::Bool, β::Real, y)
     error(UnsupportedInverseOfSumOfMappings)
 end
 
@@ -873,23 +909,28 @@ end
 # for the Direct or InverseAdjoint operation) writes:
 #
 #     w1 = apply(P, A[N], x, scratch)
-#     scratch = (scratch || ! is_same_mutable_object(w1, x))
+#     scratch = overwritable(scratch, x, w1)
 #     w2 = apply!(1, P, A[N-1], w1, scratch)
-#     scratch = (scratch || ! is_same_mutable_object(w2, w1))
+#     scratch = overwritable(scratch, w1, w2)
 #     w3 = apply!(1, P, A[N-2], w2, scratch)
-#     scratch = (scratch || ! is_same_mutable_object(w3, w2))
+#     scratch = overwritable(scratch, w2, w3)
 #     ...
 #     return apply!(α, P, A[1], wNm1, scratch, β, y)
 #
 # To break the type barrier, this is done by a recursion.  The recursion is
 # just done in the other direction for the Adjoint or Inverse operation.
 
+function vcreate(P::Type{<:Operations},
+                 A::Composition{N}, x, scratch::Bool=false) where {N}
+    error("it is not possible to create the output of a composition of mappings")
+end
+
 function apply!(α::Real, P::Type{<:Union{Direct,InverseAdjoint}},
                 A::Composition{N}, x, scratch::Bool, β::Real, y) where {N}
     # Apply mappings in order.
     @assert N ≥ 2 "bug in Composition constructor"
     w = _apply!(P, A, Val(2), x, scratch)
-    scratch = (scratch || ! is_same_mutable_object(w, x))
+    scratch = overwritable(scratch, w, x)
     return apply!(α, P, A[1], w, scratch, β, y)
 end
 
@@ -898,7 +939,7 @@ function apply(P::Type{<:Union{Direct,InverseAdjoint}},
     # Apply mappings in order.
     @assert N ≥ 2 "bug in Composition constructor"
     w = _apply!(P, A, Val(2), x, scratch)
-    scratch = (scratch || ! is_same_mutable_object(w, x))
+    scratch = overwritable(scratch, w, x)
     return apply(P, A[1], w, scratch)
 end
 
@@ -907,7 +948,7 @@ function apply!(α::Real, P::Type{<:Union{Adjoint,Inverse}},
     # Apply mappings in reverse order.
     @assert N ≥ 2 "bug in Composition constructor"
     w = _apply!(P, A, Val(N-1), x, scratch)
-    scratch = (scratch || ! is_same_mutable_object(w, x))
+    scratch = overwritable(scratch, w, x)
     return apply!(α, P, A[N], w, scratch, β, y)
 end
 
@@ -916,7 +957,7 @@ function apply(P::Type{<:Union{Adjoint,Inverse}},
     # Apply mappings in reverse order.
     @assert N ≥ 2 "bug in Composition constructor"
     w = _apply!(P, A, Val(N-1), x, scratch)
-    scratch = (scratch || ! is_same_mutable_object(w, x))
+    scratch = overwritable(scratch, w, x)
     return apply(P, A[N], w, scratch)
 end
 
@@ -926,7 +967,7 @@ function _apply!(P::Type{<:Union{Direct,InverseAdjoint}}, A::Composition{N},
                  ::Val{i}, x, scratch::Bool) where {N,i}
     @assert 1 < i < N
     w = _apply!(P, A, Val(i+1), x, scratch)
-    scratch = (scratch || ! is_same_mutable_object(w, x))
+    scratch = overwritable(scratch, w, x)
     return apply(P, A[i], w, scratch)
 end
 
@@ -942,7 +983,7 @@ function _apply!(P::Type{<:Union{Adjoint,Inverse}}, A::Composition{N},
                  ::Val{i}, x, scratch::Bool) where {N,i}
     @assert 1 < i < N
     w = _apply!(P, A, Val(i-1), x, scratch)
-    scratch = (scratch || ! is_same_mutable_object(w, x))
+    scratch = overwritable(scratch, w, x)
     return apply(P, A[i], w, scratch)
 end
 
