@@ -376,15 +376,15 @@ function FFTOperator(::Type{T},
 end
 
 # Complex-to-complex FFT.
-function FFTOperator(::Type{Complex{T}},
+function FFTOperator(::Type{T},
                      dims::NTuple{N,Int};
                      timelimit::Real = FFTW.NO_TIMELIMIT,
-                     flags::Integer = FFTW.ESTIMATE) where {T<:fftwReal,N}
+                     flags::Integer = FFTW.ESTIMATE) where {T<:fftwComplex,N}
     # Check arguments.  The input and output of the complex-to-complex
     # transform have the same dimensions.
     planning = check_flags(flags)
     ncols = check_dimensions(dims)
-    temp = Array{Complex{T}}(undef, dims)
+    temp = Array{T}(undef, dims)
 
     # Compute the plans with suitable FFTW flags.  For maximum efficiency, the
     # transforms are always applied in-place and thus cannot preserve their
@@ -397,18 +397,17 @@ function FFTOperator(::Type{Complex{T}},
     # Build operator.
     F = typeof(forward)
     B = typeof(backward)
-    return FFTOperator{Complex{T},N,Complex{T},F,B}(ncols, dims, dims,
-                                                    forward, backward)
+    return FFTOperator{T,N,T,F,B}(ncols, dims, dims, forward, backward)
 end
 
-# Constructor for dimensions not specified a s a tuple.
+# Constructor for dimensions not specified as a tuple.
 FFTOperator(T::Type{<:fftwNumber}, dims::Integer...; kwds...) =
     FFTOperator(T, dims; kwds...)
 
-# The following 2 definetions are needed to ambiguities.
+# The following 2 definitions are needed to avoid ambiguities.
 FFTOperator(T::Type{<:fftwReal}, dims::Tuple{Vararg{Integer}}; kwds...) =
     FFTOperator(T, map(Int, dims); kwds...)
-FFTOperator(T::Type{Complex{<:fftwReal}}, dims::Tuple{Vararg{Integer}}; kwds...) =
+FFTOperator(T::Type{<:fftwComplex}, dims::Tuple{Vararg{Integer}}; kwds...) =
     FFTOperator(T, map(Int, dims); kwds...)
 
 # Constructor for transforms applicable to a given array.
@@ -424,9 +423,9 @@ ncols(A::Inverse{<:FFTOperator}) = ncols(operand(A))
 ncols(A::InverseAdjoint{<:FFTOperator}) = ncols(operand(A))
 
 input_size(A::FFTOperator) = A.inpdims # FIXME: input_size(A.forward)
-input_size(A::FFTOperator, d) = A.inpdims[d]
+input_size(A::FFTOperator, i::Integer) = get_dimension(input_size(A), i)
 output_size(A::FFTOperator) = A.outdims
-output_size(A::FFTOperator, d) = A.outdims[d]
+output_size(A::FFTOperator, i::Integer) = get_dimension(output_size(A), i)
 input_ndims(A::FFTOperator{T,N,C}) where {T,N,C} = N
 output_ndims(A::FFTOperator{T,N,C}) where {T,N,C} = N
 input_eltype(A::FFTOperator{T,N,C}) where {T,N,C} = T
@@ -530,6 +529,9 @@ struct CirculantConvolution{T<:fftwNumber,N,
     forward::F           # plan for forward transform
     backward::B          # plan for backward transform
 end
+
+# Traits:
+MorphismType(::CirculantConvolution) = Endomorphism()
 
 # Basic methods for a linear operator on Julia's arrays.
 input_size(H::CirculantConvolution) = H.dims
