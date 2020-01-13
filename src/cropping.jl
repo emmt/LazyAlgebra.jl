@@ -60,8 +60,8 @@ struct CroppingOperator{N} <: LinearMapping
         offset = defaultoffset(inpdims, outdims)
         return new{N}(outdims, inpdims, offset)
     end
-    function CroppingOperator{N}(inpdims::NTuple{N,Int},
-                                 outdims::NTuple{N,Int},
+    function CroppingOperator{N}(outdims::NTuple{N,Int},
+                                 inpdims::NTuple{N,Int},
                                  offset::CartesianIndex{N}) where {N}
         @inbounds for d in 1:N
             1 ≤ outdims[d] || error("invalid output dimension(s)")
@@ -77,9 +77,9 @@ struct CroppingOperator{N} <: LinearMapping
 end
 
 @static if isdefined(Base, :CartesianIndices)
-    commonpart(C::CroppingOperator) = CartesianIndices(input_size(C))
+    commonpart(C::CroppingOperator) = CartesianIndices(output_size(C))
 else
-    commonpart(C::CroppingOperator) = CartesianRange(input_size(C))
+    commonpart(C::CroppingOperator) = CartesianRange(output_size(C))
 end
 
 offset(C::CroppingOperator) = C.offset
