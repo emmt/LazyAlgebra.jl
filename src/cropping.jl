@@ -21,6 +21,7 @@ export
     ZeroPaddingOperator,
     defaultoffset
 
+using ArrayTools
 using ..LazyAlgebra
 using ..LazyAlgebra: dimensions, Dimensions
 import ..LazyAlgebra: apply!, vcreate,
@@ -108,11 +109,11 @@ CroppingOperator(::Tuple{Vararg{Int}}, ::Tuple{Vararg{Int}}, ::CartesianIndex) =
     error("numbers of output and input dimensions and offsets must be equal")
 
 CroppingOperator(outdims::NTuple{N,Int}, inpdims::NTuple{N,Int}) where {N} =
-    CroppingOperator{N}(inpdims, outdims)
+    CroppingOperator{N}(outdims, inpdims)
 
 CroppingOperator(outdims::NTuple{N,Int}, inpdims::NTuple{N,Int},
                  offset::CartesianIndex{N}) where {N} =
-    CroppingOperator{N}(inpdims, outdims, offset)
+    CroppingOperator{N}(outdims, inpdims, offset)
 
 function vcreate(::Type{Direct},
                  C::CroppingOperator{N},
