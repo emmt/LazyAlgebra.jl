@@ -12,7 +12,7 @@
 # Copyright (C) 2015-2016, Éric Thiébaut, Jonathan Léger & Matthew Ozon.
 #
 
-module FFT
+module FFTs
 
 # Be nice with the caller: re-export `fftshift` and `ifftshift` but not `fft`,
 # `ifft` etc. as the `FFTOperator` is meant to replace them.

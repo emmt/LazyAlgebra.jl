@@ -1,6 +1,6 @@
 using Test
 using LazyAlgebra
-using LazyAlgebra.FFT
+using LazyAlgebra.FFTs
 using AbstractFFTs, FFTW
 
 let FLOATS = (Float32, Float64),
@@ -21,11 +21,11 @@ let FLOATS = (Float32, Float64),
         @test rfftdims(3,4,5) == (2,4,5)
         @test rfftdims(4,5) == (3,5)
         @test rfftdims(5) == (3,)
-        @test LazyAlgebra.FFT.fftfreq(1) == [0]
-        @test LazyAlgebra.FFT.fftfreq(2) == [0,-1]
-        @test LazyAlgebra.FFT.fftfreq(3) == [0,1,-1]
-        @test LazyAlgebra.FFT.fftfreq(4) == [0,1,-2,-1]
-        @test LazyAlgebra.FFT.fftfreq(5) == [0,1,2,-2,-1]
+        @test LazyAlgebra.FFTs.fftfreq(1) == [0]
+        @test LazyAlgebra.FFTs.fftfreq(2) == [0,-1]
+        @test LazyAlgebra.FFTs.fftfreq(3) == [0,1,-1]
+        @test LazyAlgebra.FFTs.fftfreq(4) == [0,1,-2,-1]
+        @test LazyAlgebra.FFTs.fftfreq(5) == [0,1,2,-2,-1]
     end
 
     @testset "FFT operator ($T)" for T in TYPES
@@ -48,11 +48,11 @@ let FLOATS = (Float32, Float64),
             @test input_ndims(F) == ndims(x)
             @test output_ndims(F) == ndims(x)
             if T<:Complex
-                @test LazyAlgebra.FFT.destroys_input(F.forward) == true
-                @test LazyAlgebra.FFT.destroys_input(F.backward) == true
+                @test LazyAlgebra.FFTs.destroys_input(F.forward) == true
+                @test LazyAlgebra.FFTs.destroys_input(F.backward) == true
             else
-                @test LazyAlgebra.FFT.preserves_input(F.forward) == true
-                @test LazyAlgebra.FFT.preserves_input(F.backward) == false
+                @test LazyAlgebra.FFTs.preserves_input(F.forward) == true
+                @test LazyAlgebra.FFTs.preserves_input(F.backward) == false
             end
             @test LazyAlgebra.is_same_mapping(F, F) == true
             io = IOBuffer()

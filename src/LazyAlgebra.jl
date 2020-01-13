@@ -135,7 +135,7 @@ import .CroppingOperators: CroppingOperator, ZeroPaddingOperator, defaultoffset
 include("finitedifferences.jl")
 import .FiniteDifferences: SimpleFiniteDifferences
 include("fft.jl")
-import .FFT: CirculantConvolution, FFTOperator
+import .FFTs: CirculantConvolution, FFTOperator
 include("conjgrad.jl")
 include("deprecations.jl")
 
