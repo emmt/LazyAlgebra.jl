@@ -40,6 +40,10 @@ import AbstractFFTs: Plan, fftshift, ifftshift
 using FFTW
 import FFTW: fftwNumber, fftwReal, fftwComplex, FFTWPlan, cFFTWPlan, rFFTWPlan
 
+# All planning flags.
+const PLANNING = (FFTW.ESTIMATE | FFTW.MEASURE | FFTW.PATIENT |
+                  FFTW.EXHAUSTIVE | FFTW.WISDOM_ONLY)
+
 # The time needed to allocate temporary arrays is negligible compared to the
 # time taken to compute a FFT (e.g., 5µs to allocate a 256×256 array of double
 # precision complexes versus 1.5ms to compute its FFT).  We therefore do not
@@ -548,7 +552,7 @@ Base.eltype(H::CirculantConvolution{T,N}) where {T,N} = T
 Base.size(H::CirculantConvolution{T,N}) where {T,N} =
     ntuple(i -> H.dims[(i ≤ N ? i : i - N)], 2*N)
 Base.size(H::CirculantConvolution{T,N}, i::Integer) where {T,N} =
-    H.dims[(i ≤ N ? i : i - N)]
+    (i < 1 ? bad_dimension_index() : i ≤ N ? H.dims[i] : i ≤ 2N ? H.dims[i-N] : 1)
 Base.ndims(H::CirculantConvolution{T,N}) where {T,N} = 2*N
 
 """
@@ -611,8 +615,13 @@ If provided, `y` must be at a different memory location than `x`.
 
 """ CirculantConvolution
 
-# Create a circular convolution operator for real arrays.
 function CirculantConvolution(psf::AbstractArray{T,N};
+                              kwds...) where {T<:fftwNumber,N}
+    CirculantConvolution(copyto!(Array{T,N}(undef, size(psf)), psf); kwds...)
+end
+
+# Create a circular convolution operator for real arrays.
+function CirculantConvolution(psf::DenseArray{T,N};
                               flags::Integer = FFTW.ESTIMATE,
                               normalize::Bool = false,
                               shift::Bool = false,
@@ -621,72 +630,81 @@ function CirculantConvolution(psf::AbstractArray{T,N};
     planning = check_flags(flags)
     n = length(psf)
     dims = size(psf)
-    zdims = ntuple(i -> (i == 1 ? div(dims[i],2) + 1 : dims[i]), N)
+    zdims = rfftdims(dims)
 
-    # Allocate temporary array for the scaled MTF and, if needed, a scratch
-    # array for planning which may destroy its input.
+    # Allocate array for the scaled MTF, this array also serves as a workspace
+    # for planning operations which may destroy their input.
     mtf = Array{Complex{T}}(undef, zdims)
-    if planning == FFTW.ESTIMATE || planning == FFTW.WISDOM_ONLY
-        tmp = psf
-    else
-        tmp = Array{T}(undef, dims)
-    end
 
     # Compute the plans with suitable FFTW flags.  The forward transform (r2c)
     # must preserve its input, while the backward transform (c2r) may destroy
     # it (in fact there are no input-preserving algorithms for
     # multi-dimensional c2r transforms).
-    forward = plan_rfft(tmp; flags = (planning | FFTW.PRESERVE_INPUT), kwds...)
+    forward = safe_plan_rfft(psf; flags = (planning | FFTW.PRESERVE_INPUT), kwds...)
     backward = plan_brfft(mtf, dims[1]; flags = (planning | FFTW.DESTROY_INPUT),
                           kwds...)
 
-    # Compute the scaled MTF.
+    # Compute the scaled MTF *after* computing the plans.
     mul!(mtf, forward, (shift ? ifftshift(psf) : psf))
     if normalize
-        sum = real(mtf[1])
-        if sum != 1
-            if sum <= 0
-                throw(ArgumentError("cannot normalize: sum(PSF) ≤ 0"))
-            end
-            vscale!(mtf, 1/sum)
-        end
+        sum = mtf[1]
+        sum <= 0 && throw(ArgumentError("cannot normalize: sum(PSF) ≤ 0"))
+        sum != 1 && vscale!(mtf, 1/sum)
     end
 
     # Build operator.
     F = typeof(forward)
     B = typeof(backward)
-    CirculantConvolution{T,N,Complex{T},F,B}(dims, zdims, mtf,
-                                             forward, backward)
+    CirculantConvolution{T,N,Complex{T},F,B}(dims, zdims, mtf, forward, backward)
 end
 
 # Create a circular convolution operator for complex arrays (see
 # docs/convolution.md for explanations).
-function CirculantConvolution(psf::AbstractArray{Complex{T},N};
+function CirculantConvolution(psf::DenseArray{T,N};
                               flags::Integer = FFTW.ESTIMATE,
+                              normalize::Bool = false,
                               shift::Bool = false,
-                              kwds...) where {T<:fftwReal,N}
+                              kwds...) where {T<:fftwComplex,N}
     # Check arguments and get dimensions.
+    @assert normalize == false "normalizing a complex PSF has no sense"
     planning = check_flags(flags)
     n = length(psf)
     dims = size(psf)
 
-    # Allocate array for the scaled MTF, will also be used
-    # as a scratch array for planning which may destroy its input.
-    mtf = Array{Complex{T}}(undef, dims)
+    # Allocate array for the scaled MTF, this array also serves as a workspace
+    # for planning operations which may destroy their input.
+    mtf = Array{T}(undef, dims)
 
     # Compute the plans with FFTW flags suitable for out-of-place forward
     # transform and in-place backward transform.
     forward = plan_fft(mtf; flags = (planning | FFTW.PRESERVE_INPUT), kwds...)
     backward = plan_bfft!(mtf; flags = (planning | FFTW.DESTROY_INPUT), kwds...)
 
-    # Compute the MTF.
+    # Compute the MTF *after* computing the plans.
     mul!(mtf, forward, (shift ? ifftshift(psf) : psf))
 
     # Build the operator.
     F = typeof(forward)
     B = typeof(backward)
-    CirculantConvolution{Complex{T},N,Complex{T},F,B}(dims, dims, mtf,
-                                                      forward, backward)
+    CirculantConvolution{T,N,T,F,B}(dims, dims, mtf, forward, backward)
+end
+
+"""
+
+`safe_plan_rfft(x; kwds...)` yields a FFTW plan for computing the real to complex
+fast Fourier transform of `x`.  This method is the same as `plan_rfft` except that
+it makes sure that `x` is preserved.
+
+"""
+function safe_plan_rfft(x::AbstractArray{T,N}; flags::Integer = FFTW.ESTIMATE,
+                        kwds...) where {T<:fftwReal,N}
+    planning = (flags & PLANNING)
+    if isa(x, StridedArray) && (planning == FFTW.ESTIMATE ||
+                                planning == FFTW.WISDOM_ONLY)
+        return plan_rfft(x; flags=flags, kwds...)
+    else
+       return plan_rfft(Array{T}(undef, size(x)); flags=flags, kwds...)
+    end
 end
 
 function vcreate(::Type{<:Operations},
@@ -810,8 +828,7 @@ http://www.fftw.org/doc/Planner-Flags.html) and returns the filtered flags.
 
 """
 function check_flags(flags::Integer)
-    planning = flags & (FFTW.ESTIMATE | FFTW.MEASURE | FFTW.PATIENT |
-                        FFTW.EXHAUSTIVE | FFTW.WISDOM_ONLY)
+    planning = flags & PLANNING
     flags == planning ||
         throw(ArgumentError("only FFTW planning flags can be specified"))
     return UInt32(planning)
@@ -841,8 +858,10 @@ all dimensions after the last one are equal to 1.
 
 """
 get_dimension(dims::NTuple{N,Int}, i::Integer) where {N} =
-    (i < 1 ? error("invalid dimension index") : i ≤ N ? dims[i] : 1)
+    (i < 1 ? bad_dimension_index() : i ≤ N ? dims[i] : 1)
 # FIXME: should be in ArrayTools
+bad_dimension_index() = error("invalid dimension index")
+
 
 """
 ```julia
