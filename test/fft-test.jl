@@ -4,7 +4,8 @@ using LazyAlgebra.FFT
 using AbstractFFTs, FFTW
 
 let FLOATS = (Float32, Float64),
-    TYPES = (Float32, Float64, Complex{Float32}, Complex{Float64}),
+    TYPES = (Float32, #Float64, Complex{Float32},
+             Complex{Float64}),
     ALPHAS = (0, 1, -1,  2.71, π),
     BETAS = (0, 1, -1, -1.33, Base.MathConstants.φ)
 
@@ -13,6 +14,7 @@ let FLOATS = (Float32, Float64),
         dims2 = (1, 2, 3, 4, 5, 8, 9, 288, 512)
         dims3 = (1, 2, 3, 4, 5, 8, 9, 288, 512)
         @test goodfftdims(dims1) == dims2
+        @test goodfftdims(map(Int16, dims1)) == dims2
         @test goodfftdims(dims1...) == dims2
         @test rfftdims(1,2,3,4,5) == (1,2,3,4,5)
         @test rfftdims(2,3,4,5) == (2,3,4,5)
@@ -30,11 +32,46 @@ let FLOATS = (Float32, Float64),
         R = real(T)
         ϵ = 2*eps(R) # relative tolerance
         for dims in ((45,), (20,), (33,12), (30,20), (4,5,6))
+            # Create a FFT operator given its argument.
             x = rand(T, dims)
             xsav = vcopy(x)
             F = FFTOperator(x)
             @test x == xsav # check that input has been preserved
+            @test MorphismType(F) == (T<:Complex ? Endomorphism() : Morphism())
             @test input_size(F) == dims
+            @test input_size(F) == ntuple(d->input_size(F,d), ndims(x))
+            @test output_size(F) == (T<:Complex ? dims :
+                                     Tuple(AbstractFFTs.rfft_output_size(x, 1:ndims(x))))
+            @test output_size(F) == ntuple(d->output_size(F,d), ndims(x))
+            @test input_eltype(F) == T
+            @test output_eltype(F) == typeof(complex(zero(R)))
+            @test input_ndims(F) == ndims(x)
+            @test output_ndims(F) == ndims(x)
+            if T<:Complex
+                @test LazyAlgebra.FFT.destroys_input(F.forward) == true
+                @test LazyAlgebra.FFT.destroys_input(F.backward) == true
+            else
+                @test LazyAlgebra.FFT.preserves_input(F.forward) == true
+                @test LazyAlgebra.FFT.preserves_input(F.backward) == false
+            end
+            @test LazyAlgebra.is_same_mapping(F, F) == true
+            io = IOBuffer()
+            show(io, F)
+            @test String(take!(io)) == "FFT"
+            @test F'*F == length(x)*Identity()
+            @test F*F' == length(x)*Identity()
+            @test inv(F)*F == Identity()
+            @test F*inv(F) == Identity()
+            @test inv(F)'*F' == Identity()
+            @test F'*inv(F)' == Identity()
+
+            # Create operators which should be considered as the same as F.
+            F1 =  FFTOperator(T, dims...)
+            @test LazyAlgebra.is_same_mapping(F1, F) == true
+            F2 =  FFTOperator(T, map(Int16, dims))
+            @test LazyAlgebra.is_same_mapping(F2, F) == true
+
+            # Check applying operator.
             y = rand(Complex{R}, (T<:Complex ? input_size(F) :
                                   output_size(F)))
             z = (T<:Complex ? fft(x) : rfft(x))
@@ -72,9 +109,24 @@ let FLOATS = (Float32, Float64),
         ϵ = 2*eps(R) # relative tolerance
         n1, n2, n3 = 18, 12, 4
         for dims in ((n1,), (n1,n2), (n1,n2,n3))
+            # Basic methods.
             x = rand(T, dims)
             h = rand(T, dims)
-            H = CirculantConvolution(h, flags=FFTW.MEASURE)
+            H = CirculantConvolution(h, flags=FFTW.ESTIMATE)
+            @test MorphismType(H) == Endomorphism()
+            @test input_size(H) == dims
+            @test input_size(H) == ntuple(d->input_size(H,d), ndims(x))
+            @test output_size(H) == dims
+            @test output_size(H) == ntuple(d->output_size(H,d), ndims(x))
+            @test input_eltype(H) == T
+            @test output_eltype(H) == T
+            @test input_ndims(H) == ndims(x)
+            @test output_ndims(H) == ndims(x)
+            @test eltype(H) == T
+            @test size(H) == (dims..., dims...)
+            @test ndims(H) == 2*length(dims)
+
+            # Test apply! method.
             F = FFTOperator(x)
             G = F\Diag(F*h)*F
             y1 = H*x
