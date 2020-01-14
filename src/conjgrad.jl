@@ -63,8 +63,8 @@ which is used as:
 A(q, p)
 ```
 
-to overwrite `q` with `q = A⋅p`.  If you have implemented `A` as a callable
-object such that `A(p)` yields `A.q`, then call `conjgrad!` with an inline
+to overwrite `q` with `q = A⋅p`.  If `A` has been implemented as a callable
+object such that `A(p)` yields `A*q`, then call `conjgrad!` with an inline
 function:
 
 ```julia
@@ -123,7 +123,7 @@ There are several keywords to control the algorithm:
 * Keyword `maxiter` specifies the maximum number of iterations which is
   practically unlimited by default.
 
-* Keyword `restart` may be set with the mwimum number of iterations before
+* Keyword `restart` may be set with the maximum number of iterations before
   restarting the algorithm.  By default, `restart` is set with the smallest of
   `50` and the number of variables.  Set `restart` to at least `maxiter` if you
   do not want that any restarts ever occur.
