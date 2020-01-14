@@ -11,7 +11,7 @@
 # Copyright (c) 2019, Éric Thiébaut.
 #
 
-module CroppingOperators
+module Cropping
 
 # FIXME: add simplifying rules:
 #   Z'*Z = I (not Z*Z' = I)  crop zero-padded array is identity
@@ -23,7 +23,7 @@ export
 
 using ArrayTools
 using ..LazyAlgebra
-using ..LazyAlgebra: dimensions, Dimensions
+using ..LazyAlgebra: dimensions, Dimensions, @callable
 import ..LazyAlgebra: apply!, vcreate,
     input_size, input_ndims, output_size, output_ndims
 
@@ -75,6 +75,8 @@ struct CroppingOperator{N} <: LinearMapping
         return new{N}(outdims, inpdims, offset)
     end
 end
+
+@callable CroppingOperator
 
 @static if isdefined(Base, :CartesianIndices)
     commonpart(C::CroppingOperator) = CartesianIndices(output_size(C))

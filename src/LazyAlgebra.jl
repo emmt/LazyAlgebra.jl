@@ -131,7 +131,7 @@ include("rules.jl")
 include("mappings.jl")
 include("sparse.jl")
 include("cropping.jl")
-import .CroppingOperators: CroppingOperator, ZeroPaddingOperator, defaultoffset
+import .Cropping: CroppingOperator, ZeroPaddingOperator, defaultoffset
 include("finitedifferences.jl")
 import .FiniteDifferences: SimpleFiniteDifferences
 include("fft.jl")

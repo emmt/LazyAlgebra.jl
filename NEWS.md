@@ -1,3 +1,5 @@
+* The `CroppingOperators` sub-module has been renamed `Cropping`.
+
 * Add cropping and zero-padding operators.
 
 * Left multiplication by a scalar and left/right multiplication by a
