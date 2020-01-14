@@ -1,3 +1,9 @@
+* Not so well defined `HalfHessian` and `Hessian` have been removed
+  (`HalfHessian` is somewhat equivalent to `Gram`).
+
+* New `gram(A)` method which yields `A'*A` and alias `Gram{typeof(A)}` to
+  represent the type of this construction.
+
 * The `CroppingOperators` sub-module has been renamed `Cropping`.
 
 * Add cropping and zero-padding operators.

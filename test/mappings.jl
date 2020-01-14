@@ -634,7 +634,7 @@ function test_finite_differences()
     sizes = ((50,), (8, 9), (4,5,6))
     @testset "Finite differences ($T)" for T in FLOATS
         D = SimpleFiniteDifferences()
-        DtD = HalfHessian(D)
+        DtD = gram(D)
         for dims in sizes
             x = randn(T, dims)
             y = randn(T, ndims(x), size(x)...)

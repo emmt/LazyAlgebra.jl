@@ -8,7 +8,7 @@
 # This file is part of LazyAlgebra (https://github.com/emmt/LazyAlgebra.jl)
 # released under the MIT "Expat" license.
 #
-# Copyright (c) 2017-2019 Éric Thiébaut.
+# Copyright (c) 2017-2020 Éric Thiébaut.
 #
 
 module FiniteDifferences
@@ -19,7 +19,7 @@ export
 
 using ..Coder
 using  ...LazyAlgebra
-import ...LazyAlgebra: vcreate, apply!, HalfHessian, is_same_mapping
+import ...LazyAlgebra: vcreate, apply!, is_same_mapping
 using  ...LazyAlgebra: @callable, convert_multiplier
 using ArrayTools
 import Base: show, *
@@ -31,12 +31,10 @@ struct SimpleFiniteDifferences <: LinearMapping end
 
 is_same_mapping(::SimpleFiniteDifferences, ::SimpleFiniteDifferences) = true
 
-show(io::IO, ::SimpleFiniteDifferences) = print(io, "Diff")
-show(io::IO, ::HalfHessian{SimpleFiniteDifferences}) = print(io, "(Diff'⋅Diff)")
+const DtD =
 
-# Automatically convert D'*D into HalfHessian(D).
-const DtD = HalfHessian(SimpleFiniteDifferences())
-*(::Adjoint{SimpleFiniteDifferences}, ::SimpleFiniteDifferences) = DtD
+show(io::IO, ::SimpleFiniteDifferences) = print(io, "Diff")
+show(io::IO, ::Gram{SimpleFiniteDifferences}) = print(io, "(Diff'⋅Diff)")
 
 # Extend the vcreate() and apply!() methods for these operators.  The apply!()
 # method does all the checking and, then, calls a private method specialized
@@ -63,16 +61,15 @@ function vcreate(::Type{Adjoint},
     return Array{T}(undef, dims[2:end])
 end
 
-# FIXME: The following is not absolutely needed because HalfHessian is
-#        automatically an Endomorphism.
-for P in (Direct, Adjoint)
-    @eval function vcreate(::Type{$P},
-                           ::HalfHessian{SimpleFiniteDifferences},
-                           x::AbstractArray{T,N},
-                           scratch::Bool=false) where {T<:Real,N}
-        return (scratch ? x : Array{T}(undef, size(x)))
-    end
+function vcreate(::Type{Direct},
+                 ::Gram{SimpleFiniteDifferences},
+                 x::AbstractArray{T,N},
+                 scratch::Bool=false) where {T<:Real,N}
+    return (scratch ? x : Array{T}(undef, size(x)))
 end
+
+vcreate(::Type{Adjoint}, A::Gram{SimpleFiniteDifferences}, x, scratch::Bool) =
+    vcreate(Direct, A, x, scratch)
 
 function apply!(α::Real,
                 ::Type{<:Direct},
@@ -116,8 +113,8 @@ function apply!(α::Real,
 end
 
 function apply!(α::Real,
-                ::Type{<:Union{Direct,Adjoint}},
-                ::HalfHessian{SimpleFiniteDifferences},
+                ::Type{Direct},
+                ::Gram{SimpleFiniteDifferences},
                 x::AbstractArray{Tx,Nx},
                 scratch::Bool,
                 β::Real,

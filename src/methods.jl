@@ -34,10 +34,12 @@ macro callable(T)
 	(A::$(esc(T)))(x) = apply(A, x)
     end
 end
-
-for T in (Adjoint, Inverse, InverseAdjoint, Scaled, Sum, Composition, Hessian)
-    @eval (A::$T)(x) = apply(A, x)
-end
+@callable Adjoint
+@callable Inverse
+@callable InverseAdjoint
+@callable Scaled
+@callable Sum
+@callable Composition
 
 show(io::IO, ::MIME"text/plain", A::Mapping) = show(io, A)
 show(io::IO, A::Identity) = print(io, "I")
@@ -334,3 +336,16 @@ simplifications and optimizations.
 
 """
 is_same_mapping(::Mapping, ::Mapping) = false  # always false by default
+
+"""
+
+```julia
+gram(A) -> A'*A
+```
+
+yields the Gram matrix of the "*columns*" of the linear mapping `A`.
+
+See also [`Gram`](@ref).
+
+"""
+gram(A::LinearMapping) = A'*A

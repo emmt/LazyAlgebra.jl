@@ -925,6 +925,12 @@ function vcreate(P::Type{<:Operations},
     error("it is not possible to create the output of a composition of mappings")
 end
 
+# Gram matrices are Hermitian by construction.
+apply!(α::Real, ::Type{Adjoint}, A::Gram, x, scratch::Bool, β::Real, y) =
+    apply!(α, Direct, A, x, scratch, β, y)
+apply!(α::Real, ::Type{InverseAdjoint}, A::Gram, x, scratch::Bool, β::Real, y) =
+    apply!(α, Inverse, A, x, scratch, β, y)
+
 function apply!(α::Real, P::Type{<:Union{Direct,InverseAdjoint}},
                 A::Composition{N}, x, scratch::Bool, β::Real, y) where {N}
     @assert N ≥ 2 "bug in Composition constructor"

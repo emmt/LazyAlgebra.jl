@@ -613,16 +613,3 @@ function vcreate(P::Type{<:Union{Adjoint,Inverse}},
     shape = ntuple(d -> axes(A, Nx + d), Val(Ny))
     return similar(A, promote_type(Ta, Tx), shape)
 end
-
-#------------------------------------------------------------------------------
-# HESSIAN AND HALF HESSIAN
-
-is_same_mapping(A::Hessian{T}, B::Hessian{T}) where {T} =
-    is_same_mapping(A.obj, B.obj)
-
-is_same_mapping(A::HalfHessian{T}, B::HalfHessian{T}) where {T} =
-    is_same_mapping(A.obj, B.obj)
-
-# Default method for allocating the result for Hessian and HalfHessian linear
-# mappings.
-vcreate(::Type{Direct}, ::Union{Hessian,HalfHessian}, x) = vcreate(x)

@@ -8,7 +8,7 @@
 # This file is part of LazyAlgebra (https://github.com/emmt/LazyAlgebra.jl)
 # released under the MIT "Expat" license.
 #
-# Copyright (c) 2017-2019 Éric Thiébaut.
+# Copyright (c) 2017-2020 Éric Thiébaut.
 #
 
 struct SingularSystem <: Exception
@@ -343,95 +343,10 @@ end
 
 """
 
-`Hessian(A)` is a container to be interpreted as the linear mapping
-representing the second derivatives of some objective function at some point
-both represented by `A` (which can be anything).  Given `H = Hessian(A)`, the
-contents `A` is retrieved by `contents(H)`.
+`Gram{typeof(A)}` is an alias to represent the type of the construction
+`gram(A) = A'*A` for the linear mapping `A`.
 
-For a simple quadratic objective function like:
-
-```
-f(x) = ‖D⋅x‖²
-```
-
-the Hessian is:
-
-```
-H = 2 D'⋅D
-```
-
-As the Hessian is symmetric, a single method `apply!` has to be implemented to
-apply the direct and adjoint of the mapping, the signature of the method is:
-
-```julia
-apply!(α::Scalar, ::Type{Direct}, H::Hessian{typeof(A)}, x::T,
-       β::Scalar, y::T)
-```
-
-where `y` is overwritten by `α*H*x + β*y` with `H*x` the result of applying `H`
-(or its adjoint) to the argument `x`.  Here `T` is the relevant type of the
-variables.
-
-To allocate a new object to store the result of applying the mapping to `x`,
-the default method is `vcreate(x)`.  If this is not suitable, it is sufficient
-to implement the specific method:
-
-```julia
-vcreate(::Type{Direct}, H::Hessian{typeof(A)}, x::T)
-```
-
-See also: [`apply!`](@ref), [`vcreate`](@ref), [`LinearMapping`][@ref),
-          [`Trait`][@ref), [`HalfHessian`][@ref).
+See also [`gram`](@ref).
 
 """
-struct Hessian{T} <: Mapping
-    obj::T
-end
-
-"""
-
-`HalfHessian(A)` is a container to be interpreted as the linear mapping
-representing the second derivatives (times 1/2) of some objective function at
-some point both represented by `A` (which can be anything).  Given `H =
-HalfHessian(A)`, the contents `A` is retrieved by `contents(H)`.
-
-For a simple quadratic objective function like:
-
-```
-f(x) = ‖D⋅x‖²
-```
-
-the half-Hessian is:
-
-```
-H = D'⋅D
-```
-
-As the half-Hessian is symmetric, a single method `apply!` has to be
-implemented to apply the direct and adjoint of the mapping, the signature of
-the method is:
-
-```julia
-apply!(α::Scalar, ::Type{Direct}, H::HalfHessian{typeof(A)}, x::T,
-       β::Scalar, y::T)
-```
-
-where `y` is overwritten by `α*H*x + β*y` with `H*x` the result of applying `H`
-(or its adjoint) to the argument `x`.  Here `T` is the relevant type of the
-variables.
-
-To allocate a new object to store the result of applying the mapping to `x`,
-the default method is `vcreate(x)`.  If this is not suitable, it is sufficient
-to implement the specific method:
-
-```julia
-vcreate(::Type{Direct}, H::HalfHessian{typeof(A)}, x::T)
-```
-
-See also: [`apply!`](@ref), [`vcreate`](@ref), [`LinearMapping`][@ref),
-          [`Trait`][@ref), [`Hessian`][@ref).
-
-"""
-struct HalfHessian{T} <: Mapping
-    obj::T
-end
+const Gram{T<:LinearMapping} = Composition{2,Tuple{Adjoint{T},T}}
