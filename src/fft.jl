@@ -31,7 +31,7 @@ import ..LazyAlgebra: adjoint, apply!, vcreate, MorphismType, mul!,
     input_size, input_ndims, input_eltype,
     output_size, output_ndims, output_eltype,
     is_same_mapping
-using ..LazyAlgebra: _merge_mul
+using ..LazyAlgebra: _merge_mul, @callable
 
 import Base: *, /, \, inv, show
 
@@ -404,6 +404,8 @@ function FFTOperator(::Type{T},
     return FFTOperator{T,N,T,F,B}(ncols, dims, dims, forward, backward)
 end
 
+@callable FFTOperator
+
 # Constructor for dimensions not specified as a tuple.
 FFTOperator(T::Type{<:fftwNumber}, dims::Integer...; kwds...) =
     FFTOperator(T, dims; kwds...)
@@ -533,6 +535,8 @@ struct CirculantConvolution{T<:fftwNumber,N,
     forward::F           # plan for forward transform
     backward::B          # plan for backward transform
 end
+
+@callable CirculantConvolution
 
 # Traits:
 MorphismType(::CirculantConvolution) = Endomorphism()
@@ -770,10 +774,6 @@ function apply!(α::Real,
     end
     return y
 end
-
-# Manage to have `H(x)` works as `H*x`:
-(H::CirculantConvolution{T,N})(x::AbstractArray{T,N}) where {T,N} = H*x
-(H::Adjoint{CirculantConvolution{T,N}})(x::AbstractArray{T,N}) where {T,N} = H*x
 
 """
 ```julia

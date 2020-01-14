@@ -87,10 +87,14 @@ let FLOATS = (Float32, Float64),
             @test x == xsav # check that input has been preserved
             ysav = vcopy(y)
             w = (T<:Complex ? ifft(y) : irfft(y, dims[1]))
-            @test y == ysav # check that input has been preserved
             @test F*x ≈ z atol=0 rtol=ϵ norm=vnorm2
-            @test x == xsav # check that input has been preserved
             @test F\y ≈ w atol=0 rtol=ϵ norm=vnorm2
+            @test F(x) == F*x
+            @test F'(y) == F'*y
+            @test inv(F)(y) == F\y
+            @test inv(F')(x) == F'\x
+            @test x == xsav # check that input has been preserved
+            @test y == ysav # check that input has been preserved
             @test y == ysav # check that input has been preserved
             for α in ALPHAS,
                 β in BETAS,
@@ -158,6 +162,7 @@ let FLOATS = (Float32, Float64),
             xsav = vcopy(x)
             ysav = vcopy(y)
             y1 = H*x
+            @test H(x) == y1
             y2 = G*x
             y3 = (T<:Real ? real(ifft(fft(h).*fft(x)))
                   :              ifft(fft(h).*fft(x)))
