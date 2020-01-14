@@ -49,7 +49,7 @@ end
 # Linear conjugate gradient
 
 ```julia
-conjgrad!(x, A, b, [x0=vzeros(b), p, q, r]) -> x
+conjgrad!(x, A, b, [x0=vfill!(x,0), p, q, r]) -> x
 ```
 
 solves the linear system `A⋅x = b` starting at `x0` by means of the iterative
@@ -68,7 +68,7 @@ object such that `A(p)` yields `A*q`, then call `conjgrad!` with an inline
 function:
 
 ```julia
-conjgrad!(x, (dst,src) -> (dst .= A(src); return dst), b, ...)
+conjgrad!(x, (q,p) -> (q .= A(p); return q), b, ...)
 ```
 
 If no initial variables are specified, the default is to start with all
@@ -96,7 +96,7 @@ successive iterations, the norm of the gradient of `f(x)` or the variations of
 
 To save memory, `x` and `x0` can be the same object.  Otherwise, if no
 restarting occurs (see keyword `restart` below), `b` can also be the same as
-`x`.
+`r` but this is not recommended.
 
 
 ## Keywords
@@ -147,7 +147,7 @@ function conjgrad!(x, A::Mapping, b, args...; kwds...)
     conjgrad!(x, (dst, src) -> apply!(dst, A, src), b, args...; kwds...)
 end
 
-function conjgrad!(x, A, b, x0 = vzeros(b),
+function conjgrad!(x, A, b, x0 = vfill!(x, 0),
                    p = vcreate(x), q = vcreate(x), r = vcreate(x);
                    ftol::Real = 1e-8,
                    gtol::NTuple{2,Real} = (0.0,0.0),
