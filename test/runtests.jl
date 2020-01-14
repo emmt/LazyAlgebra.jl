@@ -3,17 +3,17 @@ module LazyAlgebraTests
 using LazyAlgebra
 using Test
 
-include("utils-test.jl")
-test_utilities()
-include("genmult-test.jl")
-GenMultTests.test_all()
-include("coder-test.jl")
 include("utils.jl")
-include("vectors.jl")
-include("mappings.jl")
+include("utils-tests.jl")
+test_utilities()
+include("genmult-tests.jl")
+GenMultTests.test_all()
+include("coder-tests.jl")
+include("vect-tests.jl")
+include("map-tests.jl")
 LazyAlgebraMappingTests.test_all()
-include("crop-test.jl")
-include("fft-test.jl")
-include("conjgrad.jl")
+include("crop-tests.jl")
+include("fft-tests.jl")
+include("cg-tests.jl")
 
 end

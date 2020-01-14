@@ -1,5 +1,5 @@
 #
-# vectors.jl -
+# vect-tests.jl -
 #
 # Tests for vectorized operations.
 #

@@ -1,5 +1,5 @@
 #
-# mappings.jl -
+# map-tests.jl -
 #
 # Tests for basic mappings.
 #

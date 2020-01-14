@@ -1,5 +1,5 @@
 #
-# conjgrad.jl -
+# cg-tests.jl -
 #
 # Tests for linear conjugate gradients methods.
 #
