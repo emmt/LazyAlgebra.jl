@@ -1,11 +1,10 @@
+* Method `is_same_mapping` defaults to `===` but this may not always be either
+  correct nor efficient.  The documentation should explain when
+  `is_same_mapping` has to be extended.
+
 * `convert_multiplier` should have 2 different behaviors: to allow for using
   BLAS routines, all multipliers must be converted to complexes if array
   arguments are complex-valued.
-
-* Remove `REQUIRE` file (`Project.toml` is sufficient) and re-enable Julia 0.7
-  in TravisCI.
-
-* Fix `H'` when `H = HalfHessian(SimpleFiniteDifferences())`.
 
 * Optimize composition of cropping and zero-padding operators.  The adjoint of
   a cropping or zero-padding operator is the pseudo-inverse of the operator,
@@ -14,6 +13,8 @@
   identity.
 
 * `vscale`, `vscale!` and others should be able to take a complex multiplier.
+
+* `vscale!` can call `rmul!`?
 
 * Implement *preconditioned* conjugate gradient.
 
@@ -33,8 +34,6 @@
 
 * Use more extensively BLAS subroutines.  Fix usage of BLAX `dot` and `axpy`
   routines for dense arrays (use flat arrays).
-
-* Cleanup: `is_identical` is not really needed? `===` does the job?
 
 * SelfAdjoint should not be a trait?  Perhaps better to extend `adjoint(A::T) =
   A` when `T` is self-adjoint.
