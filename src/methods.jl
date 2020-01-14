@@ -8,7 +8,7 @@
 # This file is part of LazyAlgebra (https://github.com/emmt/LazyAlgebra.jl)
 # released under the MIT "Expat" license.
 #
-# Copyright (c) 2017-2018 Éric Thiébaut.
+# Copyright (c) 2017-2020 Éric Thiébaut.
 #
 
 function unimplemented(::Type{P}, ::Type{T}) where {P<:Operations, T<:Mapping}

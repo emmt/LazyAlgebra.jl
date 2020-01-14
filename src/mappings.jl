@@ -8,7 +8,7 @@
 # This file is part of LazyAlgebra (https://github.com/emmt/LazyAlgebra.jl)
 # released under the MIT "Expat" license.
 #
-# Copyright (c) 2017-2019 Éric Thiébaut.
+# Copyright (c) 2017-2020 Éric Thiébaut.
 #
 
 #------------------------------------------------------------------------------
@@ -25,8 +25,8 @@ DiagonalType(::Identity) = DiagonalMapping()
 
 apply(::Type{<:Operations}, ::Identity, x, scratch::Bool=false) = x
 
-vcreate(::Type{<:Operations}, ::Identity, x, scratch::Bool=false) =
-    (scratch ? x : vcreate(x))
+vcreate(::Type{<:Operations}, ::Identity, x, scratch::Bool) =
+    (scratch ? x : vcreate(x)) # FIXME: should always return x?
 
 apply!(α::Real, ::Type{<:Operations}, ::Identity, x, ::Bool, β::Real, y) =
     vcombine!(y, α, x, β, y)
@@ -342,7 +342,7 @@ end
 function vcreate(::Type{<:Operations},
                  W::NonuniformScalingOperator{<:AbstractArray{Tw,N}},
                  x::AbstractArray{Tx,N},
-                 scratch::Bool=false) where {Tw,Tx,N}
+                 scratch::Bool) where {Tw,Tx,N}
     inds = axes(W.diag)
     @assert axes(x) == inds
     T = promote_type(Tw, Tx)
@@ -401,9 +401,9 @@ end
 
 # Lazily assume that x has correct type, dimensions, etc.
 # FIXME: optimize when scratch=true
-vcreate(::Type{Direct}, A::RankOneOperator, x, scratch::Bool=false) =
+vcreate(::Type{Direct}, A::RankOneOperator, x, scratch::Bool) =
     vcreate(A.v)
-vcreate(::Type{Adjoint}, A::RankOneOperator, x, scratch::Bool=false) =
+vcreate(::Type{Adjoint}, A::RankOneOperator, x, scratch::Bool) =
     vcreate(A.u)
 
 input_type(A::RankOneOperator{U,V}) where {U,V} = V
@@ -458,7 +458,7 @@ function apply!(α::Real, ::Type{<:Union{Direct,Adjoint}},
 end
 
 function vcreate(::Type{<:Union{Direct,Adjoint}},
-                 A::SymmetricRankOneOperator, x, scratch::Bool=false)
+                 A::SymmetricRankOneOperator, x, scratch::Bool)
     # Lazily assume that x has correct type, dimensions, etc.
     return (scratch ? x : vcreate(x))
 end
@@ -543,7 +543,7 @@ end
 function vcreate(P::Type{<:Operations},
                  A::GeneralMatrix{<:AbstractArray{<:GenMult.Floats}},
                  x::AbstractArray{<:GenMult.Floats},
-                 scratch::Bool=false)
+                 scratch::Bool)
     return vcreate(P, A.arr, x, scratch)
 end
 
@@ -564,10 +564,10 @@ end
 # To have apply and apply! methods callable with an array (instead of a
 # mapping), we have to provide the different possibilities.
 
-apply(A::AbstractArray, x::AbstractArray, scratch::Bool=false) =
+apply(A::AbstractArray, x::AbstractArray, scratch::Bool) =
     apply(Direct, A, x, scratch)
 
-apply(P::Type{<:Operations}, A::AbstractArray, x::AbstractArray, scratch::Bool=false) =
+apply(P::Type{<:Operations}, A::AbstractArray, x::AbstractArray, scratch::Bool) =
     apply!(1, P, A, x, scratch, 0, vcreate(P, A, x, scratch))
 
 apply!(y::AbstractArray, A::AbstractArray, x::AbstractArray) =
@@ -579,7 +579,7 @@ apply!(y::AbstractArray, P::Type{<:Operations}, A::AbstractArray, x::AbstractArr
 function vcreate(P::Type{<:Union{Direct,InverseAdjoint}},
                  A::AbstractArray{Ta,Na},
                  x::AbstractArray{Tx,Nx},
-                 scratch::Bool=false) where {Ta,Na,Tx,Nx}
+                 scratch::Bool) where {Ta,Na,Tx,Nx}
     # Non-transposed matrix.  Trailing dimensions of X must match those of A,
     # leading dimensions of A are those of the result.  Whatever the scratch
     # parameter, a new array is returned as the operation cannot be done
@@ -598,7 +598,7 @@ end
 function vcreate(P::Type{<:Union{Adjoint,Inverse}},
                  A::AbstractArray{Ta,Na},
                  x::AbstractArray{Tx,Nx},
-                 scratch::Bool=false) where {Ta,Na,Tx,Nx}
+                 scratch::Bool) where {Ta,Na,Tx,Nx}
     # Transposed matrix.  Leading dimensions of X must match those of A,
     # trailing dimensions of A are those of the result.  Whatever the scratch
     # parameter, a new array is returned as the operation cannot be done

@@ -43,7 +43,7 @@ show(io::IO, ::Gram{SimpleFiniteDifferences}) = print(io, "(Diff'⋅Diff)")
 function vcreate(::Type{Direct},
                  ::SimpleFiniteDifferences,
                  x::AbstractArray{T,N},
-                 scratch::Bool=false) where {T<:Real,N}
+                 scratch::Bool) where {T<:Real,N}
     # In-place operation never possible, so ignore the scratch flag.
     return Array{T}(undef, (N, size(x)...))
 end
@@ -51,7 +51,7 @@ end
 function vcreate(::Type{Adjoint},
                  ::SimpleFiniteDifferences,
                  x::AbstractArray{T,N},
-                 scratch::Bool=false) where {T<:Real,N}
+                 scratch::Bool) where {T<:Real,N}
     # In-place operation never possible, so ignore the scratch flag.
     N ≥ 2 ||
         throw(DimensionMismatch("argument must have at least 2 dimensions"))
@@ -64,10 +64,11 @@ end
 function vcreate(::Type{Direct},
                  ::Gram{SimpleFiniteDifferences},
                  x::AbstractArray{T,N},
-                 scratch::Bool=false) where {T<:Real,N}
+                 scratch::Bool) where {T<:Real,N}
     return (scratch ? x : Array{T}(undef, size(x)))
 end
 
+# A Gram operator is Hermitian by construction.
 vcreate(::Type{Adjoint}, A::Gram{SimpleFiniteDifferences}, x, scratch::Bool) =
     vcreate(Direct, A, x, scratch)
 

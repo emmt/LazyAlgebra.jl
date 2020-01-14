@@ -82,7 +82,7 @@ preserves_input(A::FFTWPlan) =
 function vcreate(::Type{Direct},
                  A::cFFTWPlan{Complex{T},K,true,N},
                  x::StridedArray{Complex{T},N},
-                 scratch::Bool=false) where {T<:fftwReal,K,N}
+                 scratch::Bool) where {T<:fftwReal,K,N}
     @checksize "argument" x input_size(A)
     return (scratch ? x : Array{Complex{T}}(undef, output_size(A)))
 end
@@ -92,7 +92,7 @@ end
 function vcreate(::Type{Direct},
                  A::cFFTWPlan{Complex{T},K,false,N},
                  x::StridedArray{Complex{T},N},
-                 scratch::Bool=false) where {T<:fftwReal,K,N}
+                 scratch::Bool) where {T<:fftwReal,K,N}
     @checksize "argument" x input_size(A)
     return Array{Complex{T}}(undef, output_size(A))
 end
@@ -103,7 +103,7 @@ end
 function vcreate(::Type{Direct},
                  A::rFFTWPlan{T,K,false,N},
                  x::StridedArray{T,N},
-                 scratch::Bool=false) where {T<:fftwReal,K,N}
+                 scratch::Bool) where {T<:fftwReal,K,N}
     @checksize "argument" x input_size(A)
     return Array{Complex{T}}(undef, output_size(A))
 end
@@ -111,7 +111,7 @@ end
 function vcreate(::Type{Direct},
                  A::rFFTWPlan{Complex{T},K,false,N},
                  x::StridedArray{Complex{T},N},
-                 scratch::Bool=false) where {T<:fftwReal,K,N}
+                 scratch::Bool) where {T<:fftwReal,K,N}
     @checksize "argument" x input_size(A)
     return Array{T}(undef, output_size(A))
 end
@@ -465,14 +465,14 @@ show(io::IO, A::FFTOperator) = print(io, "FFT")
 function vcreate(P::Type{<:Union{Direct,InverseAdjoint}},
                  A::FFTOperator{T,N,C},
                  x::DenseArray{T,N},
-                 scratch::Bool=false) where {T,N,C}
+                 scratch::Bool) where {T,N,C}
     vcreate(Direct, A.forward, x, scratch)
 end
 
 function vcreate(P::Type{<:Union{Adjoint,Inverse}},
                  A::FFTOperator{T,N,C},
                  x::DenseArray{C,N},
-                 scratch::Bool=false) where {T,N,C}
+                 scratch::Bool) where {T,N,C}
     vcreate(Direct, A.backward, x, scratch)
 end
 
@@ -714,7 +714,7 @@ end
 function vcreate(::Type{<:Operations},
                  H::CirculantConvolution{T,N},
                  x::AbstractArray{T,N},
-                 scratch::Bool = false) where {T<:fftwNumber,N}
+                 scratch::Bool) where {T<:fftwNumber,N}
     return Array{T,N}(undef, H.dims)
 end
 

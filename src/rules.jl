@@ -621,10 +621,40 @@ function _simplify_mul(A::NTuple{M,Mapping},
 end
 
 #------------------------------------------------------------------------------
-# APPLY AND VCREATE
+# VCREATE, APPLY AND APPLY!
 
-*(A::Mapping, x) = apply(Direct, A, x)
-\(A::Mapping, x) = apply(Inverse, A, x)
+"""
+```julia
+vcreate([P,] A, x, scratch=false) -> y
+```
+
+yields a new instance `y` suitable for storing the result of applying mapping
+`A` to the argument `x`.  Optional parameter `P ∈ Operations` is one of
+`Direct` (the default), `Adjoint`, `Inverse` and/or `InverseAdjoint` and can be
+used to specify how `A` is to be applied as explained in the documentation of
+the [`apply`](@ref) method.
+
+Optional argument `scratch` indicates whether input argument `x` can be
+overwritten by the operation and thus used to store the result.  This may be
+exploited by some mappings (which are able to operate *in-place*) to avoid
+allocating a new object for the result `y`.
+
+The caller should set `scratch = true` if `x` is not needed after calling
+`apply`.  If `scratch = true`, then it is possible that `y` be the same object
+as `x`; otherwise, `y` is a new object unless applying the operation yields the
+same contents as `y` for the result `x` (this is always true for the identity
+for instance).  Thus, in general, it should not be assumed that the returned
+`y` is different from the input `x`.
+
+The method `vcreate(::Type{P}, A, x)` should be implemented by linear mappings
+for any supported operations `P` and argument type for `x`.
+
+See also: [`Mapping`](@ref), [`apply`](@ref).
+
+"""
+vcreate(A::Mapping, x, scratch::Bool=false) = vcreate(Direct, A, x, scratch)
+vcreate(::Type{P}, A::Mapping, x, scratch::Bool=false) where {P<:Operations} =
+    vcreate(P, A, x, scratch)
 
 """
 ```julia
@@ -664,6 +694,9 @@ apply(A::Mapping, x, scratch::Bool=false) = apply(Direct, A, x, scratch)
 
 apply(P::Type{<:Operations}, A::Mapping, x, scratch::Bool=false) =
     apply!(1, P, A, x, scratch, 0, vcreate(P, A, x, scratch))
+
+*(A::Mapping, x) = apply(Direct, A, x, false)
+\(A::Mapping, x) = apply(Inverse, A, x, false)
 
 """
 ```julia
@@ -832,8 +865,8 @@ function apply(::Type{InverseAdjoint}, A::Scaled, x, scratch::Bool)
     vscale!((overwritable(scratch, x, y) ? y : vcopy(y)), 1/conj(multiplier(A)))
 end
 
-vcreate(P::Type{<:Operations}, A::Scaled, x, scratch::Bool=false) =
-    vcreate(P, operand(A), x)
+vcreate(P::Type{<:Operations}, A::Scaled, x, scratch::Bool) =
+    vcreate(P, operand(A), x, scratch)
 
 # Implemention of the `apply!(α,P,A,x,scratch,β,y)` and
 # `vcreate(P,A,x,scratch=false)` methods for the various decorations of a
@@ -852,7 +885,7 @@ for (T1, T2, T3) in ((:Direct,         :Adjoint,        :Adjoint),
                      (:InverseAdjoint, :InverseAdjoint, :Direct))
     @eval begin
 
-        vcreate(::Type{$T1}, A::$T2, x, scratch::Bool=false) =
+        vcreate(::Type{$T1}, A::$T2, x, scratch::Bool) =
             vcreate($T3, operand(A), x, scratch)
 
         apply!(α::Real, ::Type{$T1}, A::$T2, x, scratch::Bool, β::Real, y) =
@@ -861,12 +894,12 @@ for (T1, T2, T3) in ((:Direct,         :Adjoint,        :Adjoint),
     end
 end
 
-# Implementation of the `vcreate(P,A,x,scratch=false)` and
+# Implementation of the `vcreate(P,A,x,scratch)` and
 # `apply!(α,P,A,x,scratch,β,y)` and methods for a sum of mappings.  Note that
 # `Sum` instances are warranted to have at least 2 components.
 
 function vcreate(::Type{P}, A::Sum, x,
-                 scratch::Bool=false) where {P<:Union{Direct,Adjoint}}
+                 scratch::Bool) where {P<:Union{Direct,Adjoint}}
     # The sum only makes sense if all mappings yields the same kind of result.
     # Hence we just call the vcreate method for the first mapping of the sum.
     vcreate(P, A[1], x, scratch)
@@ -885,15 +918,11 @@ function apply!(α::Real, P::Type{<:Union{Direct,Adjoint}}, A::Sum{N},
     return y
 end
 
-function vcreate(::Type{<:Union{Inverse,InverseAdjoint}}, A::Sum,
-                 x, scratch::Bool=false)
+vcreate(::Type{<:Union{Inverse,InverseAdjoint}}, A::Sum, x, scratch::Bool) =
     error(UnsupportedInverseOfSumOfMappings)
-end
 
-function apply(::Type{<:Union{Inverse,InverseAdjoint}}, A::Sum,
-               x, scratch::Bool=false)
+apply(::Type{<:Union{Inverse,InverseAdjoint}}, A::Sum, x, scratch::Bool) =
     error(UnsupportedInverseOfSumOfMappings)
-end
 
 function apply!(α::Real, ::Type{<:Union{Inverse,InverseAdjoint}}, A::Sum,
                 x, scratch::Bool, β::Real, y)
@@ -921,7 +950,7 @@ end
 # just done in the other direction for the Adjoint or Inverse operation.
 
 function vcreate(P::Type{<:Operations},
-                 A::Composition{N}, x, scratch::Bool=false) where {N}
+                 A::Composition{N}, x, scratch::Bool) where {N}
     error("it is not possible to create the output of a composition of mappings")
 end
 
@@ -941,7 +970,7 @@ function apply!(α::Real, P::Type{<:Union{Direct,InverseAdjoint}},
 end
 
 function apply(P::Type{<:Union{Direct,InverseAdjoint}},
-               A::Composition{N}, x, scratch::Bool=false) where {N}
+               A::Composition{N}, x, scratch::Bool) where {N}
     @assert N ≥ 2 "bug in Composition constructor"
     return _apply(P, operands(A), x, scratch)
 end
@@ -967,7 +996,7 @@ function apply!(α::Real, P::Type{<:Union{Adjoint,Inverse}},
 end
 
 function apply(P::Type{<:Union{Adjoint,Inverse}},
-               A::Composition{N}, x, scratch::Bool=false) where {N}
+               A::Composition{N}, x, scratch::Bool) where {N}
     @assert N ≥ 2 "bug in Composition constructor"
     return _apply(P, operands(A), x, scratch)
 end
@@ -982,34 +1011,3 @@ function _apply(P::Type{<:Union{Adjoint,Inverse}},
         return w
     end
 end
-
-"""
-```julia
-vcreate([P,] A, x, scratch=false) -> y
-```
-
-yields a new instance `y` suitable for storing the result of applying mapping
-`A` to the argument `x`.  Optional parameter `P ∈ Operations` is one of
-`Direct` (the default), `Adjoint`, `Inverse` and/or `InverseAdjoint` and can be
-used to specify how `A` is to be applied as explained in the documentation of
-the [`apply`](@ref) method.
-
-Optional argument `scratch` indicates whether input argument `x` can be
-overwritten by the operation and thus used to store the result.  This may be
-exploited by some mappings (which are able to operate *in-place*) to avoid
-allocating a new object for the result `y`.
-
-The caller should set `scratch = true` if `x` is not needed after calling
-`apply`.  If `scratch = true`, then it is possible that `y` be the same object
-as `x`; otherwise, `y` is a new object unless applying the operation yields the
-same contents as `y` for the result `x` (this is always true for the identity
-for instance).  Thus, in general, it should not be assumed that the returned
-`y` is different from the input `x`.
-
-The method `vcreate(::Type{P}, A, x)` should be implemented by linear mappings
-for any supported operations `P` and argument type for `x`.
-
-See also: [`Mapping`](@ref), [`apply`](@ref).
-
-"""
-vcreate(A::Mapping, x, scratch::Bool=false) = vcreate(Direct, A, x, scratch)

@@ -8,7 +8,7 @@
 # This file is part of LazyAlgebra (https://github.com/emmt/LazyAlgebra.jl)
 # released under the MIT "Expat" license.
 #
-# Copyright (c) 2019, Éric Thiébaut.
+# Copyright (c) 2019-2020, Éric Thiébaut.
 #
 
 module Cropping
@@ -120,7 +120,7 @@ CroppingOperator(outdims::NTuple{N,Int}, inpdims::NTuple{N,Int},
 function vcreate(::Type{Direct},
                  C::CroppingOperator{N},
                  x::AbstractArray{T,N},
-                 scratch::Bool=false) where {T,N}
+                 scratch::Bool) where {T,N}
     # Testing the size of x is done by vapply!().
     return (scratch && input_size(C) == output_size(C) ? x :
             Array{T,N}(undef, output_size(C)))
@@ -129,7 +129,7 @@ end
 function vcreate(::Type{Adjoint},
                  C::CroppingOperator{N},
                  x::AbstractArray{T,N},
-                 scratch::Bool=false) where {T,N}
+                 scratch::Bool) where {T,N}
     # Testing the size of x is done by vapply!().
     return (scratch && input_size(C) == output_size(C) ? x :
             Array{T,N}(undef, input_size(C)))
@@ -160,43 +160,37 @@ function apply!(α::Number,
     if α == 0
         β == 1 || vscale!(y, β)
     else
-        K = offset(C)
-        R = commonpart(C)
+        k = offset(C)
+        I = commonpart(C)
         if α == 1
             if β == 0
-                @inbounds @simd for I in R
-                    J = I + K
-                    y[I] = x[J]
+                @inbounds @simd for i in I
+                    y[i] = x[i + k]
                 end
             elseif β == 1
-                @inbounds @simd for I in R
-                    J = I + K
-                    y[I] += x[J]
+                @inbounds @simd for i in I
+                    y[i] += x[i + k]
                 end
             else
                 beta = convert(T, β)
-                @inbounds @simd for I in R
-                    J = I + K
-                    y[I] = x[J] + beta*y[I]
+                @inbounds @simd for i in I
+                    y[i] = x[i + k] + beta*y[i]
                 end
             end
         else
             alpha = convert(T, α)
             if β == 0
-                @inbounds @simd for I in R
-                    J = I + K
-                    y[I] = alpha*x[J]
+                @inbounds @simd for i in I
+                    y[i] = alpha*x[i + k]
                 end
             elseif β == 1
-                @inbounds @simd for I in R
-                    J = I + K
-                    y[I] += alpha*x[J]
+                @inbounds @simd for i in I
+                    y[i] += alpha*x[i + k]
                 end
             else
                 beta = convert(T, β)
-                @inbounds @simd for I in R
-                    J = I + K
-                    y[I] = alpha*x[J] + beta*y[I]
+                @inbounds @simd for i in I
+                    y[i] = alpha*x[i + k] + beta*y[i]
                 end
             end
         end
@@ -206,11 +200,10 @@ end
 
 # Apply zero-padding operation.
 #
-#     for I in R
-#         J = I + K
-#         y[J] = α*x[I] + β*y[J]
+#     for i in I
+#         y[i + k] = α*x[i] + β*y[i + k]
 #     end
-#     # Plus y[J] *= β outside common region R
+#     # Plus y[i + k] *= β outside common region R
 #
 function apply!(α::Number,
                 ::Type{Adjoint},
@@ -229,31 +222,27 @@ function apply!(α::Number,
         throw(DimensionMismatch("bad output array dimensions"))
     β == 1 || vscale!(y, β)
     if α != 0
-        K = offset(C)
-        R = commonpart(C)
+        k = offset(C)
+        I = commonpart(C)
         if α == 1
             if β == 0
-                @inbounds @simd for I in R
-                    J = I + K
-                    y[J] = x[I]
+                @inbounds @simd for i in I
+                    y[i + k] = x[i]
                 end
             else
-                @inbounds @simd for I in R
-                    J = I + K
-                    y[J] += x[I]
+                @inbounds @simd for i in I
+                    y[i + k] += x[i]
                 end
             end
         else
             alpha = convert(T, α)
             if β == 0
-                @inbounds @simd for I in R
-                    J = I + K
-                    y[J] = alpha*x[I]
+                @inbounds @simd for i in I
+                    y[i + k] = alpha*x[i]
                 end
             else
-                @inbounds @simd for I in R
-                    J = I + K
-                    y[J] += alpha*x[I]
+                @inbounds @simd for i in I
+                    y[i + k] += alpha*x[i]
                 end
             end
         end

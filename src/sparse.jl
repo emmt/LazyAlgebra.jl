@@ -8,7 +8,7 @@
 # This file is part of LazyAlgebra (https://github.com/emmt/LazyAlgebra.jl)
 # released under the MIT "Expat" license.
 #
-# Copyright (c) 2017-2019 Éric Thiébaut.
+# Copyright (c) 2017-2020 Éric Thiébaut.
 #
 
 """
@@ -341,7 +341,7 @@ _bad_output_indexing() =
 function vcreate(::Type{Direct},
                  S::SparseOperator{Ts,M,N},
                  x::AbstractArray{Tx,N},
-                 scratch::Bool=false) where {Ts<:Real,Tx<:Real,M,N}
+                 scratch::Bool) where {Ts<:Real,Tx<:Real,M,N}
     # In-place operation is not possible so we simply ignore the scratch flag.
     size(x) == coldims(S) || _bad_input_dimensions()
     return Array{promote_type(Ts,Tx)}(undef, rowdims(S))
@@ -350,7 +350,7 @@ end
 function vcreate(::Type{Adjoint},
                  S::SparseOperator{Ts,M,N},
                  x::AbstractArray{Tx,M},
-                 scratch::Bool=false) where {Ts<:Real,Tx<:Real,M,N}
+                 scratch::Bool) where {Ts<:Real,Tx<:Real,M,N}
     # In-place operation is not possible so we simply ignore the scratch flag.
     size(x) == rowdims(S) || _bad_input_dimensions()
     return Array{promote_type(Ts,Tx)}(undef, coldims(S))

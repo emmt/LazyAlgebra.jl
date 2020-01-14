@@ -1,3 +1,5 @@
+* Argument `scratch` is no longer optional in low-level `vcreate`.
+
 * Not so well defined `HalfHessian` and `Hessian` have been removed
   (`HalfHessian` is somewhat equivalent to `Gram`).
 

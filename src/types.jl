@@ -110,8 +110,8 @@ The following methods should be implemented for a mapping `A` of specific type
 `M <: Mapping`:
 
 ```julia
-vcreate(::Type{P}, A::M, x) -> y
-apply!(α::Scalar, ::Type{P}, A::M, x, β::Scalar, y) -> y
+vcreate(::Type{P}, A::M, x, scratch::Bool) -> y
+apply!(α::Real, ::Type{P}, A::M, x, , scratch::Bool, β::Real, y) -> y
 ```
 
 for any supported operation `P ∈ Operations` (`Direct`, `Adjoint`, `Inverse`
