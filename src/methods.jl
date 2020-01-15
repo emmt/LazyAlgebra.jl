@@ -121,8 +121,8 @@ and
 multiplier(A)
 ```
 
-respectively yield the operand `M` and the multiplier `λ` if `A = λ*M` is a
-scaled operand; yield `A` and `1` otherwise.
+respectively yield the mapping `M` and the multiplier `λ` if `A = λ*M` is a
+scaled mapping; yield `A` and `1` otherwise.
 
 !!! note
     The [`operands`](@ref) method (with an "s") has a different meaning.
@@ -134,9 +134,10 @@ operand(A::Scaled) = A.M
 operand(A::Adjoint) = A.op
 operand(A::Inverse) = A.op
 operand(A::InverseAdjoint) = A.op
+operand(A::Mapping) = A
 
 multiplier(A::Scaled) = A.λ
-multiplier(A::Mapping) = 1 # FIXME: should never be used!
+multiplier(A::Mapping) = 1
 @doc @doc(operand) multiplier
 
 # Extend base methods to simplify the code for reducing expressions.
