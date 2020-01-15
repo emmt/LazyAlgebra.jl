@@ -30,7 +30,7 @@ using ..LazyAlgebra
 import ..LazyAlgebra: adjoint, apply!, vcreate, MorphismType, mul!,
     input_size, input_ndims, input_eltype,
     output_size, output_ndims, output_eltype,
-    is_same_mapping
+    are_same_mappings
 using ..LazyAlgebra: _merge_mul, @callable
 
 import Base: *, /, \, inv, show
@@ -442,7 +442,7 @@ output_eltype(A::FFTOperator{T,N,C}) where {T,N,C} = C
 # the matching method is the one which return false, so it is only needed to
 # implement the method for two arguments with the same types (omitting the type
 # of the plans as it is irrelevant here).
-is_same_mapping(A::FFTOperator{T,N,C}, B::FFTOperator{T,N,C}) where {T,N,C} =
+are_same_mappings(A::FFTOperator{T,N,C}, B::FFTOperator{T,N,C}) where {T,N,C} =
     (input_size(A) == input_size(B))
 
 show(io::IO, A::FFTOperator) = print(io, "FFT")
@@ -452,14 +452,14 @@ show(io::IO, A::FFTOperator) = print(io, "FFT")
 #     ==> F⋅F' = F'⋅F = n⋅I
 #     ==> inv(F⋅F') = inv(F'⋅F) = inv(F)⋅inv(F') = inv(F')⋅inv(F) = n\I
 *(A::Adjoint{F}, B::F) where {F<:FFTOperator} =
-    (is_same_mapping(operand(A), B) ? ncols(A)*I : _merge_mul(A, B))
+    (are_same_mappings(operand(A), B) ? ncols(A)*I : _merge_mul(A, B))
 *(A::F, B::Adjoint{F}) where {F<:FFTOperator} =
-    (is_same_mapping(A, operand(B)) ? ncols(A)*I : _merge_mul(A, B))
+    (are_same_mappings(A, operand(B)) ? ncols(A)*I : _merge_mul(A, B))
 *(A::InverseAdjoint{F}, B::Inverse{F}) where {F<:FFTOperator} =
-    (is_same_mapping(operand(A), operand(B)) ? (1//ncols(A))*I :
+    (are_same_mappings(operand(A), operand(B)) ? (1//ncols(A))*I :
      _merge_mul(A, B))
 *(A::Inverse{F}, B::InverseAdjoint{F}) where {F<:FFTOperator} =
-    (is_same_mapping(operand(A), operand(B)) ? (1//ncols(A))*I :
+    (are_same_mappings(operand(A), operand(B)) ? (1//ncols(A))*I :
      _merge_mul(A, B))
 
 function vcreate(P::Type{<:Union{Direct,InverseAdjoint}},

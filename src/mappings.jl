@@ -14,7 +14,7 @@
 #------------------------------------------------------------------------------
 # IDENTITY AND UNIFORM SCALING
 
-is_same_mapping(::Identity, ::Identity) = true
+are_same_mappings(::Identity, ::Identity) = true
 
 @callable Identity
 
@@ -57,8 +57,8 @@ SymbolicLinearMapping(x::Symbol) = SymbolicLinearMapping{Val{x}}()
 show(io::IO, A::SymbolicMapping{Val{T}}) where {T} = print(io, T)
 show(io::IO, A::SymbolicLinearMapping{Val{T}}) where {T} = print(io, T)
 
-is_same_mapping(::SymbolicMapping{T}, ::SymbolicMapping{T}) where {T} = true
-is_same_mapping(::SymbolicLinearMapping{T}, ::SymbolicLinearMapping{T}) where {T} = true
+are_same_mappings(::T, ::T) where {T<:SymbolicMapping} = true
+are_same_mappings(::T, ::T) where {T<:SymbolicLinearMapping} = true
 
 #------------------------------------------------------------------------------
 # NON-UNIFORM SCALING
@@ -120,10 +120,9 @@ Diag(A) = NonuniformScalingOperator(A)
 contents(A::NonuniformScalingOperator) = A.diag
 LinearAlgebra.diag(A::NonuniformScalingOperator) = A.diag
 
-function is_same_mapping(A::NonuniformScalingOperator{T},
-                         B::NonuniformScalingOperator{T}) where {T}
-    return is_same_mutable_object(diag(A), diag(B))
-end
+# FIXME: This is nearly the default implementation.
+are_same_mappings(A::T, B::T) where {T<:NonuniformScalingOperator} =
+    diag(A) === diag(B)
 
 function inv(A::NonuniformScalingOperator{<:AbstractArray{T,N}}
              ) where {T<:AbstractFloat, N}
@@ -418,11 +417,8 @@ output_size(A::RankOneOperator) = size(A.u)
 output_size(A::RankOneOperator, d...) = size(A.u, d...)
 output_eltype(A::RankOneOperator) = eltype(A.u)
 
-function is_same_mapping(A::RankOneOperator{U,V},
-                         B::RankOneOperator{U,V}) where {U,V}
-    return (is_same_mutable_object(A.u, B.u) &&
-            is_same_mutable_object(A.v, B.v))
-end
+are_same_mappings(A::T, B::T) where {T<:RankOneOperator} =
+    (A.u === B.u && A.v === B.v)
 
 """
 
@@ -475,10 +471,8 @@ output_size(A::SymmetricRankOneOperator) = size(A.u)
 output_size(A::SymmetricRankOneOperator, d...) = size(A.u, d...)
 output_eltype(A::SymmetricRankOneOperator) = eltype(A.u)
 
-function is_same_mapping(A::SymmetricRankOneOperator{U},
-                         B::SymmetricRankOneOperator{U}) where {U}
-    return is_same_mutable_object(A.u, B.u)
-end
+are_same_mappings(A::T, B::T) where {T<:SymmetricRankOneOperator} =
+    (A.u === B.u)
 
 #------------------------------------------------------------------------------
 # GENERALIZED MATRIX AND MATRIX-VECTOR PRODUCT
@@ -525,10 +519,7 @@ stride(A::GeneralMatrix, k) = stride(A.arr, k)
 strides(A::GeneralMatrix) = strides(A.arr)
 eachindex(A::GeneralMatrix) = eachindex(A.arr)
 
-function is_same_mapping(A::GeneralMatrix{T},
-                         B::GeneralMatrix{T}) where {T}
-    return is_same_mutable_object(A.arr, B.arr)
-end
+are_same_mappings(A::T, B::T) where {T<:GeneralMatrix} = (A.arr === B.arr)
 
 function apply!(α::Number,
                 P::Type{<:Operations},

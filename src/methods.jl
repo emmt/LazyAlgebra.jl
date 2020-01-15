@@ -316,12 +316,13 @@ is_same_mutable_object(a, b) =
 
 """
 ```julia
-is_same_mapping(A, B)
+are_same_mappings(A, B)
 ```
 
 yields whether `A` and `B` are the same mappings in the sense that their
 effects will always be the same.  This method is used to perform some
-simplifications and optimizations.
+simplifications and optimizations and may have to be specialized for specific
+mapping types.  The default implementation is to return `A === B`.
 
 !!! note
     The returned result may be true although `A` and `B` are not necessarily
@@ -331,12 +332,13 @@ simplifications and optimizations.
     `true` because the two operators will behave identically (any changes in
     the coefficients or indices of `A` will be reflected in `B`).  If any of
     the vectors storing the coefficients or the indices are not the same
-    objects, then `is_same_mapping(A,B)` must return `false` even though the
+    objects, then `are_same_mappings(A,B)` must return `false` even though the
     stored values may be the same because it is possible, later, to change one
     operator without affecting identically the other.
 
 """
-is_same_mapping(::Mapping, ::Mapping) = false  # always false by default
+are_same_mappings(::Mapping, ::Mapping) = false # false if not same types
+are_same_mappings(A::T, B::T) where {T<:Mapping} = (A === B)
 
 """
 

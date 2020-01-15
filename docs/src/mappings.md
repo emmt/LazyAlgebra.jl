@@ -4,14 +4,16 @@
 new primitive mapping types (not by combining existing mappings) and benefit
 from the `LazyAlgebra` infrastruture, you have to:
 
-* Create a new type derived from `Mapping` or one of its abstract subtypes such
-  as `LinearMapping`.
+* Create a new type derived from `Mapping` or one of its abstract sub-types
+  such as `LinearMapping`.
 
 * Implement at least two methods `apply!` and `vcreate` specialized for the new
   mapping type.  Applying the mapping is done by the former method.  The latter
   method is called to create a new output variable suitable to store the result
-  of applying the mapping (or one of its variants) to some
-  input variable.
+  of applying the mapping (or one of its variants) to some input variable.
+
+* Optionally specialize method `are_same_mappings` for two arguments of the new
+  mapping type.
 
 
 ## The `vcreate` method
@@ -74,6 +76,26 @@ operations.
 Argument `scratch` is a boolean to let the caller indicate whether the contents
 of the input variable `x` may be overwritten during the operations.  If
 `scratch=false`, the `apply!` method shall not modify the contents of `x`.
+
+
+## The `are_same_mappings` method
+
+The method `are_same_mappings(A,B)` yields whether `A` and `B` are the same
+mappings in the sense that their effects will **always** be the same.  This
+method is used to perform some simplifications and optimizations and may have
+to be specialized for specific mapping types.  The default implementation is to
+return `A === B`.
+
+The returned result may be true although `A` and `B` are not necessarily the
+same object.  In the below example, if `A` and `B` are two sparse matrices
+whose coefficients and indices are stored in the same vectors (as can be tested
+with the `===` operator) this method should return `true` because the two
+operators will behave identically (any changes in the coefficients or indices
+of `A` will be reflected in `B`).  If any of the vectors storing the
+coefficients or the indices are not the same objects, then
+`are_same_mappings(A,B)` must return `false` even though the stored values may
+be the same because it is possible, later, to change one operator without
+affecting identically the other.
 
 
 ## Example
@@ -156,6 +178,10 @@ function apply!(α::Real,
     end
     return y
 end
+
+are_same_mappings(A::T, B::T) where {T<:SparseOperator} =
+    (A.outdims == B.outdims && A.inpdims == B.inpdims &&
+     A.A === B.A && A.I === B.I && A.J === B.J)
 ```
 
 Remarks:

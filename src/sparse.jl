@@ -181,15 +181,9 @@ function check(S::SparseOperator{T,M,N}) where {T,M,N}
     return S
 end
 
-function is_same_mapping(A::SparseOperator{T,M,N,Ti,Tj,Tc},
-                         B::SparseOperator{T,M,N,Ti,Tj,Tc}) where {T,M,N,
-                                                                   Ti,Tj,Tc}
-    return (is_same_mutable_object(coefs(A), coefs(B)) &&
-            is_same_mutable_object(rows(A), rows(B)) &&
-            is_same_mutable_object(cols(A), cols(B)) &&
-            rowdims(A) == rowdims(B) &&
-            coldims(A) == coldims(B))
-end
+are_same_mappings(A::T, B::T) where {T<:SparseOperator} =
+    (coefs(A) === coefs(B) && rows(A) === rows(B) && cols(A) === cols(B) &&
+     rowdims(A) == rowdims(B) && coldims(A) == coldims(B))
 
 EndomorphismType(S::SparseOperator) =
     (samedims(S) ? Endomorphism() : Morphism())

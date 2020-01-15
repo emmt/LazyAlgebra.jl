@@ -19,7 +19,7 @@ export
 
 using ..Coder
 using  ...LazyAlgebra
-import ...LazyAlgebra: vcreate, apply!, is_same_mapping
+import ...LazyAlgebra: vcreate, apply!, are_same_mappings
 using  ...LazyAlgebra: @callable, convert_multiplier
 using ArrayTools
 import Base: show, *
@@ -29,7 +29,7 @@ import Base: show, *
 struct SimpleFiniteDifferences <: LinearMapping end
 @callable SimpleFiniteDifferences
 
-is_same_mapping(::SimpleFiniteDifferences, ::SimpleFiniteDifferences) = true
+are_same_mappings(::SimpleFiniteDifferences, ::SimpleFiniteDifferences) = true
 
 const DtD =
 

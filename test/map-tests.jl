@@ -8,7 +8,7 @@
 # This file is part of LazyAlgebra (https://github.com/emmt/LazyAlgebra.jl)
 # released under the MIT "Expat" license.
 #
-# Copyright (c) 2017-2019 Éric Thiébaut.
+# Copyright (c) 2017-2020 Éric Thiébaut.
 #
 
 #isdefined(:LazyAlgebra) || include("../src/LazyAlgebra.jl")
@@ -19,7 +19,7 @@ using LazyAlgebra
 using LazyAlgebra: Scaled, Sum, Composition, # not exported by default
     Endomorphism, EndomorphismType,
     is_same_mutable_object
-import LazyAlgebra: is_same_mapping
+import LazyAlgebra: are_same_mappings
 
 using FFTW
 using Test
@@ -195,9 +195,9 @@ function test_rules(verbose::Bool=false)
     # Test properties.
     @mytest M !== R
     @mytest A !== B
-    @mytest is_same_mapping(A, B) == false
+    @mytest are_same_mappings(A, B) == false
     let E = A
-        @mytest is_same_mapping(A, E) == true
+        @mytest are_same_mappings(A, E) == true
     end
     @mytest is_linear(M) == false
     @mytest is_linear(A) == true
