@@ -314,9 +314,9 @@ struct Sum{N,T<:NTuple{N,Mapping}} <: Mapping
     ops::T
 
     # The inner constructor ensures that the number of arguments is at least 2.
-    function Sum{N,T}(ops::T) where {T<:NTuple{N,Mapping}} where {N}
-        length(ops) ≥ 2 || error("a sum of mappings has at least 2 components")
-        return new{N,T}(ops)
+    function Sum{N,T}(ops::T) where {N,T<:NTuple{N,Mapping}}
+        N ≥ 2 || error("a sum of mappings has at least 2 components")
+        new{N,T}(ops)
     end
 end
 
@@ -334,10 +334,9 @@ struct Composition{N,T<:NTuple{N,Mapping}} <: Mapping
     ops::T
 
     # The inner constructor ensures that the number of arguments is at least 2.
-    function Composition{N,T}(ops::T) where {T<:NTuple{N,Mapping}} where {N}
-        length(ops) ≥ 2 ||
-            error("a composition of mappings has at least 2 components")
-        return new{N,T}(ops)
+    function Composition{N,T}(ops::T) where {N,T<:NTuple{N,Mapping}}
+        N ≥ 2 || error("a composition of mappings has at least 2 components")
+        new{N,T}(ops)
     end
 end
 
