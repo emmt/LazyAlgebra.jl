@@ -16,9 +16,9 @@
 SparseOperator(I, J, C, rowdims, coldims)
 ```
 
-yields a sparse linear map with `I` and `J` the row and column indices of the
-non-zero coefficients whose values are specified by `C` and with the dimensions
-of the *rows* and of the *columns* given by `rowdims` and `coldims` .
+yields a sparse linear mapping with `I` and `J` the row and column indices of
+the non-zero coefficients whose values are specified by `C` and with the
+dimensions of the *rows* and of the *columns* given by `rowdims` and `coldims`.
 
 ```julia
 SparseOperator(A, n=1)
@@ -30,11 +30,28 @@ multiplication by `A` in such a way that the result of applying the operator
 are arrays whose dimensions are the `n` leading dimensions of `A` for input
 arrays whose dimensions are the remaining trailing dimensions of `A`.
 
+```julia
+SparseOperator(A)
+```
+
+yields an instance of `SparseOperator` built from sparse matrix
+(`SparseMatrixCSC`) or sparse operator (`SparseOperator`) `A`.  The `sparse`
+method can be used to convert a sparse operator into a sparse matrix.
+
+Call:
+
+```julia
+SparseOperator{T}(args...)
+```
+
+to build an instance of `SparseOperator` whose coefficients have type `T`.
+
+
 !!! note
     For efficiency reasons, sparse operators are currently limited to *flat*
     Julia arrays because they can be indexed linearly with no loss of
     performances.  If `C`, `I` and/or `J` are not flat arrays, they will be
-    automatically converted to regular arrays.
+    automatically converted to linearly indexed arrays.
 
 See also [`isflatarray`](@ref), [`GeneralMatrix`](@ref) and [`lgemv`](@ref).
 
@@ -52,47 +69,61 @@ struct SparseOperator{T,M,N,
 
     # The inner constructor checks whether arguments are indeed flat arrays,
     # it is not meant to be directly called.
-    function SparseOperator{T,M,N,Ti,Tj,Tc}(I::Ti,
-                                            J::Tj,
-                                            C::Tc,
-                                            rowdims::NTuple{M,Int},
-                                            coldims::NTuple{N,Int}
-                                            ) where {T,M,N,
-                                                     Ti<:AbstractVector{Int},
-                                                     Tj<:AbstractVector{Int},
-                                                     Tc<:AbstractVector{T}}
-        samedims = (M == N && rowdims == coldims)
-        return check(new{T,M,N,Ti,Tj,Tc}(I, J, C, rowdims, coldims, samedims))
+    function SparseOperator{T,M,N,Ti,Tj,Tc}(
+        I::Ti, J::Tj, C::Tc,
+        rowdims::NTuple{M,Int},
+        coldims::NTuple{N,Int}) where {T,M,N,
+                                       Ti<:AbstractVector{Int},
+                                       Tj<:AbstractVector{Int},
+                                       Tc<:AbstractVector{T}}
+        check(new{T,M,N,Ti,Tj,Tc}(I, J, C, rowdims, coldims,
+                                  (rowdims == coldims)))
     end
 end
 
 @callable SparseOperator
 
 # helper to call inner constructor
-function _sparseoperator(I::Ti,
-                         J::Tj,
-                         C::Tc,
-                         rowdims::NTuple{M,Int},
-                         coldims::NTuple{N,Int}) where {T,M,N,
-                                                        Ti<:AbstractVector{Int},
-                                                        Tj<:AbstractVector{Int},
-                                                        Tc<:AbstractVector{T}}
-    return SparseOperator{T,M,N,Ti,Tj,Tc}(I, J, C, rowdims, coldims)
+function _sparseoperator(
+    I::Ti, J::Tj, C::Tc,
+    rowdims::NTuple{M,Int},
+    coldims::NTuple{N,Int}) where {T,M,N,
+                                   Ti<:AbstractVector{Int},
+                                   Tj<:AbstractVector{Int},
+                                   Tc<:AbstractVector{T}}
+    SparseOperator{T,M,N,Ti,Tj,Tc}(I, J, C, rowdims, coldims)
 end
 
 function SparseOperator(I::AbstractVector{<:Integer},
                         J::AbstractVector{<:Integer},
                         C::AbstractVector{T},
                         rowdims::Dimensions,
-                        coldims::Dimensions) where T
-    return _sparseoperator(flatvector(Int, I),
-                           flatvector(Int, J),
-                           flatvector(T,   C),
-                           dimensions(rowdims),
-                           dimensions(coldims))
+                        coldims::Dimensions) where {T}
+    SparseOperator{T}(I, J, C, rowdims, coldims)
 end
 
-function SparseOperator(A::AbstractArray{T,N}, n::Integer = 1) where {T,N}
+function SparseOperator{T}(I::AbstractVector{<:Integer},
+                           J::AbstractVector{<:Integer},
+                           C::AbstractVector,
+                           rowdims::Dimensions,
+                           coldims::Dimensions) where {T}
+    _sparseoperator(flatvector(Int, I),
+                    flatvector(Int, J),
+                    flatvector(T,   C),
+                    dimensions(rowdims),
+                    dimensions(coldims))
+end
+
+SparseOperator(A::SparseOperator) = A
+SparseOperator{T}(A::SparseOperator{T}) where {T} = A
+SparseOperator{T}(A::SparseOperator) where {T} =
+    SparseOperator(rows(A), cols(A), convert(Vector{T}, coefs(A)),
+                   rowdims(A), coldims(A))
+
+SparseOperator(A::AbstractArray{T}, n::Integer = 1) where {T} =
+    SparseOperator{T}(A, n)
+
+function SparseOperator{T}(A::AbstractArray{S,N}, n::Integer = 1) where {T,S,N}
     1 ≤ n < N || throw(ArgumentError("bad number of of leading dimensions"))
     has_standard_indexing(A) || _bad_indexing()
     dims = size(A)
@@ -102,7 +133,7 @@ function SparseOperator(A::AbstractArray{T,N}, n::Integer = 1) where {T,N}
     ncols = prod(coldims)
     nz = 0
     @inbounds for k in eachindex(A)
-        if A[k] != zero(T)
+        if A[k] != zero(S)
             nz += 1
         end
     end
@@ -117,7 +148,7 @@ function SparseOperator(A::AbstractArray{T,N}, n::Integer = 1) where {T,N}
             i = 1
             j += 1
         end
-        if (a = A[k]) != zero(T)
+        if (a = A[k]) != zero(S)
             l += 1
             C[l] = a
             I[l] = i
@@ -128,8 +159,11 @@ function SparseOperator(A::AbstractArray{T,N}, n::Integer = 1) where {T,N}
     return SparseOperator(I, J, C, rowdims, coldims)
 end
 
-function SparseOperator(A::SparseMatrixCSC{Tv,Ti};
-                        copy::Bool=false) where {Tv,Ti<:Integer}
+SparseOperator(A::SparseMatrixCSC{T,<:Integer}; kwds...) where {T} =
+    SparseOperator{T}(A; kwds...)
+
+function SparseOperator{T}(A::SparseMatrixCSC{Tv,Ti};
+                           copy::Bool=false) where {T,Tv,Ti<:Integer}
     nz = length(A.nzval)
     @assert length(A.rowval) == nz
     nrows, ncols = A.m, A.n
@@ -145,11 +179,18 @@ function SparseOperator(A::SparseMatrixCSC{Tv,Ti};
             J[k] = j
         end
     end
-    return SparseOperator((copy ? copyto!(Vector{Int}(undef, nz), A.rowval) :
-                           flatvector(Int, A.rowval)), J,
-                          (copy ? copyto!(Vector{Tv}(undef, nz), A.nzval) :
-                           flatvector(Tv, A.nzval)), nrows, ncols)
+    return SparseOperator((copy ?
+                           copyto!(Vector{Int}(undef, nz), A.rowval) :
+                           flatvector(Int, A.rowval)),
+                          J,
+                          (copy || T !== Tv ?
+                           copyto!(Vector{T}(undef, nz), A.nzval) :
+                           flatvector(Tv, A.nzval)),
+                          nrows, ncols)
 end
+
+convert(::Type{T}, A::SparseOperator) where {T<:SparseOperator} = T(A)
+convert(::Type{T}, A::SparseMatrixCSC) where {T<:SparseOperator} = T(A)
 
 coefs(S::SparseOperator) = S.C
 rows(S::SparseOperator) = S.I
@@ -173,11 +214,11 @@ checks integrity of operator `A` and returns it.
 """
 function check(S::SparseOperator{T,M,N}) where {T,M,N}
     @assert isflatarray(coefs(S), rows(S), cols(S))
-    @assert samedims(S) == (M == N && rowdims(S) == coldims(S))
+    @assert samedims(S) == (rowdims(S) == coldims(S))
     imin, imax = extrema(rows(S))
     jmin, jmax = extrema(cols(S))
-    @assert 1 ≤ imin ≤ imax ≤ prod(rowdims(S))
-    @assert 1 ≤ jmin ≤ jmax ≤ prod(coldims(S))
+    @assert 1 ≤ imin ≤ imax ≤ nrows(S)
+    @assert 1 ≤ jmin ≤ jmax ≤ ncols(S)
     return S
 end
 
