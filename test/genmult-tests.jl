@@ -1,10 +1,13 @@
+#
+# genmult-tests.jl -
+#
+# Tests for generalized matrix-vector and matrix-matrix products.
+#
+
 module GenMultTests
 
 using Test
 using Test: print_test_results
-
-#Test.TESTSET_PRINT_ENABLE[] = true
-
 using LazyAlgebra
 import LazyAlgebra: GenMult, convert_multiplier
 import .GenMult: Reals, Complexes, Floats, BlasFloat

@@ -4,40 +4,33 @@
 # Tests for vectorized operations.
 #
 
-#isdefined(:LazyAlgebra) || include("../src/LazyAlgebra.jl")
-
-module LazyAlgebraVectorsTests
-
 using LazyAlgebra
 using Test
 
-# Deal with compatibility issues.
-@static if isdefined(Base, :MathConstants)
-    import Base.MathConstants: φ
-end
-
-distance(a::Real, b::Real) = abs(a - b)
-
-distance(a::NTuple{2,Real}, b::NTuple{2,Real}) =
-    hypot(a[1] - b[1], a[2] - b[2])
-
-distance(A::AbstractArray{Ta,N}, B::AbstractArray{Tb,N}) where {Ta,Tb,N} =
-    maximum(abs.(A - B))
-
-function makeselection(n::Integer)
-    sel = Array{Int}(undef, 0)
-    j = [2,3,5]
-    k = 1
-    while k ≤ n
-        push!(sel, k)
-        k += rand(j)
-    end
-    return sel
-end
-
 @testset "Vectors" begin
+
+    distance(a::Real, b::Real) = abs(a - b)
+    distance(a::NTuple{2,Real}, b::NTuple{2,Real}) =
+        hypot(a[1] - b[1], a[2] - b[2])
+    distance(A::AbstractArray{Ta,N}, B::AbstractArray{Tb,N}) where {Ta,Tb,N} =
+        maximum(abs.(A - B))
+
+    makeselection(n::Integer) = begin
+        sel = Array{Int}(undef, 0)
+        j = [2,3,5]
+        k = 1
+        while k ≤ n
+            push!(sel, k)
+            k += rand(j)
+        end
+        return sel
+    end
+
+    alphas = (0, 1, -1,  2.71, π)
+    betas = (0, 1, -1, -1.33, Base.MathConstants.φ)
     types = (Float32, Float64)
     dims = (3,4,5)
+
     @testset "vnorm ($T)" for T in types
         S = (T == Float32 ? Float64 : Float32)
         v = randn(T, dims)
@@ -103,7 +96,7 @@ end
             ac = vcopy(a)
             b = Array{Tb}(undef, dims)
             e = max(eps(Ta), eps(Tb))
-            for α in (0, -1, 1, π, 2.71)
+            for α in alphas
                 d = α*a
                 @test distance(vscale!(b,α,a), d) ≤ 8e
                 @test distance(vscale(α,a), d) ≤ 8e
@@ -118,7 +111,7 @@ end
         b = randn(Tb, dims)
         sel = makeselection(length(a))
         atol, rtol = zero(Tmin), sqrt(eps(Tmin))
-        for α in (0, -1, 1, π, 2.71)
+        for α in alphas
             @test vupdate!(vcopy(a),α,b) ≈
                 a + Tmax(α)*b atol=atol rtol=rtol norm=vnorm2
             c = vcopy(a)
@@ -142,8 +135,8 @@ end
         a = randn(T, dims)
         b = randn(T, dims)
         d = vcreate(a)
-        for α in (0, -1, 1, π,  2.71),
-            β in (0, -1, 1, φ, -1.33)
+        for α in alphas,
+            β in betas
             @test distance(vcombine!(d,α,a,β,b), (T(α)*a + T(β)*b)) == 0
         end
     end
@@ -186,5 +179,4 @@ end
         @test vdot(sel,a,b) == conj(vdot(sel,b,a))
     end
 end
-
-end # module
+nothing

@@ -3,15 +3,6 @@
 #
 # Tests for basic mappings.
 #
-#-------------------------------------------------------------------------------
-#
-# This file is part of LazyAlgebra (https://github.com/emmt/LazyAlgebra.jl)
-# released under the MIT "Expat" license.
-#
-# Copyright (c) 2017-2020 Éric Thiébaut.
-#
-
-#isdefined(:LazyAlgebra) || include("../src/LazyAlgebra.jl")
 
 module LazyAlgebraMappingTests
 
@@ -26,11 +17,6 @@ using Test
 using Printf
 import Base: show, axes
 
-# Deal with compatibility issues.
-@static if isdefined(Base, :MathConstants)
-    import Base.MathConstants: φ
-end
-
 const I = Identity()
 @static if VERSION < v"0.7.0-DEV.3449"
     using Base.LinAlg: UniformScaling
@@ -39,7 +25,7 @@ else
 end
 
 const ALPHAS = (0, 1, -1,  2.71, π)
-const BETAS = (0, 1, -1, -1.33, φ)
+const BETAS = (0, 1, -1, -1.33, Base.MathConstants.φ)
 const OPERATIONS = (Direct, Adjoint, Inverse, InverseAdjoint)
 const FLOATS = (Float32, Float64)
 const COMPLEXES = (ComplexF32, ComplexF64)
@@ -168,13 +154,7 @@ function test_all()
         test_rank_one_operator()
         test_non_uniform_scaling()
         test_generalized_matrices()
-        test_finite_differences()
-        if VERSION ≥ v"0.7"
-            test_scaling()
-            test_sparse_operator()
-        else
-            @warn "Some tests are broken for Julia < 0.7"
-        end
+        test_scaling()
     end
 end
 
@@ -574,124 +554,6 @@ function test_generalized_matrices()
                 T(α)*Gx + T(β)*y atol=atol rtol=rtol norm=vnorm2
             @test apply!(α, Adjoint, G, y, β, vcopy(x)) ≈
                 T(α)*Gty + T(β)*x atol=atol rtol=rtol norm=vnorm2
-        end
-    end
-end
-
-function test_sparse_operator(verbose::Bool=false)
-    ntests = 0
-    nfailures = 0
-    rows, cols = (2,3,4), (5,6)
-    nrows, ncols = prod(rows), prod(cols)
-    #@testset "Sparse matrices ($T)"
-    for T in FLOATS
-        A = randn(T, rows..., cols...)
-        A[rand(T, size(A)) .≤ 0.7] .= 0 # 70% of zeros
-        x = randn(T, cols)
-        y = randn(T, rows)
-        G = GeneralMatrix(A)
-        S = SparseOperator(A, length(rows))
-        @mytest is_endomorphism(S) == (rows == cols)
-        @mytest (EndomorphismType(S) == Endomorphism) == (rows == cols)
-        @mytest output_size(S) == rows
-        @mytest input_size(S) == cols
-        @mytest_throws DimensionMismatch vcreate(Direct, S,
-                                                 randn(T, size(x) .+ 1))
-        @mytest_throws DimensionMismatch vcreate(Adjoint, S,
-                                                 randn(T, size(y) .+ 1))
-        @mytest A == Array(S)
-        atol, rtol = zero(T), sqrt(eps(T))
-        mA = reshape(A, nrows, ncols)
-        vx = reshape(x, ncols)
-        vy = reshape(y, nrows)
-        Sx = S*x
-        Sty = S'*y
-        @mytest almost_equal(Sx, reshape(mA*vx,  rows))
-        @mytest almost_equal(Sty, reshape(mA'*vy, cols))
-        @mytest almost_equal(Sx, G*x)
-        @mytest almost_equal(Sty, G'*y)
-        ## Use another constructor with integer conversion.
-        R = SparseOperator(Int32.(LazyAlgebra.rows(S)),
-                           Int64.(LazyAlgebra.cols(S)),
-                           LazyAlgebra.coefs(S),
-                           Int32.(output_size(S)),
-                           Int64.(input_size(S)))
-        @mytest almost_equal(Sx, R*x)
-        @mytest almost_equal(Sty, R'*y)
-        for α in ALPHAS,
-            β in BETAS
-            @mytest almost_equal(apply!(α, Direct, S, x, β, vcopy(y)),
-                                 T(α)*Sx + T(β)*y)
-            @mytest almost_equal(apply!(α, Adjoint, S, y, β, vcopy(x)),
-                                 T(α)*Sty + T(β)*x)
-        end
-    end
-
-    @mytest_report
-end
-
-function test_finite_differences()
-    sizes = ((50,), (8, 9), (4,5,6))
-    @testset "Finite differences ($T)" for T in FLOATS
-        D = SimpleFiniteDifferences()
-        DtD = gram(D)
-        for dims in sizes
-            x = randn(T, dims)
-            y = randn(T, ndims(x), size(x)...)
-            z = randn(T, size(x))
-            # Apply direct and adjoint of D "by-hand".
-            Dx_truth = Array{T}(undef, size(y))
-            Dty_truth = Array{T}(undef, size(x))
-            fill!(Dty_truth, 0)
-            if ndims(x) == 1
-                Dx_truth[1,1:end-1] = x[2:end] - x[1:end-1]
-                Dx_truth[1,end] = 0
-                Dty_truth[2:end]   += y[1,1:end-1]
-                Dty_truth[1:end-1] -= y[1,1:end-1]
-            elseif ndims(x) == 2
-                Dx_truth[1,1:end-1,:] = x[2:end,:] - x[1:end-1,:]
-                Dx_truth[1,end,:] .= 0
-                Dx_truth[2,:,1:end-1] = x[:,2:end] - x[:,1:end-1]
-                Dx_truth[2,:,end] .= 0
-                Dty_truth[2:end,:]   += y[1,1:end-1,:]
-                Dty_truth[1:end-1,:] -= y[1,1:end-1,:]
-                Dty_truth[:,2:end]   += y[2,:,1:end-1]
-                Dty_truth[:,1:end-1] -= y[2,:,1:end-1]
-            elseif ndims(x) == 3
-                Dx_truth[1,1:end-1,:,:] = x[2:end,:,:] - x[1:end-1,:,:]
-                Dx_truth[1,end,:,:] .= 0
-                Dx_truth[2,:,1:end-1,:] = x[:,2:end,:] - x[:,1:end-1,:]
-                Dx_truth[2,:,end,:] .= 0
-                Dx_truth[3,:,:,1:end-1] = x[:,:,2:end] - x[:,:,1:end-1]
-                Dx_truth[3,:,:,end] .= 0
-                Dty_truth[2:end,:,:]   += y[1,1:end-1,:,:]
-                Dty_truth[1:end-1,:,:] -= y[1,1:end-1,:,:]
-                Dty_truth[:,2:end,:]   += y[2,:,1:end-1,:]
-                Dty_truth[:,1:end-1,:] -= y[2,:,1:end-1,:]
-                Dty_truth[:,:,2:end]   += y[3,:,:,1:end-1]
-                Dty_truth[:,:,1:end-1] -= y[3,:,:,1:end-1]
-            end
-            Dx = D*x
-            Dty = D'*y
-            DtDx = DtD*x
-            # There should be no differences between Dx and Dx_truth because
-            # they are computed in the exact same way.  For Dty and Dty_truth,
-            # the comparsion must be approximative.  For testing DtD against
-            # D'*D, parenthesis are needed to avoid simplifications.
-            atol, rtol = zero(T), 4*eps(T)
-            @test vdot(y,Dx) ≈ vdot(Dty,x) atol=atol rtol=sqrt(eps(T))
-            @test vnorm2(Dx - Dx_truth) == 0
-            @test Dty ≈ Dty_truth atol=atol rtol=rtol norm=vnorm2
-            @test DtDx ≈ D'*(D*x) atol=atol rtol=rtol norm=vnorm2
-            for α in ALPHAS,
-                β in BETAS
-                @test apply!(α, Direct, D, x, β, vcopy(y)) ≈
-                    T(α)*Dx + T(β)*y atol=atol rtol=rtol norm=vnorm2
-                @test apply!(α, Adjoint, D, y, β, vcopy(x)) ≈
-                    T(α)*Dty + T(β)*x atol=atol rtol=rtol norm=vnorm2
-                @test apply!(α, Direct, DtD, x, β, vcopy(z)) ≈
-                    T(α)*DtDx + T(β)*z atol=atol rtol=rtol norm=vnorm2
-            end
         end
     end
 end

@@ -1,26 +1,32 @@
+#
+# fft-tests.jl -
+#
+# Tests for FFT and circulant convolution operators.
+#
+
 using Test
 using LazyAlgebra
-using LazyAlgebra.FFTs
 using AbstractFFTs, FFTW
 
-let FLOATS = (Float32, Float64),
-    TYPES = (Float32, #Float64, Complex{Float32},
-             Complex{Float64}),
-    ALPHAS = (0, 1, -1,  2.71, π),
-    BETAS = (0, 1, -1, -1.33, Base.MathConstants.φ)
+@testset "FFT methods" begin
+    floats = (Float32, Float64)
+    types = (Float32, #Float64, Complex{Float32},
+             Complex{Float64})
+    alphas = (0, 1, -1,  2.71, π)
+    betas = (0, 1, -1, -1.33, Base.MathConstants.φ)
 
     @testset "FFT utilities" begin
         dims1 = (1, 2, 3, 4, 5, 7, 9, 287, 511)
         dims2 = (1, 2, 3, 4, 5, 8, 9, 288, 512)
         dims3 = (1, 2, 3, 4, 5, 8, 9, 288, 512)
-        @test goodfftdims(dims1) == dims2
-        @test goodfftdims(map(Int16, dims1)) == dims2
-        @test goodfftdims(dims1...) == dims2
-        @test rfftdims(1,2,3,4,5) == (1,2,3,4,5)
-        @test rfftdims(2,3,4,5) == (2,3,4,5)
-        @test rfftdims(3,4,5) == (2,4,5)
-        @test rfftdims(4,5) == (3,5)
-        @test rfftdims(5) == (3,)
+        @test LazyAlgebra.FFTs.goodfftdims(dims1) == dims2
+        @test LazyAlgebra.FFTs.goodfftdims(map(Int16, dims1)) == dims2
+        @test LazyAlgebra.FFTs.goodfftdims(dims1...) == dims2
+        @test LazyAlgebra.FFTs.rfftdims(1,2,3,4,5) == (1,2,3,4,5)
+        @test LazyAlgebra.FFTs.rfftdims(2,3,4,5) == (2,3,4,5)
+        @test LazyAlgebra.FFTs.rfftdims(3,4,5) == (2,4,5)
+        @test LazyAlgebra.FFTs.rfftdims(4,5) == (3,5)
+        @test LazyAlgebra.FFTs.rfftdims(5) == (3,)
         @test LazyAlgebra.FFTs.fftfreq(1) == [0]
         @test LazyAlgebra.FFTs.fftfreq(2) == [0,-1]
         @test LazyAlgebra.FFTs.fftfreq(3) == [0,1,-1]
@@ -28,7 +34,7 @@ let FLOATS = (Float32, Float64),
         @test LazyAlgebra.FFTs.fftfreq(5) == [0,1,2,-2,-1]
     end
 
-    @testset "FFT operator ($T)" for T in TYPES
+    @testset "FFT operator ($T)" for T in types
         R = real(T)
         ϵ = sqrt(eps(R)) # relative tolerance, can certainly be much tighter
         for dims in ((45,), (20,), (33,12), (30,20), (4,5,6))
@@ -96,8 +102,8 @@ let FLOATS = (Float32, Float64),
             @test x == xsav # check that input has been preserved
             @test y == ysav # check that input has been preserved
             @test y == ysav # check that input has been preserved
-            for α in ALPHAS,
-                β in BETAS,
+            for α in alphas,
+                β in betas,
                 scratch in (false, true)
                 @test apply!(α, Direct, F, x, scratch, β, vcopy(y)) ≈
                     R(α)*z + R(β)*y atol=0 rtol=ϵ
@@ -131,7 +137,7 @@ let FLOATS = (Float32, Float64),
         end
     end
 
-    @testset "Circular convolution ($T)" for T in TYPES
+    @testset "Circular convolution ($T)" for T in types
         R = real(T)
         ϵ = sqrt(eps(R)) # relative tolerance, can certainly be much tighter
         n1, n2, n3 = 18, 12, 4
@@ -182,8 +188,8 @@ let FLOATS = (Float32, Float64),
                 z4 = irfft(conj.(rfft(h)).*rfft(y), n1)
                 @test z1 ≈ z4 atol=0 rtol=ϵ
             end
-            for α in ALPHAS,
-                β in BETAS,
+            for α in alphas,
+                β in betas,
                 scratch in (false, true)
                 @test apply!(α, Direct, H, x, scratch, β, vcopy(y)) ≈
                     R(α)*y1 + R(β)*y atol=0 rtol=ϵ
@@ -202,7 +208,5 @@ let FLOATS = (Float32, Float64),
             end
         end
     end
-
 end
-
 nothing
