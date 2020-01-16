@@ -189,8 +189,8 @@ function SparseOperator{T}(A::SparseMatrixCSC{Tv,Ti};
                           nrows, ncols)
 end
 
-convert(::Type{T}, A::SparseOperator) where {T<:SparseOperator} = T(A)
-convert(::Type{T}, A::SparseMatrixCSC) where {T<:SparseOperator} = T(A)
+#convert(::Type{T}, A::SparseOperator) where {T<:SparseOperator} = T(A)
+#convert(::Type{T}, A::SparseMatrixCSC) where {T<:SparseOperator} = T(A)
 
 coefs(S::SparseOperator) = S.C
 rows(S::SparseOperator) = S.I
