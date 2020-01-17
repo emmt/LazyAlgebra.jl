@@ -48,12 +48,12 @@ to build an instance of `SparseOperator` whose coefficients have type `T`.
 
 
 !!! note
-    For efficiency reasons, sparse operators are currently limited to *flat*
-    Julia arrays because they can be indexed linearly with no loss of
-    performances.  If `C`, `I` and/or `J` are not flat arrays, they will be
-    automatically converted to linearly indexed arrays.
+    For efficiency reasons, sparse operators are currently limited to *fast*
+    arrays because they can be indexed linearly with no loss of performances.
+    If `C`, `I` and/or `J` are not fast arrays, they will be automatically
+    converted to linearly indexed arrays.
 
-See also [`isflatarray`](@ref), [`GeneralMatrix`](@ref) and [`lgemv`](@ref).
+See also [`isfastarray`](@ref), [`GeneralMatrix`](@ref) and [`lgemv`](@ref).
 
 """
 struct SparseOperator{T,M,N,
@@ -67,7 +67,7 @@ struct SparseOperator{T,M,N,
     coldims::NTuple{N,Int} # Dimensions of columns
     samedims::Bool         # Rows and columns have same dimensions
 
-    # The inner constructor checks whether arguments are indeed flat arrays,
+    # The inner constructor checks whether arguments are indeed fast arrays,
     # it is not meant to be directly called.
     function SparseOperator{T,M,N,Ti,Tj,Tc}(
         I::Ti, J::Tj, C::Tc,
@@ -107,9 +107,9 @@ function SparseOperator{T}(I::AbstractVector{<:Integer},
                            C::AbstractVector,
                            rowdims::Dimensions,
                            coldims::Dimensions) where {T}
-    _sparseoperator(flatvector(Int, I),
-                    flatvector(Int, J),
-                    flatvector(T,   C),
+    _sparseoperator(fastvector(Int, I),
+                    fastvector(Int, J),
+                    fastvector(T,   C),
                     dimensions(rowdims),
                     dimensions(coldims))
 end
@@ -118,7 +118,7 @@ SparseOperator(A::SparseOperator) = A
 SparseOperator{T}(A::SparseOperator{T}) where {T} = A
 SparseOperator{T}(A::SparseOperator) where {T} =
     SparseOperator(rows(A), cols(A), convert(Vector{T}, coefs(A)),
-                   rowdims(A), coldims(A))
+                   output_size(A), input_size(A))
 
 SparseOperator(A::AbstractArray{T}, n::Integer = 1) where {T} =
     SparseOperator{T}(A, n)
@@ -181,28 +181,28 @@ function SparseOperator{T}(A::SparseMatrixCSC{Tv,Ti};
     end
     return SparseOperator((copy ?
                            copyto!(Vector{Int}(undef, nz), A.rowval) :
-                           flatvector(Int, A.rowval)),
+                           fastvector(Int, A.rowval)),
                           J,
                           (copy || T !== Tv ?
                            copyto!(Vector{T}(undef, nz), A.nzval) :
-                           flatvector(Tv, A.nzval)),
+                           fastvector(Tv, A.nzval)),
                           nrows, ncols)
 end
 
 #convert(::Type{T}, A::SparseOperator) where {T<:SparseOperator} = T(A)
 #convert(::Type{T}, A::SparseMatrixCSC) where {T<:SparseOperator} = T(A)
 
+eltype(S::SparseOperator{T,M,N}) where {T,M,N} = T
+ndims(S::SparseOperator{T,M,N}) where {T,M,N} = N+M
+
 coefs(S::SparseOperator) = S.C
 rows(S::SparseOperator) = S.I
 cols(S::SparseOperator) = S.J
-rowdims(S::SparseOperator) = S.rowdims
-coldims(S::SparseOperator) = S.coldims
+output_size(S::SparseOperator) = S.rowdims
+input_size(S::SparseOperator) = S.coldims
 samedims(S::SparseOperator) = S.samedims
-nrows(S::SparseOperator) = prod(rowdims(S))
-ncols(S::SparseOperator) = prod(coldims(S))
-
-input_size(S::SparseOperator) = coldims(S)
-output_size(S::SparseOperator) = rowdims(S)
+nrows(S::SparseOperator) = prod(output_size(S))
+ncols(S::SparseOperator) = prod(input_size(S))
 
 """
 ```julia
@@ -213,29 +213,33 @@ checks integrity of operator `A` and returns it.
 
 """
 function check(S::SparseOperator{T,M,N}) where {T,M,N}
-    @assert isflatarray(coefs(S), rows(S), cols(S))
-    @assert samedims(S) == (rowdims(S) == coldims(S))
-    imin, imax = extrema(rows(S))
-    jmin, jmax = extrema(cols(S))
-    @assert 1 ≤ imin ≤ imax ≤ nrows(S)
-    @assert 1 ≤ jmin ≤ jmax ≤ ncols(S)
+    @assert isfastarray(coefs(S), rows(S), cols(S))
+    @assert length(coefs(S)) == length(rows(S)) == length(cols(S))
+    @assert samedims(S) == (output_size(S) == input_size(S))
+    imin, imax = 1, nrows(S)
+    @inbounds for i in rows(S)
+        imin ≤ i ≤ imax || throw(AssertionError("out of range row index"))
+    end
+    jmin, jmax = 1, ncols(S)
+    @inbounds for j in cols(S)
+        jmin ≤ j ≤ jmax || throw(AssertionError("out of range column index"))
+    end
     return S
 end
 
 are_same_mappings(A::T, B::T) where {T<:SparseOperator} =
     (coefs(A) === coefs(B) && rows(A) === rows(B) && cols(A) === cols(B) &&
-     rowdims(A) == rowdims(B) && coldims(A) == coldims(B))
+     output_size(A) == output_size(B) && input_size(A) == input_size(B))
 
 EndomorphismType(S::SparseOperator) =
     (samedims(S) ? Endomorphism() : Morphism())
 
-# Convert to a sparse matrix (silently "flatten" the operator if columns/rows
-# were multi-dimensional).
+# Convert to a sparse matrix.
 sparse(A::SparseOperator) =
     sparse(rows(A), cols(A), coefs(A), nrows(A), ncols(A))
 
 Base.Array(S::SparseOperator{T}) where {T} =
-    unpack!(zeros(T, (rowdims(S)..., coldims(S)...)), S)
+    unpack!(zeros(T, (output_size(S)..., input_size(S)...,)), S)
 
 Base.Matrix(S::SparseOperator{T}) where {T} =
     unpack!(zeros(T, (nrows(S), ncols(S))), S)
@@ -305,10 +309,10 @@ function *(α::Number, A::SparseOperator{T})::SparseOperator where {T}
     elseif α == zero(α)
         nil = Vector{Int}(undef, 0)
         return SparseOperator(nil, nil, Vector{T}(undef, 0),
-                              rowdims(A), coldims(A))
+                              output_size(A), input_size(A))
     else
         return SparseOperator(rows(A), cols(A), vscale(α, coefs(A)),
-                              rowdims(A), coldims(A))
+                              output_size(A), input_size(A))
     end
 end
 
@@ -316,23 +320,23 @@ end
 function *(W::NonuniformScalingOperator, S::SparseOperator)::SparseOperator
     D = contents(W)
     @assert has_standard_indexing(D)
-    size(D) == rowdims(S) ||
+    size(D) == output_size(S) ||
         throw(DimensionMismatch("the non-uniform scaling array and the rows of the sparse operator must have the same dimensions"))
     I, J, C = rows(S), cols(S), coefs(S)
     T = promote_type(eltype(D), eltype(C))
     return SparseOperator(I, J, _leftscalesparse(T, D, I, C),
-                          rowdims(S), coldims(S))
+                          output_size(S), input_size(S))
 end
 
 function *(S::SparseOperator, W::NonuniformScalingOperator)::SparseOperator
     D = contents(W)
     @assert has_standard_indexing(D)
-    size(D) == coldims(S) ||
+    size(D) == input_size(S) ||
         throw(DimensionMismatch("the non-uniform scaling array and the columns of the sparse operator must have the same dimensions"))
     I, J, C = rows(S), cols(S), coefs(S)
     T = promote_type(eltype(D), eltype(C))
     return SparseOperator(I, J, _rightscalesparse(T, C, D, J),
-                          rowdims(S), coldims(S))
+                          output_size(S), input_size(S))
 end
 
 function _leftscalesparse(::Type{T},
@@ -378,8 +382,8 @@ function vcreate(::Type{Direct},
                  x::AbstractArray{Tx,N},
                  scratch::Bool) where {Ts<:Real,Tx<:Real,M,N}
     # In-place operation is not possible so we simply ignore the scratch flag.
-    size(x) == coldims(S) || _bad_input_dimensions()
-    return Array{promote_type(Ts,Tx)}(undef, rowdims(S))
+    size(x) == input_size(S) || _bad_input_dimensions()
+    return Array{promote_type(Ts,Tx)}(undef, output_size(S))
 end
 
 function vcreate(::Type{Adjoint},
@@ -387,8 +391,8 @@ function vcreate(::Type{Adjoint},
                  x::AbstractArray{Tx,M},
                  scratch::Bool) where {Ts<:Real,Tx<:Real,M,N}
     # In-place operation is not possible so we simply ignore the scratch flag.
-    size(x) == rowdims(S) || _bad_input_dimensions()
-    return Array{promote_type(Ts,Tx)}(undef, coldims(S))
+    size(x) == output_size(S) || _bad_input_dimensions()
+    return Array{promote_type(Ts,Tx)}(undef, input_size(S))
 end
 
 function apply!(α::Real,
@@ -399,10 +403,10 @@ function apply!(α::Real,
                 β::Real,
                 y::AbstractArray{Ty,M}) where {Ts<:Number,Tx<:Number,
                                                Ty<:Number,M,N}
-    size(x) == coldims(S)    || _bad_input_dimensions()
-    has_standard_indexing(x) || _bad_input_indexing()
-    size(y) == rowdims(S)    || _bad_output_dimensions()
-    has_standard_indexing(y) || _bad_output_indexing()
+    size(x) == input_size(S)  || _bad_input_dimensions()
+    has_standard_indexing(x)  || _bad_input_indexing()
+    size(y) == output_size(S) || _bad_output_dimensions()
+    has_standard_indexing(y)  || _bad_output_indexing()
     β == 1 || vscale!(y, β)
     α == 0 || _apply_sparse!(y,
                              convert_multiplier(α, promote_type(Ts, Tx), Ty),
@@ -418,10 +422,10 @@ function apply!(α::Real,
                 β::Real,
                 y::AbstractArray{Ty,N}) where {Ts<:Number,Tx<:Number,
                                                Ty<:Number,M,N}
-    size(x) == rowdims(S)    || _bad_input_dimensions()
-    has_standard_indexing(x) || _bad_input_indexing()
-    size(y) == coldims(S)    || _bad_output_dimensions()
-    has_standard_indexing(y) || _bad_output_indexing()
+    size(x) == output_size(S) || _bad_input_dimensions()
+    has_standard_indexing(x)  || _bad_input_indexing()
+    size(y) == input_size(S)  || _bad_output_dimensions()
+    has_standard_indexing(y)  || _bad_output_indexing()
     β == 1 || vscale!(y, β)
     α == 0 || _apply_sparse!(y, convert_multiplier(α, promote_type(Ts, Tx), Ty),
                              coefs(S), cols(S), rows(S), x)
