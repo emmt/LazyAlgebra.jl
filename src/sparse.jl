@@ -296,9 +296,9 @@ function Base.reshape(S::SparseOperator,
                       rowdims::Tuple{Vararg{Int}},
                       coldims::Tuple{Vararg{Int}})
     prod(rowdims) == nrows(S) ||
-        throw(DimensionMismatch("product of row dimensions must be equal"))
+        throw(DimensionMismatch("products of row dimensions must be equal"))
     prod(coldims) == ncols(S) ||
-        throw(DimensionMismatch("product of column dimensions must be equal"))
+        throw(DimensionMismatch("products of column dimensions must be equal"))
     return SparseOperator(rows(S), cols(S), coefs(S), rowdims, coldims)
 end
 
