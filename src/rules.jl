@@ -200,7 +200,7 @@ _is_diagonal(::NonDiagonalMapping) = false
 #------------------------------------------------------------------------------
 # General simplification rules:
 #
-#  - Factorize multipliers to to the left.
+#  - Factorize multipliers to the left.
 #
 #  - Adjoint of a sum (or a composition) of terms is rewritten as the sum
 #    (respectively composition) of the adjoint of the terms.
@@ -653,8 +653,8 @@ See also: [`Mapping`](@ref), [`apply`](@ref).
 
 """
 vcreate(A::Mapping, x, scratch::Bool=false) = vcreate(Direct, A, x, scratch)
-vcreate(::Type{P}, A::Mapping, x, scratch::Bool=false) where {P<:Operations} =
-    vcreate(P, A, x, scratch)
+vcreate(::Type{P}, A::Mapping, x) where {P<:Operations} =
+    vcreate(P, A, x, false)
 
 """
 ```julia
@@ -691,7 +691,6 @@ See also: [`Mapping`](@ref), [`apply!`](@ref), [`vcreate`](@ref).
 
 """
 apply(A::Mapping, x, scratch::Bool=false) = apply(Direct, A, x, scratch)
-
 apply(P::Type{<:Operations}, A::Mapping, x, scratch::Bool=false) =
     apply!(1, P, A, x, scratch, 0, vcreate(P, A, x, scratch))
 
