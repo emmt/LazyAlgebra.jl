@@ -78,21 +78,16 @@ end
 
 @callable CroppingOperator
 
-@static if isdefined(Base, :CartesianIndices)
-    commonpart(C::CroppingOperator) = CartesianIndices(output_size(C))
-else
-    commonpart(C::CroppingOperator) = CartesianRange(output_size(C))
-end
-
+commonpart(C::CroppingOperator) = CartesianIndices(output_size(C))
 offset(C::CroppingOperator) = C.offset
 
 input_ndims(C::CroppingOperator{N}) where {N} = N
 input_size(C::CroppingOperator) = C.inpdims
-input_size(C::CroppingOperator, d...) = input_size(C)[d]
+input_size(C::CroppingOperator, i...) = input_size(C)[i...]
 
 output_ndims(C::CroppingOperator{N}) where {N} = N
 output_size(C::CroppingOperator) = C.outdims
-output_size(C::CroppingOperator, d...) = output_size(C)[d]
+output_size(C::CroppingOperator, i...) = output_size(C)[i...]
 
 # Union of acceptable types for the offset.
 const Offset = Union{CartesianIndex,Integer,Tuple{Vararg{Integer}}}
