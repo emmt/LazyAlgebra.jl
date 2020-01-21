@@ -132,30 +132,30 @@ function SparseOperator{T}(A::AbstractArray{S,N}, n::Integer = 1) where {T,S,N}
     nrows = prod(rowdims)
     ncols = prod(coldims)
     nz = 0
-    @inbounds for k in eachindex(A)
-        if A[k] != zero(S)
+    @inbounds for l in eachindex(A)
+        if A[l] != zero(S)
             nz += 1
         end
     end
     C = Array{T}(undef, nz)
     I = Array{Int}(undef, nz)
     J = Array{Int}(undef, nz)
-    i, j, l = 0, 1, 0
-    @inbounds for k in eachindex(A)
+    i, j, k = 0, 1, 0
+    @inbounds for l in eachindex(A)
         if i < nrows
             i += 1
         else
             i = 1
             j += 1
         end
-        if (a = A[k]) != zero(S)
-            l += 1
-            C[l] = a
-            I[l] = i
-            J[l] = j
+        if (a = A[l]) != zero(S)
+            k += 1
+            C[k] = a
+            I[k] = i
+            J[k] = j
         end
     end
-    @assert l == nz
+    @assert k == nz
     return SparseOperator(I, J, C, rowdims, coldims)
 end
 
@@ -406,10 +406,32 @@ function apply!(α::Real,
     has_standard_indexing(x)  || _bad_input_indexing()
     size(y) == output_size(S) || _bad_output_dimensions()
     has_standard_indexing(y)  || _bad_output_indexing()
-    β == 1 || vscale!(y, β)
-    α == 0 || _apply_sparse!(y,
-                             convert_multiplier(α, promote_type(Ts, Tx), Ty),
-                             coefs(S), rows(S), cols(S), x)
+    β != 1 && vscale!(y, β)
+    if α != 0
+        I, J, C = rows(S), cols(S), coefs(S)
+        n = length(C)
+        length(I) == length(J) == n ||
+            error("corrupted sparse operator structure")
+        if α == 1
+            @inbounds for k in Base.OneTo(n)
+                i, j, c = I[k], J[k], C[k]
+                y[i] += x[j]*c
+            end
+        elseif α == -1
+            @inbounds for k in Base.OneTo(n)
+                i, j, c = I[k], J[k], C[k]
+                y[i] -= x[j]*c
+            end
+        else
+            # The ordering of operations is to minimize the number of
+            # operations in case c is complex while α and x are reals.
+            alpha = convert_multiplier(α, promote_type(Ts, Tx), Ty)
+            @inbounds for k in Base.OneTo(n)
+                i, j, c = I[k], J[k], C[k]
+                y[i] += (alpha*x[j])*c
+            end
+        end
+    end
     return y
 end
 
@@ -424,85 +446,31 @@ function apply!(α::Real,
     has_standard_indexing(x)  || _bad_input_indexing()
     size(y) == input_size(S)  || _bad_output_dimensions()
     has_standard_indexing(y)  || _bad_output_indexing()
-    β == 1 || vscale!(y, β)
-    α == 0 || _apply_sparse!(y, convert_multiplier(α, promote_type(Ts, Tx), Ty),
-                             coefs(S), cols(S), rows(S), x)
+    β != 1 && vscale!(y, β)
+    if α != 0
+        I, J, C = rows(S), cols(S), coefs(S)
+        n = length(C)
+        length(I) == length(J) == n ||
+            error("corrupted sparse operator structure")
+        if α == 1
+            @inbounds for k in Base.OneTo(n)
+                i, j, c = I[k], J[k], C[k]
+                y[j] += x[i]*conj(c)
+            end
+        elseif α == -1
+            @inbounds for k in Base.OneTo(n)
+                i, j, c = I[k], J[k], C[k]
+                y[j] -= x[i]*conj(c)
+            end
+        else
+            # The ordering of operations is to minimize the number of
+            # operations in case c is complex while α and x are reals.
+            alpha = convert_multiplier(α, promote_type(Ts, Tx), Ty)
+            @inbounds for k in Base.OneTo(n)
+                i, j, c = I[k], J[k], C[k]
+                y[i] += (alpha*x[j])*conj(c)
+            end
+        end
+    end
     return y
-end
-
-function _apply_sparse!(y::AbstractArray{<:Real},
-                        α::Real,
-                        C::AbstractVector{<:Real},
-                        I::AbstractVector{Int},
-                        J::AbstractVector{Int},
-                        x::AbstractArray{<:Real})
-    # We already known that α is non-zero.
-    length(I) == length(J) == length(C) ||
-        error("corrupted sparse operator structure")
-    if α == 1
-        @inbounds for k in 1:length(C)
-            c, i, j = C[k], I[k], J[k]
-            y[i] += c*x[j]
-        end
-    elseif α == -1
-        @inbounds for k in 1:length(C)
-            c, i, j = C[k], I[k], J[k]
-            y[i] -= c*x[j]
-        end
-    else
-        @inbounds for k in 1:length(C)
-            c, i, j = C[k], I[k], J[k]
-            y[i] += α*c*x[j]
-        end
-    end
-end
-
-function _apply_sparse!(y::AbstractArray{<:Complex},
-                        α::Real,
-                        C::AbstractVector{<:Complex},
-                        I::AbstractVector{Int},
-                        J::AbstractVector{Int},
-                        x::AbstractArray{<:Real})
-    # We already known that α is non-zero.
-    if α == 1
-        @inbounds for k in 1:length(C)
-            c, i, j = C[k], I[k], J[k]
-            y[i] += c*x[j]
-        end
-    elseif α == -1
-        @inbounds for k in 1:length(C)
-            c, i, j = C[k], I[k], J[k]
-            y[i] -= c*x[j]
-        end
-    else
-        @inbounds for k in 1:length(C)
-            c, i, j = C[k], I[k], J[k]
-            y[i] += c*(α*x[j])
-        end
-    end
-end
-
-function _apply_sparse!(y::AbstractArray{<:Complex},
-                        α::Real,
-                        C::AbstractVector{<:Complex},
-                        I::AbstractVector{Int},
-                        J::AbstractVector{Int},
-                        x::AbstractArray{<:Complex})
-    # We already known that α is non-zero.
-    if α == 1
-        @inbounds for k in 1:length(C)
-            c, i, j = C[k], I[k], J[k]
-            y[i] += c*x[j]
-        end
-    elseif α == -1
-        @inbounds for k in 1:length(C)
-            c, i, j = C[k], I[k], J[k]
-            y[i] -= c*x[j]
-        end
-    else
-        @inbounds for k in 1:length(C)
-            c, i, j = C[k], I[k], J[k]
-            y[i] += α*c*x[j]
-        end
-    end
 end

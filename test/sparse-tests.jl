@@ -9,21 +9,22 @@ using LazyAlgebra
 using Test
 
 @testset "Sparse operators" begin
-    include("common.jl")
     rows = (2,3,4)
     cols = (5,6)
     nrows = prod(rows)
     ncols = prod(cols)
-    for T in (Float32, Float64)
-        ε = eps(T)
+    for T in (Float32, Float64, Complex{Float64})
+        R = real(T)
+        ε = eps(R)
         A = randn(T, rows..., cols...)
         A[rand(Float64, size(A)) .≤ 0.7] .= 0 # 70% of zeros
         x = randn(T, cols)
         xsav = vcopy(x)
         y = randn(T, rows)
         ysav = vcopy(y)
-        G = GeneralMatrix(A)
         S = SparseOperator(A, length(rows))
+
+        # Check basic methods.
         @test eltype(S) === T
         @test ndims(S) == length(rows) + length(cols)
         @test is_endomorphism(S) == (rows == cols)
@@ -35,6 +36,50 @@ using Test
         @test SparseOperator{T}(S) === S
         @test LazyAlgebra.are_same_mappings(SparseOperator(S), S)
         @test LazyAlgebra.are_same_mappings(SparseOperator{T}(S), S)
+
+        # Check `apply!` and `vcreate`.
+        @test_throws DimensionMismatch vcreate(Direct, S,
+                                               randn(T, size(x) .+ 1))
+        @test_throws DimensionMismatch vcreate(Adjoint, S,
+                                               randn(T, size(y) .+ 1))
+        atol, rtol = zero(R), sqrt(ε)
+        Sx  = S*x;  @test x == xsav
+        Sty = S'*y; @test y == ysav
+        @test vdot(y, Sx) ≈ vdot(Sty, x)
+        for α in (0, 1, -1,  ),#2.71, π),
+            β in (0, 1, -1, ),#-1.33, Base.MathConstants.φ),
+            scratch in (false, true)
+            # Test operator.
+            @test apply!(α, Direct, S, x, scratch, β, vcopy(y)) ≈
+                R(α)*Sx + R(β)*y  atol=atol rtol=rtol
+            if scratch
+                vcopy!(x, xsav)
+            else
+                @test x == xsav
+            end
+            # Test  adjoint.
+            @test apply!(α, Adjoint, S, y, scratch, β, vcopy(x)) ≈
+                R(α)*Sty + R(β)*x  atol=atol rtol=rtol
+            if scratch
+                vcopy!(y, ysav)
+            else
+                @test y == ysav
+            end
+        end
+
+        # Compare to results with a general matrix.
+        G = GeneralMatrix(A)
+        Gx  = G*x;  @test x == xsav
+        Gty = G'*y; @test y == ysav
+        @test Sx  ≈ Gx   atol=atol rtol=rtol
+        @test Sty ≈ Gty  atol=atol rtol=rtol
+
+        # Compare to results with a 2D matrix and 1D vectors.
+        Aflat = reshape(A, nrows, ncols)
+        xflat = reshape(x, ncols)
+        yflat = reshape(y, nrows)
+        @test Sx  ≈ reshape(Aflat*xflat,  rows)  atol=atol rtol=rtol
+        @test Sty ≈ reshape(Aflat'*yflat, cols)  atol=atol rtol=rtol
 
         # Extract coefficients as an array or as a matrix.
         A1 = Array(S)
@@ -51,7 +96,9 @@ using Test
         @test Array(SparseOperator(B, length(rows))) == B
 
         # Convert to another floating-point type.
-        T1 = (T === Float32 ? Float64 : Float32)
+        T1 = (T <: Complex ?
+              (real(T) === Float32 ? Complex{Float64} : Complex{Float32}) :
+              (T === Float32 ? Float64 : Float32))
         S1 = SparseOperator{T1}(S)
         @test eltype(S1) === T1
         @test ndims(S1) == ndims(S)
@@ -89,7 +136,7 @@ using Test
         @test eltype(S0) == eltype(S)
         @test input_size(S0) == input_size(S)
         @test output_size(S0) == output_size(S)
-        α = T(π)
+        α = R(π)
         αS = α*S
         @test isa(αS, SparseOperator)
         @test LazyAlgebra.rows(αS) === LazyAlgebra.rows(S)
@@ -125,45 +172,15 @@ using Test
         @test LazyAlgebra.rows(S_W2) === LazyAlgebra.rows(S)
         @test LazyAlgebra.coefs(S_W2) ≈ c2 atol=0 rtol=2ε
 
-        # Check `apply!` and `vcreate`.
-        @test_throws DimensionMismatch vcreate(Direct, S,
-                                               randn(T, size(x) .+ 1))
-        @test_throws DimensionMismatch vcreate(Adjoint, S,
-                                               randn(T, size(y) .+ 1))
-        atol, rtol = zero(T), sqrt(ε)
-        mA = reshape(A, nrows, ncols)
-        vx = reshape(x, ncols)
-        vy = reshape(y, nrows)
-        Sx = S*x
-        @test x == xsav
-        Sty = S'*y
-        @test y == ysav
-        @test Sx  ≈ reshape(mA*vx,  rows)  atol=atol rtol=rtol
-        @test Sty ≈ reshape(mA'*vy, cols)  atol=atol rtol=rtol
-        @test Sx  ≈ G*x                    atol=atol rtol=rtol
-        @test x == xsav
-        @test Sty ≈ G'*y                   atol=atol rtol=rtol
-        @test y == ysav
-
         # Use another constructor with integer conversion.
         R = SparseOperator(Int32.(LazyAlgebra.rows(S)),
                            Int64.(LazyAlgebra.cols(S)),
                            LazyAlgebra.coefs(S),
                            Int32.(output_size(S)),
                            Int64.(input_size(S)))
-        @test Sx  ≈ R*x  atol=atol rtol=rtol
-        @test Sty ≈ R'*y atol=atol rtol=rtol
+        @test Sx  ≈ R*x   atol=atol rtol=rtol
+        @test Sty ≈ R'*y  atol=atol rtol=rtol
 
-        # Test API for reals and complexes.
-        test_api(Direct, S, x, y)
-        test_api(Adjoint, S, x, y)
-        Az = randn(Complex{T}, rows..., cols...)
-        Az[rand(Float64, size(Az)) .≤ 0.7] .= 0 # 70% of zeros
-        Xz = randn(Complex{T}, cols)
-        Yz = randn(Complex{T}, rows)
-        Sz = SparseOperator(Az, ndims(Yz))
-        test_api(Direct, Sz, Xz, Yz)
-        test_api(Adjoint, Sz, Xz, Yz)
     end
 end
 nothing
