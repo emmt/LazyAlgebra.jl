@@ -97,7 +97,7 @@ end
 MorphismType(::NonuniformScalingOperator) = Endomorphism()
 DiagonalType(::NonuniformScalingOperator) = DiagonalMapping()
 SelfAdjointType(A::NonuniformScalingOperator) =
-    _selfadjointtype(eltype(contents(A)), A)
+    _selfadjointtype(eltype(coefficients(A)), A)
 _selfadjointtype(::Type{<:Real}, ::NonuniformScalingOperator) =
     SelfAdjoint()
 _selfadjointtype(::Type{<:Complex}, ::NonuniformScalingOperator) =
@@ -117,7 +117,7 @@ See also: [`NonuniformScalingOperator`](@ref), [`diag`](@ref).
 """
 Diag(A) = NonuniformScalingOperator(A)
 
-contents(A::NonuniformScalingOperator) = A.diag
+coefficients(A::NonuniformScalingOperator) = A.diag
 LinearAlgebra.diag(A::NonuniformScalingOperator) = A.diag
 
 # FIXME: This is nearly the default implementation.
@@ -181,12 +181,12 @@ end
 *(α::Number, A::NonuniformScalingOperator)::NonuniformScalingOperator =
     (α == one(α) ? A :
      # FIXME: α = zero(α) should be treated specifically
-     NonuniformScalingOperator(vscale(α, contents(A))))
+     NonuniformScalingOperator(vscale(α, coefficients(A))))
 
 # Extend composition of diagonal operators.
 function *(A::NonuniformScalingOperator,
            B::NonuniformScalingOperator)::NonuniformScalingOperator
-    return NonuniformScalingOperator(vproduct(contents(A), contents(B)))
+    return NonuniformScalingOperator(vproduct(coefficients(A), coefficients(B)))
 end
 
 """
@@ -326,7 +326,7 @@ function apply!(α::Number,
                                                Tw<:Floats,
                                                Tx<:Floats,
                                                Ty<:Floats,N}
-    w = contents(W)
+    w = coefficients(W)
     @assert axes(w) == axes(x) == axes(y)
     if α == 0
         vscale!(y, β)
@@ -504,7 +504,7 @@ end
 
 @callable GeneralMatrix
 
-contents(A) = A.arr # FIXME: coefs(A) ?, rows(A), cols(A)/colums(A)
+coefficients(A) = A.arr
 
 # Make a GeneralMatrix behaves like an ordinary array.
 eltype(A::GeneralMatrix) = eltype(A.arr)

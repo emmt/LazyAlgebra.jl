@@ -1,7 +1,6 @@
 # Deprecations in LazyAlgebra module.
 
-import Base: @deprecate
-
+@deprecate(contents(args...), coefficients(args...))
 @deprecate(makedims(args...), dimensions(args...))
 @deprecate(densearray(args...), flatarray(args...))
 @deprecate(densevector(args...), flatvector(args...))

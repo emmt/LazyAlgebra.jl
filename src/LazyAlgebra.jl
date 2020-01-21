@@ -55,7 +55,7 @@ export
     apply,
     conjgrad!,
     conjgrad,
-    contents,
+    coefficients,
     diag,
     gram,
     input_eltype,

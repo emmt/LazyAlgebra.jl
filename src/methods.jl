@@ -241,6 +241,17 @@ for f in (:input_eltype, :output_eltype, :input_size, :output_size)
 end
 
 """
+
+```julia
+coefficients(A)
+```
+
+yields the object backing the storage of the coefficients of the linear mapping
+`A`.  Not all linear mappings extend this method.
+
+""" coefficients
+
+"""
 ```julia
 checkmapping(y, A, x) -> (v1, v2, v1 - v2)
 ```

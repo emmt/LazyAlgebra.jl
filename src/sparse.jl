@@ -117,7 +117,7 @@ end
 SparseOperator(A::SparseOperator) = A
 SparseOperator{T}(A::SparseOperator{T}) where {T} = A
 SparseOperator{T}(A::SparseOperator) where {T} =
-    SparseOperator(rows(A), cols(A), convert(Vector{T}, coefs(A)),
+    SparseOperator(rows(A), cols(A), convert(Vector{T}, coefficients(A)),
                    output_size(A), input_size(A))
 
 SparseOperator(A::AbstractArray{T}, n::Integer = 1) where {T} =
@@ -195,7 +195,7 @@ end
 eltype(S::SparseOperator{T,M,N}) where {T,M,N} = T
 ndims(S::SparseOperator{T,M,N}) where {T,M,N} = N+M
 
-coefs(S::SparseOperator) = S.C
+coefficients(S::SparseOperator) = S.C
 rows(S::SparseOperator) = S.I
 cols(S::SparseOperator) = S.J
 output_size(S::SparseOperator) = S.rowdims
@@ -213,8 +213,8 @@ checks integrity of operator `A` and returns it.
 
 """
 function check(S::SparseOperator{T,M,N}) where {T,M,N}
-    @assert isfastarray(coefs(S), rows(S), cols(S))
-    @assert length(coefs(S)) == length(rows(S)) == length(cols(S))
+    @assert isfastarray(coefficients(S), rows(S), cols(S))
+    @assert length(coefficients(S)) == length(rows(S)) == length(cols(S))
     @assert samedims(S) == (output_size(S) == input_size(S))
     imin, imax = 1, nrows(S)
     @inbounds for i in rows(S)
@@ -228,7 +228,7 @@ function check(S::SparseOperator{T,M,N}) where {T,M,N}
 end
 
 are_same_mappings(A::T, B::T) where {T<:SparseOperator} =
-    (coefs(A) === coefs(B) && rows(A) === rows(B) && cols(A) === cols(B) &&
+    (coefficients(A) === coefficients(B) && rows(A) === rows(B) && cols(A) === cols(B) &&
      output_size(A) == output_size(B) && input_size(A) == input_size(B))
 
 EndomorphismType(S::SparseOperator) =
@@ -236,7 +236,7 @@ EndomorphismType(S::SparseOperator) =
 
 # Convert to a sparse matrix.
 sparse(A::SparseOperator) =
-    sparse(rows(A), cols(A), coefs(A), nrows(A), ncols(A))
+    sparse(rows(A), cols(A), coefficients(A), nrows(A), ncols(A))
 
 Base.Array(S::SparseOperator{T}) where {T} =
     unpack!(zeros(T, (output_size(S)..., input_size(S)...,)), S)
@@ -261,7 +261,7 @@ elements).
 """
 function unpack!(A::Array{T}, S::SparseOperator{T}) where {T}
     @assert length(A) == nrows(S)*ncols(S)
-    I, J, C = rows(S), cols(S), coefs(S)
+    I, J, C = rows(S), cols(S), coefficients(S)
     len = length(C)
     @assert length(I) == length(J) == len
     stride = nrows(S)
@@ -274,7 +274,7 @@ end
 
 function unpack!(A::Array{Bool}, S::SparseOperator{Bool})
     @assert length(A) == nrows(S)*ncols(S)
-    I, J, C = rows(S), cols(S), coefs(S)
+    I, J, C = rows(S), cols(S), coefficients(S)
     len = length(C)
     @assert length(I) == length(J) == len
     stride = nrows(S)
@@ -299,7 +299,7 @@ function Base.reshape(S::SparseOperator,
         throw(DimensionMismatch("products of row dimensions must be equal"))
     prod(coldims) == ncols(S) ||
         throw(DimensionMismatch("products of column dimensions must be equal"))
-    return SparseOperator(rows(S), cols(S), coefs(S), rowdims, coldims)
+    return SparseOperator(rows(S), cols(S), coefficients(S), rowdims, coldims)
 end
 
 # Extend left multiplication (and division) by a scalar.
@@ -311,29 +311,29 @@ function *(α::Number, A::SparseOperator{T})::SparseOperator where {T}
         return SparseOperator(nil, nil, Vector{T}(undef, 0),
                               output_size(A), input_size(A))
     else
-        return SparseOperator(rows(A), cols(A), vscale(α, coefs(A)),
+        return SparseOperator(rows(A), cols(A), vscale(α, coefficients(A)),
                               output_size(A), input_size(A))
     end
 end
 
 # Extend left and right composition by a diagonal operator.
 function *(W::NonuniformScalingOperator, S::SparseOperator)::SparseOperator
-    D = contents(W)
+    D = coefficients(W)
     @assert has_standard_indexing(D)
     size(D) == output_size(S) ||
         throw(DimensionMismatch("the non-uniform scaling array and the rows of the sparse operator must have the same dimensions"))
-    I, J, C = rows(S), cols(S), coefs(S)
+    I, J, C = rows(S), cols(S), coefficients(S)
     T = promote_type(eltype(D), eltype(C))
     return SparseOperator(I, J, _leftscalesparse(T, D, I, C),
                           output_size(S), input_size(S))
 end
 
 function *(S::SparseOperator, W::NonuniformScalingOperator)::SparseOperator
-    D = contents(W)
+    D = coefficients(W)
     @assert has_standard_indexing(D)
     size(D) == input_size(S) ||
         throw(DimensionMismatch("the non-uniform scaling array and the columns of the sparse operator must have the same dimensions"))
-    I, J, C = rows(S), cols(S), coefs(S)
+    I, J, C = rows(S), cols(S), coefficients(S)
     T = promote_type(eltype(D), eltype(C))
     return SparseOperator(I, J, _rightscalesparse(T, C, D, J),
                           output_size(S), input_size(S))
@@ -408,7 +408,7 @@ function apply!(α::Real,
     has_standard_indexing(y)  || _bad_output_indexing()
     β != 1 && vscale!(y, β)
     if α != 0
-        I, J, C = rows(S), cols(S), coefs(S)
+        I, J, C = rows(S), cols(S), coefficients(S)
         n = length(C)
         length(I) == length(J) == n ||
             error("corrupted sparse operator structure")
@@ -448,7 +448,7 @@ function apply!(α::Real,
     has_standard_indexing(y)  || _bad_output_indexing()
     β != 1 && vscale!(y, β)
     if α != 0
-        I, J, C = rows(S), cols(S), coefs(S)
+        I, J, C = rows(S), cols(S), coefficients(S)
         n = length(C)
         length(I) == length(J) == n ||
             error("corrupted sparse operator structure")

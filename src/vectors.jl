@@ -550,7 +550,7 @@ with the in-place version of the method:
 vcombine!(dst, α, x, β, y) -> dst
 ```
 
-The code is optimized for some specific values of the coefficients `α` and `β`.
+The code is optimized for some specific values of the multipliers `α` and `β`.
 For instance, if `α` (resp. `β`) is zero, then the prior contents of `x`
 (resp. `y`) is not used.
 

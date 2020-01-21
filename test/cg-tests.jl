@@ -24,7 +24,7 @@ const DEBUG = true
 
         # Least-squares solution using Julia linear algebra.
         yj = reshape(y, length(y))
-        Hj = reshape(contents(H), length(y), length(x))
+        Hj = reshape(coefficients(H), length(y), length(x))
         Aj = Hj'*Hj
         bj = Hj'*yj
         x0 = reshape(Aj\bj, cols)
