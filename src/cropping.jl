@@ -280,10 +280,9 @@ the same sense as assumed by `fftshift`) of dimensions of lengths `dim1` and
 index along `dim2`, then the index along `dim1` is `i1 = i2 + off`.
 
 """
-defaultoffset(dim1::Int, dim2::Int) = (dim1 >> 1) - (dim2 >> 1)
 defaultoffset(dim1::Integer, dim2::Integer) =
-    defaultoffset(Int(dim1), Int(dim2))
-defaultoffset(dims1::NTuple{N,Int}, dims2::NTuple{N,Int}) where N =
+    (Int(dim1) >> 1) - (Int(dim2) >> 1)
+defaultoffset(dims1::NTuple{N,Integer}, dims2::NTuple{N,Integer}) where {N} =
     CartesianIndex(map(defaultoffset, dims1, dims2))
 
 end # module
