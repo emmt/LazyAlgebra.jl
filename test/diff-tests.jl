@@ -8,9 +8,8 @@ using LazyAlgebra
 using Test
 
 @testset "Finite differences" begin
+    include("common.jl")
     types = (Float32, Float64)
-    alphas = (0, 1, -1,  2.71, π)
-    betas = (0, 1, -1, -1.33, Base.MathConstants.φ)
     sizes = ((50,), (8,9), (4,5,6))
     D = SimpleFiniteDifferences()
     DtD = gram(D)
@@ -65,31 +64,9 @@ using Test
         @test vnorm2(Dx - Dx_truth) == 0
         @test Dty ≈ Dty_truth atol=atol rtol=rtol norm=vnorm2
         @test DtDx ≈ D'*(D*x) atol=atol rtol=rtol norm=vnorm2
-        for α in alphas,
-            β in betas,
-            scratch in (false, true)
-            @test apply!(α, Direct, D, x, scratch, β, vcopy(y)) ≈
-                T(α)*Dx + T(β)*y atol=atol rtol=rtol norm=vnorm2
-            if scratch
-                vcopy!(x, xsav)
-            else
-                @test x == xsav
-            end
-            @test apply!(α, Adjoint, D, y, scratch, β, vcopy(x)) ≈
-                T(α)*Dty + T(β)*x atol=atol rtol=rtol norm=vnorm2
-            if scratch
-                vcopy!(y, ysav)
-            else
-                @test y == ysav
-            end
-            @test apply!(α, Direct, DtD, x, scratch, β, vcopy(z)) ≈
-                T(α)*DtDx + T(β)*z atol=atol rtol=rtol norm=vnorm2
-            if scratch
-                vcopy!(x, xsav)
-            else
-                @test x == xsav
-            end
-        end
+        test_api(Direct, D, x, y; atol=atol, rtol=rtol)
+        test_api(Adjoint, D, x, y; atol=atol, rtol=rtol)
+        test_api(Direct, DtD, x, z; atol=atol, rtol=rtol)
     end
 end
 nothing
