@@ -9,6 +9,7 @@ using LazyAlgebra
 using Test
 
 @testset "Sparse operators" begin
+    include("common.jl")
     rows = (2,3,4)
     cols = (5,6)
     nrows = prod(rows)
@@ -16,7 +17,7 @@ using Test
     for T in (Float32, Float64)
         ε = eps(T)
         A = randn(T, rows..., cols...)
-        A[rand(T, size(A)) .≤ 0.7] .= 0 # 70% of zeros
+        A[rand(Float64, size(A)) .≤ 0.7] .= 0 # 70% of zeros
         x = randn(T, cols)
         xsav = vcopy(x)
         y = randn(T, rows)
@@ -46,6 +47,8 @@ using Test
         @test ndims(A2) == 2
         @test size(A2) == (prod(rows), prod(cols))
         @test A2 == reshape(A, size(A2))
+        B = (A .!= 0) # make an array of booleans
+        @test Array(SparseOperator(B, length(rows))) == B
 
         # Convert to another floating-point type.
         T1 = (T === Float32 ? Float64 : Float32)
@@ -150,24 +153,17 @@ using Test
                            Int64.(input_size(S)))
         @test Sx  ≈ R*x  atol=atol rtol=rtol
         @test Sty ≈ R'*y atol=atol rtol=rtol
-        for α in (0, 1, -1,  2.71, π),
-            β in (0, 1, -1, -1.33, Base.MathConstants.φ),
-            scratch in (false, true)
-            @test apply!(α, Direct, S, x, scratch, β, vcopy(y)) ≈
-                T(α)*Sx + T(β)*y  atol=atol rtol=rtol
-            if scratch
-                vcopy!(x, xsav)
-            else
-                @test x == xsav
-            end
-            @test apply!(α, Adjoint, S, y, scratch, β, vcopy(x)) ≈
-                T(α)*Sty + T(β)*x atol=atol rtol=rtol
-            if scratch
-                vcopy!(y, ysav)
-            else
-                @test y == ysav
-            end
-        end
+
+        # Test API for reals and complexes.
+        test_api(Direct, S, x, y)
+        test_api(Adjoint, S, x, y)
+        Az = randn(Complex{T}, rows..., cols...)
+        Az[rand(Float64, size(Az)) .≤ 0.7] .= 0 # 70% of zeros
+        Xz = randn(Complex{T}, cols)
+        Yz = randn(Complex{T}, rows)
+        Sz = SparseOperator(Az, ndims(Yz))
+        test_api(Direct, Sz, Xz, Yz)
+        test_api(Adjoint, Sz, Xz, Yz)
     end
 end
 nothing

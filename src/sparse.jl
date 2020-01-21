@@ -107,9 +107,9 @@ function SparseOperator{T}(I::AbstractVector{<:Integer},
                            C::AbstractVector,
                            rowdims::Dimensions,
                            coldims::Dimensions) where {T}
-    _sparseoperator(fastvector(Int, I),
-                    fastvector(Int, J),
-                    fastvector(T,   C),
+    _sparseoperator(fastarray(Int, I),
+                    fastarray(Int, J),
+                    fastarray(T,   C),
                     dimensions(rowdims),
                     dimensions(coldims))
 end
@@ -181,11 +181,11 @@ function SparseOperator{T}(A::SparseMatrixCSC{Tv,Ti};
     end
     return SparseOperator((copy ?
                            copyto!(Vector{Int}(undef, nz), A.rowval) :
-                           fastvector(Int, A.rowval)),
+                           fastarray(Int, A.rowval)),
                           J,
                           (copy || T !== Tv ?
                            copyto!(Vector{T}(undef, nz), A.nzval) :
-                           fastvector(Tv, A.nzval)),
+                           fastarray(Tv, A.nzval)),
                           nrows, ncols)
 end
 
@@ -380,7 +380,7 @@ _bad_output_indexing() =
 function vcreate(::Type{Direct},
                  S::SparseOperator{Ts,M,N},
                  x::AbstractArray{Tx,N},
-                 scratch::Bool) where {Ts<:Real,Tx<:Real,M,N}
+                 scratch::Bool) where {Ts,Tx,M,N}
     # In-place operation is not possible so we simply ignore the scratch flag.
     size(x) == input_size(S) || _bad_input_dimensions()
     return Array{promote_type(Ts,Tx)}(undef, output_size(S))
@@ -389,7 +389,7 @@ end
 function vcreate(::Type{Adjoint},
                  S::SparseOperator{Ts,M,N},
                  x::AbstractArray{Tx,M},
-                 scratch::Bool) where {Ts<:Real,Tx<:Real,M,N}
+                 scratch::Bool) where {Ts,Tx,M,N}
     # In-place operation is not possible so we simply ignore the scratch flag.
     size(x) == output_size(S) || _bad_input_dimensions()
     return Array{promote_type(Ts,Tx)}(undef, input_size(S))
@@ -401,8 +401,7 @@ function apply!(α::Real,
                 x::AbstractArray{Tx,N},
                 scratch::Bool,
                 β::Real,
-                y::AbstractArray{Ty,M}) where {Ts<:Number,Tx<:Number,
-                                               Ty<:Number,M,N}
+                y::AbstractArray{Ty,M}) where {Ts,Tx,Ty,M,N}
     size(x) == input_size(S)  || _bad_input_dimensions()
     has_standard_indexing(x)  || _bad_input_indexing()
     size(y) == output_size(S) || _bad_output_dimensions()
@@ -420,8 +419,7 @@ function apply!(α::Real,
                 x::AbstractArray{Tx,M},
                 scratch::Bool,
                 β::Real,
-                y::AbstractArray{Ty,N}) where {Ts<:Number,Tx<:Number,
-                                               Ty<:Number,M,N}
+                y::AbstractArray{Ty,N}) where {Ts,Tx,Ty,M,N}
     size(x) == output_size(S) || _bad_input_dimensions()
     has_standard_indexing(x)  || _bad_input_indexing()
     size(y) == input_size(S)  || _bad_output_dimensions()
