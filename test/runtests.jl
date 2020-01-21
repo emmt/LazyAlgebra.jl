@@ -3,7 +3,7 @@ module LazyAlgebraTests
 using LazyAlgebra
 using Test
 
-include("utils.jl")
+include("common.jl")
 include("utils-tests.jl")
 test_utilities()
 include("genmult-tests.jl")
