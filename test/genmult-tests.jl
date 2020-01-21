@@ -295,3 +295,5 @@ function test_all(reduced::Bool=false)
 end
 
 end # module
+GenMultTests.test_all()
+nothing
