@@ -8,7 +8,7 @@
 # This file is part of LazyAlgebra (https://github.com/emmt/LazyAlgebra.jl)
 # released under the MIT "Expat" license.
 #
-# Copyright (c) 2017-2019 Éric Thiébaut.
+# Copyright (c) 2017-2020 Éric Thiébaut.
 #
 
 """
@@ -278,9 +278,9 @@ function _lgemm(::Linear,
     m, n, p, shape = _lgemm_dims(transA, A, transB, B, Nc)
     Tab, Tc = _lgemm_types(α, Ta, Tb)
     return _linear_lgemm!(m, n, p,
-                          convert_multiplier(α, Tab, Tc), transA, A,
+                          promote_multiplier(α, Tab), transA, A,
                           transB, B,
-                          convert_multiplier(0, Tc), Array{Tc}(undef, shape))
+                          promote_multiplier(0, Tc), Array{Tc}(undef, shape))
 end
 
 function _lgemm!(::Linear,
@@ -294,9 +294,9 @@ function _lgemm!(::Linear,
     m, n, p = _lgemm_dims(transA, A, transB, B, C)
     Tab = promote_type(Ta, Tb)
     return _linear_lgemm!(m, n, p,
-                          convert_multiplier(α, Tab, Tc), transA, A,
+                          promote_multiplier(α, Tab), transA, A,
                           transB, B,
-                          convert_multiplier(β, Tc), C)
+                          promote_multiplier(β, Tc), C)
 end
 
 # Julia implementations for any kind of abstract matrices.
@@ -311,9 +311,9 @@ function _lgemm(::Basic,
     I, J, K = _lgemm_indices(transA, A, transB, B, Nc)
     Tab, Tc = _lgemm_types(α, Ta, Tb)
     return _generic_lgemm!(I, J, K,
-                           convert_multiplier(α, Tab, Tc), transA, A,
+                           promote_multiplier(α, Tab), transA, A,
                            transB, B,
-                           convert_multiplier(0, Tc),
+                           promote_multiplier(0, Tc),
                            similar(Array{Tc}, (I, J)))
 end
 
@@ -328,9 +328,9 @@ function _lgemm!(::Basic,
     I, J, K = _lgemm_indices(transA, A, transB, B, C)
     Tab = promote_type(Ta, Tb)
     return _generic_lgemm!(I, J, K,
-                           convert_multiplier(α, Tab, Tc), transA, A,
+                           promote_multiplier(α, Tab), transA, A,
                            transB, B,
-                           convert_multiplier(β, Tc), C)
+                           promote_multiplier(β, Tc), C)
 end
 
 # Generic Julia implementation.
@@ -345,9 +345,9 @@ function _lgemm(::Generic,
     I, J, K = _lgemm_indices(transA, A, transB, B, Nc)
     Tab, Tc = _lgemm_types(α, Ta, Tb)
     return _generic_lgemm!(I, J, K,
-                           convert_multiplier(α, Tab, Tc), transA, A,
+                           promote_multiplier(α, Tab), transA, A,
                            transB, B,
-                           convert_multiplier(0, Tc),
+                           promote_multiplier(0, Tc),
                            similar(Array{Tc}, (I, J)))
 end
 
@@ -362,9 +362,9 @@ function _lgemm!(::Generic,
     I, J, K = _lgemm_indices(transA, A, transB, B, C)
     Tab = promote_type(Ta, Tb)
     return _generic_lgemm!(I, J, K,
-                           convert_multiplier(α, Tab, Tc), transA, A,
+                           promote_multiplier(α, Tab), transA, A,
                            transB, B,
-                           convert_multiplier(β, Tc), C)
+                           promote_multiplier(β, Tc), C)
 end
 
 function _lgemm(::Generic,
@@ -379,9 +379,9 @@ function _lgemm(::Generic,
     return _generic_lgemm!(cartesianindices(I),
                            cartesianindices(J),
                            cartesianindices(K),
-                           convert_multiplier(α, Tab, Tc), transA, A,
+                           promote_multiplier(α, Tab), transA, A,
                            transB, B,
-                           convert_multiplier(0, Tc),
+                           promote_multiplier(0, Tc),
                            similar(Array{Tc}, (I..., J...)))
 end
 
@@ -398,9 +398,9 @@ function _lgemm!(::Generic,
     return _generic_lgemm!(cartesianindices(I),
                            cartesianindices(J),
                            cartesianindices(K),
-                           convert_multiplier(α, Tab, Tc), transA, A,
+                           promote_multiplier(α, Tab), transA, A,
                            transB, B,
-                           convert_multiplier(β, Tc), C)
+                           promote_multiplier(β, Tc), C)
 end
 
 #

@@ -12,7 +12,7 @@
 # This file is part of LazyAlgebra (https://github.com/emmt/LazyAlgebra.jl)
 # released under the MIT "Expat" license.
 #
-# Copyright (c) 2017-2019 Éric Thiébaut.
+# Copyright (c) 2017-2020 Éric Thiébaut.
 #
 
 # To simplify the code, we rely on the fact that converting `x::T` to type `T`
@@ -327,7 +327,7 @@ for (Td, Ts) in ((:Td,            :Ts),
                     dst[i] = -src[i]
                 end
             else
-                a = convert_multiplier(α, Ts, Td)
+                a = promote_multiplier(α, Ts)
                 @inbounds @simd for i in eachindex(dst, src)
                     dst[i] = a*src[i]
                 end
@@ -348,7 +348,7 @@ function vscale!(x::AbstractArray{<:Union{T,Complex{T}}},
             x[i] = -x[i]
         end
     elseif α != 1
-        alpha = convert_multiplier(α, T)
+        alpha = promote_multiplier(α, T)
         @inbounds @simd for i in eachindex(x)
             x[i] *= alpha
         end
@@ -492,7 +492,7 @@ for (Tx, Ty) in ((:Tx,            :Ty),
                 y[i] -= x[i]
             end
         elseif α != 0
-            a = convert_multiplier(α, Tx, Ty)
+            a = promote_multiplier(α, Tx)
             @inbounds @simd for i in eachindex(y, x)
                 y[i] += a*x[i]
             end
@@ -519,7 +519,7 @@ for (Tx, Ty) in ((:Tx,            :Ty),
                 y[j] -= x[j]
             end
         elseif α != 0
-            a = convert_multiplier(α, Tx, Ty)
+            a = promote_multiplier(α, Tx)
             @inbounds @simd for i in eachindex(sel)
                 j = sel[i]
                 y[j] += a*x[j]
@@ -599,7 +599,7 @@ for (Td, Tx, Ty) in ((:Td,            :Tx,            :Ty),
                         dst[i] = x[i] - y[i]
                     end
                 else
-                    b = convert_multiplier(β, Ty, Td)
+                    b = promote_multiplier(β, Ty)
                     @inbounds @simd for i in eachindex(dst, x, y)
                         dst[i] = x[i] + b*y[i]
                     end
@@ -614,13 +614,13 @@ for (Td, Tx, Ty) in ((:Td,            :Tx,            :Ty),
                         dst[i] = -x[i] - y[i]
                     end
                 else
-                    b = convert_multiplier(β, Ty, Td)
+                    b = promote_multiplier(β, Ty)
                     @inbounds @simd for i in eachindex(dst, x, y)
                         dst[i] = b*y[i] - x[i]
                     end
                 end
             else
-                a = convert_multiplier(α, Tx, Td)
+                a = promote_multiplier(α, Tx)
                 if β == 1
                     @inbounds @simd for i in eachindex(dst, x, y)
                         dst[i] = a*x[i] + y[i]
@@ -630,7 +630,7 @@ for (Td, Tx, Ty) in ((:Td,            :Tx,            :Ty),
                         dst[i] = a*x[i] - y[i]
                     end
                 else
-                    b = convert_multiplier(β, Ty, Td)
+                    b = promote_multiplier(β, Ty)
                     @inbounds @simd for i in eachindex(dst, x, y)
                         dst[i] = a*x[i] + b*y[i]
                     end

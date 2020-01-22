@@ -1,6 +1,10 @@
 # Deprecations in LazyAlgebra module.
 
 @deprecate(contents(args...), coefficients(args...))
+@deprecate(convert_multiplier(λ::Number, T::Type),
+           promote_multiplier(λ, T))
+@deprecate(convert_multiplier(λ::Number, T::Type, ::Type),
+           promote_multiplier(λ, T))
 @deprecate(makedims(args...), dimensions(args...))
 @deprecate(densearray(args...), flatarray(args...))
 @deprecate(densevector(args...), flatvector(args...))

@@ -16,49 +16,54 @@ const Floats = Union{Reals,Complexes}
 """
 
 ```julia
-convert_multiplier(λ, T [, S=T])
+convert_multiplier(λ, T, S=T)
 ```
 
-yields multiplier `λ` converted to a suitable type for multiplying array whose
-elements have type `T` and for storage in a destination array whose elements
-have type `S`.
+yields multiplier `λ` converted to a suitable type for multiplying array(s)
+whose elements have floating-point type `T` and for storage in a destination
+array whose elements have type `S`.  This method is *type stable*.
 
 The following rules are applied:
 
-1. Convert `λ` to the same floating-point precision as `T`.
+1. The result has the same floating-point precision as `T`.
 
-2. The result is a real if `λ` is a real or both `T` and `S` are real types;
-   otherwise (that is if `λ` is complex and at least one of `T` or `S` is a
-   complex type), the result is a complex.
+2. The result is complex (of type `Complex{real(T)}`) if both `λ` and `S` are
+   complex; otherwise the result is real (of type `real(T)`).  In the latter
+   case, an `InexactError` exception may be thrown if `imag(λ)` is not zero.
 
-Result can be a real if imaginary part of `λ` is zero but this would break the
-rule of type-stability at compilation time.
+""" convert_multiplier
 
-"""
+# If λ ∈ ℝ, the returned multiplier is real with the same floating-point
+# precision as `T`.
 convert_multiplier(λ::Real, ::Type{T}) where {T<:Floats} =
     (isconcretetype(T) ? convert(real(T), λ) : operand_type_not_concrete(T))
-convert_multiplier(λ::Complex, ::Type{T}) where {T<:Floats} =
-    # Call to `convert` will clash if `T` is real and `imag(λ)` is non-zero
-    # (this is what we want).
-    (isconcretetype(T) ? convert(T, λ) : operand_type_not_concrete(T))
-
 convert_multiplier(λ::Real, ::Type{T}, ::Type{<:Number}) where {T<:Floats} =
     (isconcretetype(T) ? convert(real(T), λ) : operand_type_not_concrete(T))
+
+# If λ ∈ ℂ, the returned multiplier can only be complex if `S` is complex;
+# otherwise returned multiplier is real and the call to `convert` will clash if
+# `imag(λ)` is non-zero (this is what we want).
+convert_multiplier(λ::Complex, ::Type{T}) where {T<:Floats} =
+    # `T` and `S` are the same and may be real or complex.  The multiplier is
+    # converted to `T` which may be complex.
+    (isconcretetype(T) ? convert(T, λ) : operand_type_not_concrete(T))
 convert_multiplier(λ::Complex, ::Type{T}, ::Type{<:Real}) where {T<:Reals} =
-    # Call to `convert` will clash if `imag(λ)` is non-zero (this is what we
-    # want).
+    # `T` and `S` are reals.  The multiplier is converted to a real of same
+    # numerical precision as `T`, that is `T`.
     (isconcretetype(T) ? convert(T, λ) : operand_type_not_concrete(T))
 convert_multiplier(λ::Complex, ::Type{T}, ::Type{<:Complex}) where {T<:Floats} =
-    (isconcretetype(T) ? convert(Complex{real(T)}, λ) : operand_type_not_concrete(T))
+    # `S` and `λ` are complex, The multiplier is converted to a complex of same
+    # numerical precision as `T`.
+    (isconcretetype(T) ? convert(Complex{real(T)}, λ) :
+     operand_type_not_concrete(T))
 
+# Other possible cases throw errors.
 convert_multiplier(λ::L, ::Type{T}) where {L<:Number,T} =
     (isconcretetype(T) ? unsupported_multiplier_conversion(L, T, T) :
      operand_type_not_concrete(T))
-
 convert_multiplier(λ::L, ::Type{T}, ::Type{S}) where {L<:Number,T,S} =
     (isconcretetype(T) ? unsupported_multiplier_conversion(L, T, S) :
      operand_type_not_concrete(T))
-
 @noinline unsupported_multiplier_conversion(::Type{L}, ::Type{O}, ::Type{S}) where {L<:Number,O,S} =
     error("unsupported conversion of multiplier with type $L for operand with element type $O and storage with element type $S")
 

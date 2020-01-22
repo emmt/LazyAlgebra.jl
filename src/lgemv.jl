@@ -8,7 +8,7 @@
 # This file is part of LazyAlgebra (https://github.com/emmt/LazyAlgebra.jl)
 # released under the MIT "Expat" license.
 #
-# Copyright (c) 2017-2019 Éric Thiébaut.
+# Copyright (c) 2017-2020 Éric Thiébaut.
 #
 
 """
@@ -257,8 +257,8 @@ function _lgemv(::Linear,
     nrows, ncols, shape = _lgemv_dims(trans, A, x)
     Tax, Ty = _lgemv_types(α, Ta, Tx)
     return _linear_lgemv!(nrows, ncols,
-                          convert_multiplier(α, Tax, Ty), trans, A, x,
-                          convert_multiplier(0, Ty), Array{Ty}(undef, shape))
+                          promote_multiplier(α, Tax), trans, A, x,
+                          promote_multiplier(0, Ty), Array{Ty}(undef, shape))
 end
 
 function _lgemv!(::Linear,
@@ -273,8 +273,8 @@ function _lgemv!(::Linear,
     nrows, ncols = _lgemv_dims(trans, A, x, y)
     Tax = promote_type(Ta, Tx)
     return _linear_lgemv!(nrows, ncols,
-                          convert_multiplier(α, Tax, Ty), trans, A, x,
-                          convert_multiplier(β, Ty), y)
+                          promote_multiplier(α, Tax), trans, A, x,
+                          promote_multiplier(β, Ty), y)
 end
 
 # Basic Julia implementations when vectors and matrices are, respectively, 1D
@@ -288,8 +288,8 @@ function _lgemv(::Basic,
     rows, cols = _lgemv_indices(trans, A, x)
     Tax, Ty = _lgemv_types(α, Ta, Tx)
     return _generic_lgemv!(rows, cols,
-                           convert_multiplier(α, Tax, Ty), trans, A, x,
-                           convert_multiplier(0, Ty),
+                           promote_multiplier(α, Tax), trans, A, x,
+                           promote_multiplier(0, Ty),
                            similar(Array{Ty}, trans == 'N' ? rows : cols))
 end
 
@@ -303,8 +303,8 @@ function _lgemv!(::Basic,
     rows, cols = _lgemv_indices(trans, A, x, y)
     Tax = promote_type(Ta, Tx)
     return _generic_lgemv!(rows, cols,
-                           convert_multiplier(α, Tax, Ty), trans, A, x,
-                           convert_multiplier(β, Ty), y)
+                           promote_multiplier(α, Tax), trans, A, x,
+                           promote_multiplier(β, Ty), y)
 end
 
 # Generic implementations for any other cases.
@@ -318,8 +318,8 @@ function _lgemv(::Generic,
     rows, cols = _lgemv_indices(trans, A, x)
     Tax, Ty = _lgemv_types(α, Ta, Tx)
     return _generic_lgemv!(cartesianindices(rows), cartesianindices(cols),
-                           convert_multiplier(α, Tax, Ty), trans, A, x,
-                           convert_multiplier(0, Ty),
+                           promote_multiplier(α, Tax), trans, A, x,
+                           promote_multiplier(0, Ty),
                            similar(Array{Ty}, trans == 'N' ? rows : cols))
 end
 
@@ -335,8 +335,8 @@ function _lgemv!(::Generic,
     rows, cols = _lgemv_indices(trans, A, x, y)
     Tax = promote_type(Ta, Tx)
     return _generic_lgemv!(cartesianindices(rows), cartesianindices(cols),
-                           convert_multiplier(α, Tax, Ty), trans, A, x,
-                           convert_multiplier(β, Ty), y)
+                           promote_multiplier(α, Tax), trans, A, x,
+                           promote_multiplier(β, Ty), y)
 end
 
 #

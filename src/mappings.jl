@@ -331,8 +331,8 @@ function apply!(α::Number,
     if α == 0
         vscale!(y, β)
     else
-        a = convert_multiplier(α, promote_type(Tw, Tx), Ty)
-        b = convert_multiplier(β, Ty)
+        a = promote_multiplier(α, Tw, Tx)
+        b = promote_multiplier(β, Ty)
         _applynonuniformscaling!(a, P, w, x, b, y)
     end
     return y

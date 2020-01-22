@@ -9,7 +9,7 @@ module GenMultTests
 using Test
 using Test: print_test_results
 using LazyAlgebra
-import LazyAlgebra: GenMult, convert_multiplier
+import LazyAlgebra: GenMult
 import .GenMult: Reals, Complexes, Floats, BlasFloat
 
 for (pfx, P) in ((:generic, GenMult.Generic()),

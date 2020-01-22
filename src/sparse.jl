@@ -19,7 +19,7 @@ export
     unpack!
 
 using ..LazyAlgebra
-using ..LazyAlgebra: @callable, convert_multiplier, Endomorphism, Morphism
+using ..LazyAlgebra: @callable, promote_multiplier, Endomorphism, Morphism
 import ..LazyAlgebra: vcreate, apply!, are_same_mappings, coefficients, check,
     MorphismType, input_size, output_size, input_ndims, output_ndims
 
@@ -431,7 +431,7 @@ function apply!(α::Real,
         else
             # The ordering of operations is to minimize the number of
             # operations in case c is complex while α and x are reals.
-            alpha = convert_multiplier(α, promote_type(Ts, Tx), Ty)
+            alpha = promote_multiplier(α, Ts, Tx)
             @inbounds for k in Base.OneTo(n)
                 i, j, c = I[k], J[k], C[k]
                 y[i] += (alpha*x[j])*c
@@ -471,7 +471,7 @@ function apply!(α::Real,
         else
             # The ordering of operations is to minimize the number of
             # operations in case c is complex while α and x are reals.
-            alpha = convert_multiplier(α, promote_type(Ts, Tx), Ty)
+            alpha = promote_multiplier(α, Ts, Tx)
             @inbounds for k in Base.OneTo(n)
                 i, j, c = I[k], J[k], C[k]
                 y[i] += (alpha*x[j])*conj(c)

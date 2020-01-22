@@ -8,7 +8,7 @@
 # This file is part of LazyAlgebra (https://github.com/emmt/LazyAlgebra.jl)
 # released under the MIT "Expat" license.
 #
-# Copyright (c) 2017-2019 Éric Thiébaut.
+# Copyright (c) 2017-2020 Éric Thiébaut.
 #
 
 module GenMult
@@ -20,7 +20,7 @@ export
     lgemv
 
 using ..LazyAlgebra
-using ..LazyAlgebra: Complexes, Floats, Reals, axes, convert_multiplier,
+using ..LazyAlgebra: Complexes, Floats, Reals, axes, promote_multiplier,
     libblas, @blasfunc, BlasInt, BlasReal, BlasFloat, BlasComplex
 using ArrayTools  # for `cartesianindices`, `isflatarray`, etc.
 using LinearAlgebra

@@ -10,31 +10,62 @@ using LazyAlgebra
 
 @testset "Utilities" begin
     #
-    # Tests for `convert_multiplier`.
+    # Tests for `promote_multiplier`.
     #
-    convert_multiplier = LazyAlgebra.convert_multiplier
-    R = (Float32, Float16, BigFloat, Float64)
-    C = (ComplexF32, ComplexF64)
-    for i in randperm(length(R)) # prevent compilation-time optimization
-        Tr = R[i]
-        Trp = R[i < length(R) ? i + 1 : 1]
-        j = rand(1:length(C))
-        Tc = C[j]
-        Tcp = C[length(C) + 1 - j]
-        @test convert_multiplier(1, Tr) == convert(Tr, 1)
-        @test isa(convert_multiplier(π, Tc), AbstractFloat)
-        @test (v = convert_multiplier(2.0, Tr)) == 2 && isa(v, Tr)
-        @test (v = convert_multiplier(2.0, Tr, Trp)) == 2 && isa(v, Tr)
-        @test (v = convert_multiplier(2.0, Tr, Tc)) == 2 && isa(v, Tr)
-        @test (v = convert_multiplier(2.0, Tc, Tc)) == 2 && isa(v, real(Tc))
-        @test convert_multiplier(1+0im, Tr) == 1
-        @test convert_multiplier(1+0im, Tr, Trp) == 1
-        @test_throws InexactError convert_multiplier(1+2im, Tr)
-        @test convert_multiplier(1+2im, Tr, Tc) == 1+2im
-        @test convert_multiplier(1+2im, Tc, Tcp) == 1+2im
+    identical(a::T, b::T) where {T} = (a == b)
+    identical(a, b) = false
+    promote_multiplier = LazyAlgebra.promote_multiplier
+    types = (Float32, Float16, BigFloat, Float64, ComplexF32, ComplexF64)
+    perms = randperm(length(types)) # prevent compilation-time optimization
+    n = length(types)
+    for i in 1:n
+        T1 = types[perms[i]]
+        T2 = types[perms[mod(i,   n) + 1]]
+        T3 = types[perms[mod(i+1, n) + 1]]
+        T4 = types[perms[mod(i+2, n) + 1]]
+        A1 = zeros(T1, 1)
+        A2 = zeros(T2, 2)
+        A3 = zeros(T3, 3)
+        A4 = zeros(T4, 4)
+        for λ in (1, π, 2 - 1im)
+            # Check with type arguments.
+            @test identical(promote_multiplier(λ, T1),
+                            convert(isa(λ, Complex) ?
+                                    Complex{real(T1)} :
+                                    real(T1), λ))
+            @test identical(promote_multiplier(λ,T1,T2),
+                            convert(isa(λ, Complex) ?
+                                    Complex{real(promote_type(T1,T2))} :
+                                    real(promote_type(T1,T2)), λ))
+            @test identical(promote_multiplier(λ,T1,T2,T3),
+                            convert(isa(λ, Complex) ?
+                                    Complex{real(promote_type(T1,T2,T3))} :
+                                    real(promote_type(T1,T2,T3)), λ))
+            @test identical(promote_multiplier(λ,T1,T2,T3,T4),
+                            convert(isa(λ, Complex) ?
+                                    Complex{real(promote_type(T1,T2,T3,T4))} :
+                                    real(promote_type(T1,T2,T3,T4)), λ))
+            # Check with array arguments.
+            @test identical(promote_multiplier(λ, A1),
+                            convert(isa(λ, Complex) ?
+                                    Complex{real(T1)} :
+                                    real(T1), λ))
+            @test identical(promote_multiplier(λ, A1, A2),
+                            convert(isa(λ, Complex) ?
+                                    Complex{real(promote_type(T1,T2))} :
+                                    real(promote_type(T1,T2)), λ))
+            @test identical(promote_multiplier(λ, A1, A2, A3),
+                            convert(isa(λ, Complex) ?
+                                    Complex{real(promote_type(T1,T2,T3))} :
+                                    real(promote_type(T1,T2,T3)), λ))
+            @test identical(promote_multiplier(λ, A1, A2, A3, A4),
+                            convert(isa(λ, Complex) ?
+                                    Complex{real(promote_type(T1,T2,T3,T4))} :
+                                    real(promote_type(T1,T2,T3,T4)), λ))
+        end
     end
     for T in (AbstractFloat, Complex, Number)[randperm(3)]
-        @test_throws ErrorException convert_multiplier(1, T)
+        @test_throws ErrorException promote_multiplier(1, T)
     end
 end
 nothing

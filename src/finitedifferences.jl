@@ -20,7 +20,7 @@ export
 using ..Coder
 using  ...LazyAlgebra
 import ...LazyAlgebra: vcreate, apply!, are_same_mappings
-using  ...LazyAlgebra: @callable, convert_multiplier
+using  ...LazyAlgebra: @callable, promote_multiplier
 using ArrayTools
 import Base: show, *
 
@@ -89,7 +89,7 @@ function apply!(α::Real,
     if α == 0
         vscale!(y, β)
     else
-        _apply_D!(convert_multiplier(α, Tx, Ty), x, convert_multiplier(β, Ty), y)
+        _apply_D!(promote_multiplier(α, Tx), x, promote_multiplier(β, Ty), y)
     end
     return y
 end
@@ -109,7 +109,7 @@ function apply!(α::Real,
     xdims[2:end] == size(y) ||
         throw(DimensionMismatch("dimensions 2:end of source must be $(size(y))"))
     β == 1 || vscale!(y, β)
-    α == 0 || _apply_Dt!(convert_multiplier(α, Tx, Ty), x, y)
+    α == 0 || _apply_Dt!(promote_multiplier(α, Tx), x, y)
     return y
 end
 
@@ -125,7 +125,7 @@ function apply!(α::Real,
     size(x) == size(y) ||
         throw(DimensionMismatch("source and destination must have the same dimensions"))
     β == 1 || vscale!(y, β)
-    α == 0 || _apply_DtD!(convert_multiplier(α, Tx, Ty), x, y)
+    α == 0 || _apply_DtD!(promote_multiplier(α, Tx), x, y)
     return y
 end
 

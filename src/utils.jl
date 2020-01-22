@@ -14,56 +14,51 @@
 """
 
 ```julia
-convert_multiplier(λ, T, S=T)
+promote_multiplier(λ, T)
 ```
 
-yields multiplier `λ` converted to a suitable type for multiplying array(s) whose
-elements have type `T` and for storage in a destination array whose elements
-have type `S`.
+yields multiplier `λ` converted to a suitable floating-point type for
+multiplying values or expressions of type `T`.
 
-The following rules are applied:
+Multiple arguments can be specified after the multiplier `λ`:
 
-1. The result has the same floating-point precision as `T`.
+```julia
+promote_multiplier(λ, args...)
+```
 
-2. The result is a real if `λ` is a real or both `T` and `S` are real types (an
-   error is thrown if `imag(λ)` is not zero); otherwise, the result is complex
-   if both `λ` and `S` are complex.
+to have `T` the promoted type of all types in `args...` or all element types of
+arrays in `args...`.
 
-""" convert_multiplier
+This method is *type stable*.  The result has the same floating-point precision
+as `T`.  and is a real `λ` is real or a complex if `λ` is complex.
 
-# If λ ∈ ℝ, the returned multiplier is real with the same floating-point
-# precision as `T`.
-convert_multiplier(λ::Real, ::Type{T}) where {T<:Floats} =
-    (isconcretetype(T) ? convert(real(T), λ) : operand_type_not_concrete(T))
-convert_multiplier(λ::Real, ::Type{T}, ::Type{<:Number}) where {T<:Floats} =
-    (isconcretetype(T) ? convert(real(T), λ) : operand_type_not_concrete(T))
+"""
+promote_multiplier(λ::Real, ::Type{T}) where {T<:Floats} = begin
+    # If λ ∈ ℝ, the returned multiplier is real with the same floating-point
+    # precision as `T`.
+    isconcretetype(T) || operand_type_not_concrete(T)
+    convert(real(T), λ)
+end
 
-# If λ ∈ ℂ, the returned multiplier can only be complex if `S` is complex;
-# otherwise returned multiplier is real and the call to `convert` will clash if
-# `imag(λ)` is non-zero (this is what we want).
-convert_multiplier(λ::Complex, ::Type{T}) where {T<:Floats} =
-    # `T` and `S` are the same and may be real or complex.  The multiplier is
-    # converted to `T` which may be complex.
-    (isconcretetype(T) ? convert(T, λ) : operand_type_not_concrete(T))
-convert_multiplier(λ::Complex, ::Type{T}, ::Type{<:Real}) where {T<:Reals} =
-    # `T` and `S` are reals.  The multiplier is converted to a real of same
-    # numerical precision as `T`, that is `T`.
-    (isconcretetype(T) ? convert(T, λ) : operand_type_not_concrete(T))
-convert_multiplier(λ::Complex, ::Type{T}, ::Type{<:Complex}) where {T<:Floats} =
-    # `S` and `λ` are complex, The multiplier is converted to a complex of same
-    # numerical precision as `T`.
-    (isconcretetype(T) ? convert(Complex{real(T)}, λ) : operand_type_not_concrete(T))
+promote_multiplier(λ::Complex, ::Type{T}) where {T<:Floats} = begin
+    # If λ ∈ ℂ, the returned multiplier is complex with the same floating-point
+    # precision as `T`.
+    isconcretetype(T) || operand_type_not_concrete(T)
+    convert(Complex{real(T)}, λ)
+end
 
-# Other possible cases throw errors.
-convert_multiplier(λ::L, ::Type{T}) where {L<:Number,T} =
-    (isconcretetype(T) ? unsupported_multiplier_conversion(L, T, T) :
-     operand_type_not_concrete(T))
-convert_multiplier(λ::L, ::Type{T}, ::Type{S}) where {L<:Number,T,S} =
-    (isconcretetype(T) ? unsupported_multiplier_conversion(L, T, S) :
-     operand_type_not_concrete(T))
+promote_multiplier(λ::L, ::Type{T}) where {L<:Number,T} = begin
+    # Other possible cases throw errors.
+    isconcretetype(T) || operand_type_not_concrete(T)
+    error("unsupported conversion of multiplier with type $L for operand with element type $T")
+end
 
-@noinline unsupported_multiplier_conversion(::Type{L}, ::Type{O}, ::Type{S}) where {L<:Number,O,S} =
-    error("unsupported conversion of multiplier with type $L for operand with element type $O and storage with element type $S")
+promote_multiplier(λ::Number, ::AbstractArray{T}) where {T} =
+    promote_multiplier(λ, T)
+promote_multiplier(λ::Number, args::AbstractArray...) =
+    promote_multiplier(λ, map(eltype, args)...)
+promote_multiplier(λ::Number, args::Type...) =
+    promote_multiplier(λ, promote_type(args...))
 
 # Note: the only direct sub-types of `Number` are abstract types `Real` and
 # `Complex`.
