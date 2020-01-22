@@ -9,6 +9,8 @@ using LazyAlgebra
 using Test
 
 @testset "Sparse operators" begin
+    getrows(S::SparseOperator) = LazyAlgebra.SparseOperators.rows(S)
+    getcols(S::SparseOperator) = LazyAlgebra.SparseOperators.cols(S)
     rows = (2,3,4)
     cols = (5,6)
     nrows = prod(rows)
@@ -28,7 +30,7 @@ using Test
         @test eltype(S) === T
         @test ndims(S) == length(rows) + length(cols)
         @test is_endomorphism(S) == (rows == cols)
-        @test (LazyAlgebra.EndomorphismType(S) ==
+        @test (LazyAlgebra.MorphismType(S) ==
                LazyAlgebra.Endomorphism) == (rows == cols)
         @test output_size(S) == rows
         @test input_size(S) == cols
@@ -102,8 +104,8 @@ using Test
         S1 = SparseOperator{T1}(S)
         @test eltype(S1) === T1
         @test ndims(S1) == ndims(S)
-        @test LazyAlgebra.rows(S1) === LazyAlgebra.rows(S)
-        @test LazyAlgebra.cols(S1) === LazyAlgebra.cols(S)
+        @test getrows(S1) === getrows(S)
+        @test getcols(S1) === getcols(S)
         @test coefficients(S1) ≈ coefficients(S) atol=0 rtol=2*eps(Float32)
         @test LazyAlgebra.are_same_mappings(S1, S) == false
 
@@ -111,8 +113,8 @@ using Test
         S2d = reshape(S, prod(output_size(S)), prod(input_size(S)))
         @test eltype(S2d) === eltype(S)
         @test ndims(S2d) == 2
-        @test LazyAlgebra.rows(S2d) === LazyAlgebra.rows(S)
-        @test LazyAlgebra.cols(S2d) === LazyAlgebra.cols(S)
+        @test getrows(S2d) === getrows(S)
+        @test getcols(S2d) === getcols(S)
         @test coefficients(S2d) === coefficients(S)
         @test LazyAlgebra.are_same_mappings(S2d, S) == false
 
@@ -130,8 +132,8 @@ using Test
         @test 1*S === S
         S0 = 0*S
         @test isa(S0, SparseOperator)
-        @test length(LazyAlgebra.rows(S0)) == 0
-        @test length(LazyAlgebra.cols(S0)) == 0
+        @test length(getrows(S0)) == 0
+        @test length(getcols(S0)) == 0
         @test length(coefficients(S0)) == 0
         @test eltype(S0) == eltype(S)
         @test input_size(S0) == input_size(S)
@@ -139,8 +141,8 @@ using Test
         α = R(π)
         αS = α*S
         @test isa(αS, SparseOperator)
-        @test LazyAlgebra.rows(αS) === LazyAlgebra.rows(S)
-        @test LazyAlgebra.cols(αS) === LazyAlgebra.cols(S)
+        @test getrows(αS) === getrows(S)
+        @test getcols(αS) === getcols(S)
         @test coefficients(αS) ≈ α*coefficients(S) atol=0 rtol=2ε
         @test eltype(αS) == eltype(S)
         @test input_size(αS) == input_size(S)
@@ -156,8 +158,8 @@ using Test
         @test eltype(W1_S) === T
         @test output_size(W1_S) == output_size(S)
         @test input_size(W1_S) == input_size(S)
-        @test LazyAlgebra.cols(W1_S) === LazyAlgebra.cols(S)
-        @test LazyAlgebra.rows(W1_S) === LazyAlgebra.rows(S)
+        @test getrows(W1_S) === getrows(S)
+        @test getcols(W1_S) === getcols(S)
         @test coefficients(W1_S) ≈ c1 atol=0 rtol=2ε
         w2 = randn(T, input_size(S))
         W2 = NonuniformScalingOperator(w2)
@@ -168,13 +170,13 @@ using Test
         @test eltype(S_W2) === T
         @test output_size(S_W2) == output_size(S)
         @test input_size(S_W2) == input_size(S)
-        @test LazyAlgebra.cols(S_W2) === LazyAlgebra.cols(S)
-        @test LazyAlgebra.rows(S_W2) === LazyAlgebra.rows(S)
+        @test getcols(S_W2) === getcols(S)
+        @test getrows(S_W2) === getrows(S)
         @test coefficients(S_W2) ≈ c2 atol=0 rtol=2ε
 
         # Use another constructor with integer conversion.
-        R = SparseOperator(Int32.(LazyAlgebra.rows(S)),
-                           Int64.(LazyAlgebra.cols(S)),
+        R = SparseOperator(Int32.(getrows(S)),
+                           Int64.(getcols(S)),
                            coefficients(S),
                            Int32.(output_size(S)),
                            Int64.(input_size(S)))

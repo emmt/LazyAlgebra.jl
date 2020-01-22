@@ -79,6 +79,7 @@ export
     output_ndims,
     output_size,
     output_type,
+    sparse,
     unpack!,
     vcombine!,
     vcombine,
@@ -116,8 +117,7 @@ using LinearAlgebra.BLAS
 using LinearAlgebra.BLAS: libblas, @blasfunc,
     BlasInt, BlasReal, BlasFloat, BlasComplex
 
-using SparseArrays # for SparseMatrixCSC
-import SparseArrays: sparse
+using SparseArrays: sparse
 
 include("types.jl")
 include("utils.jl")
@@ -130,6 +130,7 @@ include("coder.jl")
 include("rules.jl")
 include("mappings.jl")
 include("sparse.jl")
+import .SparseOperators: SparseOperator, sparse, unpack!
 include("cropping.jl")
 import .Cropping: CroppingOperator, ZeroPaddingOperator, defaultoffset
 include("finitedifferences.jl")

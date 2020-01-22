@@ -252,6 +252,17 @@ yields the object backing the storage of the coefficients of the linear mapping
 """ coefficients
 
 """
+
+```julia
+check(A) -> A
+```
+
+checks integrity of mapping `A` and returns it.
+
+"""
+check(A::Mapping) = A
+
+"""
 ```julia
 checkmapping(y, A, x) -> (v1, v2, v1 - v2)
 ```

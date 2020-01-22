@@ -11,6 +11,23 @@
 # Copyright (c) 2017-2020 Éric Thiébaut.
 #
 
+module SparseOperators
+
+export
+    SparseOperator,
+    sparse,
+    unpack!
+
+using ..LazyAlgebra
+using ..LazyAlgebra: @callable, convert_multiplier, Endomorphism, Morphism
+import ..LazyAlgebra: vcreate, apply!, are_same_mappings, coefficients, check,
+    MorphismType, input_size, output_size, input_ndims, output_ndims
+
+using ArrayTools
+using SparseArrays # for SparseMatrixCSC
+import SparseArrays: sparse
+import Base: eltype, ndims, reshape, Array, Matrix, *
+
 """
 ```julia
 SparseOperator(I, J, C, rowdims, coldims)
@@ -45,7 +62,6 @@ SparseOperator{T}(args...)
 ```
 
 to build an instance of `SparseOperator` whose coefficients have type `T`.
-
 
 !!! note
     For efficiency reasons, sparse operators are currently limited to *fast*
@@ -204,14 +220,6 @@ samedims(S::SparseOperator) = S.samedims
 nrows(S::SparseOperator) = prod(output_size(S))
 ncols(S::SparseOperator) = prod(input_size(S))
 
-"""
-```julia
-check(A) -> A
-```
-
-checks integrity of operator `A` and returns it.
-
-"""
 function check(S::SparseOperator{T,M,N}) where {T,M,N}
     @assert isfastarray(coefficients(S), rows(S), cols(S))
     @assert length(coefficients(S)) == length(rows(S)) == length(cols(S))
@@ -231,17 +239,19 @@ are_same_mappings(A::T, B::T) where {T<:SparseOperator} =
     (coefficients(A) === coefficients(B) && rows(A) === rows(B) && cols(A) === cols(B) &&
      output_size(A) == output_size(B) && input_size(A) == input_size(B))
 
-EndomorphismType(S::SparseOperator) =
+# FIXME: This cannot be considered as a *pure* trait as it does not only
+#        depend on the type of the object.
+MorphismType(S::SparseOperator) =
     (samedims(S) ? Endomorphism() : Morphism())
 
 # Convert to a sparse matrix.
 sparse(A::SparseOperator) =
     sparse(rows(A), cols(A), coefficients(A), nrows(A), ncols(A))
 
-Base.Array(S::SparseOperator{T}) where {T} =
+Array(S::SparseOperator{T}) where {T} =
     unpack!(zeros(T, (output_size(S)..., input_size(S)...,)), S)
 
-Base.Matrix(S::SparseOperator{T}) where {T} =
+Matrix(S::SparseOperator{T}) where {T} =
     unpack!(zeros(T, (nrows(S), ncols(S))), S)
 
 """
@@ -285,16 +295,12 @@ function unpack!(A::Array{Bool}, S::SparseOperator{Bool})
     return A
 end
 
-function Base.reshape(S::SparseOperator,
-                      rowdims::Dimensions,
-                      coldims::Dimensions)
-    return reshape(S, dimensions(rowdims), dimensions(coldims))
-end
+reshape(S::SparseOperator, rowdims::Dimensions, coldims::Dimensions) =
+    reshape(S, dimensions(rowdims), dimensions(coldims))
 
-
-function Base.reshape(S::SparseOperator,
-                      rowdims::Tuple{Vararg{Int}},
-                      coldims::Tuple{Vararg{Int}})
+function reshape(S::SparseOperator,
+                 rowdims::Tuple{Vararg{Int}},
+                 coldims::Tuple{Vararg{Int}})
     prod(rowdims) == nrows(S) ||
         throw(DimensionMismatch("products of row dimensions must be equal"))
     prod(coldims) == ncols(S) ||
@@ -324,7 +330,7 @@ function *(W::NonuniformScalingOperator, S::SparseOperator)::SparseOperator
         throw(DimensionMismatch("the non-uniform scaling array and the rows of the sparse operator must have the same dimensions"))
     I, J, C = rows(S), cols(S), coefficients(S)
     T = promote_type(eltype(D), eltype(C))
-    return SparseOperator(I, J, _leftscalesparse(T, D, I, C),
+    return SparseOperator(I, J, _scaleleft(T, D, I, C),
                           output_size(S), input_size(S))
 end
 
@@ -335,14 +341,14 @@ function *(S::SparseOperator, W::NonuniformScalingOperator)::SparseOperator
         throw(DimensionMismatch("the non-uniform scaling array and the columns of the sparse operator must have the same dimensions"))
     I, J, C = rows(S), cols(S), coefficients(S)
     T = promote_type(eltype(D), eltype(C))
-    return SparseOperator(I, J, _rightscalesparse(T, C, D, J),
+    return SparseOperator(I, J, _scaleright(T, C, D, J),
                           output_size(S), input_size(S))
 end
 
-function _leftscalesparse(::Type{T},
-                          D::AbstractArray,
-                          I::AbstractVector{Int},
-                          C::AbstractVector) where {T}
+function _scaleleft(::Type{T},
+                    D::AbstractArray,
+                    I::AbstractVector{Int},
+                    C::AbstractVector) where {T}
     # FIXME: If the sparse operator is "optimized", Q can be undefined and
     #        set instead of incremented.
     len = length(C)
@@ -354,10 +360,10 @@ function _leftscalesparse(::Type{T},
     return Q
 end
 
-function _rightscalesparse(::Type{T},
-                           C::AbstractVector,
-                           D::AbstractArray,
-                           J::AbstractVector{Int}) where {T}
+function _scaleright(::Type{T},
+                     C::AbstractVector,
+                     D::AbstractArray,
+                     J::AbstractVector{Int}) where {T}
     len = length(C)
     @assert length(J) == len
     Q = zeros(T, len)
@@ -474,3 +480,5 @@ function apply!(α::Real,
     end
     return y
 end
+
+end # module
