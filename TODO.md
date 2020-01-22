@@ -1,18 +1,30 @@
-* Method `is_same_mapping` defaults to `===` but this may not always be either
-  correct nor efficient.  The documentation should explain when
-  `is_same_mapping` has to be extended.
-
-* `convert_multiplier` should have 2 different behaviors: to allow for using
+* `promote_multiplier` should have 2 different behaviors: to allow for using
   BLAS routines, all multipliers must be converted to complexes if array
   arguments are complex-valued.
+
+* Remove file `test/common.jl`.
+
+* Rationalize exceptions and error messages.
+
+* Deprecate `is_same_mapping` in favor of `are_same_mappings` and
+  `is_same_mutable_object` in favor of `are_same_objects` which is more general.
+  ```julia
+  @deprecate is_same_mapping are_same_mappings
+  are_same_objects(::Any, ::Any) = false # always false if types are different
+  are_same_objects(a::T, b::T) where T =
+      (T.mutable ? pointer_from_objref(a) === pointer_from_objref(b) : a === b)
+  ```
+  The above implementation does exactly what does `===` so it is not needed.
+  Discuss extending `are_same_mappings` for any derived mapping type.
+  Method `are_same_mapping` should default to `===` but may be extended
+  for special cases like FFT operators.  The documentation should explain when
+  `are_same_mapping` has to be extended.
 
 * Optimize composition of cropping and zero-padding operators.  The adjoint of
   a cropping or zero-padding operator is the pseudo-inverse of the operator,
   hence extend the `pinv` method.  If input and ouput dimnesions are the same
   (and offsets are all zeros), a cropping/zero-padding operator is the
   identity.
-
-* `vscale`, `vscale!` and others should be able to take a complex multiplier.
 
 * `vscale!` can call `rmul!`?
 

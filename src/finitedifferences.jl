@@ -20,7 +20,7 @@ export
 using ..Coder
 using  ...LazyAlgebra
 import ...LazyAlgebra: vcreate, apply!, are_same_mappings
-using  ...LazyAlgebra: @callable, promote_multiplier
+using  ...LazyAlgebra: @callable, promote_multiplier, Floats
 using ArrayTools
 import Base: show, *
 
@@ -43,7 +43,7 @@ show(io::IO, ::Gram{SimpleFiniteDifferences}) = print(io, "(Diff'⋅Diff)")
 function vcreate(::Type{Direct},
                  ::SimpleFiniteDifferences,
                  x::AbstractArray{T,N},
-                 scratch::Bool) where {T<:Real,N}
+                 scratch::Bool) where {T<:Floats,N}
     # In-place operation never possible, so ignore the scratch flag.
     return Array{T}(undef, (N, size(x)...))
 end
@@ -51,7 +51,7 @@ end
 function vcreate(::Type{Adjoint},
                  ::SimpleFiniteDifferences,
                  x::AbstractArray{T,N},
-                 scratch::Bool) where {T<:Real,N}
+                 scratch::Bool) where {T<:Floats,N}
     # In-place operation never possible, so ignore the scratch flag.
     N ≥ 2 ||
         throw(DimensionMismatch("argument must have at least 2 dimensions"))
@@ -72,13 +72,13 @@ end
 vcreate(::Type{Adjoint}, A::Gram{SimpleFiniteDifferences}, x, scratch::Bool) =
     vcreate(Direct, A, x, scratch)
 
-function apply!(α::Real,
+function apply!(α::Number,
                 ::Type{<:Direct},
                 ::SimpleFiniteDifferences,
                 x::AbstractArray{Tx,Nx},
                 scratch::Bool,
-                β::Real,
-                y::AbstractArray{Ty,Ny}) where {Tx<:Real,Nx,Ty<:Real,Ny}
+                β::Number,
+                y::AbstractArray{Ty,Ny}) where {Tx<:Floats,Nx,Ty<:Floats,Ny}
     Ny == Nx + 1 ||
         throw(DimensionMismatch("incompatible number of dimensions"))
     ydims = size(y)
@@ -94,13 +94,13 @@ function apply!(α::Real,
     return y
 end
 
-function apply!(α::Real,
+function apply!(α::Number,
                 ::Type{<:Adjoint},
                 ::SimpleFiniteDifferences,
                 x::AbstractArray{Tx,Nx},
                 scratch::Bool,
-                β::Real,
-                y::AbstractArray{Ty,Ny}) where {Tx<:Real,Nx,Ty<:Real,Ny}
+                β::Number,
+                y::AbstractArray{Ty,Ny}) where {Tx<:Floats,Nx,Ty<:Floats,Ny}
     Ny == Nx - 1 ||
         throw(DimensionMismatch("incompatible number of dimensions"))
     xdims = size(x)
@@ -113,13 +113,13 @@ function apply!(α::Real,
     return y
 end
 
-function apply!(α::Real,
+function apply!(α::Number,
                 ::Type{Direct},
                 ::Gram{SimpleFiniteDifferences},
                 x::AbstractArray{Tx,Nx},
                 scratch::Bool,
-                β::Real,
-                y::AbstractArray{Ty,Ny}) where {Tx<:Real,Nx,Ty<:Real,Ny}
+                β::Number,
+                y::AbstractArray{Ty,Ny}) where {Tx<:Floats,Nx,Ty<:Floats,Ny}
     Ny == Nx ||
         throw(DimensionMismatch("incompatible number of dimensions"))
     size(x) == size(y) ||
@@ -132,8 +132,8 @@ end
 offset(::Type{CartesianIndex{N}}, d::Integer, s::Integer=1) where {N} =
     CartesianIndex{N}(ntuple(i -> (i == d ? s : 0), N))
 
-@generated function _apply_D!(α::Real, x::AbstractArray{<:Number,N},
-                              β::Real, y::AbstractArray{<:Number,Np1}
+@generated function _apply_D!(α::Number, x::AbstractArray{<:Floats,N},
+                              β::Number, y::AbstractArray{<:Floats,Np1}
                               ) where {N,Np1}
     # We know that α ≠ 0.
     @assert Np1 == N + 1
@@ -179,8 +179,8 @@ offset(::Type{CartesianIndex{N}}, d::Integer, s::Integer=1) where {N} =
     )
 end
 
-@generated function _apply_Dt!(α::Real, x::AbstractArray{<:Number,Np1},
-                               y::AbstractArray{<:Number,N}) where {N,Np1}
+@generated function _apply_Dt!(α::Number, x::AbstractArray{<:Floats,Np1},
+                               y::AbstractArray{<:Floats,N}) where {N,Np1}
     # We know that α ≠ 0 and that y has been pre-multiplied by β.
     @assert Np1 == N + 1
     D = generate_symbols("d", N)
@@ -217,8 +217,8 @@ end
     )
 end
 
-@generated function _apply_DtD!(α::Real, x::AbstractArray{<:Number,N},
-                                y::AbstractArray{<:Number,N}) where {N}
+@generated function _apply_DtD!(α::Number, x::AbstractArray{<:Floats,N},
+                                y::AbstractArray{<:Floats,N}) where {N}
     # We know that α ≠ 0 and that y has been pre-multiplied by β.
     D = generate_symbols("d", N)
     I = generate_symbols("i", N)

@@ -1,3 +1,5 @@
+* In most cases, complex-valued arrays and multipliers are supported.
+
 * Argument `scratch` is no longer optional in low-level `vcreate`.
 
 * Not so well defined `HalfHessian` and `Hessian` have been removed

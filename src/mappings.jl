@@ -28,7 +28,7 @@ apply(::Type{<:Operations}, ::Identity, x, scratch::Bool=false) = x
 vcreate(::Type{<:Operations}, ::Identity, x, scratch::Bool) =
     (scratch ? x : vcreate(x)) # FIXME: should always return x?
 
-apply!(α::Real, ::Type{<:Operations}, ::Identity, x, ::Bool, β::Real, y) =
+apply!(α::Number, ::Type{<:Operations}, ::Identity, x, ::Bool, β::Number, y) =
     vcombine!(y, α, x, β, y)
 
 # Rules to automatically convert UniformScaling from standard library module
@@ -377,17 +377,17 @@ end
 
 @callable RankOneOperator
 
-function apply!(α::Real, ::Type{Direct}, A::RankOneOperator, x, scratch::Bool,
-                β::Real, y)
+function apply!(α::Number, ::Type{Direct}, A::RankOneOperator,
+                x, scratch::Bool, β::Number, y)
     return _apply_rank_one_operator!(α, A.u, A.v, x, β, y)
 end
 
-function apply!(α::Real, ::Type{Adjoint}, A::RankOneOperator, x, scratch::Bool,
-                β::Real, y)
+function apply!(α::Number, ::Type{Adjoint}, A::RankOneOperator,
+                x, scratch::Bool, β::Number, y)
     return _apply_rank_one_operator!(α, A.v, A.u, x, β, y)
 end
 
-function _apply_rank_one_operator!(α::Real, u, v, x, β::Real, y)
+function _apply_rank_one_operator!(α::Number, u, v, x, β::Number, y)
     if α == 0
         # Lazily assume that y has correct type, dimensions, etc.
         vscale!(y, β)
@@ -448,8 +448,8 @@ end
 MorphismType(::SymmetricRankOneOperator) = Endomorphism()
 SelfAdjointType(::SymmetricRankOneOperator) = SelfAdjoint()
 
-function apply!(α::Real, ::Type{<:Union{Direct,Adjoint}},
-                A::SymmetricRankOneOperator, x, scratch::Bool, β::Real, y)
+function apply!(α::Number, ::Type{<:Union{Direct,Adjoint}},
+                A::SymmetricRankOneOperator, x, scratch::Bool, β::Number, y)
     return _apply_rank_one_operator!(α, A.u, A.u, x, β, y)
 end
 

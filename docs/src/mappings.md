@@ -58,7 +58,7 @@ The signature of the `apply!` method to be implemented by specific mapping
 types is:
 
 ```julia
-apply!(α::Real, ::Type{P}, A::Ta, x::Tx, scratch::Bool, β::Real, y::Ty) -> y
+apply!(α::Number, ::Type{P}, A::Ta, x::Tx, scratch::Bool, β::Number, y::Ty) -> y
 ```
 
 This method shall overwrites the contents of output variables `y` with the

@@ -401,12 +401,12 @@ function vcreate(::Type{Adjoint},
     return Array{promote_type(Ts,Tx)}(undef, input_size(S))
 end
 
-function apply!(α::Real,
+function apply!(α::Number,
                 ::Type{Direct},
                 S::SparseOperator{Ts,M,N},
                 x::AbstractArray{Tx,N},
                 scratch::Bool,
-                β::Real,
+                β::Number,
                 y::AbstractArray{Ty,M}) where {Ts,Tx,Ty,M,N}
     size(x) == input_size(S)  || _bad_input_dimensions()
     has_standard_indexing(x)  || _bad_input_indexing()
@@ -441,12 +441,12 @@ function apply!(α::Real,
     return y
 end
 
-function apply!(α::Real,
+function apply!(α::Number,
                 ::Type{Adjoint},
                 S::SparseOperator{Ts,M,N},
                 x::AbstractArray{Tx,M},
                 scratch::Bool,
-                β::Real,
+                β::Number,
                 y::AbstractArray{Ty,N}) where {Ts,Tx,Ty,M,N}
     size(x) == output_size(S) || _bad_input_dimensions()
     has_standard_indexing(x)  || _bad_input_indexing()

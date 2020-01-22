@@ -307,40 +307,37 @@ vscale!(α, x) -> x
 
 Also see [`vscale`](@ref), [`LinearAlgebra.rmul!](@ref).
 
-""" vscale!
+"""
+function vscale!(dst::AbstractArray{<:Floats,N},
+                 α::Number,
+                 src::AbstractArray{<:Floats,N}) where {N}
+    axes(dst) == axes(src) || throw_dimensions_mismatch()
+    return _vscale!(dst, α, src)
+end
 
-for (Td, Ts) in ((:Td,            :Ts),
-                 (:(Complex{Td}), :(Complex{Ts})))
-    @eval begin
-
-        function vscale!(dst::AbstractArray{$Td,N},
-                         α::Real,
-                         src::AbstractArray{$Ts,N}) where {Td<:AbstractFloat,
-                                                           Ts<:AbstractFloat,N}
-            axes(dst) == axes(src) || throw_dimensions_mismatch()
-            if α == 1
-                copyto!(dst, src)
-            elseif α == 0
-                vzero!(dst)
-            elseif α == -1
-                @inbounds @simd for i in eachindex(dst, src)
-                    dst[i] = -src[i]
-                end
-            else
-                a = promote_multiplier(α, Ts)
-                @inbounds @simd for i in eachindex(dst, src)
-                    dst[i] = a*src[i]
-                end
-            end
-            return dst
+# This *private* method assumes that arguments have same indices.
+function _vscale!(dst::AbstractArray{<:Floats,N},
+                  α::Number,
+                  src::AbstractArray{T,N}) where {T<:Floats,N}
+    if α == 1
+        copyto!(dst, src)
+    elseif α == 0
+        vzero!(dst)
+    elseif α == -1
+        @inbounds @simd for i in eachindex(dst, src)
+            dst[i] = -src[i]
         end
-
+    else
+        a = promote_multiplier(α, T)
+        @inbounds @simd for i in eachindex(dst, src)
+            dst[i] = a*src[i]
+        end
     end
+    return dst
 end
 
 # In-place scaling.
-function vscale!(x::AbstractArray{<:Union{T,Complex{T}}},
-                 α::Real) where {T<:AbstractFloat}
+function vscale!(x::AbstractArray{T}, α::Number) where {T<:Floats}
     if α == 0
         vzero!(x)
     elseif α == -1
@@ -357,18 +354,18 @@ function vscale!(x::AbstractArray{<:Union{T,Complex{T}}},
 end
 
 # In-place scaling with reverse order of arguments.
-vscale!(α::Real, x) = vscale!(x, α)
+vscale!(α::Number, x) = vscale!(x, α)
 
 # Scaling for other *vector* types.
-vscale!(x, α::Real) = vscale!(x, α, x)
-vscale!(dst, src, α::Real) = vscale!(dst, α, src)
+vscale!(x, α::Number) = vscale!(x, α, x)
+vscale!(dst, src, α::Number) = vscale!(dst, α, src)
 
 # The following methods are needed to avoid looping forever.
-vscale!(::Real, ::Real) = error("bad argument types")
-vscale!(::Any, ::Real, ::Real) = error("bad argument types")
-vscale!(::Real, ::Any, ::Real) = error("bad argument types")
-vscale!(::Real, ::Real, ::Any) = error("bad argument types")
-vscale!(::Real, ::Real, ::Real) = error("bad argument types")
+vscale!(::Number, ::Number) = error("bad argument types")
+vscale!(::Any, ::Number, ::Number) = error("bad argument types")
+vscale!(::Number, ::Any, ::Number) = error("bad argument types")
+vscale!(::Number, ::Number, ::Any) = error("bad argument types")
+vscale!(::Number, ::Number, ::Number) = error("bad argument types")
 
 """
 ```julia
@@ -385,8 +382,8 @@ yield a new *vector* whose elements are those of `x` multiplied by the scalar
 Also see [`vscale!`](@ref), [`vcreate`](@ref).
 
 """
-vscale(α::Real, x) = vscale!(vcreate(x), α, x)
-vscale(x, α::Real) = vscale(α, x)
+vscale(α::Number, x) = _vscale!(vcreate(x), α, x)
+vscale(x, α::Number) = vscale(α, x)
 
 #------------------------------------------------------------------------------
 
@@ -472,62 +469,56 @@ times at this location.
 
 See also: [`vscale!`](@ref), [`vcombine!](@ref).
 
-""" vupdate!
-
-for (Tx, Ty) in ((:Tx,            :Ty),
-                 (:(Complex{Tx}), :(Complex{Ty})))
-
-    @eval function vupdate!(y::AbstractArray{$Ty,N},
-                            α::Real,
-                            x::AbstractArray{$Tx,N}) where {Ty<:AbstractFloat,
-                                                            Tx<:AbstractFloat,
-                                                            N}
-        axes(x) == axes(y) || throw_dimensions_mismatch()
-        if α == 1
-            @inbounds @simd for i in eachindex(y, x)
-                y[i] += x[i]
-            end
-        elseif α == -1
-            @inbounds @simd for i in eachindex(y, x)
-                y[i] -= x[i]
-            end
-        elseif α != 0
-            a = promote_multiplier(α, Tx)
-            @inbounds @simd for i in eachindex(y, x)
-                y[i] += a*x[i]
-            end
+"""
+function vupdate!(y::AbstractArray{<:Floats,N},
+                  α::Number,
+                  x::AbstractArray{T,N}) where {T<:Floats,N}
+    axes(x) == axes(y) || throw_dimensions_mismatch()
+    if α == 1
+        @inbounds @simd for i in eachindex(y, x)
+            y[i] += x[i]
         end
-        return y
-    end
-
-    @eval function vupdate!(y::Array{$Ty,N},
-                            sel::AbstractVector{Int},
-                            α::Real,
-                            x::Array{$Tx,N}) where {Ty<:AbstractFloat,
-                                                    Tx<:AbstractFloat,N}
-        size(x) == size(y) || throw_dimensions_mismatch()
-        jmin, jmax = extrema(sel)
-        1 ≤ jmin ≤ jmax ≤ length(x) || throw(BoundsError())
-        if α == 1
-            @inbounds @simd for i in eachindex(sel)
-                j = sel[i]
-                y[j] += x[j]
-            end
-        elseif α == -1
-            @inbounds @simd for i in eachindex(sel)
-                j = sel[i]
-                y[j] -= x[j]
-            end
-        elseif α != 0
-            a = promote_multiplier(α, Tx)
-            @inbounds @simd for i in eachindex(sel)
-                j = sel[i]
-                y[j] += a*x[j]
-            end
+    elseif α == -1
+        @inbounds @simd for i in eachindex(y, x)
+            y[i] -= x[i]
         end
-        return y
+    elseif α != 0
+        a = promote_multiplier(α, T)
+        @inbounds @simd for i in eachindex(y, x)
+            y[i] += a*x[i]
+        end
     end
+    return y
+end
 
+function vupdate!(y::AbstractArray{<:Floats,N},
+                  sel::AbstractVector{Int},
+                  α::Number,
+                  x::AbstractArray{T,N}) where {T<:Floats,N}
+    @assert IndexStyle(y) == IndexLinear()
+    @assert IndexStyle(x) == IndexLinear()
+    axes(x) == axes(y) || throw_dimensions_mismatch()
+    jmin, jmax = extrema(sel)
+    I = eachindex(IndexLinear(), x)
+    first(I) ≤ jmin ≤ jmax ≤ last(I) || throw(BoundsError())
+    if α == 1
+        @inbounds @simd for i in eachindex(sel)
+            j = sel[i]
+            y[j] += x[j]
+        end
+    elseif α == -1
+        @inbounds @simd for i in eachindex(sel)
+            j = sel[i]
+            y[j] -= x[j]
+        end
+    elseif α != 0
+        a = promote_multiplier(α, T)
+        @inbounds @simd for i in eachindex(sel)
+            j = sel[i]
+            y[j] += a*x[j]
+        end
+    end
+    return y
 end
 
 
@@ -565,81 +556,68 @@ vupdate!(dst, α, x)
 See also: [`vscale!`](@ref), [`vupdate!](@ref).
 
 """
-vcombine(α::Real, x::V, β::Real, y::V) where {V} =
+vcombine(α::Number, x::V, β::Number, y::V) where {V} =
     vcombine!(vcreate(x), α, x, β, y)
 
-# Deal with real/complex arrays.
-for (Td, Tx, Ty) in ((:Td,            :Tx,            :Ty),
-                     (:(Complex{Td}), :Tx,            :Ty),
-                     (:(Complex{Td}), :(Complex{Tx}), :Ty),
-                     (:(Complex{Td}), :Tx,            :(Complex{Ty})),
-                     (:(Complex{Td}), :(Complex{Tx}), :(Complex{Ty})))
-
-    @eval begin
-
-        function vcombine!(dst::AbstractArray{$Td,N},
-                           α::Real,
-                           x::AbstractArray{$Tx,N},
-                           β::Real,
-                           y::AbstractArray{$Ty,N}) where {Td<:AbstractFloat,
-                                                           Tx<:AbstractFloat,
-                                                           Ty<:AbstractFloat,N}
-            axes(dst) == axes(x) == axes(y) || throw_dimensions_mismatch()
-            if α == 0
-                vscale!(dst, β, y)
-            elseif β == 0
-                vscale!(dst, α, x)
-            elseif α == 1
-                if β == 1
-                    @inbounds @simd for i in eachindex(dst, x, y)
-                        dst[i] = x[i] + y[i]
-                    end
-                elseif β == -1
-                    @inbounds @simd for i in eachindex(dst, x, y)
-                        dst[i] = x[i] - y[i]
-                    end
-                else
-                    b = promote_multiplier(β, Ty)
-                    @inbounds @simd for i in eachindex(dst, x, y)
-                        dst[i] = x[i] + b*y[i]
-                    end
-                end
-            elseif α == -1
-                if β == 1
-                    @inbounds @simd for i in eachindex(dst, x, y)
-                        dst[i] = y[i] - x[i]
-                    end
-                elseif β == -1
-                    @inbounds @simd for i in eachindex(dst, x, y)
-                        dst[i] = -x[i] - y[i]
-                    end
-                else
-                    b = promote_multiplier(β, Ty)
-                    @inbounds @simd for i in eachindex(dst, x, y)
-                        dst[i] = b*y[i] - x[i]
-                    end
-                end
-            else
-                a = promote_multiplier(α, Tx)
-                if β == 1
-                    @inbounds @simd for i in eachindex(dst, x, y)
-                        dst[i] = a*x[i] + y[i]
-                    end
-                elseif β == -1
-                    @inbounds @simd for i in eachindex(dst, x, y)
-                        dst[i] = a*x[i] - y[i]
-                    end
-                else
-                    b = promote_multiplier(β, Ty)
-                    @inbounds @simd for i in eachindex(dst, x, y)
-                        dst[i] = a*x[i] + b*y[i]
-                    end
-                end
+function vcombine!(dst::AbstractArray{<:Floats,N},
+                   α::Number,
+                   x::AbstractArray{Tx,N},
+                   β::Number,
+                   y::AbstractArray{Ty,N}) where {Tx<:Floats,
+                                                  Ty<:Floats,N}
+    axes(dst) == axes(x) == axes(y) || throw_dimensions_mismatch()
+    if α == 0
+        _vscale!(dst, β, y)
+    elseif β == 0
+        _vscale!(dst, α, x)
+    elseif α == 1
+        if β == 1
+            @inbounds @simd for i in eachindex(dst, x, y)
+                dst[i] = x[i] + y[i]
             end
-            return dst
+        elseif β == -1
+            @inbounds @simd for i in eachindex(dst, x, y)
+                dst[i] = x[i] - y[i]
+            end
+        else
+            b = promote_multiplier(β, Ty)
+            @inbounds @simd for i in eachindex(dst, x, y)
+                dst[i] = x[i] + b*y[i]
+            end
         end
-
+    elseif α == -1
+        if β == 1
+            @inbounds @simd for i in eachindex(dst, x, y)
+                dst[i] = y[i] - x[i]
+            end
+        elseif β == -1
+            @inbounds @simd for i in eachindex(dst, x, y)
+                dst[i] = -x[i] - y[i]
+            end
+        else
+            b = promote_multiplier(β, Ty)
+            @inbounds @simd for i in eachindex(dst, x, y)
+                dst[i] = b*y[i] - x[i]
+            end
+        end
+    else
+        a = promote_multiplier(α, Tx)
+        if β == 1
+            @inbounds @simd for i in eachindex(dst, x, y)
+                dst[i] = a*x[i] + y[i]
+            end
+        elseif β == -1
+            @inbounds @simd for i in eachindex(dst, x, y)
+                dst[i] = a*x[i] - y[i]
+            end
+        else
+            b = promote_multiplier(β, Ty)
+            @inbounds @simd for i in eachindex(dst, x, y)
+                dst[i] = a*x[i] + b*y[i]
+            end
+        end
     end
+    return dst
 end
 
 @doc @doc(vcombine) vcombine!

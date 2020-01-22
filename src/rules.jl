@@ -277,7 +277,7 @@ Composition(args::Mapping...) =
     (α == one(α) ? A : isfinite(α) ? Scaled{T,S}(α, A) :
      throw(ArgumentError("non-finite multiplier")))
 *(α::Number, A::Scaled) = (α*multiplier(A))*operand(A)
-\(α::Real, A::Mapping) = inv(α)*A
+\(α::Number, A::Mapping) = inv(α)*A
 \(α::Number, A::Scaled) = (multiplier(A)/α)*operand(A)
 
 #------------------------------------------------------------------------------
@@ -730,7 +730,7 @@ signatures:
 
 ```julia
 vcreate(::Type{P}, A::M, x, scratch::Bool=false) -> y
-apply!(α::Real, ::Type{P}, A::M, x, scratch::Bool, β::Real, y) -> y
+apply!(α::Number, ::Type{P}, A::M, x, scratch::Bool, β::Number, y) -> y
 ```
 
 for any supported operation `P` and where `M` is the type of the mapping.  Of
@@ -756,41 +756,41 @@ See also: [`Mapping`](@ref), [`apply`](@ref), [`vcreate`](@ref).
 # Provide fallbacks so that `Direct` is the default operation and only the
 # method with signature:
 #
-#     apply!(α::Real, ::Type{P}, A::MappingType, x::X, scratch::Bool,
-#            β::Real, y::Y) where {P<:Operations,X,Y}
+#     apply!(α::Number, ::Type{P}, A::MappingType, x::X, scratch::Bool,
+#            β::Number, y::Y) where {P<:Operations,X,Y}
 #
 # has to be implemented (possibly with restrictions on X and Y) by subtypes of
 # Mapping so we provide the necessary mechanism to dispatch derived methods.
 apply!(A::Mapping, x, y) =
     apply!(1, Direct, A, x, false, 0, y)
-apply!(α::Real, A::Mapping, x, y) =
+apply!(α::Number, A::Mapping, x, y) =
     apply!(α, Direct, A, x, false, 0, y)
-apply!(A::Mapping, x, β::Real, y) =
+apply!(A::Mapping, x, β::Number, y) =
     apply!(1, Direct, A, x, false, β, y)
-apply!(α::Real, A::Mapping, x, β::Real, y) =
+apply!(α::Number, A::Mapping, x, β::Number, y) =
     apply!(α, Direct, A, x, false, β, y)
 
 apply!(P::Type{<:Operations}, A::Mapping, x, y) =
     apply!(1, P, A, x, false, 0, y)
-apply!(α::Real, P::Type{<:Operations}, A::Mapping, x, y) =
+apply!(α::Number, P::Type{<:Operations}, A::Mapping, x, y) =
     apply!(α, P, A, x, false, 0, y)
-apply!(P::Type{<:Operations}, A::Mapping, x, β::Real, y) =
+apply!(P::Type{<:Operations}, A::Mapping, x, β::Number, y) =
     apply!(1, P, A, x, false, β, y)
-apply!(α::Real, P::Type{<:Operations}, A::Mapping, x, β::Real, y) =
+apply!(α::Number, P::Type{<:Operations}, A::Mapping, x, β::Number, y) =
     apply!(α, P, A, x, false, β, y)
 
 apply!(A::Mapping, x, scratch::Bool, y) =
     apply!(1, Direct, A, x, scratch, 0, y)
-apply!(α::Real, A::Mapping, x, scratch::Bool, y) =
+apply!(α::Number, A::Mapping, x, scratch::Bool, y) =
     apply!(α, Direct, A, x, scratch, 0, y)
-apply!(A::Mapping, x, scratch::Bool, β::Real, y) =
+apply!(A::Mapping, x, scratch::Bool, β::Number, y) =
     apply!(1, Direct, A, x, scratch, β, y)
 
 apply!(P::Type{<:Operations}, A::Mapping, x, scratch::Bool, y) =
     apply!(1, P, A, x, scratch, 0, y)
-apply!(α::Real, P::Type{<:Operations}, A::Mapping, x, scratch::Bool, y) =
+apply!(α::Number, P::Type{<:Operations}, A::Mapping, x, scratch::Bool, y) =
     apply!(α, P, A, x, scratch, 0, y)
-apply!(P::Type{<:Operations}, A::Mapping, x, scratch::Bool, β::Real, y) =
+apply!(P::Type{<:Operations}, A::Mapping, x, scratch::Bool, β::Number, y) =
     apply!(1, P, A, x, scratch, β, y)
 
 # Change order of arguments.
@@ -798,17 +798,17 @@ apply!(y, A::Mapping, x, scratch::Bool=false) =
     apply!(1, Direct, A, x, scratch, 0, y)
 apply!(y, P::Type{<:Operations}, A::Mapping, x, scratch::Bool=false) =
     apply!(1, P, A, x, scratch, 0, y)
-apply!(y, α::Real, A::Mapping, x, scratch::Bool=false) =
+apply!(y, α::Number, A::Mapping, x, scratch::Bool=false) =
     apply!(α, Direct, A, x, scratch, 0, y)
-apply!(y, α::Real, P::Type{<:Operations}, A::Mapping, x, scratch::Bool=false) =
+apply!(y, α::Number, P::Type{<:Operations}, A::Mapping, x, scratch::Bool=false) =
     apply!(α, P, A, x, scratch, 0, y)
-apply!(β::Real, y, A::Mapping, x, scratch::Bool=false) =
+apply!(β::Number, y, A::Mapping, x, scratch::Bool=false) =
     apply!(1, Direct, A, x, scratch, β, y)
-apply!(β::Real, y, P::Type{<:Operations}, A::Mapping, x, scratch::Bool=false) =
+apply!(β::Number, y, P::Type{<:Operations}, A::Mapping, x, scratch::Bool=false) =
     apply!(1, P, A, x, scratch, β, y)
-apply!(β::Real, y, α::Real, A::Mapping, x, scratch::Bool=false) =
+apply!(β::Number, y, α::Number, A::Mapping, x, scratch::Bool=false) =
     apply!(α, Direct, A, x, scratch, β, y)
-apply!(β::Real, y, α::Real, P::Type{<:Operations}, A::Mapping, x, scratch::Bool=false) =
+apply!(β::Number, y, α::Number, P::Type{<:Operations}, A::Mapping, x, scratch::Bool=false) =
     apply!(α, P, A, x, scratch, β, y)
 
 # Extend `mul!` so that `A'*x`, `A*B*C*x`, etc. yield the expected result.
@@ -822,7 +822,7 @@ for (P, expr) in ((:Direct, :(α*multiplier(A))),
                   (:InverseAdjoint, :(α/conj(multiplier(A)))))
     @eval begin
 
-        apply!(α::Real, ::Type{$P}, A::Scaled, x, scratch::Bool, β::Real, y) =
+        apply!(α::Number, ::Type{$P}, A::Scaled, x, scratch::Bool, β::Number, y) =
             apply!($expr, $P, operand(A), x, scratch, β, y)
 
     end
@@ -887,7 +887,7 @@ for (T1, T2, T3) in ((:Direct,         :Adjoint,        :Adjoint),
         vcreate(::Type{$T1}, A::$T2, x, scratch::Bool) =
             vcreate($T3, operand(A), x, scratch)
 
-        apply!(α::Real, ::Type{$T1}, A::$T2, x, scratch::Bool, β::Real, y) =
+        apply!(α::Number, ::Type{$T1}, A::$T2, x, scratch::Bool, β::Number, y) =
             apply!(α, $T3, operand(A), x, scratch, β, y)
 
     end
@@ -904,8 +904,8 @@ function vcreate(::Type{P}, A::Sum, x,
     vcreate(P, A[1], x, scratch)
 end
 
-function apply!(α::Real, P::Type{<:Union{Direct,Adjoint}}, A::Sum{N},
-                x, scratch::Bool, β::Real, y) where {N}
+function apply!(α::Number, P::Type{<:Union{Direct,Adjoint}}, A::Sum{N},
+                x, scratch::Bool, β::Number, y) where {N}
     # Apply first mapping with β and then other with β=1.  Scratch flag is
     # always false until last mapping because we must preserve x as there is
     # more than one term.
@@ -923,8 +923,8 @@ vcreate(::Type{<:Union{Inverse,InverseAdjoint}}, A::Sum, x, scratch::Bool) =
 apply(::Type{<:Union{Inverse,InverseAdjoint}}, A::Sum, x, scratch::Bool) =
     error(UnsupportedInverseOfSumOfMappings)
 
-function apply!(α::Real, ::Type{<:Union{Inverse,InverseAdjoint}}, A::Sum,
-                x, scratch::Bool, β::Real, y)
+function apply!(α::Number, ::Type{<:Union{Inverse,InverseAdjoint}}, A::Sum,
+                x, scratch::Bool, β::Number, y)
     error(UnsupportedInverseOfSumOfMappings)
 end
 
@@ -954,13 +954,13 @@ function vcreate(P::Type{<:Operations},
 end
 
 # Gram matrices are Hermitian by construction.
-apply!(α::Real, ::Type{Adjoint}, A::Gram, x, scratch::Bool, β::Real, y) =
+apply!(α::Number, ::Type{Adjoint}, A::Gram, x, scratch::Bool, β::Number, y) =
     apply!(α, Direct, A, x, scratch, β, y)
-apply!(α::Real, ::Type{InverseAdjoint}, A::Gram, x, scratch::Bool, β::Real, y) =
+apply!(α::Number, ::Type{InverseAdjoint}, A::Gram, x, scratch::Bool, β::Number, y) =
     apply!(α, Inverse, A, x, scratch, β, y)
 
-function apply!(α::Real, P::Type{<:Union{Direct,InverseAdjoint}},
-                A::Composition{N}, x, scratch::Bool, β::Real, y) where {N}
+function apply!(α::Number, P::Type{<:Union{Direct,InverseAdjoint}},
+                A::Composition{N}, x, scratch::Bool, β::Number, y) where {N}
     @assert N ≥ 2 "bug in Composition constructor"
     ops = operands(A)
     w = _apply(P, ops[2:N], x, scratch)
@@ -985,8 +985,8 @@ function _apply(P::Type{<:Union{Direct,InverseAdjoint}},
     end
 end
 
-function apply!(α::Real, P::Type{<:Union{Adjoint,Inverse}},
-                A::Composition{N}, x, scratch::Bool, β::Real, y) where {N}
+function apply!(α::Number, P::Type{<:Union{Adjoint,Inverse}},
+                A::Composition{N}, x, scratch::Bool, β::Number, y) where {N}
     @assert N ≥ 2 "bug in Composition constructor"
     ops = operands(A)
     w = _apply(P, ops[1:N-1], x, scratch)

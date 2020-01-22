@@ -31,7 +31,7 @@ import ..LazyAlgebra: adjoint, apply!, vcreate, MorphismType, mul!,
     input_size, input_ndims, input_eltype,
     output_size, output_ndims, output_eltype,
     are_same_mappings
-using ..LazyAlgebra: _merge_mul, @callable
+using ..LazyAlgebra: _merge_mul, @callable, promote_multiplier
 
 import Base: *, /, \, inv, show
 
@@ -127,12 +127,12 @@ end
 # depends on the type of transform so several versions are coded below.
 
 # Apply in-place complex-complex forward/backward FFT transform.
-function apply!(α::Real,
+function apply!(α::Number,
                 ::Type{Direct},
                 A::cFFTWPlan{Complex{T},K,true,N},
                 x::StridedArray{Complex{T},N},
                 scratch::Bool,
-                β::Real,
+                β::Number,
                 y::StridedArray{Complex{T},N}) where {T<:fftwReal,N,K}
     @checksize "argument" x  input_size(A)
     @checksize "result"   y output_size(A)
@@ -150,12 +150,12 @@ function apply!(α::Real,
 end
 
 # Apply out-of-place complex-complex forward/backward FFT transform.
-function apply!(α::Real,
+function apply!(α::Number,
                 ::Type{Direct},
                 A::cFFTWPlan{Complex{T},K,false,N},
                 x::StridedArray{Complex{T},N},
                 scratch::Bool,
-                β::Real,
+                β::Number,
                 y::StridedArray{Complex{T},N}) where {T<:fftwReal,N,K}
     @checksize "argument" x  input_size(A)
     @checksize "result"   y output_size(A)
@@ -172,12 +172,12 @@ end
 
 # Apply real-to-complex forward transform.  The transform is necessarily
 # out-of-place.
-function apply!(α::Real,
+function apply!(α::Number,
                 ::Type{Direct},
                 A::rFFTWPlan{T,K,false,N},
                 x::StridedArray{T,N},
                 scratch::Bool,
-                β::Real,
+                β::Number,
                 y::StridedArray{Complex{T},N}) where {T<:fftwReal,K,N}
     @checksize "argument" x  input_size(A)
     @checksize "result"   y output_size(A)
@@ -195,12 +195,12 @@ end
 # Apply complex-to-real (c2r) backward transform. Preserving input is not
 # possible for multi-dimensional c2r transforms so we must copy the input
 # argument x.
-function apply!(α::Real,
+function apply!(α::Number,
                 ::Type{Direct},
                 A::rFFTWPlan{Complex{T},K,false,N},
                 x::StridedArray{Complex{T},N},
                 scratch::Bool,
-                β::Real,
+                β::Number,
                 y::StridedArray{T,N}) where {T<:fftwReal,K,N}
     @checksize "argument" x  input_size(A)
     @checksize "result"   y output_size(A)
@@ -482,42 +482,42 @@ end
 # to restrict arguments to arrays with contiguous elements (DenseArray).
 #
 
-function apply!(α::Real,
+function apply!(α::Number,
                 ::Type{Direct},
                 A::FFTOperator{T,N,C},
                 x::DenseArray{T,N},
                 scratch::Bool,
-                β::Real,
+                β::Number,
                 y::DenseArray{C,N}) where {T,N,C}
     return apply!(α, Direct, A.forward, x, scratch, β, y)
 end
 
-function apply!(α::Real,
+function apply!(α::Number,
                 ::Type{Adjoint},
                 A::FFTOperator{T,N,C},
                 x::DenseArray{C,N},
                 scratch::Bool,
-                β::Real,
+                β::Number,
                 y::DenseArray{T,N}) where {T,N,C}
     return apply!(α, Direct, A.backward, x, scratch, β, y)
 end
 
-function apply!(α::Real,
+function apply!(α::Number,
                 ::Type{Inverse},
                 A::FFTOperator{T,N,C},
                 x::DenseArray{C,N},
                 scratch::Bool,
-                β::Real,
+                β::Number,
                 y::DenseArray{T,N}) where {T,N,C}
     return apply!(α/ncols(A), Direct, A.backward, x, scratch, β, y)
 end
 
-function apply!(α::Real,
+function apply!(α::Number,
                 ::Type{InverseAdjoint},
                 A::FFTOperator{T,N,C},
                 x::DenseArray{T,N},
                 scratch::Bool,
-                β::Real,
+                β::Number,
                 y::DenseArray{C,N}) where {T,N,C}
     return apply!(α/ncols(A), Direct, A.forward, x, scratch, β, y)
 end
@@ -718,12 +718,12 @@ function vcreate(::Type{<:Operations},
     return Array{T,N}(undef, H.dims)
 end
 
-function apply!(α::Real,
+function apply!(α::Number,
                 P::Type{<:Union{Direct,Adjoint}},
                 H::CirculantConvolution{Complex{T},N,Complex{T}},
                 x::AbstractArray{Complex{T},N},
                 scratch::Bool,
-                β::Real,
+                β::Number,
                 y::AbstractArray{Complex{T},N}) where {T<:fftwReal,N}
     @assert !Base.has_offset_axes(x, y)
     if α == 0
@@ -748,12 +748,12 @@ function apply!(α::Real,
     return y
 end
 
-function apply!(α::Real,
+function apply!(α::Number,
                 P::Type{<:Union{Direct,Adjoint}},
                 H::CirculantConvolution{T,N,Complex{T}},
                 x::AbstractArray{T,N},
                 scratch::Bool,
-                β::Real,
+                β::Number,
                 y::AbstractArray{T,N}) where {T<:fftwReal,N}
     @assert !Base.has_offset_axes(x, y)
     if α == 0
@@ -786,7 +786,7 @@ arrays do not have the same dimensions.  It is assumed that `α ≠ 0`.
 
 """
 function _apply!(arr::AbstractArray{Complex{T},N},
-                 α::Real, ::Type{Direct},
+                 α::Number, ::Type{Direct},
                  mtf::AbstractArray{Complex{T},N}) where {T,N}
     @assert axes(arr) == axes(mtf)
     if α == 1
@@ -794,7 +794,7 @@ function _apply!(arr::AbstractArray{Complex{T},N},
             arr[i] *= mtf[i]
         end
     else
-        alpha = convert(T, α)
+        alpha = promote_multiplier(α, T)
         @inbounds @simd for i in eachindex(arr, mtf)
             arr[i] *= alpha*mtf[i]
         end
@@ -802,7 +802,7 @@ function _apply!(arr::AbstractArray{Complex{T},N},
 end
 
 function _apply!(arr::AbstractArray{Complex{T},N},
-                 α::Real, ::Type{Adjoint},
+                 α::Number, ::Type{Adjoint},
                  mtf::AbstractArray{Complex{T},N}) where {T,N}
     @assert axes(arr) == axes(mtf)
     if α == 1
@@ -810,7 +810,7 @@ function _apply!(arr::AbstractArray{Complex{T},N},
             arr[i] *= conj(mtf[i])
         end
     else
-        alpha = convert(T, α)
+        alpha = promote_multiplier(α, T)
         @inbounds @simd for i in eachindex(arr, mtf)
             arr[i] *= alpha*conj(mtf[i])
         end
