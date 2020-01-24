@@ -254,8 +254,8 @@ vscale!(dst, α, src) -> dst
 ```
 
 overwrites `dst` with `α*src` and returns `dst`.  Computations are done at the
-numerical precision of `promote_type(eltype(src),eltype(dst))`.  The source
-argument may be omitted to perform *in-place* scaling:
+numerical precision of `promote_eltype(src,dst)`.  The source argument may be
+omitted to perform *in-place* scaling:
 
 ```julia
 vscale!(x, α) -> x
@@ -368,8 +368,8 @@ Optional argument `sel` is a selection of indices to which apply the operation.
 """
 vproduct(x::V, y::V) where {V} = vproduct!(vcreate(x), x, y)
 
-vproduct(x::AbstractArray{Tx,N}, y::AbstractArray{Ty,N}) where {Tx,Ty,N} =
-    vproduct!(similar(x, promote_type(Tx,Ty)), x, y)
+vproduct(x::AbstractArray{<:Any,N}, y::AbstractArray{<:Any,N}) where {N} =
+    vproduct!(similar(x, promote_eltype(x,y)), x, y)
 
 for Td in (AbstractFloat, Complex{<:AbstractFloat}),
     Tx in (AbstractFloat, Complex{<:AbstractFloat}),
@@ -415,7 +415,7 @@ vupdate!(y, [sel,] α, x) -> y
 overwrites `y` with `α*x + y` and returns `y`.  The code is optimized for some
 specific values of the multiplier `α`.  For instance, if `α` is zero, then `y`
 is left unchanged without using `x`.  Computations are performed at the
-numerical precision of `promote_type(eltype(x),eltype(y))`.
+numerical precision of `promote_eltype(x,y)`.
 
 Optional argument `sel` is a selection of indices to which apply the operation.
 Note that if an index is repeated, the operation will be performed several
@@ -426,19 +426,19 @@ See also: [`vscale!`](@ref), [`vcombine!](@ref).
 """
 function vupdate!(y::AbstractArray{<:Floats,N},
                   α::Number,
-                  x::AbstractArray{T,N}) where {T<:Floats,N}
-    axes(x) == axes(y) || throw_dimensions_mismatch()
+                  x::AbstractArray{<:Floats,N}) where {N}
+    I = safe_indices(x, y)
     if α == 1
-        @inbounds @simd for i in eachindex(y, x)
+        @inbounds @simd for i in I
             y[i] += x[i]
         end
     elseif α == -1
-        @inbounds @simd for i in eachindex(y, x)
+        @inbounds @simd for i in I
             y[i] -= x[i]
         end
     elseif α != 0
-        alpha = promote_multiplier(α, T)
-        @inbounds @simd for i in eachindex(y, x)
+        alpha = promote_multiplier(α, x)
+        @inbounds @simd for i in I
             y[i] += alpha*x[i]
         end
     end
@@ -448,7 +448,7 @@ end
 function vupdate!(y::AbstractArray{<:Floats,N},
                   sel::AbstractVector{Int},
                   α::Number,
-                  x::AbstractArray{T,N}) where {T<:Floats,N}
+                  x::AbstractArray{<:Floats,N}) where {N}
     if checkselection(sel, x, y)
         if α == 1
             @inbounds @simd for j in eachindex(sel)
@@ -461,7 +461,7 @@ function vupdate!(y::AbstractArray{<:Floats,N},
                 y[i] -= x[i]
             end
         elseif α != 0
-            alpha = promote_multiplier(α, T)
+            alpha = promote_multiplier(α, x)
             @inbounds @simd for j in eachindex(sel)
                 i = sel[j]
                 y[i] += alpha*x[i]
@@ -511,10 +511,9 @@ vcombine(α::Number, x::V, β::Number, y::V) where {V} =
 
 function vcombine!(dst::AbstractArray{<:Floats,N},
                    α::Number,
-                   x::AbstractArray{Tx,N},
+                   x::AbstractArray{<:Floats,N},
                    β::Number,
-                   y::AbstractArray{Ty,N}) where {Tx<:Floats,
-                                                  Ty<:Floats,N}
+                   y::AbstractArray{<:Floats,N}) where {N}
     if α == 0
         axes(x) == axes(dst) || throw_dimensions_mismatch()
         vscale!(dst, β, y)
@@ -522,52 +521,50 @@ function vcombine!(dst::AbstractArray{<:Floats,N},
         axes(y) == axes(dst) || throw_dimensions_mismatch()
         vscale!(dst, α, x)
     else
-        # FIXME: I = safe_indices(dst, x, y)
-        #        @inbounds @simd for i in I; ...; end
-        axes(dst) == axes(x) == axes(y) || throw_dimensions_mismatch()
+        I = safe_indices(dst, x, y)
         if α == 1
             if β == 1
-                @inbounds @simd for i in eachindex(dst, x, y)
+                @inbounds @simd for i in I
                     dst[i] = x[i] + y[i]
                 end
             elseif β == -1
-                @inbounds @simd for i in eachindex(dst, x, y)
+                @inbounds @simd for i in I
                     dst[i] = x[i] - y[i]
                 end
             else
-                beta = promote_multiplier(β, Ty)
-                @inbounds @simd for i in eachindex(dst, x, y)
+                beta = promote_multiplier(β, y)
+                @inbounds @simd for i in I
                     dst[i] = x[i] + beta*y[i]
                 end
             end
         elseif α == -1
             if β == 1
-                @inbounds @simd for i in eachindex(dst, x, y)
+                @inbounds @simd for i in I
                     dst[i] = y[i] - x[i]
                 end
             elseif β == -1
-                @inbounds @simd for i in eachindex(dst, x, y)
+                @inbounds @simd for i in I
                     dst[i] = -x[i] - y[i]
                 end
             else
-                beta = promote_multiplier(β, Ty)
-                @inbounds @simd for i in eachindex(dst, x, y)
+                beta = promote_multiplier(β, y)
+                @inbounds @simd for i in I
                     dst[i] = beta*y[i] - x[i]
                 end
             end
         else
-            alpha = promote_multiplier(α, Tx)
+            alpha = promote_multiplier(α, x)
             if β == 1
-                @inbounds @simd for i in eachindex(dst, x, y)
+                @inbounds @simd for i in I
                     dst[i] = alpha*x[i] + y[i]
                 end
             elseif β == -1
-                @inbounds @simd for i in eachindex(dst, x, y)
+                @inbounds @simd for i in I
                     dst[i] = alpha*x[i] - y[i]
                 end
             else
-                beta = promote_multiplier(β, Ty)
-                @inbounds @simd for i in eachindex(dst, x, y)
+                beta = promote_multiplier(β, y)
+                @inbounds @simd for i in I
                     dst[i] = alpha*x[i] + beta*y[i]
                 end
             end
