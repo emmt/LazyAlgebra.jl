@@ -39,9 +39,8 @@ and overwrites the contents of `y` with `α*op(A)*x + β*y`.  Note that `x` and
 `y` must not be aliased.
 
 The multipliers `α` and `β` must be both specified or omitted, they can be any
-scalar numbers but are respectively converted to
-`promote_type(eltype(A),eltype(x))` and `eltype(y)` which may throw an
-`InexactError` exception.
+scalar numbers but are respectively converted to `promote_eltype(A,x)` and
+`eltype(y)` which may throw an `InexactError` exception.
 
 See also: [`lgemm`](@ref), [`LinearAlgebra.BLAS.gemv`](@ref),
 [`LinearAlgebra.BLAS.gemv!`](@ref).
@@ -251,30 +250,26 @@ end
 function _lgemv(::Linear,
                 α::Number,
                 trans::Char,
-                A::AbstractArray{Ta},
-                x::AbstractArray{Tx}) where {Ta<:Floats,
-                                             Tx<:Floats}
+                A::AbstractArray{<:Floats},
+                x::AbstractArray{<:Floats})
     nrows, ncols, shape = _lgemv_dims(trans, A, x)
-    Tax, Ty = _lgemv_types(α, Ta, Tx)
+    T = _lgemv_type(α, A, x)
     return _linear_lgemv!(nrows, ncols,
-                          promote_multiplier(α, Tax), trans, A, x,
-                          promote_multiplier(0, Ty), Array{Ty}(undef, shape))
+                          promote_multiplier(α, A, x), trans, A, x,
+                          promote_multiplier(0, T), Array{T}(undef, shape))
 end
 
 function _lgemv!(::Linear,
                  α::Number,
                  trans::Char,
-                 A::AbstractArray{Ta},
-                 x::AbstractArray{Tx},
+                 A::AbstractArray{<:Floats},
+                 x::AbstractArray{<:Floats},
                  β::Number,
-                 y::AbstractArray{Ty}) where {Ta<:Floats,
-                                               Tx<:Floats,
-                                               Ty<:Floats}
+                 y::AbstractArray{<:Floats})
     nrows, ncols = _lgemv_dims(trans, A, x, y)
-    Tax = promote_type(Ta, Tx)
     return _linear_lgemv!(nrows, ncols,
-                          promote_multiplier(α, Tax), trans, A, x,
-                          promote_multiplier(β, Ty), y)
+                          promote_multiplier(α, A, x), trans, A, x,
+                          promote_multiplier(β, y), y)
 end
 
 # Basic Julia implementations when vectors and matrices are, respectively, 1D
@@ -283,28 +278,27 @@ end
 function _lgemv(::Basic,
                 α::Number,
                 trans::Char,
-                A::AbstractMatrix{Ta},
-                x::AbstractVector{Tx}) where {Ta<:Floats,Tx<:Floats}
+                A::AbstractMatrix{<:Floats},
+                x::AbstractVector{<:Floats})
     rows, cols = _lgemv_indices(trans, A, x)
-    Tax, Ty = _lgemv_types(α, Ta, Tx)
+    T = _lgemv_type(α, A, x)
     return _generic_lgemv!(rows, cols,
-                           promote_multiplier(α, Tax), trans, A, x,
-                           promote_multiplier(0, Ty),
-                           similar(Array{Ty}, trans == 'N' ? rows : cols))
+                           promote_multiplier(α, A, x), trans, A, x,
+                           promote_multiplier(0, T),
+                           similar(Array{T}, trans == 'N' ? rows : cols))
 end
 
 function _lgemv!(::Basic,
                  α::Number,
                  trans::Char,
-                 A::AbstractMatrix{Ta},
-                 x::AbstractVector{Tx},
+                 A::AbstractMatrix{<:Floats},
+                 x::AbstractVector{<:Floats},
                  β::Number,
-                 y::AbstractVector{Ty}) where {Ta<:Floats,Tx<:Floats,Ty<:Floats}
+                 y::AbstractVector{<:Floats})
     rows, cols = _lgemv_indices(trans, A, x, y)
-    Tax = promote_type(Ta, Tx)
     return _generic_lgemv!(rows, cols,
-                           promote_multiplier(α, Tax), trans, A, x,
-                           promote_multiplier(β, Ty), y)
+                           promote_multiplier(α, A, x), trans, A, x,
+                           promote_multiplier(β, y), y)
 end
 
 # Generic implementations for any other cases.
@@ -312,31 +306,27 @@ end
 function _lgemv(::Generic,
                 α::Number,
                 trans::Char,
-                A::AbstractArray{Ta,Na},
-                x::AbstractArray{Tx,Nx}) where {Ta<:Floats,Na,
-                                                Tx<:Floats,Nx}
+                A::AbstractArray{<:Floats},
+                x::AbstractArray{<:Floats})
     rows, cols = _lgemv_indices(trans, A, x)
-    Tax, Ty = _lgemv_types(α, Ta, Tx)
+    T = _lgemv_type(α, A, x)
     return _generic_lgemv!(cartesian_indices(rows), cartesian_indices(cols),
-                           promote_multiplier(α, Tax), trans, A, x,
-                           promote_multiplier(0, Ty),
-                           similar(Array{Ty}, trans == 'N' ? rows : cols))
+                           promote_multiplier(α, A, x), trans, A, x,
+                           promote_multiplier(0, T),
+                           similar(Array{T}, trans == 'N' ? rows : cols))
 end
 
 function _lgemv!(::Generic,
                  α::Number,
                  trans::Char,
-                 A::AbstractArray{Ta,Na},
-                 x::AbstractArray{Tx,Nx},
+                 A::AbstractArray{<:Floats},
+                 x::AbstractArray{<:Floats},
                  β::Number,
-                 y::AbstractArray{Ty,Ny}) where {Ta<:Floats,Na,
-                                                 Tx<:Floats,Nx,
-                                                 Ty<:Floats,Ny}
+                 y::AbstractArray{<:Floats})
     rows, cols = _lgemv_indices(trans, A, x, y)
-    Tax = promote_type(Ta, Tx)
     return _generic_lgemv!(cartesian_indices(rows), cartesian_indices(cols),
-                           promote_multiplier(α, Tax), trans, A, x,
-                           promote_multiplier(β, Ty), y)
+                           promote_multiplier(α, A, x), trans, A, x,
+                           promote_multiplier(β, y), y)
 end
 
 #
@@ -518,20 +508,12 @@ function _generic_lgemv!(I, J,
     return y
 end
 #
-# This method yields promote_type(Ta, Tx) and Ty, the type of the elements for
-# the result of lgemv.
+# This method yields the type of the elements for the result of lgemv.
 #
-@inline function _lgemv_types(α::Real, ::Type{Ta},
-                              ::Type{Tx}) where {Ta<:Floats,Tx<:Floats}
-    Tax = promote_type(Ta, Tx)
-    return Tax, Tax
-end
-#
-@inline function _lgemv_types(α::Complex, ::Type{Ta},
-                              ::Type{Tx}) where {Ta<:Floats,Tx<:Floats}
-    Tax = promote_type(Ta, Tx)
-    return Tax, complex(Tax)
-end
+_lgemv_type(α::Real, A::AbstractArray, x::AbstractArray) =
+    promote_eltype(A, x)
+_lgemv_type(α::Complex, A::AbstractArray, x::AbstractArray) =
+    complex(promote_eltype(A, x))
 #
 # This method yields the number of rows and columns for lgemv assuming linear
 # indexing and check arguments.

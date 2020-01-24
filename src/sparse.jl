@@ -329,7 +329,7 @@ function *(W::NonuniformScalingOperator, S::SparseOperator)::SparseOperator
     size(D) == output_size(S) ||
         throw(DimensionMismatch("the non-uniform scaling array and the rows of the sparse operator must have the same dimensions"))
     I, J, C = rows(S), cols(S), coefficients(S)
-    T = promote_type(eltype(D), eltype(C))
+    T = promote_eltype(D, C)
     return SparseOperator(I, J, _scaleleft(T, D, I, C),
                           output_size(S), input_size(S))
 end
@@ -340,7 +340,7 @@ function *(S::SparseOperator, W::NonuniformScalingOperator)::SparseOperator
     size(D) == input_size(S) ||
         throw(DimensionMismatch("the non-uniform scaling array and the columns of the sparse operator must have the same dimensions"))
     I, J, C = rows(S), cols(S), coefficients(S)
-    T = promote_type(eltype(D), eltype(C))
+    T = promote_eltype(D, C)
     return SparseOperator(I, J, _scaleright(T, C, D, J),
                           output_size(S), input_size(S))
 end
@@ -384,21 +384,23 @@ _bad_output_indexing() =
     throw(ArgumentError("output array has non-standard indices"))
 
 function vcreate(::Type{Direct},
-                 S::SparseOperator{Ts,M,N},
-                 x::AbstractArray{Tx,N},
-                 scratch::Bool) where {Ts,Tx,M,N}
+                 S::SparseOperator{<:Any,M,N},
+                 x::AbstractArray{<:Any,N},
+                 scratch::Bool) where {M,N}
     # In-place operation is not possible so we simply ignore the scratch flag.
     size(x) == input_size(S) || _bad_input_dimensions()
-    return Array{promote_type(Ts,Tx)}(undef, output_size(S))
+    T = promote_eltype(coefficients(S),x)
+    return Array{T}(undef, output_size(S))
 end
 
 function vcreate(::Type{Adjoint},
-                 S::SparseOperator{Ts,M,N},
-                 x::AbstractArray{Tx,M},
-                 scratch::Bool) where {Ts,Tx,M,N}
+                 S::SparseOperator{<:Any,M,N},
+                 x::AbstractArray{<:Any,M},
+                 scratch::Bool) where {M,N}
     # In-place operation is not possible so we simply ignore the scratch flag.
     size(x) == output_size(S) || _bad_input_dimensions()
-    return Array{promote_type(Ts,Tx)}(undef, input_size(S))
+    T = promote_eltype(coefficients(S),x)
+    return Array{T}(undef, input_size(S))
 end
 
 function apply!(α::Number,

@@ -35,9 +35,8 @@ and overwrites the contents of `C` with `α*op(A)*op(B) + β*C`.  Note that `C`
 must not be aliased with `A` nor `B`.
 
 The multipliers `α` and `β` must be both specified or omitted, they can be any
-scalar numbers but are respectively converted to
-`promote_type(eltype(A),eltype(B))` and `eltype(C)` which may throw an
-`InexactError` exception.
+scalar numbers but are respectively converted to `promote_eltype(A,B)` and
+`eltype(C)` which may throw an `InexactError` exception.
 
 See also: [`lgemv`](@ref), [`LinearAlgebra.BLAS.gemm`](@ref),
 [`LinearAlgebra.BLAS.gemm!`](@ref).
@@ -271,32 +270,33 @@ end
 function _lgemm(::Linear,
                 α::Number,
                 transA::Char,
-                A::AbstractArray{Ta},
+                A::AbstractArray{<:Floats},
                 transB::Char,
-                B::AbstractArray{Tb},
-                Nc::Int) where {Ta<:Floats,Tb<:Floats}
+                B::AbstractArray{<:Floats},
+                Nc::Int)
+    # FIXME: check and improve type stability
     m, n, p, shape = _lgemm_dims(transA, A, transB, B, Nc)
-    Tab, Tc = _lgemm_types(α, Ta, Tb)
+    T = _lgemm_type(α, A, B)
     return _linear_lgemm!(m, n, p,
-                          promote_multiplier(α, Tab), transA, A,
+                          promote_multiplier(α, A, B), transA, A,
                           transB, B,
-                          promote_multiplier(0, Tc), Array{Tc}(undef, shape))
+                          promote_multiplier(0, T),
+                          Array{T}(undef, shape))
 end
 
 function _lgemm!(::Linear,
                  α::Number,
                  transA::Char,
-                 A::AbstractArray{Ta},
+                 A::AbstractArray{<:Floats},
                  transB::Char,
-                 B::AbstractArray{Tb},
+                 B::AbstractArray{<:Floats},
                  β::Number,
-                 C::AbstractArray{Tc}) where {Ta<:Floats,Tb<:Floats,Tc<:Floats}
+                 C::AbstractArray{<:Floats})
     m, n, p = _lgemm_dims(transA, A, transB, B, C)
-    Tab = promote_type(Ta, Tb)
     return _linear_lgemm!(m, n, p,
-                          promote_multiplier(α, Tab), transA, A,
+                          promote_multiplier(α, A, B), transA, A,
                           transB, B,
-                          promote_multiplier(β, Tc), C)
+                          promote_multiplier(β, C), C)
 end
 
 # Julia implementations for any kind of abstract matrices.
@@ -304,33 +304,32 @@ end
 function _lgemm(::Basic,
                 α::Number,
                 transA::Char,
-                A::AbstractMatrix{Ta},
+                A::AbstractMatrix{<:Floats},
                 transB::Char,
-                B::AbstractMatrix{Tb},
-                Nc::Int) where {Ta<:Floats,Tb<:Floats}
+                B::AbstractMatrix{<:Floats},
+                Nc::Int)
     I, J, K = _lgemm_indices(transA, A, transB, B, Nc)
-    Tab, Tc = _lgemm_types(α, Ta, Tb)
+    T = _lgemm_type(α, A, B)
     return _generic_lgemm!(I, J, K,
-                           promote_multiplier(α, Tab), transA, A,
+                           promote_multiplier(α, A, B), transA, A,
                            transB, B,
-                           promote_multiplier(0, Tc),
-                           similar(Array{Tc}, (I, J)))
+                           promote_multiplier(0, T),
+                           similar(Array{T}, (I, J)))
 end
 
 function _lgemm!(::Basic,
                  α::Number,
                  transA::Char,
-                 A::AbstractMatrix{Ta},
+                 A::AbstractMatrix{<:Floats},
                  transB::Char,
-                 B::AbstractMatrix{Tb},
+                 B::AbstractMatrix{<:Floats},
                  β::Number,
-                 C::AbstractMatrix{Tc}) where {Ta<:Floats,Tb<:Floats,Tc<:Floats}
+                 C::AbstractMatrix{<:Floats})
     I, J, K = _lgemm_indices(transA, A, transB, B, C)
-    Tab = promote_type(Ta, Tb)
     return _generic_lgemm!(I, J, K,
-                           promote_multiplier(α, Tab), transA, A,
+                           promote_multiplier(α, A, B), transA, A,
                            transB, B,
-                           promote_multiplier(β, Tc), C)
+                           promote_multiplier(β, C), C)
 end
 
 # Generic Julia implementation.
@@ -338,69 +337,67 @@ end
 function _lgemm(::Generic,
                 α::Number,
                 transA::Char,
-                A::AbstractMatrix{Ta},
+                A::AbstractMatrix{<:Floats},
                 transB::Char,
-                B::AbstractMatrix{Tb},
-                Nc::Int) where {Ta<:Floats,Tb<:Floats}
+                B::AbstractMatrix{<:Floats},
+                Nc::Int)
     I, J, K = _lgemm_indices(transA, A, transB, B, Nc)
-    Tab, Tc = _lgemm_types(α, Ta, Tb)
+    T = _lgemm_type(α, A, B)
     return _generic_lgemm!(I, J, K,
-                           promote_multiplier(α, Tab), transA, A,
+                           promote_multiplier(α, A, B), transA, A,
                            transB, B,
-                           promote_multiplier(0, Tc),
-                           similar(Array{Tc}, (I, J)))
+                           promote_multiplier(0, T),
+                           similar(Array{T}, (I, J)))
 end
 
 function _lgemm!(::Generic,
                  α::Number,
                  transA::Char,
-                 A::AbstractMatrix{Ta},
+                 A::AbstractMatrix{<:Floats},
                  transB::Char,
-                 B::AbstractMatrix{Tb},
+                 B::AbstractMatrix{<:Floats},
                  β::Number,
-                 C::AbstractMatrix{Tc}) where {Ta<:Floats,Tb<:Floats,Tc<:Floats}
+                 C::AbstractMatrix{<:Floats})
     I, J, K = _lgemm_indices(transA, A, transB, B, C)
-    Tab = promote_type(Ta, Tb)
     return _generic_lgemm!(I, J, K,
-                           promote_multiplier(α, Tab), transA, A,
+                           promote_multiplier(α, A, B), transA, A,
                            transB, B,
-                           promote_multiplier(β, Tc), C)
+                           promote_multiplier(β, C), C)
 end
 
 function _lgemm(::Generic,
                 α::Number,
                 transA::Char,
-                A::AbstractArray{Ta},
+                A::AbstractArray{<:Floats},
                 transB::Char,
-                B::AbstractArray{Tb},
-                Nc::Int) where {Ta<:Floats,Tb<:Floats}
+                B::AbstractArray{<:Floats},
+                Nc::Int)
     I, J, K = _lgemm_indices(transA, A, transB, B, Nc)
-    Tab, Tc = _lgemm_types(α, Ta, Tb)
+    T = _lgemm_type(α, A, B)
     return _generic_lgemm!(cartesian_indices(I),
                            cartesian_indices(J),
                            cartesian_indices(K),
-                           promote_multiplier(α, Tab), transA, A,
+                           promote_multiplier(α, A, B), transA, A,
                            transB, B,
-                           promote_multiplier(0, Tc),
-                           similar(Array{Tc}, (I..., J...)))
+                           promote_multiplier(0, T),
+                           similar(Array{T}, (I..., J...)))
 end
 
 function _lgemm!(::Generic,
                  α::Number,
                  transA::Char,
-                 A::AbstractArray{Ta},
+                 A::AbstractArray{<:Floats},
                  transB::Char,
-                 B::AbstractArray{Tb},
+                 B::AbstractArray{<:Floats},
                  β::Number,
-                 C::AbstractArray{Tc}) where {Ta<:Floats,Tb<:Floats,Tc<:Floats}
+                 C::AbstractArray{<:Floats})
     I, J, K = _lgemm_indices(transA, A, transB, B, C)
-    Tab = promote_type(Ta, Tb)
     return _generic_lgemm!(cartesian_indices(I),
                            cartesian_indices(J),
                            cartesian_indices(K),
-                           promote_multiplier(α, Tab), transA, A,
+                           promote_multiplier(α, A, B), transA, A,
                            transB, B,
-                           promote_multiplier(β, Tc), C)
+                           promote_multiplier(β, C), C)
 end
 
 #
@@ -833,20 +830,12 @@ function _generic_lgemm!(I, J, K,
     return C
 end
 #
-# This method yields promote_type(Ta, Tb) and Tc, the type of the elements for
-# the result of lgemm.
+# This method yields the type of the elements for the result of lgemm.
 #
-@inline function _lgemm_types(α::Real, ::Type{Ta},
-                              ::Type{Tb}) where {Ta<:Floats,Tb<:Floats}
-    Tab = promote_type(Ta, Tb)
-    return Tab, Tab
-end
-#
-@inline function _lgemm_types(α::Complex, ::Type{Ta},
-                              ::Type{Tb}) where {Ta<:Floats,Tb<:Floats}
-    Tab = promote_type(Ta, Tb)
-    return Tab, complex(Tab)
-end
+_lgemm_type(α::Real, A::AbstractArray, B::AbstractArray) =
+    promote_eltype(A, B)
+_lgemm_type(α::Complex, A::AbstractArray, B::AbstractArray) =
+    complex(promote_eltype(A, B))
 #
 # This method yields the lengths of the meta-dimensions for lgemm assuming
 # linear indexing and check arguments.
