@@ -22,7 +22,7 @@ export
 using ..LazyAlgebra
 using ..LazyAlgebra: Complexes, Floats, Reals, axes, promote_multiplier,
     libblas, @blasfunc, BlasInt, BlasReal, BlasFloat, BlasComplex
-using ArrayTools  # for `cartesianindices`, `isflatarray`, etc.
+using ArrayTools  # for `cartesian_indices`, `isflatarray`, etc.
 using LinearAlgebra
 using LinearAlgebra.BLAS
 

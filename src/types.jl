@@ -40,6 +40,9 @@ showerror(io::IO, err::UnimplementedMethod) =
 Type `Reals` is the set of the floating point types.  It is the numerical
 approximation of reals in the mathematical sense.
 
+This definition closely follows the semantic used in the BLAS module that
+`BlasReal` are all the real types supported by the BLAS library.
+
 """
 const Reals = AbstractFloat
 
@@ -49,12 +52,18 @@ Type `Complexes` is the set of the complexes whose real and imaginary parts are
 floating point.  It is the numerical approximation of complexes in the
 mathematical sense.
 
+This definition closely follows the semantic used in the BLAS module that
+`BlasComplex` are all the complex types supported by the BLAS library.
+
 """
 const Complexes = Complex{<:Reals}
 
 """
 
 Type `Floats` is the union of all floating-point types (reals and complexes).
+
+This definition closely follows the semantic used in the BLAS module that
+`BlasFloat` are all floating-point types supported by the BLAS library.
 
 """
 const Floats = Union{Reals,Complexes}

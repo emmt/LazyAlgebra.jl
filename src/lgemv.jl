@@ -317,7 +317,7 @@ function _lgemv(::Generic,
                                                 Tx<:Floats,Nx}
     rows, cols = _lgemv_indices(trans, A, x)
     Tax, Ty = _lgemv_types(α, Ta, Tx)
-    return _generic_lgemv!(cartesianindices(rows), cartesianindices(cols),
+    return _generic_lgemv!(cartesian_indices(rows), cartesian_indices(cols),
                            promote_multiplier(α, Tax), trans, A, x,
                            promote_multiplier(0, Ty),
                            similar(Array{Ty}, trans == 'N' ? rows : cols))
@@ -334,7 +334,7 @@ function _lgemv!(::Generic,
                                                  Ty<:Floats,Ny}
     rows, cols = _lgemv_indices(trans, A, x, y)
     Tax = promote_type(Ta, Tx)
-    return _generic_lgemv!(cartesianindices(rows), cartesianindices(cols),
+    return _generic_lgemv!(cartesian_indices(rows), cartesian_indices(cols),
                            promote_multiplier(α, Tax), trans, A, x,
                            promote_multiplier(β, Ty), y)
 end

@@ -122,7 +122,7 @@ Other methods which may be required by some packages:
 Methods that must be implemented (`V` represent the vector type):
 
 ```julia
-vdot(::Type{T}, x::Tx, y::Ty) :: T where {T<:AbstractFloat,Tx,Ty}
+vdot(x::V, y::V)
 ```
 
 ```julia

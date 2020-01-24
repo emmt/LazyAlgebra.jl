@@ -15,13 +15,6 @@
 # Copyright (c) 2017-2020 Éric Thiébaut.
 #
 
-# To simplify the code, we rely on the fact that converting `x::T` to type `T`
-# does nothing.  According to Julia code (e.g. number.jl):
-#
-#     convert(::Type{T}, x::T)      where {T<:Number} = x
-#     convert(::Type{T}, x::Number) where {T<:Number} = T(x)
-#
-
 """
 ```julia
 vnorm2([T,] v)
@@ -32,23 +25,13 @@ can be imposed by optional argument `T`.  Also see [`vnorm1`](@ref) and
 [`vnorminf`](@ref).
 
 """
-function vnorm2(::Type{T}, v::AbstractArray{<:Real}) where {T<:AbstractFloat}
+function vnorm2(v::AbstractArray{<:Union{T,Complex{T}}}) where {T<:AbstractFloat}
     s = zero(T)
     @inbounds @simd for i in eachindex(v)
-        s += T(v[i])^2
+        s += abs2(v[i])
     end
     return sqrt(s)
 end
-
-function vnorm2(::Type{T},
-                v::AbstractArray{<:Complex{<:Real}}) where {T<:AbstractFloat}
-    s = zero(T)
-    @inbounds @simd for i in eachindex(v)
-        s += abs2(Complex{T}(v[i]))
-    end
-    return sqrt(s)
-end
-
 
 """
 ```julia
@@ -64,22 +47,23 @@ absolute values of the real part and of the imaginary part of the elements
 See also [`vnorm2`](@ref) and [`vnorminf`](@ref).
 
 """
-function vnorm1(::Type{T}, v::AbstractArray{<:Real}) where {T<:AbstractFloat}
+function vnorm1(v::AbstractArray{T}) where {T<:AbstractFloat}
     s = zero(T)
     @inbounds @simd for i in eachindex(v)
-        s += abs(T(v[i]))
+        s += abs(v[i])
     end
     return s
 end
 
-function vnorm1(::Type{T},
-                v::AbstractArray{<:Complex{<:Real}}) where {T<:AbstractFloat}
-    s = zero(T)
+function vnorm1(v::AbstractArray{Complex{T}}) where {T<:AbstractFloat}
+    sr = zero(T)
+    si = zero(T)
     @inbounds @simd for i in eachindex(v)
-        z = Complex{T}(v[i])
-        s += abs(real(z)) + abs(imag(z))
+        z = v[i]
+        sr += abs(real(z))
+        si += abs(imag(z))
     end
-    return s
+    return sr + si
 end
 
 """
@@ -92,36 +76,26 @@ elements.  The floating point type of the result can be imposed by optional
 argument `T`.  Also see [`vnorm1`](@ref) and [`vnorm2`](@ref).
 
 """
-function vnorminf(::Type{T}, v::AbstractArray{T}) where {T<:AbstractFloat}
-    amax = zero(T)
+function vnorminf(v::AbstractArray{T}) where {T<:AbstractFloat}
+    absmax = zero(T)
     @inbounds @simd for i in eachindex(v)
-        amax = max(amax, abs(v[i]))
+        absmax = max(absmax, abs(v[i]))
     end
-    return amax
+    return absmax
 end
 
-function vnorminf(::Type{T},
-                  v::AbstractArray{Complex{T}}) where {T<:AbstractFloat}
-    amax = zero(T)
+function vnorminf(v::AbstractArray{Complex{T}}) where {T<:AbstractFloat}
+    abs2max = zero(T)
     @inbounds @simd for i in eachindex(v)
-        amax = max(amax, abs2(v[i]))
+        abs2max = max(abs2max, abs2(v[i]))
     end
-    return sqrt(amax)
+    return sqrt(abs2max)
 end
 
-function vnorminf(::Type{T},
-                  v::AbstractArray{E}) where {T<:AbstractFloat,R<:Real,
-                                              E<:Union{R,Complex{R}}}
-    T(vnorminf(R, v))
-end
-
+# Implemented the version with forced output result.
 for norm in (:vnorm2, :vnorm1, :vnorminf)
-    @eval begin
-        $norm(v::AbstractArray{<:Union{R,Complex{R}}}) where {R<:AbstractFloat} =
-            $norm(R, v)
-        $norm(v::AbstractArray{<:Union{R,Complex{R}}}) where {R<:Real} =
-            $norm(float(R), v)
-    end
+    @eval $norm(::Type{T}, v::AbstractArray) where {T<:AbstractFloat} =
+        T($norm(v))
 end
 
 #------------------------------------------------------------------------------
@@ -191,32 +165,25 @@ vcopy(x) = vcopy!(vcreate(x), x)
 vswap!(x, y)
 ```
 
-exchanges the contents of `x` and `y` (which must have the same type and size
-if they are arrays).
+exchanges the contents of `x` and `y` (which must have the same element type
+and axes if they are arrays).
 
 Also see [`vcopy!`](@ref).
 
 """
-function vswap!(x::AbstractArray{T,N},
-                y::AbstractArray{T,N}) where {R<:Real,T<:Union{R,Complex{R}},N}
-    axes(x) == axes(y) || throw_dimensions_mismatch()
-    __mayswap!(x, y)
-end
+vswap!(x::T, y::T) where {T<:AbstractArray} =
+    x === y || _swap!(x, y)
 
-__mayswap!(x::Array{T,N}, y::Array{T,N}) where {T,N} =
-    pointer(x) == pointer(y) || __swap!(x, y)
+vswap!(x::AbstractArray{T,N}, y::AbstractArray{T,N}) where {T,N} =
+    _swap!(x, y)
 
-__mayswap!(x::AbstractArray{T,N}, y::AbstractArray{T,N}) where {T,N} =
-    __swap!(x, y)
-
-function __swap!(x::AbstractArray{T,N}, y::AbstractArray{T,N}) where {T,N}
-    @inbounds @simd for i in eachindex(x, y)
+# Forced swapping.
+_swap!(x::AbstractArray{T,N}, y::AbstractArray{T,N}) where {T,N} =
+    @inbounds @simd for i in safe_indices(x, y)
         temp = x[i]
         x[i] = y[i]
         y[i] = temp
     end
-    return nothing
-end
 
 #------------------------------------------------------------------------------
 
@@ -232,7 +199,7 @@ Also see [`vzero!`](@ref), [`fill!`](@ref).
 """
 vfill!(x, α) = fill!(x, α)
 vfill!(x::AbstractArray{T}, α) where {T} = vfill!(x, T(α))
-function vfill!(x::AbstractArray{T}, α::T) where {T}
+vfill!(x::AbstractArray{T}, α::T) where {T} = begin
     @inbounds @simd for i in eachindex(x)
         x[i] = α
     end
@@ -311,33 +278,26 @@ Also see [`vscale`](@ref), [`LinearAlgebra.rmul!](@ref).
 function vscale!(dst::AbstractArray{<:Floats,N},
                  α::Number,
                  src::AbstractArray{<:Floats,N}) where {N}
-    axes(dst) == axes(src) || throw_dimensions_mismatch()
-    return _vscale!(dst, α, src)
-end
-
-# This *private* method assumes that arguments have same indices.
-function _vscale!(dst::AbstractArray{<:Floats,N},
-                  α::Number,
-                  src::AbstractArray{T,N}) where {T<:Floats,N}
     if α == 1
-        copyto!(dst, src)
+        vcopy!(dst, src)
     elseif α == 0
+        axes(dst) == axes(src) || throw_dimensions_mismatch()
         vzero!(dst)
     elseif α == -1
-        @inbounds @simd for i in eachindex(dst, src)
+        @inbounds @simd for i in safe_indices(dst, src)
             dst[i] = -src[i]
         end
     else
-        a = promote_multiplier(α, T)
-        @inbounds @simd for i in eachindex(dst, src)
-            dst[i] = a*src[i]
+        alpha = promote_multiplier(α, src)
+        @inbounds @simd for i in safe_indices(dst, src)
+            dst[i] = alpha*src[i]
         end
     end
     return dst
 end
 
 # In-place scaling.
-function vscale!(x::AbstractArray{T}, α::Number) where {T<:Floats}
+function vscale!(x::AbstractArray{<:Floats}, α::Number)
     if α == 0
         vzero!(x)
     elseif α == -1
@@ -345,7 +305,7 @@ function vscale!(x::AbstractArray{T}, α::Number) where {T<:Floats}
             x[i] = -x[i]
         end
     elseif α != 1
-        alpha = promote_multiplier(α, T)
+        alpha = promote_multiplier(α, x)
         @inbounds @simd for i in eachindex(x)
             x[i] *= alpha
         end
@@ -382,7 +342,7 @@ yield a new *vector* whose elements are those of `x` multiplied by the scalar
 Also see [`vscale!`](@ref), [`vcreate`](@ref).
 
 """
-vscale(α::Number, x) = _vscale!(vcreate(x), α, x)
+vscale(α::Number, x) = vscale!(vcreate(x), α, x)
 vscale(x, α::Number) = vscale(α, x)
 
 #------------------------------------------------------------------------------
@@ -411,40 +371,34 @@ vproduct(x::V, y::V) where {V} = vproduct!(vcreate(x), x, y)
 vproduct(x::AbstractArray{Tx,N}, y::AbstractArray{Ty,N}) where {Tx,Ty,N} =
     vproduct!(similar(x, promote_type(Tx,Ty)), x, y)
 
-for (Td, Tx, Ty) in ((:Td,            :Tx,            :Ty),
-                     (:(Complex{Td}), :Tx,            :Ty),
-                     (:(Complex{Td}), :(Complex{Tx}), :Ty),
-                     (:(Complex{Td}), :Tx,            :(Complex{Ty})),
-                     (:(Complex{Td}), :(Complex{Tx}), :(Complex{Ty})))
+for Td in (AbstractFloat, Complex{<:AbstractFloat}),
+    Tx in (AbstractFloat, Complex{<:AbstractFloat}),
+    Ty in (AbstractFloat, Complex{<:AbstractFloat})
 
-    @eval function vproduct!(dst::AbstractArray{$Td,N},
-                             x::AbstractArray{$Tx,N},
-                             y::AbstractArray{$Ty,N}) where {Td<:AbstractFloat,
-                                                             Tx<:AbstractFloat,
-                                                             Ty<:AbstractFloat,
-                                                             N}
-        axes(dst) == axes(x) == axes(y) || throw_dimensions_mismatch()
-        @inbounds @simd for i in eachindex(dst, x, y)
-            dst[i] = x[i]*y[i]
-        end
-        return dst
-    end
+    if Td <: Complex || (Tx <: Real && Ty <: Real)
 
-    @eval function vproduct!(dst::Array{$Td,N},
-                             sel::AbstractVector{Int},
-                             x::Array{$Tx,N},
-                             y::Array{$Ty,N}) where {Td<:AbstractFloat,
-                                                     Tx<:AbstractFloat,
-                                                     Ty<:AbstractFloat,
-                                                     N}
-        size(dst) == size(x) == size(y) || throw_dimensions_mismatch()
-        jmin, jmax = extrema(sel)
-        1 ≤ jmin ≤ jmax ≤ length(dst) || throw(BoundsError())
-        @inbounds @simd for i in eachindex(sel)
-            j = sel[i]
-            dst[j] = x[j]*y[j]
+        @eval function vproduct!(dst::AbstractArray{<:$Td,N},
+                                 x::AbstractArray{<:$Tx,N},
+                                 y::AbstractArray{<:$Ty,N}) where {N}
+            @inbounds @simd for i in safe_indices(dst, x, y)
+                dst[i] = x[i]*y[i]
+            end
+            return dst
         end
-        return dst
+
+        @eval function vproduct!(dst::AbstractArray{<:$Td,N},
+                                 sel::AbstractVector{Int},
+                                 x::AbstractArray{<:$Tx,N},
+                                 y::AbstractArray{<:$Ty,N}) where {N}
+            if checkselection(sel, dst, x, y)
+                @inbounds @simd for j in eachindex(sel)
+                    i = sel[j]
+                    dst[i] = x[i]*y[i]
+                end
+            end
+            return dst
+        end
+
     end
 
 end
@@ -483,9 +437,9 @@ function vupdate!(y::AbstractArray{<:Floats,N},
             y[i] -= x[i]
         end
     elseif α != 0
-        a = promote_multiplier(α, T)
+        alpha = promote_multiplier(α, T)
         @inbounds @simd for i in eachindex(y, x)
-            y[i] += a*x[i]
+            y[i] += alpha*x[i]
         end
     end
     return y
@@ -495,27 +449,23 @@ function vupdate!(y::AbstractArray{<:Floats,N},
                   sel::AbstractVector{Int},
                   α::Number,
                   x::AbstractArray{T,N}) where {T<:Floats,N}
-    @assert IndexStyle(y) == IndexLinear()
-    @assert IndexStyle(x) == IndexLinear()
-    axes(x) == axes(y) || throw_dimensions_mismatch()
-    jmin, jmax = extrema(sel)
-    I = eachindex(IndexLinear(), x)
-    first(I) ≤ jmin ≤ jmax ≤ last(I) || throw(BoundsError())
-    if α == 1
-        @inbounds @simd for i in eachindex(sel)
-            j = sel[i]
-            y[j] += x[j]
-        end
-    elseif α == -1
-        @inbounds @simd for i in eachindex(sel)
-            j = sel[i]
-            y[j] -= x[j]
-        end
-    elseif α != 0
-        a = promote_multiplier(α, T)
-        @inbounds @simd for i in eachindex(sel)
-            j = sel[i]
-            y[j] += a*x[j]
+    if checkselection(sel, x, y)
+        if α == 1
+            @inbounds @simd for j in eachindex(sel)
+                i = sel[j]
+                y[i] += x[i]
+            end
+        elseif α == -1
+            @inbounds @simd for j in eachindex(sel)
+                i = sel[j]
+                y[i] -= x[i]
+            end
+        elseif α != 0
+            alpha = promote_multiplier(α, T)
+            @inbounds @simd for j in eachindex(sel)
+                i = sel[j]
+                y[i] += alpha*x[i]
+            end
         end
     end
     return y
@@ -565,55 +515,61 @@ function vcombine!(dst::AbstractArray{<:Floats,N},
                    β::Number,
                    y::AbstractArray{Ty,N}) where {Tx<:Floats,
                                                   Ty<:Floats,N}
-    axes(dst) == axes(x) == axes(y) || throw_dimensions_mismatch()
     if α == 0
-        _vscale!(dst, β, y)
+        axes(x) == axes(dst) || throw_dimensions_mismatch()
+        vscale!(dst, β, y)
     elseif β == 0
-        _vscale!(dst, α, x)
-    elseif α == 1
-        if β == 1
-            @inbounds @simd for i in eachindex(dst, x, y)
-                dst[i] = x[i] + y[i]
-            end
-        elseif β == -1
-            @inbounds @simd for i in eachindex(dst, x, y)
-                dst[i] = x[i] - y[i]
-            end
-        else
-            b = promote_multiplier(β, Ty)
-            @inbounds @simd for i in eachindex(dst, x, y)
-                dst[i] = x[i] + b*y[i]
-            end
-        end
-    elseif α == -1
-        if β == 1
-            @inbounds @simd for i in eachindex(dst, x, y)
-                dst[i] = y[i] - x[i]
-            end
-        elseif β == -1
-            @inbounds @simd for i in eachindex(dst, x, y)
-                dst[i] = -x[i] - y[i]
-            end
-        else
-            b = promote_multiplier(β, Ty)
-            @inbounds @simd for i in eachindex(dst, x, y)
-                dst[i] = b*y[i] - x[i]
-            end
-        end
+        axes(y) == axes(dst) || throw_dimensions_mismatch()
+        vscale!(dst, α, x)
     else
-        a = promote_multiplier(α, Tx)
-        if β == 1
-            @inbounds @simd for i in eachindex(dst, x, y)
-                dst[i] = a*x[i] + y[i]
+        # FIXME: I = safe_indices(dst, x, y)
+        #        @inbounds @simd for i in I; ...; end
+        axes(dst) == axes(x) == axes(y) || throw_dimensions_mismatch()
+        if α == 1
+            if β == 1
+                @inbounds @simd for i in eachindex(dst, x, y)
+                    dst[i] = x[i] + y[i]
+                end
+            elseif β == -1
+                @inbounds @simd for i in eachindex(dst, x, y)
+                    dst[i] = x[i] - y[i]
+                end
+            else
+                beta = promote_multiplier(β, Ty)
+                @inbounds @simd for i in eachindex(dst, x, y)
+                    dst[i] = x[i] + beta*y[i]
+                end
             end
-        elseif β == -1
-            @inbounds @simd for i in eachindex(dst, x, y)
-                dst[i] = a*x[i] - y[i]
+        elseif α == -1
+            if β == 1
+                @inbounds @simd for i in eachindex(dst, x, y)
+                    dst[i] = y[i] - x[i]
+                end
+            elseif β == -1
+                @inbounds @simd for i in eachindex(dst, x, y)
+                    dst[i] = -x[i] - y[i]
+                end
+            else
+                beta = promote_multiplier(β, Ty)
+                @inbounds @simd for i in eachindex(dst, x, y)
+                    dst[i] = beta*y[i] - x[i]
+                end
             end
         else
-            b = promote_multiplier(β, Ty)
-            @inbounds @simd for i in eachindex(dst, x, y)
-                dst[i] = a*x[i] + b*y[i]
+            alpha = promote_multiplier(α, Tx)
+            if β == 1
+                @inbounds @simd for i in eachindex(dst, x, y)
+                    dst[i] = alpha*x[i] + y[i]
+                end
+            elseif β == -1
+                @inbounds @simd for i in eachindex(dst, x, y)
+                    dst[i] = alpha*x[i] - y[i]
+                end
+            else
+                beta = promote_multiplier(β, Ty)
+                @inbounds @simd for i in eachindex(dst, x, y)
+                    dst[i] = alpha*x[i] + beta*y[i]
+                end
             end
         end
     end
@@ -651,185 +607,190 @@ floating-point type, complexes are considered as vectors of pairs of reals and
 the result is:
 
 ```julia
-vdot(T::Type{AbstractFloat}, x, y) = x[1].re*y[1].re + x[1].im*y[1].im +
-                                     x[2].re*y[2].re + x[2].im*y[2].im + ...
+vdot(T::Type{AbstractFloat}, x, y) = (x[1].re*y[1].re + x[1].im*y[1].im) +
+                                     (x[2].re*y[2].re + x[2].im*y[2].im) + ...
 ```
 
 """
-function vdot(::Type{T},
-              x::AbstractArray{<:Real,N},
-              y::AbstractArray{<:Real,N})::T where {T<:AbstractFloat,N}
-    axes(x) == axes(y) || throw_dimensions_mismatch()
-    s = zero(T)
-    @inbounds @simd for i in eachindex(x, y)
-        s += convert(T, x[i]*y[i])
+function vdot(x::AbstractArray{<:AbstractFloat,N},
+              y::AbstractArray{<:AbstractFloat,N}) where {N}
+    s = zero(promote_eltype(x, y))
+    @inbounds @simd for i in safe_indices(x, y)
+        s += x[i]*y[i]
     end
     return s
 end
 
-function vdot(x::AbstractArray{Tx,N},
-              y::AbstractArray{Ty,N}) where {Tx<:Real,Ty<:Real,N}
-    return vdot(float(promote_type(Tx, Ty)), x, y)
+function vdot(T::Type{<:AbstractFloat},
+              x::AbstractArray{<:AbstractFloat,N},
+              y::AbstractArray{<:AbstractFloat,N}) where {N}
+    return T(vdot(x, y))
 end
 
-function vdot(::Type{Complex{T}},
-              x::AbstractArray{Complex{Tx},N},
-              y::AbstractArray{Complex{Ty},N}
-              )::Complex{T} where {T<:AbstractFloat,Tx<:Real,Ty<:Real,N}
-    axes(x) == axes(y) || throw_dimensions_mismatch()
-    s = zero(Complex{T})
-    @inbounds @simd for i in eachindex(x, y)
-        xi = convert(Complex{T}, x[i])
-        yi = convert(Complex{T}, y[i])
-        s += conj(xi)*yi
+function vdot(x::AbstractArray{<:Complex{<:AbstractFloat},N},
+              y::AbstractArray{<:Complex{<:AbstractFloat},N}) where {N}
+    s = zero(promote_eltype(x, y))
+    @inbounds @simd for i in safe_indices(x, y)
+        s += conj(x[i])*y[i]
     end
     return s
 end
 
-# This one yields the real part of the dot product, just as if complexes
-# were pairs of reals.
-function vdot(::Type{T},
-              x::AbstractArray{Complex{Tx},N},
-              y::AbstractArray{Complex{Ty},N})::T where {T<:AbstractFloat,
-                                                         Tx<:Real,Ty<:Real,N}
-    axes(x) == axes(y) || throw_dimensions_mismatch()
-    s = zero(T)
-    @inbounds @simd for i in eachindex(x, y)
-        xi = convert(Complex{T}, x[i])
-        yi = convert(Complex{T}, y[i])
+# This one yields the real part of the dot product, just as if complexes were
+# pairs of reals.
+function vdot(T::Type{<:AbstractFloat},
+              x::AbstractArray{<:Complex{<:AbstractFloat},N},
+              y::AbstractArray{<:Complex{<:AbstractFloat},N}) where {N}
+    s = zero(real(promote_eltype(x, y)))
+    @inbounds @simd for i in safe_indices(x, y)
+        xi = x[i]
+        yi = y[i]
         s += real(xi)*real(yi) + imag(xi)*imag(yi)
     end
-    return s
+    return T(s)
 end
 
-# Note that we cannot use union here because we want that both be real or both
-# be complex.
-function vdot(x::AbstractArray{Complex{Tx},N},
-              y::AbstractArray{Complex{Ty},N}) where {Tx<:Real,Ty<:Real,N}
-    return vdot(Complex{float(promote_type(Tx, Ty))}, x, y)
+function vdot(T::Type{Complex{<:AbstractFloat}},
+              x::AbstractArray{<:Complex{<:AbstractFloat},N},
+              y::AbstractArray{<:Complex{<:AbstractFloat},N}) where {N}
+    return T(vdot(x, y))
 end
 
-function vdot(::Type{T},
-              w::AbstractArray{<:Real,N},
-              x::AbstractArray{<:Real,N},
-              y::AbstractArray{<:Real,N})::T where {T<:AbstractFloat,N}
-    axes(w) == axes(x) == axes(y) || throw_dimensions_mismatch()
-    s = zero(T)
-    @inbounds @simd for i in eachindex(w, x, y)
-        wi = convert(T, w[i])
-        xi = convert(T, x[i])
-        yi = convert(T, y[i])
-        s += wi*xi*yi
+function vdot(w::AbstractArray{<:AbstractFloat,N},
+              x::AbstractArray{<:AbstractFloat,N},
+              y::AbstractArray{<:AbstractFloat,N}) where {N}
+    s = zero(promote_eltype(w, x, y))
+    @inbounds @simd for i in safe_indices(w, x, y)
+        s += w[i]*x[i]*y[i]
     end
     return s
 end
 
-function vdot(w::AbstractArray{Tw,N},
-              x::AbstractArray{Tx,N},
-              y::AbstractArray{Ty,N}) where {Tw<:Real,Tx<:Real,Ty<:Real,N}
-    return vdot(float(promote_type(Tw, Tx, Ty)), w, x, y)
+function vdot(T::Type{<:AbstractFloat},
+              w::AbstractArray{<:AbstractFloat,N},
+              x::AbstractArray{<:AbstractFloat,N},
+              y::AbstractArray{<:AbstractFloat,N}) where {N}
+    return T(vdot(w, x, y))
 end
 
-function vdot(::Type{Complex{T}},
-              w::AbstractArray{<:Real,N},
-              x::AbstractArray{Complex{Tx},N},
-              y::AbstractArray{Complex{Ty},N}
-              )::Complex{T} where {T<:AbstractFloat,Tx<:Real,Ty<:Real,N}
-    axes(w) == axes(x) == axes(y) || throw_dimensions_mismatch()
-    s = zero(Complex{T})
-    @inbounds @simd for i in eachindex(w, x, y)
-        wi = convert(T, w[i])
-        xi = convert(Complex{T}, x[i])
-        yi = convert(Complex{T}, y[i])
-        s += wi*conj(xi)*yi
+function vdot(w::AbstractArray{<:AbstractFloat,N},
+              x::AbstractArray{<:Complex{<:AbstractFloat},N},
+              y::AbstractArray{<:Complex{<:AbstractFloat},N}) where {N}
+    s = zero(promote_eltype(w, x, y))
+    @inbounds @simd for i in safe_indices(w, x, y)
+        s += w[i]*conj(x[i])*y[i]
     end
     return s
 end
 
-function vdot(::Type{T},
-              w::AbstractArray{<:Real,N},
-              x::AbstractArray{Complex{Tx},N},
-              y::AbstractArray{Complex{Ty},N})::T where {T<:AbstractFloat,
-                                                         Tx<:Real,Ty<:Real,N}
-    axes(w) == axes(x) == axes(y) || throw_dimensions_mismatch()
-    s = zero(T)
-    @inbounds @simd for i in eachindex(w, x, y)
-        wi = convert(T, w[i])
-        xi = convert(Complex{T}, x[i])
-        yi = convert(Complex{T}, y[i])
-        s += (real(xi)*real(yi) + imag(xi)*imag(yi))*wi
+function vdot(T::Type{<:AbstractFloat},
+              w::AbstractArray{<:AbstractFloat,N},
+              x::AbstractArray{<:Complex{<:AbstractFloat},N},
+              y::AbstractArray{<:Complex{<:AbstractFloat},N}) where {N}
+    s = zero(real(promote_eltype(w, x, y)))
+    @inbounds @simd for i in safe_indices(w, x, y)
+        xi = x[i]
+        yi = y[i]
+        s += (real(xi)*real(yi) + imag(xi)*imag(yi))*w[i]
     end
-    return s
+    return T(s)
 end
 
-function vdot(w::AbstractArray{Tw,N},
-              x::AbstractArray{Complex{Tx},N},
-              y::AbstractArray{Complex{Ty},N}) where {Tw<:Real,Tx<:Real,
-                                                      Ty<:Real,N}
-    return vdot(Complex{float(promote_type(Tw, Tx, Ty))}, w, x, y)
-end
-
-function vdot(::Type{T},
-              sel::AbstractVector{Int},
-              x::Array{<:Real,N},
-              y::Array{<:Real,N})::T where {T<:AbstractFloat,N}
-    size(y) == size(x) || throw_dimensions_mismatch()
-    jmin, jmax = extrema(sel)
-    1 ≤ jmin ≤ jmax ≤ length(x) || throw(BoundsError())
-    s = zero(T)
-    @inbounds @simd for i in eachindex(sel)
-        j = sel[i]
-        xj = convert(T, x[j])
-        yj = convert(T, y[j])
-        s += xj*yj
-    end
-    return s
+function vdot(T::Type{Complex{<:AbstractFloat}},
+              w::AbstractArray{<:AbstractFloat,N},
+              x::AbstractArray{<:Complex{<:AbstractFloat},N},
+              y::AbstractArray{<:Complex{<:AbstractFloat},N}) where {N}
+    return T(vdot(w, x, y))
 end
 
 function vdot(sel::AbstractVector{Int},
-              x::Array{Tx,N},
-              y::Array{Ty,N}) where {Tx<:Real,Ty<:Real,N}
-    return vdot(float(promote_type(Tx, Ty)), sel, x, y)
-end
-
-function vdot(::Type{Complex{T}},
-              sel::AbstractVector{Int},
-              x::Array{Complex{Tx},N},
-              y::Array{Complex{Ty},N})::Complex{T} where {T<:AbstractFloat,
-                                                          Tx<:Real,Ty<:Real,N}
-    size(y) == size(x) || throw_dimensions_mismatch()
-    jmin, jmax = extrema(sel)
-    1 ≤ jmin ≤ jmax ≤ length(x) || throw(BoundsError())
-    s = zero(Complex{T})
-    @inbounds @simd for i in eachindex(sel)
-        j = sel[i]
-        xj = convert(Complex{T}, x[j])
-        yj = convert(Complex{T}, y[j])
-        s += conj(xj)*yj
+              x::AbstractArray{<:AbstractFloat,N},
+              y::AbstractArray{<:AbstractFloat,N}) where {N}
+    s = zero(promote_eltype(x, y))
+    if checkselection(sel, x, y)
+        @inbounds @simd for j in eachindex(sel)
+            i = sel[j]
+            s += x[i]*y[i]
+        end
     end
     return s
 end
 
-function vdot(::Type{T},
+function vdot(T::Type{<:AbstractFloat},
               sel::AbstractVector{Int},
-              x::Array{Complex{Tx},N},
-              y::Array{Complex{Ty},N})::T where {T<:AbstractFloat,
-                                                 Tx<:Real,Ty<:Real,N}
-    size(y) == size(x) || throw_dimensions_mismatch()
-    jmin, jmax = extrema(sel)
-    1 ≤ jmin ≤ jmax ≤ length(x) || throw(BoundsError())
-    s = zero(T)
-    @inbounds @simd for i in eachindex(sel)
-        j = sel[i]
-        xj = convert(Complex{T}, x[j])
-        yj = convert(Complex{T}, y[j])
-        s += real(xj)*real(yj) + imag(xj)*imag(yj)
-    end
-    return s
+              x::AbstractArray{<:AbstractFloat,N},
+              y::AbstractArray{<:AbstractFloat,N}) where {N}
+    return T(vdot(sel, x, y))
 end
 
 function vdot(sel::AbstractVector{Int},
-              x::Array{Complex{Tx},N},
-              y::Array{Complex{Ty},N}) where {Tx<:Real,Ty<:Real,N}
-    return vdot(Complex{float(promote_type(Tx, Ty))}, sel, x, y)
+              x::AbstractArray{<:Complex{<:AbstractFloat},N},
+              y::AbstractArray{<:Complex{<:AbstractFloat},N}) where {N}
+    s = zero(promote_eltype(x, y))
+    if checkselection(sel, x, y)
+        @inbounds @simd for j in eachindex(sel)
+            i = sel[j]
+            s += conj(x[i])*y[i]
+        end
+    end
+    return s
 end
+
+function vdot(T::Type{<:AbstractFloat},
+              sel::AbstractVector{Int},
+              x::AbstractArray{<:Complex{<:AbstractFloat},N},
+              y::AbstractArray{<:Complex{<:AbstractFloat},N}) where {N}
+    s = zero(real(promote_eltype(x, y)))
+    if checkselection(sel, x, y)
+        @inbounds @simd for j in eachindex(sel)
+            i = sel[j]
+            xi = x[i]
+            yi = y[i]
+            s += real(xi)*real(yi) + imag(xi)*imag(yi)
+        end
+    end
+    return T(s)
+end
+
+function vdot(T::Type{Complex{<:AbstractFloat}},
+              sel::AbstractVector{Int},
+              x::AbstractArray{<:Complex{<:AbstractFloat},N},
+              y::AbstractArray{<:Complex{<:AbstractFloat},N}) where {N}
+    return T(vdot(sel, x, y))
+end
+
+# Check compatibility os selected indices with other specifed array(s) and
+# return whether the selection is non-empty.
+@inline function checkselection(sel::AbstractVector{Int},
+                                A::AbstractArray{<:Any,N}) where {N}
+    @assert IndexStyle(sel) === IndexLinear()
+    @assert IndexStyle(A) === IndexLinear()
+    flag = !isempty(sel)
+    if flag
+        imin, imax = extrema(sel)
+        I = eachindex(IndexLinear(), A)
+        ((first(I) ≤ imin) & (imax ≤ last(I))) || out_of_range_selection()
+    end
+    return flag
+end
+
+@inline function checkselection(sel::AbstractVector{Int},
+                                A::AbstractArray{<:Any,N},
+                                B::AbstractArray{<:Any,N}) where {N}
+    @assert IndexStyle(B) === IndexLinear()
+    axes(A) == axes(B) || throw_dimensions_mismatch()
+    checkselection(sel, A)
+end
+
+@inline function checkselection(sel::AbstractVector{Int},
+                                A::AbstractArray{<:Any,N},
+                                B::AbstractArray{<:Any,N},
+                                C::AbstractArray{<:Any,N}) where {N}
+    @assert IndexStyle(B) === IndexLinear()
+    @assert IndexStyle(C) === IndexLinear()
+    axes(A) == axes(B) == axes(C) || throw_dimensions_mismatch()
+    checkselection(sel, A)
+end
+
+@noinline out_of_range_selection() =
+    throw(ArgumentError("some selected indices are out of range"))

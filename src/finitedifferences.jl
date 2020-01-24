@@ -31,8 +31,6 @@ struct SimpleFiniteDifferences <: LinearMapping end
 
 are_same_mappings(::SimpleFiniteDifferences, ::SimpleFiniteDifferences) = true
 
-const DtD =
-
 show(io::IO, ::SimpleFiniteDifferences) = print(io, "Diff")
 show(io::IO, ::Gram{SimpleFiniteDifferences}) = print(io, "(Diff'⋅Diff)")
 
@@ -146,7 +144,7 @@ offset(::Type{CartesianIndex{N}}, d::Integer, s::Integer=1) where {N} =
         [:( $(D[d]) = x[$(I[d])] - xi        ) for d in 1:N]...
     )
     return encode(
-        :(  inds = cartesianindices(x)                ),
+        :(  inds = cartesian_indices(x)               ),
         :(  imax = last(inds)                         ),
         [:( $(S[d]) = $(offset(CartesianIndex{N}, d)) ) for d in 1:N]...,
         :inbounds,
@@ -188,7 +186,7 @@ end
     S = generate_symbols("s", N)
     common = [:( $(I[d]) = min(i + $(S[d]), imax) ) for d in 1:N]
     return encode(
-        :(  inds = cartesianindices(y)                ),
+        :(  inds = cartesian_indices(y)               ),
         :(  imax = last(inds)                         ),
         [:( $(S[d]) = $(offset(CartesianIndex{N}, d)) ) for d in 1:N]...,
         :inbounds,
@@ -227,7 +225,7 @@ end
         [:( $(I[d]) = min(i + $(S[d]), imax) ) for d in 1:N]...,
         :(  xi = x[i]                        ))
     return encode(
-        :(  inds = cartesianindices(x)                ),
+        :(  inds = cartesian_indices(x)               ),
         :(  imax = last(inds)                         ),
         [:( $(S[d]) = $(offset(CartesianIndex{N}, d)) ) for d in 1:N]...,
         :inbounds,
