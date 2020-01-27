@@ -1,3 +1,13 @@
+* Define `const RealComplex{T<:Real} = Union{T,Complex{T}}` and use better
+  names for `Reals`, `Floats` and `Complexes`.
+
+* In `using LinearAlgebra`, `norm(z,1)` is defined as the sum of the absolute
+  values of the elements of the complex-valued array `z` while `norm(z,Inf)` is
+  defined as the maximum absolute value of the elements of the complex-valued
+  array `z` .
+
+* Fix doc. about the type argument for `vnorm2(x)`, etc.
+
 * `promote_multiplier` should have 2 different behaviors: to allow for using
   BLAS routines, all multipliers must be converted to complexes if array
   arguments are complex-valued.
@@ -5,6 +15,11 @@
 * Remove file `test/common.jl`.
 
 * Rationalize exceptions and error messages.
+
+* Separate simplifications (like `inv(A)*A -> I`) and optimizations (like
+  multiplying two diagonal operators yields a single diagonal operator),
+  perhaps via methods `simplify(X)` and `optimize(X)` with `X` a construction
+  of mappings.
 
 * Deprecate `is_same_mapping` in favor of `are_same_mappings` and
   `is_same_mutable_object` in favor of `are_same_objects` which is more general.
@@ -102,13 +117,10 @@
 * Concrete implementation of mappings on arrays is not consistent for
   complex valued arrays.
 
-* Decide that, unless forbidden, inv is always possible (may be clash when
+* Decide that, unless forbidden, `inv` is always possible (may be clash when
   trying to apply).  Or decide the opposite.
 
 * Optimize `FiniteDifferences` for other multipliers.
-
-* `Hessian` and `HalfHessian` should not both exist (one is 1/2 or 2 times the
-  other).
 
 * Make a demo like:
 

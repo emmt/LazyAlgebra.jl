@@ -7,8 +7,8 @@
            promote_multiplier(λ, T))
 @deprecate(makedims(args...), dimensions(args...))
 @deprecate(densearray(args...), flatarray(args...))
-@deprecate(densevector(args...), flatvector(args...))
-@deprecate(densematrix(args...), flatmatrix(args...))
+@deprecate(densevector(args...), flatarray(args...))
+@deprecate(densematrix(args...), flatarray(args...))
 @deprecate(is_flat_array(args...), isflatarray(args...))
 @deprecate(has_oneto_axes(args...), has_standard_indexing(args...))
 @deprecate(SparseOperator(rowdims::Union{Integer,Tuple{Vararg{Integer}}},
