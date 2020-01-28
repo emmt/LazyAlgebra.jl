@@ -73,9 +73,9 @@ See also [`isfastarray`](@ref), [`GeneralMatrix`](@ref) and [`lgemv`](@ref).
 
 """
 struct SparseOperator{T,M,N,
-                      Ti<:AbstractVector{Int},
-                      Tj<:AbstractVector{Int},
-                      Tc<:AbstractVector{T}} <: LinearMapping
+                      Ti<:DenseVector{Int},
+                      Tj<:DenseVector{Int},
+                      Tc<:DenseVector{T}} <: LinearMapping
     I::Ti                  # Row indices
     J::Tj                  # Column indices
     C::Tc                  # Non-zero coefficients
@@ -99,15 +99,33 @@ end
 
 @callable SparseOperator
 
-# helper to call inner constructor
-function _sparseoperator(
-    I::Ti, J::Tj, C::Tc,
-    rowdims::NTuple{M,Int},
-    coldims::NTuple{N,Int}) where {T,M,N,
-                                   Ti<:AbstractVector{Int},
-                                   Tj<:AbstractVector{Int},
-                                   Tc<:AbstractVector{T}}
+function SparseOperator{T}(I::Ti, J::Tj, C::Tc,
+                           rowdims::NTuple{M,Int},
+                           coldims::NTuple{N,Int}) where {T,M,N,
+                                                          Ti<:DenseVector{Int},
+                                                          Tj<:DenseVector{Int},
+                                                          Tc<:DenseVector{T}}
     SparseOperator{T,M,N,Ti,Tj,Tc}(I, J, C, rowdims, coldims)
+end
+
+function SparseOperator{T}(I::AbstractVector{<:Integer},
+                           J::AbstractVector{<:Integer},
+                           C::AbstractVector,
+                           rowdims::Dimensions,
+                           coldims::Dimensions) where {T}
+    # Convert indices.
+    convert_indices(I::DenseVector{Int}) = I
+    convert_indices(I::AbstractVector{<:Integer}) =
+        convert(Vector{Int}, I)::Vector{Int}
+
+    # Convert coefficients.
+    convert_coefficients(::Type{T}, C::DenseVector{T}) where {T} = C
+    convert_coefficients(::Type{T}, C::AbstractVector) where {T} =
+        convert(Vector{T}, C)::Vector{T}
+
+    SparseOperator{T}(convert_indices(I), convert_indices(J),
+                      convert_coefficients(T, C),
+                      dimensions(rowdims), dimensions(coldims))
 end
 
 function SparseOperator(I::AbstractVector{<:Integer},
@@ -116,18 +134,6 @@ function SparseOperator(I::AbstractVector{<:Integer},
                         rowdims::Dimensions,
                         coldims::Dimensions) where {T}
     SparseOperator{T}(I, J, C, rowdims, coldims)
-end
-
-function SparseOperator{T}(I::AbstractVector{<:Integer},
-                           J::AbstractVector{<:Integer},
-                           C::AbstractVector,
-                           rowdims::Dimensions,
-                           coldims::Dimensions) where {T}
-    _sparseoperator(fastarray(Int, I),
-                    fastarray(Int, J),
-                    fastarray(T,   C),
-                    dimensions(rowdims),
-                    dimensions(coldims))
 end
 
 SparseOperator(A::SparseOperator) = A
@@ -178,8 +184,7 @@ end
 SparseOperator(A::SparseMatrixCSC{T,<:Integer}; kwds...) where {T} =
     SparseOperator{T}(A; kwds...)
 
-function SparseOperator{T}(A::SparseMatrixCSC{Tv,Ti};
-                           copy::Bool=false) where {T,Tv,Ti<:Integer}
+function SparseOperator{T}(A::SparseMatrixCSC{Tv,Ti}) where {T,Tv,Ti<:Integer}
     nz = length(A.nzval)
     @assert length(A.rowval) == nz
     nrows, ncols = A.m, A.n
@@ -195,14 +200,8 @@ function SparseOperator{T}(A::SparseMatrixCSC{Tv,Ti};
             J[k] = j
         end
     end
-    return SparseOperator((copy ?
-                           copyto!(Vector{Int}(undef, nz), A.rowval) :
-                           fastarray(Int, A.rowval)),
-                          J,
-                          (copy || T !== Tv ?
-                           copyto!(Vector{T}(undef, nz), A.nzval) :
-                           fastarray(Tv, A.nzval)),
-                          nrows, ncols)
+    return SparseOperator(convert(Vector{Int}, A.rowval)::Vector{Int},
+                          J, A.nzval, nrows, ncols)
 end
 
 #convert(::Type{T}, A::SparseOperator) where {T<:SparseOperator} = T(A)
