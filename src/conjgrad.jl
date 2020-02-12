@@ -11,30 +11,38 @@
 # Copyright (c) 2017-2018 Éric Thiébaut.
 #
 
+struct WrappedLeftHandSideMatrix{T}
+    op::T
+end
+(obj::WrappedLeftHandSideMatrix)(dst, src) = apply!(dst, obj.op, src)
+
 """
 ```julia
 conjgrad(A, b, x0=vzeros(b)) -> x
 ```
 
-solves the linear system `A⋅x = b` starting at `x0` by means of the iterative
-conjugate gradient method.  Argument `A` implements a symmetric positive
-definite linear map, `A` can be a Julia array (interpreted as a general matrix,
-see [`GeneralMatrix`](@ref)), an instance of [`LinearMapping`](@ref) or a
+solves the symmetric linear system `A⋅x = b` starting at `x0` by means of the
+iterative conjugate gradient method.  The returned solution `x` is a new object
+similar to `b` and to `x0`.
+
+Argument `A` implements the symmetric positive definite linear mapping `A`, it
+can be provided as a Julia array (interpreted as a general matrix, see
+[`GeneralMatrix`](@ref)), as an instance of [`LinearMapping`](@ref) or as a
 callable object (like a function) which is used as:
 
 ```julia
-A(q, p)
+A(dst, src)
 ```
 
-to overwrite `q` with `q = A⋅p`.  If you have implemented `A` as a callable
-object such that `A(p)` yields `A.q`, then call `conjgrad` with an inline
-function:
+to overwrite `dst` with `A⋅src`.  If `A` has been implemented as a callable
+object, such that `A(x)` yields `A⋅x`, then call `conjgrad` with an
+inline function:
 
 ```julia
 conjgrad((dst,src) -> (dst .= A(src); return dst), b, ...)
 ```
 
-See [`conjgrad!`][@ref) for accepted keywords and more details.
+See [`conjgrad!`](@ref) for accepted keywords and more details.
 
 """
 conjgrad(A, b, x0; kwds...) =
@@ -52,37 +60,39 @@ end
 conjgrad!(x, A, b, [x0=vfill!(x,0), p, q, r]) -> x
 ```
 
-solves the linear system `A⋅x = b` starting at `x0` by means of the iterative
-conjugate gradient method.  The result is stored in `x` which is returned.
-Argument `A` implements a symmetric positive definite linear map, `A` can be a
-Julia array (interpreted as a general matrix, see [`GeneralMatrix`](@ref)), an
-instance of [`LinearMapping`](@ref) or a callable object (like a function)
-which is used as:
+finds an approximate solution to the symmetric linear system `A⋅x = b` starting
+at `x0` by means of the iterative conjugate gradient method.  The result is
+stored in `x` which is returned.
+
+Argument `A` implements the symmetric positive definite linear mapping `A`, it
+can be provided as a Julia array (interpreted as a general matrix, see
+[`GeneralMatrix`](@ref)), as an instance of [`LinearMapping`](@ref) or as a
+callable object (like a function) which is used as:
 
 ```julia
-A(q, p)
+A(dst, src)
 ```
 
-to overwrite `q` with `q = A⋅p`.  If `A` has been implemented as a callable
-object such that `A(p)` yields `A*q`, then call `conjgrad!` with an inline
+to overwrite `dst` with `A⋅src`.  If `A` has been implemented as a callable
+object, such that `A(x)` yields `A⋅x`, then call `conjgrad!` with an inline
 function:
 
 ```julia
-conjgrad!(x, (q,p) -> (q .= A(p); return q), b, ...)
+conjgrad!(x, (dst,src) -> (dst .= A(src); return dst), b, ...)
 ```
 
 If no initial variables are specified, the default is to start with all
 variables set to zero.
 
 Optional arguments `p`, `q` and `r` are writable workspace *vectors*.  On
-return, `p` is the last search direction, `q = A⋅p` and `r = b - A.xp` with
+return, `p` is the last search direction, `q = A⋅p` and `r = b - A⋅xp` with
 `xp` the previous or last solution.  If provided, these workspaces must be
 distinct.  All *vectors* must have the same sizes.  If all workspace vectors
 are provided, no other memory allocation is necessary (unless `A` needs
 to allocate some temporaries).
 
-Providing `A` is positive definite, the solution `x` of the equations
-`A⋅x = b` is also the minimum of the quadratic function:
+Provided `A` be positive definite, the solution `x` of the equations `A⋅x = b`
+is also the minimum of the quadratic function:
 
     f(x) = (1/2) x'⋅A⋅x - b'⋅x + ϵ
 
@@ -140,11 +150,11 @@ See also: [`conjgrad`][@ref).
 
 """
 conjgrad!(x, A::Union{LinearMapping,AbstractArray}, b, args...; kwds...) =
-    conjgrad!(x, (dst, src) -> apply!(dst, A, src), b, args...; kwds...)
+    conjgrad!(x, WrappedLeftHandSideMatrix(A), b, args...; kwds...)
 
 function conjgrad!(x, A::Mapping, b, args...; kwds...)
     is_linear(A) || throw(ArgumentError("`A` must be a linear map"))
-    conjgrad!(x, (dst, src) -> apply!(dst, A, src), b, args...; kwds...)
+    conjgrad!(x, WrappedLeftHandSideMatrix(A), b, args...; kwds...)
 end
 
 function conjgrad!(x, A, b, x0 = vfill!(x, 0),
