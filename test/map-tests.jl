@@ -125,7 +125,8 @@ using LinearAlgebra: ⋅, UniformScaling
         x = randn(T, dims)
         y = randn(T, dims)
         z = vcreate(y)
-        S = NonuniformScalingOperator(w)
+        @test_deprecated S = NonuniformScalingOperator(w)
+        S = NonuniformScaling(w)
         @test diag(S) === w
         @test Diag(w) === S
         atol, rtol = zero(T), sqrt(eps(T))
@@ -160,7 +161,7 @@ using LinearAlgebra: ⋅, UniformScaling
         wx = w.*x
         qx = x./w
         z = vcreate(y)
-        S = NonuniformScalingOperator(w)
+        S = NonuniformScaling(w)
         atol, rtol = zero(T), sqrt(eps(T))
         @test S*x  ≈ w.*x atol=atol rtol=rtol norm=vnorm2
         @test S'*x ≈ conj.(w).*x atol=atol rtol=rtol norm=vnorm2

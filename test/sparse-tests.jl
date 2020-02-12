@@ -151,7 +151,7 @@ using Test
         # Check left and right multiplication by a non-uniform rescaling
         # operator.
         w1 = randn(T, output_size(S))
-        W1 = NonuniformScalingOperator(w1)
+        W1 = NonuniformScaling(w1)
         W1_S = W1*S
         c1 = (w1 .* A)[A .!= zero(T)]
         @test isa(W1_S, SparseOperator)
@@ -162,7 +162,7 @@ using Test
         @test getcols(W1_S) === getcols(S)
         @test coefficients(W1_S) ≈ c1 atol=0 rtol=2ε
         w2 = randn(T, input_size(S))
-        W2 = NonuniformScalingOperator(w2)
+        W2 = NonuniformScaling(w2)
         S_W2 = S*W2
         c2 = (A .* reshape(w2, (ones(Int, length(output_size(S)))...,
                                 input_size(S)...,)))[A .!= zero(T)]

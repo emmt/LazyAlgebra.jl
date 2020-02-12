@@ -308,7 +308,7 @@ function reshape(S::SparseOperator,
 end
 
 # Extend left multiplication (and division) by a scalar.
-function *(α::Number, A::SparseOperator{T})::SparseOperator where {T}
+function *(α::Number, A::SparseOperator{T}) where {T}
     if α == one(α)
         return A
     elseif α == zero(α)
@@ -322,7 +322,7 @@ function *(α::Number, A::SparseOperator{T})::SparseOperator where {T}
 end
 
 # Extend left and right composition by a diagonal operator.
-function *(W::NonuniformScalingOperator, S::SparseOperator)::SparseOperator
+function *(W::NonuniformScaling, S::SparseOperator)
     D = coefficients(W)
     @assert has_standard_indexing(D)
     size(D) == output_size(S) ||
@@ -333,7 +333,7 @@ function *(W::NonuniformScalingOperator, S::SparseOperator)::SparseOperator
                           output_size(S), input_size(S))
 end
 
-function *(S::SparseOperator, W::NonuniformScalingOperator)::SparseOperator
+function *(S::SparseOperator, W::NonuniformScaling)
     D = coefficients(W)
     @assert has_standard_indexing(D)
     size(D) == input_size(S) ||

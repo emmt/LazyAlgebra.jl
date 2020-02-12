@@ -1,3 +1,5 @@
+* `NonuniformScalingOperator` deprecated in favor of `NonuniformScaling`.
+
 * In most cases, complex-valued arrays and multipliers are supported.
 
 * Argument `scratch` is no longer optional in low-level `vcreate`.
@@ -94,7 +96,7 @@
 * Traits replace abstract types such as `Endomorphism`, `SelfAdjointOperator`,
   etc.  Some operator may be endomorphisms or not.  For instance the
   complex-to-complex `FFTOperator` is an endomorphism while the real-to-complex
-  FFT is not.  Another example: `NonuniformScalingOperator` is self-adjoint if
+  FFT is not.  Another example: `NonuniformScaling` is self-adjoint if
   its coefficients are reals, not if they are complexes. This also overcomes
   the fact that multiple heritage is not possible in Julia.
 

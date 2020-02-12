@@ -38,7 +38,7 @@ export
     NonDiagonalMapping,
     NonLinear,
     NonSelfAdjoint,
-    NonuniformScalingOperator,
+    NonuniformScaling,
     Operations,
     RankOneOperator,
     SelfAdjoint,

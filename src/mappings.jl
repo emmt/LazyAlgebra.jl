@@ -37,7 +37,7 @@ apply!(α::Number, ::Type{<:Operations}, ::Identity, x, ::Bool, β::Number, y) =
 # the case of UniformScaling, we must explicitly do that for * and for ∘ (not
 # for ⋅ which is replaced by a * by existing rules).
 simplify(A::UniformScaling) = A.λ*I
-for op in (:(+), :(-), :(*), :(∘), :(/), :(\))
+for op in (:(+), :(-), :(*), :(∘), :(/), Symbol("\\"))
     @eval begin
         Base.$op(A::UniformScaling, B::Mapping) = $op(simplify(A), B)
         Base.$op(A::Mapping, B::UniformScaling) = $op(A, simplify(B))
@@ -65,16 +65,15 @@ are_same_mappings(::T, ::T) where {T<:SymbolicLinearMapping} = true
 
 """
 ```julia
-NonuniformScalingOperator(A)
+NonuniformScaling(A)
 ```
 
 creates a non-uniform scaling linear mapping whose effect is to apply
 elementwise multiplication of its argument by the scaling factors `A`.  This
 mapping can be thought as a *diagonal* operator.
 
-The method [`Diag`](@ref) is a shortcut to build a non-uniform scaling operator.
-
-The scaling factors of a non-uniform scaling operator can be retrieved with the
+The method [`Diag`](@ref) is a shortcut to build a non-uniform scaling operator
+and the scaling factors of a non-uniform scaling operator retrieved with the
 [`diag`](@ref) method:
 
 ```julia
@@ -87,20 +86,21 @@ diag(W) === A  # this is true
     'D') and [`diag`](@ref) (with an lowercase 'd') methods.
 
 """
-struct NonuniformScalingOperator{T} <: LinearMapping
+struct NonuniformScaling{T} <: LinearMapping
     diag::T
 end
 
-@callable NonuniformScalingOperator
+@deprecate NonuniformScalingOperator NonuniformScaling
+@callable NonuniformScaling
 
 # Traits:
-MorphismType(::NonuniformScalingOperator) = Endomorphism()
-DiagonalType(::NonuniformScalingOperator) = DiagonalMapping()
-SelfAdjointType(A::NonuniformScalingOperator) =
+MorphismType(::NonuniformScaling) = Endomorphism()
+DiagonalType(::NonuniformScaling) = DiagonalMapping()
+SelfAdjointType(A::NonuniformScaling) =
     _selfadjointtype(eltype(coefficients(A)), A)
-_selfadjointtype(::Type{<:Real}, ::NonuniformScalingOperator) =
+_selfadjointtype(::Type{<:Real}, ::NonuniformScaling) =
     SelfAdjoint()
-_selfadjointtype(::Type{<:Complex}, ::NonuniformScalingOperator) =
+_selfadjointtype(::Type{<:Complex}, ::NonuniformScaling) =
     NonSelfAdjoint()
 
 """
@@ -112,213 +112,52 @@ yields a non-uniform scaling linear mapping whose effect is to apply
 elementwise multiplication of its argument by the scaling factors `A`.  This
 mapping can be thought as a *diagonal* operator.
 
-See also: [`NonuniformScalingOperator`](@ref), [`diag`](@ref).
+See also: [`NonuniformScaling`](@ref), [`diag`](@ref).
 
 """
-Diag(A) = NonuniformScalingOperator(A)
+Diag(A) = NonuniformScaling(A)
 
-coefficients(A::NonuniformScalingOperator) = A.diag
-LinearAlgebra.diag(A::NonuniformScalingOperator) = A.diag
+coefficients(A::NonuniformScaling) = A.diag
+LinearAlgebra.diag(A::NonuniformScaling) = coefficients(A)
 
 # FIXME: This is nearly the default implementation.
-are_same_mappings(A::T, B::T) where {T<:NonuniformScalingOperator} =
-    diag(A) === diag(B)
+are_same_mappings(A::T, B::T) where {T<:NonuniformScaling} =
+    coefficients(A) === coefficients(B)
 
-function inv(A::NonuniformScalingOperator{<:AbstractArray{T,N}}
+function inv(A::NonuniformScaling{<:AbstractArray{T,N}}
              ) where {T<:AbstractFloat, N}
-    q = diag(A)
+    q = coefficients(A)
     r = similar(q)
     @inbounds @simd for i in eachindex(q, r)
         r[i] = one(T)/q[i]
     end
-    return NonuniformScalingOperator(r)
+    return NonuniformScaling(r)
 end
 
-for pfx in (:input, :output)
-    @eval begin
+eltype(::Type{<:NonuniformScaling{<:AbstractArray{T,N}}}) where {T, N} = T
 
-        function $(Symbol(pfx,"_type"))(
-            ::NonuniformScalingOperator{<:AbstractArray{T,N}}
-        ) where {T,N}
-            return Array{T,N}
-        end
+input_ndims(::NonuniformScaling{<:AbstractArray{T,N}}) where {T, N} = N
+input_size(A::NonuniformScaling{<:AbstractArray}) = size(coefficients(A))
+input_size(A::NonuniformScaling{<:AbstractArray}, i) =
+    size(coefficients(A), i)
 
-        function $(Symbol(pfx,"_eltype"))(
-            ::NonuniformScalingOperator{<:AbstractArray{T,N}}
-        ) where {T<:AbstractFloat,N}
-            return T
-        end
-
-        function $(Symbol(pfx,"_eltype"))(
-            ::NonuniformScalingOperator{<:AbstractArray{T,N}}
-        ) where {T, N}
-            return float(T)
-        end
-
-        function $(Symbol(pfx,"_size"))(
-            A::NonuniformScalingOperator{<:AbstractArray}
-        )
-            return size(A.diag)
-        end
-
-        function $(Symbol(pfx,"_size"))(
-            A::NonuniformScalingOperator{<:AbstractArray},
-            args...
-        )
-            return size(A.diag, args...)
-        end
-
-        function $(Symbol(pfx,"_ndims"))(
-            ::NonuniformScalingOperator{<:AbstractArray{T,N}}
-        ) where {T, N}
-            return N
-        end
-
-    end
-end
+output_ndims(::NonuniformScaling{<:AbstractArray{T,N}}) where {T, N} = N
+output_size(A::NonuniformScaling{<:AbstractArray}) = size(coefficients(A))
+output_size(A::NonuniformScaling{<:AbstractArray}, i) =
+    size(coefficients(A), i)
 
 # Simplify left multiplication (and division) by a scalar.
-*(α::Number, A::NonuniformScalingOperator)::NonuniformScalingOperator =
-    (α == one(α) ? A :
-     # FIXME: α = zero(α) should be treated specifically
-     NonuniformScalingOperator(vscale(α, coefficients(A))))
+# FIXME: α = zero(α) should be treated specifically
+*(α::Number, A::NonuniformScaling)::NonuniformScaling =
+    (α == one(α) ? A : NonuniformScaling(vscale(α, coefficients(A))))
 
 # Extend composition of diagonal operators.
-function *(A::NonuniformScalingOperator,
-           B::NonuniformScalingOperator)::NonuniformScalingOperator
-    return NonuniformScalingOperator(vproduct(coefficients(A), coefficients(B)))
-end
-
-"""
-```julia
-@axpby!(I, a, xi, b, yi)
-```
-
-yields the code to perform `y[i] = a*x[i] + b*y[i]` for each index `i ∈ I` with
-`x[i]` and `y[i]` respectively given by expression `xi` and `yi`.  The
-expression is evaluated efficiently considering the particular values of `a`
-and `b`.
-
-***Important*** It is assumed that all axes in `I` are within bounds, that
-`a` is nonzero and that `a` and `b` have correct types.
-
-"""
-macro axpby!(i, I, a, xi, b, yi)
-    esc(_axpby!(i, I, a, xi, b, yi))
-end
-
-function _axpby!(i::Symbol, I, a, xi, b, yi)
-    quote
-        if $a == 1
-            if $b == 0
-                @inbounds @simd for $i in $I
-                    $yi = $xi
-                end
-            elseif $b == 1
-                @inbounds @simd for $i in $I
-                    $yi += $xi
-                end
-            elseif $b == -1
-                @inbounds @simd for $i in $I
-                    $yi = $xi - $yi
-                end
-            else
-                @inbounds @simd for $i in $I
-                    $yi = $xi + $b*$yi
-                end
-            end
-        elseif $a == -1
-            if $b == 0
-                @inbounds @simd for $i in $I
-                    $yi = -$xi
-                end
-            elseif $b == 1
-                @inbounds @simd for $i in $I
-                    $yi -= $xi
-                end
-            elseif $b == -1
-                @inbounds @simd for $i in $I
-                    $yi = -$xi - $yi
-                end
-            else
-                @inbounds @simd for $i in $I
-                    $yi = $b*$yi - $xi
-                end
-            end
-        else
-            if $b == 0
-                @inbounds @simd for $i in $I
-                    $yi = $a*$xi
-                end
-            elseif $b == 1
-                @inbounds @simd for $i in $I
-                    $yi += $a*$xi
-                end
-            elseif $b == -1
-                @inbounds @simd for $i in $I
-                    $yi = $a*$xi - $yi
-                end
-            else
-                @inbounds @simd for $i in $I
-                    $yi = $a*$xi + $b*$yi
-                end
-            end
-        end
-    end
-end
-
-# Apply nonuniform scaling. All arguments are assumed to be correct.
-function _applynonuniformscaling!(a::Number, ::Type{Direct},
-                                  w::AbstractArray,
-                                  x::AbstractArray,
-                                  b::Number, y::AbstractArray)
-    I = eachindex(w, x, y)
-    @axpby!(i, I, a, w[i]*x[i], b, y[i])
-end
-
-function _applynonuniformscaling!(a::Number, ::Type{Inverse},
-                                  w::AbstractArray,
-                                  x::AbstractArray,
-                                  b::Number, y::AbstractArray)
-    I = eachindex(w, x, y)
-    @axpby!(i, I, a, x[i]/w[i], b, y[i])
-end
-
-function _applynonuniformscaling!(a::Number, ::Type{Adjoint},
-                                  w::AbstractArray{<:Real},
-                                  x::AbstractArray,
-                                  b::Number, y::AbstractArray)
-    I = eachindex(w, x, y)
-    @axpby!(i, I, a, w[i]*x[i], b, y[i])
-end
-
-function _applynonuniformscaling!(a::Number, ::Type{Adjoint},
-                                  w::AbstractArray{<:Complex},
-                                  x::AbstractArray,
-                                  b::Number, y::AbstractArray)
-    I = eachindex(w, x, y)
-    @axpby!(i, I, a, conj(w[i])*x[i], b, y[i])
-end
-
-function _applynonuniformscaling!(a::Number, ::Type{InverseAdjoint},
-                                  w::AbstractArray{<:Real},
-                                  x::AbstractArray,
-                                  b::Number, y::AbstractArray)
-    I = eachindex(w, x, y)
-    @axpby!(i, I, a, x[i]/w[i], b, y[i])
-end
-
-function _applynonuniformscaling!(a::Number, ::Type{InverseAdjoint},
-                                  w::AbstractArray{<:Complex},
-                                  x::AbstractArray,
-                                  b::Number, y::AbstractArray)
-    I = eachindex(w, x, y)
-    @axpby!(i, I, a, x[i]/conj(w[i]), b, y[i])
-end
+*(A::NonuniformScaling, B::NonuniformScaling) =
+    NonuniformScaling(vproduct(coefficients(A), coefficients(B)))
 
 function apply!(α::Number,
                 ::Type{P},
-                W::NonuniformScalingOperator{<:AbstractArray{Tw,N}},
+                W::NonuniformScaling{<:AbstractArray{Tw,N}},
                 x::AbstractArray{Tx,N},
                 scratch::Bool,
                 β::Number,
@@ -327,23 +166,68 @@ function apply!(α::Number,
                                                Tx<:Floats,
                                                Ty<:Floats,N}
     w = coefficients(W)
-    @assert axes(w) == axes(x) == axes(y)
+    I = safe_indices(w, x, y)
     if α == 0
         vscale!(y, β)
+    elseif β == 0
+        if α == 1
+            _apply_diagonal!(P, axpby_yields_x, I, 1, w, x, 0, y)
+        else
+            a = promote_multiplier(α, Tw, Tx)
+            _apply_diagonal!(P, axpby_yields_ax, I, a, w, x, 0, y)
+        end
+    elseif β == 1
+        if α == 1
+            _apply_diagonal!(P, axpby_yields_xpy, I, 1, w, x, 1, y)
+        else
+            a = promote_multiplier(α, Tw, Tx)
+            _apply_diagonal!(P, axpby_yields_axpy, I, a, w, x, 1, y)
+        end
     else
-        a = promote_multiplier(α, Tw, Tx)
         b = promote_multiplier(β, Ty)
-        _applynonuniformscaling!(a, P, w, x, b, y)
+        if α == 1
+            _apply_diagonal!(P, axpby_yields_xpby, I, 1, w, x, b, y)
+        else
+            a = promote_multiplier(α, Tw, Tx)
+            _apply_diagonal!(P, axpby_yields_axpby, I, a, w, x, b, y)
+        end
     end
     return y
 end
 
+function _apply_diagonal!(::Type{Direct}, axpby::Function, I,
+                          α, w, x, β, y)
+    @inbounds @simd for i in I
+        y[i] = axpby(α, w[i]*x[i], β, y[i])
+    end
+end
+
+function _apply_diagonal!(::Type{Adjoint}, axpby::Function, I,
+                          α, w, x, β, y)
+    @inbounds @simd for i in I
+        y[i] = axpby(α, conj(w[i])*x[i], β, y[i])
+    end
+end
+
+function _apply_diagonal!(::Type{Inverse}, axpby::Function, I,
+                          α, w, x, β, y)
+    @inbounds @simd for i in I
+        y[i] = axpby(α, x[i]/w[i], β, y[i])
+    end
+end
+
+function _apply_diagonal!(::Type{InverseAdjoint}, axpby::Function, I,
+                          α, w, x, β, y)
+    @inbounds @simd for i in I
+        y[i] = axpby(α, x[i]/conj(w[i]), β, y[i])
+    end
+end
+
 function vcreate(::Type{<:Operations},
-                 W::NonuniformScalingOperator{<:AbstractArray{Tw,N}},
+                 W::NonuniformScaling{<:AbstractArray{Tw,N}},
                  x::AbstractArray{Tx,N},
                  scratch::Bool) where {Tw,Tx,N}
-    inds = axes(W.diag)
-    @assert axes(x) == inds
+    inds = same_axes(coefficients(W), x)
     T = promote_type(Tw, Tx)
     return (scratch && Tx == T ? x : similar(Array{T}, inds))
 end
@@ -379,15 +263,15 @@ end
 
 function apply!(α::Number, ::Type{Direct}, A::RankOneOperator,
                 x, scratch::Bool, β::Number, y)
-    return _apply_rank_one_operator!(α, A.u, A.v, x, β, y)
+    return _apply_rank_one!(α, A.u, A.v, x, β, y)
 end
 
 function apply!(α::Number, ::Type{Adjoint}, A::RankOneOperator,
                 x, scratch::Bool, β::Number, y)
-    return _apply_rank_one_operator!(α, A.v, A.u, x, β, y)
+    return _apply_rank_one!(α, A.v, A.u, x, β, y)
 end
 
-function _apply_rank_one_operator!(α::Number, u, v, x, β::Number, y)
+function _apply_rank_one!(α::Number, u, v, x, β::Number, y)
     if α == 0
         # Lazily assume that y has correct type, dimensions, etc.
         vscale!(y, β)
@@ -450,7 +334,7 @@ SelfAdjointType(::SymmetricRankOneOperator) = SelfAdjoint()
 
 function apply!(α::Number, ::Type{<:Union{Direct,Adjoint}},
                 A::SymmetricRankOneOperator, x, scratch::Bool, β::Number, y)
-    return _apply_rank_one_operator!(α, A.u, A.u, x, β, y)
+    return _apply_rank_one!(α, A.u, A.u, x, β, y)
 end
 
 function vcreate(::Type{<:Union{Direct,Adjoint}},
@@ -507,19 +391,20 @@ end
 coefficients(A) = A.arr
 
 # Make a GeneralMatrix behaves like an ordinary array.
-eltype(A::GeneralMatrix) = eltype(A.arr)
-length(A::GeneralMatrix) = length(A.arr)
-ndims(A::GeneralMatrix) = ndims(A.arr)
-axes(A::GeneralMatrix) = axes(A.arr)
-size(A::GeneralMatrix) = size(A.arr)
-size(A::GeneralMatrix, inds...) = size(A.arr, inds...)
-getindex(A::GeneralMatrix, inds...) = getindex(A.arr, inds...)
-setindex!(A::GeneralMatrix, x, inds...) = setindex!(A.arr, x, inds...)
-stride(A::GeneralMatrix, k) = stride(A.arr, k)
-strides(A::GeneralMatrix) = strides(A.arr)
-eachindex(A::GeneralMatrix) = eachindex(A.arr)
+eltype(A::GeneralMatrix) = eltype(coefficients(A))
+length(A::GeneralMatrix) = length(coefficients(A))
+ndims(A::GeneralMatrix) = ndims(coefficients(A))
+axes(A::GeneralMatrix) = axes(coefficients(A))
+size(A::GeneralMatrix) = size(coefficients(A))
+size(A::GeneralMatrix, i...) = size(coefficients(A), i...)
+getindex(A::GeneralMatrix, i...) = getindex(coefficients(A), i...)
+setindex!(A::GeneralMatrix, x, i...) = setindex!(coefficients(A), x, i...)
+stride(A::GeneralMatrix, k) = stride(coefficients(A), k)
+strides(A::GeneralMatrix) = strides(coefficients(A))
+eachindex(A::GeneralMatrix) = eachindex(coefficients(A))
 
-are_same_mappings(A::T, B::T) where {T<:GeneralMatrix} = (A.arr === B.arr)
+are_same_mappings(A::T, B::T) where {T<:GeneralMatrix} =
+    (coefficients(A) === coefficients(B))
 
 function apply!(α::Number,
                 P::Type{<:Operations},
@@ -528,14 +413,14 @@ function apply!(α::Number,
                 scratch::Bool,
                 β::Number,
                 y::AbstractArray{<:GenMult.Floats})
-    return apply!(α, P, A.arr, x, scratch, β, y)
+    return apply!(α, P, coefficients(A), x, scratch, β, y)
 end
 
 function vcreate(P::Type{<:Operations},
                  A::GeneralMatrix{<:AbstractArray{<:GenMult.Floats}},
                  x::AbstractArray{<:GenMult.Floats},
                  scratch::Bool)
-    return vcreate(P, A.arr, x, scratch)
+    return vcreate(P, coefficients(A), x, scratch)
 end
 
 for (T, L) in ((:Direct, 'N'), (:Adjoint, 'C'))
