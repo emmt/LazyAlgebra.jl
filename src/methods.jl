@@ -376,8 +376,9 @@ See also [`Gram`](@ref).
 gram(A::LinearMapping) = A'*A
 
 # Functions that will be inlined to execute an elementary operation when
-# performing `α⋅x + β⋅y`.  Passing these (simple) functions is to simplify the
-# coding of vectorized methods and of the the `apply!` method by mappings.
+# performing `α⋅x + β⋅y`.  Passing these (simple) functions to another method
+# is to simplify the coding of vectorized methods and of the the `apply!`
+# method by mappings.
 axpby_yields_x(    α, x, β, y) = x         # α = 1, β = 0
 axpby_yields_xpy(  α, x, β, y) = x + y     # α = 1, β = 1
 axpby_yields_xmy(  α, x, β, y) = x - y     # α = 1, β = -1

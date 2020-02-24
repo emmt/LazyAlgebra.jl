@@ -695,9 +695,9 @@ end
 
 """
 
-`safe_plan_rfft(x; kwds...)` yields a FFTW plan for computing the real to complex
-fast Fourier transform of `x`.  This method is the same as `plan_rfft` except that
-it makes sure that `x` is preserved.
+`safe_plan_rfft(x; kwds...)` yields a FFTW plan for computing the real to
+complex fast Fourier transform of `x`.  This method is the same as `plan_rfft`
+except that it makes sure that `x` is preserved.
 
 """
 function safe_plan_rfft(x::AbstractArray{T,N}; flags::Integer = FFTW.ESTIMATE,
