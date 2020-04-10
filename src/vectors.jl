@@ -131,14 +131,20 @@ Also see [`copyto!`](@ref), [`vcopy`](@ref), [`vswap!`](@ref).
 """
 function vcopy!(dst::AbstractArray{<:Real,N},
                 src::AbstractArray{<:Real,N}) where {N}
-    axes(dst) == axes(src) || throw_dimensions_mismatch()
-    copyto!(dst, src)
+    if dst !== src
+        axes(dst) == axes(src) || throw_dimensions_mismatch()
+        copyto!(dst, src)
+    end
+    return dst
 end
 
 function vcopy!(dst::AbstractArray{<:Complex{<:Real},N},
                 src::AbstractArray{<:Complex{<:Real},N}) where {N}
-    axes(dst) == axes(src) || throw_dimensions_mismatch()
-    copyto!(dst, src)
+    if dst !== src
+        axes(dst) == axes(src) || throw_dimensions_mismatch()
+        copyto!(dst, src)
+    end
+    return dst
 end
 
 @noinline throw_dimensions_mismatch() =
