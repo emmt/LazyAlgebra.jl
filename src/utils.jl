@@ -30,7 +30,7 @@ to have `T` the promoted type of all types in `args...` or all element types of
 arrays in `args...`.
 
 This method is *type stable*.  The result has the same floating-point precision
-as `T`.  and is a real `λ` is real or a complex if `λ` is complex.
+as `T` and is a real if `λ` is real or a complex if `λ` is complex.
 
 """
 promote_multiplier(λ::Real, ::Type{T}) where {T<:Floats} = begin
@@ -47,10 +47,11 @@ promote_multiplier(λ::Complex, ::Type{T}) where {T<:Floats} = begin
     convert(Complex{real(T)}, λ)
 end
 
-promote_multiplier(λ::L, ::Type{T}) where {L<:Number,T} = begin
+@noinline promote_multiplier(λ::L, ::Type{T}) where {L<:Number,T} = begin
     # Other possible cases throw errors.
     isconcretetype(T) || operand_type_not_concrete(T)
-    error("unsupported conversion of multiplier with type $L for operand with element type $T")
+    error(string("unsupported conversion of multiplier with type ", L,
+                 " for operand with element type ",T))
 end
 
 promote_multiplier(λ::Number, ::AbstractArray{T}) where {T} =
