@@ -475,7 +475,7 @@ function apply!(α::Number,
             alpha = promote_multiplier(α, Ts, Tx)
             @inbounds for k in Base.OneTo(n)
                 i, j, c = I[k], J[k], C[k]
-                y[i] += (alpha*x[j])*conj(c)
+                y[j] += (alpha*x[i])*conj(c)
             end
         end
     end
