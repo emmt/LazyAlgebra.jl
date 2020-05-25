@@ -185,7 +185,7 @@ vswap!(x::AbstractArray{T,N}, y::AbstractArray{T,N}) where {T,N} =
 
 # Forced swapping.
 _swap!(x::AbstractArray{T,N}, y::AbstractArray{T,N}) where {T,N} =
-    @inbounds @simd for i in safe_indices(x, y)
+    @inbounds @simd for i in all_indices(x, y)
         temp = x[i]
         x[i] = y[i]
         y[i] = temp
@@ -290,12 +290,12 @@ function vscale!(dst::AbstractArray{<:Floats,N},
         axes(dst) == axes(src) || throw_dimensions_mismatch()
         vzero!(dst)
     elseif α == -1
-        @inbounds @simd for i in safe_indices(dst, src)
+        @inbounds @simd for i in all_indices(dst, src)
             dst[i] = -src[i]
         end
     else
         alpha = promote_multiplier(α, src)
-        @inbounds @simd for i in safe_indices(dst, src)
+        @inbounds @simd for i in all_indices(dst, src)
             dst[i] = alpha*src[i]
         end
     end
@@ -386,7 +386,7 @@ for Td in (AbstractFloat, Complex{<:AbstractFloat}),
         @eval function vproduct!(dst::AbstractArray{<:$Td,N},
                                  x::AbstractArray{<:$Tx,N},
                                  y::AbstractArray{<:$Ty,N}) where {N}
-            @inbounds @simd for i in safe_indices(dst, x, y)
+            @inbounds @simd for i in all_indices(dst, x, y)
                 dst[i] = x[i]*y[i]
             end
             return dst
@@ -433,7 +433,7 @@ See also: [`vscale!`](@ref), [`vcombine!](@ref).
 function vupdate!(y::AbstractArray{<:Floats,N},
                   α::Number,
                   x::AbstractArray{<:Floats,N}) where {N}
-    I = safe_indices(x, y)
+    I = all_indices(x, y)
     if α == 1
         @inbounds @simd for i in I
             y[i] += x[i]
@@ -527,7 +527,7 @@ function vcombine!(dst::AbstractArray{<:Floats,N},
         axes(y) == axes(dst) || throw_dimensions_mismatch()
         vscale!(dst, α, x)
     else
-        I = safe_indices(dst, x, y)
+        I = all_indices(dst, x, y)
         if α == 1
             if β == 1
                 @inbounds @simd for i in I
@@ -618,7 +618,7 @@ vdot(T::Type{AbstractFloat}, x, y) = (x[1].re*y[1].re + x[1].im*y[1].im) +
 function vdot(x::AbstractArray{<:AbstractFloat,N},
               y::AbstractArray{<:AbstractFloat,N}) where {N}
     s = zero(promote_eltype(x, y))
-    @inbounds @simd for i in safe_indices(x, y)
+    @inbounds @simd for i in all_indices(x, y)
         s += x[i]*y[i]
     end
     return s
@@ -633,7 +633,7 @@ end
 function vdot(x::AbstractArray{<:Complex{<:AbstractFloat},N},
               y::AbstractArray{<:Complex{<:AbstractFloat},N}) where {N}
     s = zero(promote_eltype(x, y))
-    @inbounds @simd for i in safe_indices(x, y)
+    @inbounds @simd for i in all_indices(x, y)
         s += conj(x[i])*y[i]
     end
     return s
@@ -645,7 +645,7 @@ function vdot(T::Type{<:AbstractFloat},
               x::AbstractArray{<:Complex{<:AbstractFloat},N},
               y::AbstractArray{<:Complex{<:AbstractFloat},N}) where {N}
     s = zero(real(promote_eltype(x, y)))
-    @inbounds @simd for i in safe_indices(x, y)
+    @inbounds @simd for i in all_indices(x, y)
         xi = x[i]
         yi = y[i]
         s += real(xi)*real(yi) + imag(xi)*imag(yi)
@@ -663,7 +663,7 @@ function vdot(w::AbstractArray{<:AbstractFloat,N},
               x::AbstractArray{<:AbstractFloat,N},
               y::AbstractArray{<:AbstractFloat,N}) where {N}
     s = zero(promote_eltype(w, x, y))
-    @inbounds @simd for i in safe_indices(w, x, y)
+    @inbounds @simd for i in all_indices(w, x, y)
         s += w[i]*x[i]*y[i]
     end
     return s
@@ -680,7 +680,7 @@ function vdot(w::AbstractArray{<:AbstractFloat,N},
               x::AbstractArray{<:Complex{<:AbstractFloat},N},
               y::AbstractArray{<:Complex{<:AbstractFloat},N}) where {N}
     s = zero(promote_eltype(w, x, y))
-    @inbounds @simd for i in safe_indices(w, x, y)
+    @inbounds @simd for i in all_indices(w, x, y)
         s += w[i]*conj(x[i])*y[i]
     end
     return s
@@ -691,7 +691,7 @@ function vdot(T::Type{<:AbstractFloat},
               x::AbstractArray{<:Complex{<:AbstractFloat},N},
               y::AbstractArray{<:Complex{<:AbstractFloat},N}) where {N}
     s = zero(real(promote_eltype(w, x, y)))
-    @inbounds @simd for i in safe_indices(w, x, y)
+    @inbounds @simd for i in all_indices(w, x, y)
         xi = x[i]
         yi = y[i]
         s += (real(xi)*real(yi) + imag(xi)*imag(yi))*w[i]

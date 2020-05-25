@@ -166,7 +166,7 @@ function apply!(α::Number,
                                                Tx<:Floats,
                                                Ty<:Floats,N}
     w = coefficients(W)
-    I = safe_indices(w, x, y)
+    I = all_indices(w, x, y)
     if α == 0
         vscale!(y, β)
     elseif β == 0
