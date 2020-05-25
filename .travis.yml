@@ -17,10 +17,6 @@ matrix:
   allow_failures:
     - julia: nightly
 
-before_script:
-  - julia -e 'using Pkg;
-              Pkg.add(PackageSpec(url="https://github.com/emmt/ArrayTools.jl"));'
-
 notifications:
   email: false
 
