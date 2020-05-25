@@ -92,10 +92,9 @@ function vnorminf(v::AbstractArray{Complex{T}}) where {T<:AbstractFloat}
     return sqrt(abs2max)
 end
 
-# Implemented the version with forced output result.
-for norm in (:vnorm2, :vnorm1, :vnorminf)
-    @eval $norm(::Type{T}, v::AbstractArray) where {T<:AbstractFloat} =
-        T($norm(v))
+# Versions with forced type of output result.
+for func in (:vnorm2, :vnorm1, :vnorminf)
+    @eval $func(::Type{T}, v) where {T<:AbstractFloat} = T($func(v))
 end
 
 #------------------------------------------------------------------------------
@@ -615,6 +614,9 @@ vdot(T::Type{AbstractFloat}, x, y) = (x[1].re*y[1].re + x[1].im*y[1].im) +
 ```
 
 """
+vdot(::Type{T}, x, y) where {T<:AbstractFloat} = T(vdot(x,y))
+vdot(::Type{T}, w, x, y) where {T<:AbstractFloat} = T(vdot(w,x,y))
+
 function vdot(x::AbstractArray{<:AbstractFloat,N},
               y::AbstractArray{<:AbstractFloat,N}) where {N}
     s = zero(promote_eltype(x, y))
@@ -622,12 +624,6 @@ function vdot(x::AbstractArray{<:AbstractFloat,N},
         s += x[i]*y[i]
     end
     return s
-end
-
-function vdot(T::Type{<:AbstractFloat},
-              x::AbstractArray{<:AbstractFloat,N},
-              y::AbstractArray{<:AbstractFloat,N}) where {N}
-    return T(vdot(x, y))
 end
 
 function vdot(x::AbstractArray{<:Complex{<:AbstractFloat},N},
