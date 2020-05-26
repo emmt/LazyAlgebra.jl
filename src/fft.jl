@@ -143,7 +143,7 @@ function apply!(α::Number,
     elseif scratch
         vcombine!(y, α, mul!(x, A, x), β, y)
     else
-        z = copyto!(Array{Complex{T},N}(undef, size(x)), x)
+        z = copy(x)
         vcombine!(y, α, mul!(z, A, z), β, y)
     end
     return y
@@ -253,8 +253,7 @@ function _safe_mul!(dest::StridedArray, A::FFTWPlan,
     if scratch || preserves_input(A)
         mul!(dest, A, src)
     else
-        cpy = copyto!(Array{T,N}(undef, size(src)), src)
-        mul!(dest, A, cpy)
+        mul!(dest, A, copy(src))
     end
     return dest
 end
@@ -369,7 +368,7 @@ function FFTOperator(::Type{T},
                         flags = (planning | FFTW.PRESERVE_INPUT),
                         timelimit = timelimit)
     backward = plan_brfft(Array{Complex{T}}(undef, zdims), dims[1];
-                          flags = (planning  | FFTW.DESTROY_INPUT),
+                          flags = (planning | FFTW.DESTROY_INPUT),
                           timelimit = timelimit)
 
     # Build operator.
@@ -621,7 +620,7 @@ If provided, `y` must be at a different memory location than `x`.
 
 function CirculantConvolution(psf::AbstractArray{T,N};
                               kwds...) where {T<:fftwNumber,N}
-    CirculantConvolution(copyto!(Array{T,N}(undef, size(psf)), psf); kwds...)
+    CirculantConvolution(copy(psf); kwds...)
 end
 
 # Create a circular convolution operator for real arrays.
@@ -906,7 +905,10 @@ Also see: [`goodfftdim`](@ref), [`FFTOperator`](@ref).
 """
 rfftdims(dims::Integer...) = rfftdims(dims)
 rfftdims(dims::NTuple{N,Integer}) where {N} =
-    ntuple(d -> (d == 1 ? (Int(dims[d]) >> 1) + 1 : Int(dims[d])), Val(N))
+    ntuple(d -> (d == 1 ? (Int(dims[d]) >>> 1) + 1 : Int(dims[d])), Val(N))
+# Note: The above version is equivalent but much faster than
+#     ((dims[1] >>> 1) + 1, dims[2:end]...)
+# which is not optimized out by the compiler.
 
 """
 ### Generate Discrete Fourier Transform frequency indexes or frequencies
