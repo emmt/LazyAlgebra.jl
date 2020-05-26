@@ -63,7 +63,7 @@ function vcreate(::Type{Direct},
                  ::Gram{SimpleFiniteDifferences},
                  x::AbstractArray{T,N},
                  scratch::Bool) where {T<:Real,N}
-    return (scratch ? x : Array{T}(undef, size(x)))
+    (scratch && isa(x, Array{T,N})) ? x : Array{T,N}(undef, size(x))
 end
 
 # A Gram operator is Hermitian by construction.

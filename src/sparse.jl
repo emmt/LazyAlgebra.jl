@@ -387,7 +387,6 @@ function vcreate(::Type{Direct},
                  x::AbstractArray{<:Any,N},
                  scratch::Bool) where {M,N}
     # In-place operation is not possible so we simply ignore the scratch flag.
-    size(x) == input_size(S) || _bad_input_dimensions()
     T = promote_eltype(coefficients(S),x)
     return Array{T}(undef, output_size(S))
 end
@@ -397,7 +396,6 @@ function vcreate(::Type{Adjoint},
                  x::AbstractArray{<:Any,M},
                  scratch::Bool) where {M,N}
     # In-place operation is not possible so we simply ignore the scratch flag.
-    size(x) == output_size(S) || _bad_input_dimensions()
     T = promote_eltype(coefficients(S),x)
     return Array{T}(undef, input_size(S))
 end

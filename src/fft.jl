@@ -77,14 +77,16 @@ destroys_input(A::FFTWPlan) =
 preserves_input(A::FFTWPlan) =
     (flags(A) & (FFTW.PRESERVE_INPUT|FFTW.DESTROY_INPUT)) == FFTW.PRESERVE_INPUT
 
+# Extend `vcreate` for FFTW plans.  Rationale: result must be of predictible type
+# and checking input argument is skipped (this will be done by `apply!`).
+#
 # Create result for an in-place complex-complex forward/backward FFT
 # transform.
 function vcreate(::Type{Direct},
                  A::cFFTWPlan{Complex{T},K,true,N},
                  x::StridedArray{Complex{T},N},
                  scratch::Bool) where {T<:fftwReal,K,N}
-    @checksize "argument" x input_size(A)
-    return (scratch ? x : Array{Complex{T}}(undef, output_size(A)))
+    return (scratch && isa(x, Array) ? x : Array{Complex{T}}(undef, output_size(A)))
 end
 
 # Create result for an out-of-place complex-complex forward/backward FFT
@@ -93,7 +95,6 @@ function vcreate(::Type{Direct},
                  A::cFFTWPlan{Complex{T},K,false,N},
                  x::StridedArray{Complex{T},N},
                  scratch::Bool) where {T<:fftwReal,K,N}
-    @checksize "argument" x input_size(A)
     return Array{Complex{T}}(undef, output_size(A))
 end
 
@@ -104,7 +105,6 @@ function vcreate(::Type{Direct},
                  A::rFFTWPlan{T,K,false,N},
                  x::StridedArray{T,N},
                  scratch::Bool) where {T<:fftwReal,K,N}
-    @checksize "argument" x input_size(A)
     return Array{Complex{T}}(undef, output_size(A))
 end
 
@@ -112,7 +112,6 @@ function vcreate(::Type{Direct},
                  A::rFFTWPlan{Complex{T},K,false,N},
                  x::StridedArray{Complex{T},N},
                  scratch::Bool) where {T<:fftwReal,K,N}
-    @checksize "argument" x input_size(A)
     return Array{T}(undef, output_size(A))
 end
 

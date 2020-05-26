@@ -51,6 +51,11 @@ because the considered mapping is not an endomorphism).  Of course, the
 opposite behavior (i.e., assuming that `scratch=true` while the method was
 called with `scratch=false`) is forbidden.
 
+The result returned by `vcreate` should be of predictible type to ensure
+*type-stability*.  Checking the validity (*e.g.* the size) of argument `x` in
+`vcreate` may be skipped because this argument will be eventually checked by
+the `apply!` method.
+
 
 ## The `apply!` method
 

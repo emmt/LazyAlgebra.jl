@@ -116,18 +116,16 @@ function vcreate(::Type{Direct},
                  C::CroppingOperator{N},
                  x::AbstractArray{T,N},
                  scratch::Bool) where {T,N}
-    # Testing the size of x is done by vapply!().
-    return (scratch && input_size(C) == output_size(C) ? x :
-            Array{T,N}(undef, output_size(C)))
+    (scratch && isa(x, Array{T,N}) && input_size(C) == output_size(C)) ? x :
+        Array{T,N}(undef, output_size(C))
 end
 
 function vcreate(::Type{Adjoint},
                  C::CroppingOperator{N},
                  x::AbstractArray{T,N},
                  scratch::Bool) where {T,N}
-    # Testing the size of x is done by vapply!().
-    return (scratch && input_size(C) == output_size(C) ? x :
-            Array{T,N}(undef, input_size(C)))
+    (scratch && isa(x, Array{T,N}) && input_size(C) == output_size(C)) ? x :
+        Array{T,N}(undef, input_size(C))
 end
 
 # Apply cropping operation.
