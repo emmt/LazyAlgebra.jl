@@ -25,8 +25,8 @@ DiagonalType(::Identity) = DiagonalMapping()
 
 apply(::Type{<:Operations}, ::Identity, x, scratch::Bool=false) = x
 
-vcreate(::Type{<:Operations}, ::Identity, x, scratch::Bool) =
-    (scratch ? x : vcreate(x)) # FIXME: should always return x?
+# vcreate for identity always return x (see doc. of vcreate).
+vcreate(::Type{<:Operations}, ::Identity, x, scratch::Bool) = x
 
 apply!(α::Number, ::Type{<:Operations}, ::Identity, x, ::Bool, β::Number, y) =
     vcombine!(y, α, x, β, y)
