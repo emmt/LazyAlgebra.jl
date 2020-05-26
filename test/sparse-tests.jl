@@ -40,10 +40,6 @@ using Test
         @test LazyAlgebra.are_same_mappings(SparseOperator{T}(S), S)
 
         # Check `apply!` and `vcreate`.
-        @test_throws DimensionMismatch vcreate(Direct, S,
-                                               randn(T, size(x) .+ 1))
-        @test_throws DimensionMismatch vcreate(Adjoint, S,
-                                               randn(T, size(y) .+ 1))
         atol, rtol = zero(R), sqrt(ε)
         Sx  = S*x;  @test x == xsav
         Sty = S'*y; @test y == ysav
