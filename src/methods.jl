@@ -42,51 +42,97 @@ end
 @callable Composition
 
 show(io::IO, ::MIME"text/plain", A::Mapping) = show(io, A)
-show(io::IO, A::Identity) = print(io, "I")
-show(io::IO, A::Scaled) =
-    (multiplier(A) ≠ -one(multiplier(A)) ?
-     print(io, multiplier(A), "⋅", operand(A)) :
-     print(io, "-", operand(A)))
-show(io::IO, A::Scaled{<:Sum}) =
-    (multiplier(A) ≠ -one(multiplier(A)) ?
-     print(io, multiplier(A), "⋅(", operand(A), ")") :
-     print(io, "-(", operand(A), ")"))
 
-show(io::IO, A::Adjoint{<:Mapping}) = print(io, operand(A), "'")
-show(io::IO, A::Adjoint{T}) where {T<:Union{Scaled,Composition,Sum}} =
-    print(io, "(", operand(A), ")'")
-show(io::IO, A::Inverse{<:Mapping}) = print(io, "inv(", operand(A), ")")
-show(io::IO, A::InverseAdjoint{<:Mapping}) = print(io, "inv(", operand(A), "')")
+show(io::IO, A::Identity) = print(io, "I")
+
+function show(io::IO, A::Scaled)
+    if multiplier(A) == -one(multiplier(A))
+        print(io, "-")
+    elseif multiplier(A) != one(multiplier(A))
+        print(io, multiplier(A), "⋅")
+    end
+    show(io, operand(A))
+end
+
+function show(io::IO, A::Scaled{<:Sum})
+    if multiplier(A) == -one(multiplier(A))
+        print(io, "-(")
+    elseif multiplier(A) != one(multiplier(A))
+        print(io, multiplier(A), "⋅(")
+    end
+    show(io, operand(A))
+    if multiplier(A) != one(multiplier(A))
+        print(io, ")")
+    end
+end
+
+function show(io::IO, A::Adjoint{<:Mapping})
+    show(io, operand(A))
+    print(io, "'")
+end
+
+function show(io::IO, A::Adjoint{T}) where {T<:Union{Scaled,Composition,Sum}}
+    print(io, "(")
+    show(io, operand(A))
+    print(io, ")'")
+end
+
+function show(io::IO, A::Inverse{<:Mapping})
+    print(io, "inv(")
+    show(io, operand(A))
+    print(io, ")")
+end
+
+function show(io::IO, A::InverseAdjoint{<:Mapping})
+    print(io, "inv(")
+    show(io, operand(A))
+    print(io, ")'")
+end
 
 function show(io::IO, A::Sum{N}) where {N}
     for i in 1:N
-        B = A[i]
-        if i > 1
-            if isa(B, Scaled) && multiplier(B) < 0
-                B = -1*B
-                print(io, " - ")
-            else
-                print(io, " + ")
+        let B = operand(A[i]), λ = multiplier(A[i])
+            if i > 1
+                if λ < 0
+                    print(io, " - ")
+                    λ = -λ
+                else
+                    print(io, " + ")
+                end
+                if λ != 1
+                    print(io, λ, "⋅")
+                end
+            elseif λ != 1
+                if λ == -1
+                    print(io, "-")
+                else
+                    print(io, λ, "⋅")
+                end
             end
-        end
-        if isa(B, Sum)
-            print(io, "(", B, ")")
-        else
-            print(io, B)
+            if isa(B, Sum)
+                print(io, "(")
+                show(io, B)
+                print(io, ")")
+            else
+                show(io, B)
+            end
         end
     end
 end
 
 function show(io::IO, A::Composition{N}) where {N}
     for i in 1:N
-        B = A[i]
-        if i > 1
-            print(io, "⋅")
-        end
-        if isa(B, Sum) || isa(B, Scaled)
-            print(io, "(", B, ")")
-        else
-            print(io, B)
+        let B = A[i]
+            if i > 1
+                print(io, "⋅")
+            end
+            if isa(B, Sum) || isa(B, Scaled)
+                print(io, "(")
+                show(io, B)
+                print(io, ")")
+            else
+                show(io, B)
+            end
         end
     end
 end
