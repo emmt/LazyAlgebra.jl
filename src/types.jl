@@ -15,13 +15,13 @@ struct SingularSystem <: Exception
     msg::String
 end
 showerror(io::IO, err::SingularSystem) =
-    print(io, "singular linear system ($(err.msg))")
+    print(io, "singular linear system (", err.msg, ")")
 
 struct NonPositiveDefinite <: Exception
     msg::String
 end
 showerror(io::IO, err::NonPositiveDefinite) =
-    print(io, "non-positive definite operator ($(err.msg))")
+    print(io, "non-positive definite operator (", err.msg, ")")
 
 struct UnimplementedOperation <: Exception
     msg::String

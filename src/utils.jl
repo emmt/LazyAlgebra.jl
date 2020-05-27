@@ -20,6 +20,37 @@ bad_size(mesg::String) = throw(DimensionMismatch(mesg))
 incompatible_axes() = bad_size("arguments have incompatible dimensions/indices")
 
 """
+    message([io=stdout,] header, args...; color=:blue)
+
+prints a message on `io` with `header` text in bold followed by a space,
+`args...` and a newline.  Keyword `color` can be used to specify the text color
+of the message.
+
+"""
+message(header::String, args...; kwds...) =
+    message(stdout, header, args...; kwds...)
+
+@noinline function message(io::IO, header::String, args...;
+                           color::Symbol=:blue)
+    printstyled(io, header; color=color, bold=true)
+    printstyled(io, " ", args...; color=color, bold=false)
+    println(io)
+end
+
+"""
+    warn([io=stdout,] args...)
+
+prints a warning message in yellow on `io` with `"Warning: "` in bold followed
+by `args...` and a newline.
+
+"""
+warn(args...) = warn(stderr, args...)
+warn(io::IO, args...) = message(io, "Warning:", args...; color=:yellow)
+
+#inform(args...) = inform(stderr, args...)
+#inform(io::IO, args...) = message(io, "Info:", args...; color=:blue)
+
+"""
 
 ```julia
 promote_multiplier(λ, T)
@@ -72,7 +103,7 @@ promote_multiplier(λ::Number, args::Type...) =
 # Note: the only direct sub-types of `Number` are abstract types `Real` and
 # `Complex`.
 @noinline operand_type_not_concrete(::Type{T}) where {T} =
-    error("operand type $T is not a concrete type")
+    error("operand type ", T, " is not a concrete type")
 
 """
     to_tuple(arg)

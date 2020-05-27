@@ -8,7 +8,7 @@
 # This file is part of LazyAlgebra (https://github.com/emmt/LazyAlgebra.jl)
 # released under the MIT "Expat" license.
 #
-# Copyright (c) 2017-2018 Éric Thiébaut.
+# Copyright (c) 2017-2020 Éric Thiébaut.
 #
 
 struct WrappedLeftHandSideMatrix{T}
@@ -222,12 +222,8 @@ function conjgrad!(x, A, b, x0 = vfill!(x, 0),
             end
             break
         elseif k > maxiter
-            if verb
-                @printf(io, "# %s\n", "Too many iteration(s).")
-            end
-            if !quiet
-                @warn("too many ($k) conjugate gradient iteration(s)")
-            end
+            verb && @printf(io, "# %s\n", "Too many iteration(s).")
+            quiet || warn("too many (", k, " conjugate gradient iteration(s)")
             break
         end
         if rem(k, restart) == 1
@@ -247,13 +243,9 @@ function conjgrad!(x, A, b, x0 = vfill!(x, 0),
         A(q, p)
         gamma = vdot(p, q)
         if gamma ≤ 0
-            if verb
-                @printf(io, "# %s\n", "Operator is not positive definite.")
-            end
+            verb && @printf(io, "# %s\n", "Operator is not positive definite.")
             strict && throw(NonPositiveDefinite("in conjugate gradient"))
-            if !quiet
-                @warn("operator is not positive definite")
-            end
+            quiet || warn("operator is not positive definite")
             break
         end
         alpha = rho/gamma
@@ -264,16 +256,12 @@ function conjgrad!(x, A, b, x0 = vfill!(x, 0),
         psimax = max(psi, psimax)
         if psi ≤ ftest*psimax
             # Normal convergence.
-            if verb
-                @printf(io, "# %s\n", "Convergence (ftest statisfied).")
-            end
+            verb && @printf(io, "# %s\n", "Convergence (ftest statisfied).")
             break
         end
         if xtest > 0 && alpha*vnorm2(p) ≤ xtest*vnorm2(x)
             # Normal convergence.
-            if verb
-                @printf(io, "# %s\n", "Convergence (xtest statisfied).")
-            end
+            verb && @printf(io, "# %s\n", "Convergence (xtest statisfied).")
             break
         end
 
