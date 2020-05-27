@@ -65,3 +65,37 @@ promote_multiplier(λ::Number, args::Type...) =
 # `Complex`.
 @noinline operand_type_not_concrete(::Type{T}) where {T} =
     error("operand type $T is not a concrete type")
+
+"""
+    to_tuple(arg)
+
+converts `arg` into an `N`-tuple where `N` is the number of elements of `arg`.
+This is equivallent to `Tuple(arg)` or `(arg...,)` for a vector but it is much
+faster for small vectors.
+
+""" to_tuple
+
+to_tuple(x::Tuple) = x
+
+# The cutoff at n = 10 below reflects what is used by `ntuple`.  This value is
+# somewhat arbitrary, on the machines where I tested the code, the explicit
+# unrolled expression for n = 10 is still about 44 times faster than `(x...,)`.
+# Calling `ntuple` for n ≤ 10 is about twice slower; for n > 10, `ntuple` is
+# slower than `(x...,)`.
+function to_tuple(x::AbstractVector)
+    n = length(x)
+    @inbounds begin
+        n == 0 ? () :
+        n > 10 || firstindex(x) != 1 ? (x...,) :
+        n == 1 ? (x[1],) :
+        n == 2 ? (x[1], x[2]) :
+        n == 3 ? (x[1], x[2], x[3]) :
+        n == 4 ? (x[1], x[2], x[3], x[4]) :
+        n == 5 ? (x[1], x[2], x[3], x[4], x[5]) :
+        n == 6 ? (x[1], x[2], x[3], x[4], x[5], x[6]) :
+        n == 7 ? (x[1], x[2], x[3], x[4], x[5], x[6], x[7]) :
+        n == 8 ? (x[1], x[2], x[3], x[4], x[5], x[6], x[7], x[8]) :
+        n == 9 ? (x[1], x[2], x[3], x[4], x[5], x[6], x[7], x[8], x[9]) :
+        (x[1], x[2], x[3], x[4], x[5], x[6], x[7], x[8], x[9], x[10])
+    end
+end
