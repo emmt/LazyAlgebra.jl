@@ -51,7 +51,7 @@ function show(io::IO, A::Scaled)
     elseif multiplier(A) != one(multiplier(A))
         print(io, multiplier(A), "⋅")
     end
-    show(io, operand(A))
+    show(io, unveil(A))
 end
 
 function show(io::IO, A::Scaled{<:Sum})
@@ -60,61 +60,62 @@ function show(io::IO, A::Scaled{<:Sum})
     elseif multiplier(A) != one(multiplier(A))
         print(io, multiplier(A), "⋅(")
     end
-    show(io, operand(A))
+    show(io, unveil(A))
     if multiplier(A) != one(multiplier(A))
         print(io, ")")
     end
 end
 
 function show(io::IO, A::Adjoint{<:Mapping})
-    show(io, operand(A))
+    show(io, unveil(A))
     print(io, "'")
 end
 
 function show(io::IO, A::Adjoint{T}) where {T<:Union{Scaled,Composition,Sum}}
     print(io, "(")
-    show(io, operand(A))
+    show(io, unveil(A))
     print(io, ")'")
 end
 
 function show(io::IO, A::Inverse{<:Mapping})
     print(io, "inv(")
-    show(io, operand(A))
+    show(io, unveil(A))
     print(io, ")")
 end
 
 function show(io::IO, A::InverseAdjoint{<:Mapping})
     print(io, "inv(")
-    show(io, operand(A))
+    show(io, unveil(A))
     print(io, ")'")
 end
 
 function show(io::IO, A::Sum{N}) where {N}
+    function show_term(io::IO, A::Sum)
+        print(io, "(")
+        show(io, A)
+        print(io, ")")
+    end
+    show_term(io::IO, A::Mapping) = show(io, A)
+
     for i in 1:N
-        let B = operand(A[i]), λ = multiplier(A[i])
-            if i > 1
+        let B = A[i]
+            if isa(B, Scaled)
+                λ = multiplier(B)
                 if λ < 0
-                    print(io, " - ")
+                    print(io, (i == 1 ? "-" : " - "))
                     λ = -λ
-                else
+                elseif i > 1
                     print(io, " + ")
                 end
                 if λ != 1
                     print(io, λ, "⋅")
                 end
-            elseif λ != 1
-                if λ == -1
-                    print(io, "-")
-                else
-                    print(io, λ, "⋅")
-                end
-            end
-            if isa(B, Sum)
-                print(io, "(")
-                show(io, B)
-                print(io, ")")
+                show_term(io, unveil(B))
             else
-                show(io, B)
+                if i > 1
+                    print(io, " + ")
+                end
+                show_term(io, B)
             end
         end
     end
@@ -139,52 +140,73 @@ end
 
 """
 ```julia
-operands(A)
+terms(A)
 ```
 
-yields the list (as a tuple) of operands that compose operand `A`.
-If `A` is a sum or a composition, the list of operands is returned;
-otherwise, the single-element tuple `(A,)` is returned.
-
-!!! note
-    The [`operand`](@ref) method (without an "s") has a different meaning.
+yields the list (as a tuple) of terms that compose mapping `A`.  If `A` is a
+sum or a composition, the list of terms is returned; otherwise, the 1-tuple
+`(A,)` is returned.
 
 """
-operands(A::Mapping) = (A,)
-operands(A::Sum) = A.ops
-operands(A::Composition) = A.ops
+terms(A::Mapping) = (A,)
+terms(A::Sum) = A.ops
+terms(A::Composition) = A.ops
+
+@deprecate operands terms
 
 """
-The calls:
+    unveil(A)
 
-```julia
-operand(A)
-```
+unveils the mapping embedded in mapping `A` if it is a *decorated* mapping or
+just returns `A` if it is not a *decorated* mapping.
+
+See also: [`Scaled`](@ref), [`Adjoint`](@ref), [`Inverse`](@ref),
+[`InverseAdjoint`](@ref).
+
+"""
+unveil(A::Scaled) = A.M
+unveil(A::Adjoint) = A.op
+unveil(A::Inverse) = A.op
+unveil(A::InverseAdjoint) = A.op
+unveil(A::Mapping) = A
+
+@deprecate operand unveil
+
+"""
+    unscaled(A)
 
 and
 
-```julia
-multiplier(A)
-```
+    multiplier(A)
 
 respectively yield the mapping `M` and the multiplier `λ` if `A = λ*M` is a
-scaled mapping; yield `A` and `1` otherwise.
-
-!!! note
-    The [`operands`](@ref) method (with an "s") has a different meaning.
+scaled mapping; `A` and `1` otherwise.
 
 See also: [`Scaled`](@ref).
 
 """
-operand(A::Scaled) = A.M
-operand(A::Adjoint) = A.op
-operand(A::Inverse) = A.op
-operand(A::InverseAdjoint) = A.op
-operand(A::Mapping) = A
-
+unscaled(A::Mapping) = A
+unscaled(A::Scaled) = unveil(A)
 multiplier(A::Scaled) = A.λ
 multiplier(A::Mapping) = 1
-@doc @doc(operand) multiplier
+
+@doc @doc(unscaled) multiplier
+
+"""
+    identifier(A)
+
+yields an (almost) unique identifier of the mapping `A` computed as
+`objectid(unscaled(A))`.  This identifier is used for sorting terms in a sum of
+mappings.
+
+!!! warning
+    For now, the sorting is not perfect as it is based on `objectid()` which
+    is a hashing method.
+
+"""
+identifier(A::Mapping) = objectid(unscaled(A))
+
+Base.isless(A::Mapping, B::Mapping) = isless(identifier(A), identifier(B))
 
 # Extend base methods to simplify the code for reducing expressions.
 first(A::Mapping) = A
@@ -192,12 +214,12 @@ last(A::Mapping) = A
 first(A::Union{Sum,Composition}) = A.ops[1]
 last(A::Union{Sum{N},Composition{N}}) where {N} = A.ops[N]
 length(A::Union{Sum{N},Composition{N}}) where {N} = N
-getindex(A::Union{Sum,Composition}, i) = A.ops[i]
+@inline @propagate_inbounds getindex(A::Union{Sum,Composition}, i) = A.ops[i]
 
 # To complement first() and last() when applied to tuples.
-tail(A::NTuple{N}) where {N} = A[2:N]
+tail(A::NTuple{N}) where {N} = @inbounds A[2:N]
 tail(A::Tuple) = A[2:end]
-head(A::NTuple{N}) where {N} = A[1:N-1]
+head(A::NTuple{N}) where {N} = @inbounds A[1:N-1]
 head(A::Tuple) = A[1:end-1]
 
 """
@@ -342,8 +364,7 @@ See also: [`vdot`](@ref), [`vcreate`](@ref), [`apply!`](@ref),
 
 """
 function checkmapping(y::Ty, A::Mapping, x::Tx) where {Tx, Ty}
-    is_linear(A) ||
-        throw(ArgumentError("expecting a linear map"))
+    is_linear(A) || bad_argument("expecting a linear mapping")
     v1 = vdot(y, A*x)
     v2 = vdot(A'*y, x)
     (v1, v2, v1 - v2)

@@ -131,7 +131,7 @@ Also see [`copyto!`](@ref), [`vcopy`](@ref), [`vswap!`](@ref).
 function vcopy!(dst::AbstractArray{<:Real,N},
                 src::AbstractArray{<:Real,N}) where {N}
     if dst !== src
-        axes(dst) == axes(src) || throw_dimensions_mismatch()
+        axes(dst) == axes(src) || incompatible_axes()
         copyto!(dst, src)
     end
     return dst
@@ -140,17 +140,11 @@ end
 function vcopy!(dst::AbstractArray{<:Complex{<:Real},N},
                 src::AbstractArray{<:Complex{<:Real},N}) where {N}
     if dst !== src
-        axes(dst) == axes(src) || throw_dimensions_mismatch()
+        axes(dst) == axes(src) || incompatible_axes()
         copyto!(dst, src)
     end
     return dst
 end
-
-@noinline throw_dimensions_mismatch() =
-    throw_dimensions_mismatch("arguments have incompatible dimensions/indices")
-
-@noinline throw_dimensions_mismatch(mesg::AbstractString) =
-    throw(DimensionMismatch(mesg))
 
 """
 ```julia
@@ -286,7 +280,7 @@ function vscale!(dst::AbstractArray{<:Floats,N},
     if α == 1
         vcopy!(dst, src)
     elseif α == 0
-        axes(dst) == axes(src) || throw_dimensions_mismatch()
+        axes(dst) == axes(src) || incompatible_axes()
         vzero!(dst)
     elseif α == -1
         @inbounds @simd for i in all_indices(dst, src)
@@ -520,10 +514,10 @@ function vcombine!(dst::AbstractArray{<:Floats,N},
                    β::Number,
                    y::AbstractArray{<:Floats,N}) where {N}
     if α == 0
-        axes(x) == axes(dst) || throw_dimensions_mismatch()
+        axes(x) == axes(dst) || incompatible_axes()
         vscale!(dst, β, y)
     elseif β == 0
-        axes(y) == axes(dst) || throw_dimensions_mismatch()
+        axes(y) == axes(dst) || incompatible_axes()
         vscale!(dst, α, x)
     else
         I = all_indices(dst, x, y)
@@ -777,7 +771,7 @@ end
                                 A::AbstractArray{<:Any,N},
                                 B::AbstractArray{<:Any,N}) where {N}
     @assert IndexStyle(B) === IndexLinear()
-    axes(A) == axes(B) || throw_dimensions_mismatch()
+    axes(A) == axes(B) || incompatible_axes()
     checkselection(sel, A)
 end
 
@@ -787,9 +781,9 @@ end
                                 C::AbstractArray{<:Any,N}) where {N}
     @assert IndexStyle(B) === IndexLinear()
     @assert IndexStyle(C) === IndexLinear()
-    axes(A) == axes(B) == axes(C) || throw_dimensions_mismatch()
+    axes(A) == axes(B) == axes(C) || incompatible_axes()
     checkselection(sel, A)
 end
 
 @noinline out_of_range_selection() =
-    throw(ArgumentError("some selected indices are out of range"))
+    bad_argument("some selected indices are out of range")

@@ -153,7 +153,7 @@ conjgrad!(x, A::Union{LinearMapping,AbstractArray}, b, args...; kwds...) =
     conjgrad!(x, WrappedLeftHandSideMatrix(A), b, args...; kwds...)
 
 function conjgrad!(x, A::Mapping, b, args...; kwds...)
-    is_linear(A) || throw(ArgumentError("`A` must be a linear map"))
+    is_linear(A) || bad_argument("`A` must be a linear map")
     conjgrad!(x, WrappedLeftHandSideMatrix(A), b, args...; kwds...)
 end
 
@@ -170,18 +170,18 @@ function conjgrad!(x, A, b, x0 = vfill!(x, 0),
                    strict::Bool = true)
     # Initialization.
     0 ≤ ftol < 1 ||
-        throw(ArgumentError("bad function tolerance (ftol = $ftol)"))
+        bad_argument("bad function tolerance (ftol = ", ftol, ")")
     gtol[1] ≥ 0 ||
-        throw(ArgumentError("bad gradient absolute tolerance (gtol[1] = ",
-                            gtol[1], ")"))
+        bad_argument("bad gradient absolute tolerance (gtol[1] = ",
+                     gtol[1], ")")
     0 ≤ gtol[2] < 1 ||
-        throw(ArgumentError("bad gradient relative tolerance (gtol[2] = ",
-                            gtol[2], ")"))
+        bad_argument("bad gradient relative tolerance (gtol[2] = ",
+                     gtol[2], ")")
     0 ≤ xtol < 1 ||
-        throw(ArgumentError("bad variables tolerance (xtol = $xtol)"))
+        bad_argument("bad variables tolerance (xtol = ", xtol, ")")
     restart ≥ 1 ||
-        throw(ArgumentError("bad number of iterations for restarting ",
-                            "(restart = $restart)"))
+        bad_argument("bad number of iterations for restarting (restart = ",
+                     restart,")")
     vcopy!(x, x0)
     if maxiter < 1 && quiet && !verb
         return x

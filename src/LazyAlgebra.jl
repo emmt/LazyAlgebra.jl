@@ -73,14 +73,15 @@ export
     lgemv!,
     lgemv,
     multiplier,
-    operand,
-    operands,
     output_eltype,
     output_ndims,
     output_size,
     output_type,
     sparse,
+    terms,
     unpack!,
+    unscaled,
+    unveil,
     vcombine!,
     vcombine,
     vcopy!,
@@ -108,7 +109,8 @@ using ArrayTools
 
 import Base: *, ∘, +, -, \, /, ==, adjoint, inv, axes,
     show, showerror, convert, eltype, ndims, size, length, stride, strides,
-    getindex, setindex!, eachindex, first, last, one, zero, isone, iszero
+    getindex, setindex!, eachindex, first, last, one, zero, isone, iszero,
+    @propagate_inbounds
 
 # Import/using from LinearAlgebra, BLAS and SparseArrays.
 using LinearAlgebra
@@ -127,6 +129,7 @@ include("genmult.jl")
 import .GenMult: lgemm!, lgemm, lgemv!, lgemv
 include("blas.jl")
 include("coder.jl")
+include("simplify.jl")
 include("rules.jl")
 include("mappings.jl")
 include("sparse.jl")

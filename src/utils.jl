@@ -11,6 +11,14 @@
 # Copyright (c) 2017-2020 Éric Thiébaut.
 #
 
+@noinline bad_argument(args...) = bad_argument(string(args...))
+bad_argument(mesg::String) = throw(ArgumentError(mesg))
+
+@noinline bad_size(args...) = bad_size(string(args...))
+bad_size(mesg::String) = throw(DimensionMismatch(mesg))
+
+incompatible_axes() = bad_size("arguments have incompatible dimensions/indices")
+
 """
 
 ```julia

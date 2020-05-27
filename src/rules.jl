@@ -8,7 +8,7 @@
 # This file is part of LazyAlgebra (https://github.com/emmt/LazyAlgebra.jl)
 # released under the MIT "Expat" license.
 #
-# Copyright (c) 2017-2019 Éric Thiébaut.
+# Copyright (c) 2017-2020 Éric Thiébaut.
 #
 
 const UnsupportedInverseOfSumOfMappings =
@@ -27,17 +27,20 @@ or `NonLinear()` for other mappings.
 See also: [`Trait`](@ref), [`is_linear`](@ref).
 
 """
+LinearType(::Mapping) = NonLinear() # any mapping assumed non-linear by default
 LinearType(::LinearMapping) = Linear()
+LinearType(::Inverse{<:LinearMapping}) = Linear()
 LinearType(::Scaled{<:LinearMapping}) = Linear()
-LinearType(A::Union{Scaled,Inverse}) = LinearType(operand(A))
-LinearType(::Mapping) = NonLinear() # anything else is non-linear
+LinearType(A::Inverse) = LinearType(unveil(A))
+LinearType(A::Scaled) = LinearType(unscaled(A))
 LinearType(A::Union{Sum,Composition}) =
-    (allof(x -> LinearType(x) === Linear(), operands(A)...) ?
+    (allof(x -> LinearType(x) === Linear(), terms(A)...) ?
      Linear() : NonLinear())
 LinearType(A::Scaled{T,S}) where {T,S} =
-    # If the multiplier λ of a scaled mapping A = (λ⋅M) is zero, then
-    # A behaves linearly even though M is not a linear mapping.
-    (multiplier(A) == zero(S) ? Linear() : LinearType(operand(A)))
+    # If the multiplier λ of a scaled mapping A = (λ⋅M) is zero, then A behaves
+    # linearly even though M is not a linear mapping.  FIXME: But acknowledging
+    # this as a linear mapping may give rise to troubles later.
+    (multiplier(A) == zero(S) ? Linear() : LinearType(unscaled(A)))
 
 @doc @doc(LinearType) Linear
 @doc @doc(LinearType) NonLinear
@@ -57,9 +60,11 @@ See also: [`Trait`](@ref), [`is_selfadjoint`](@ref).
 
 """
 SelfAdjointType(::Mapping) = NonSelfAdjoint()
-SelfAdjointType(A::Union{Scaled,Inverse}) = SelfAdjointType(operand(A))
+SelfAdjointType(A::Union{Inverse,Adjoint,InverseAdjoint}) =
+    SelfAdjointType(unveil(A))
+SelfAdjointType(A::Scaled) = SelfAdjointType(unscaled(A))
 SelfAdjointType(A::Sum) =
-    (allof(x -> SelfAdjointType(x) === SelfAdjoint(), operands(A)...) ?
+    (allof(x -> SelfAdjointType(x) === SelfAdjoint(), terms(A)...) ?
      SelfAdjoint() : NonSelfAdjoint())
 
 @doc @doc(SelfAdjointType) SelfAdjoint
@@ -80,9 +85,10 @@ See also: [`Trait`](@ref), [`is_endomorphism`](@ref).
 
 """
 MorphismType(::Mapping) = Morphism()
-MorphismType(A::Union{Scaled,Inverse}) = MorphismType(operand(A))
+MorphismType(A::Union{Inverse,Adjoint,InverseAdjoint}) = MorphismType(unveil(A))
+MorphismType(A::Scaled) = MorphismType(unscaled(A))
 MorphismType(A::Union{Sum,Composition}) =
-    (allof(x -> MorphismType(x) === Endomorphism(), operands(A)...) ?
+    (allof(x -> MorphismType(x) === Endomorphism(), terms(A)...) ?
      Endomorphism() : Morphism())
 
 @doc @doc(MorphismType) Morphism
@@ -103,9 +109,10 @@ See also: [`Trait`](@ref), [`is_diagonal`](@ref).
 
 """
 DiagonalType(::Mapping) = NonDiagonalMapping()
-DiagonalType(A::Union{Scaled,Inverse}) = DiagonalType(operand(A))
+DiagonalType(A::Union{Inverse,Adjoint,InverseAdjoint}) = DiagonalType(unveil(A))
+DiagonalType(A::Scaled) = DiagonalType(unscaled(A))
 DiagonalType(A::Union{Sum,Composition}) =
-    (allof(x -> DiagonalType(x) === DiagonalMapping(), operands(A)...) ?
+    (allof(x -> DiagonalType(x) === DiagonalMapping(), terms(A)...) ?
      DiagonalMapping() : NonDiagonalMapping())
 
 @doc @doc(DiagonalType) NonDiagonalMapping
@@ -205,18 +212,19 @@ _is_diagonal(::NonDiagonalMapping) = false
 #  - Adjoint of a sum (or a composition) of terms is rewritten as the sum
 #    (respectively composition) of the adjoint of the terms.
 #
-#  - Adjoint of a scaled operand is rewritten as a scaled adjoint of the
-#    operand.  Similarly, inverse of a scaled operand is rewritten as a scaled
-#    inverse of the operand, if the operand is inear, or as the inverse of the
-#    operand times a scaled identity otherwise.
+#  - Adjoint of a scaled mapping is rewritten as a scaled adjoint of the
+#    mapping.  Similarly, inverse of a scaled mapping is rewritten as a scaled
+#    inverse of the mapping, if the mapping is linear, or as the inverse of the
+#    mapping times a scaled identity otherwise.
 #
 #  - Adjoint of the inverse is rewritten as inverse of the adjoint.
 #
-#  - Inner constructors are fully qualified.  Un-qualified outer constructors
-#    just call the basic methods.
+#  - Inner constructors are fully qualified but check arguments.  Un-qualified
+#    outer constructors just call the inner constructors with the suitable
+#    parameters.
 #
-#  - To simplify a sum, the terms corresponding to identical operands (possibly
-#    scaled) are first grouped to produce a single operand (possibly scaled)
+#  - To simplify a sum, the terms corresponding to identical mappings (possibly
+#    scaled) are first grouped to produce a single mapping (possibly scaled)
 #    per group, the resulting terms are sorted (so that all equivalent
 #    expressions yield the same result) and the "zeros" eliminated (if all
 #    terms are "zero", the sum simplifies to the first one).  For now, the
@@ -225,19 +233,19 @@ _is_diagonal(::NonDiagonalMapping) = false
 #  - To simplify a composition, a fusion algorithm is applied and "ones" are
 #    eliminated.  It is assumed that composition is non-commutative so the
 #    ordering of terms is left unchanged.  Thanks to this, simplification rules
-#    for simple compositions (made of two non-composition operands) can be
+#    for simple compositions (made of two non-composition mappings) can be
 #    automatically performed by proper dispatching rules.  Calling the fusion
 #    algorithm is only needed for more complex compositions.
 #
 # The simplication algorithm is not perfect (LazyAlgebra is not intended to be
 # for symbolic computations) but do a reasonnable job.  In particular complex
-# operands built using the same sequences should be simplified in the same way
+# mappings built using the same sequences should be simplified in the same way
 # and thus be correctly identified as being identical.
 
 #------------------------------------------------------------------------------
 # NEUTRAL ELEMENTS
 
-# The neutral element ("zero") for the addition is zero times an operand of the
+# The neutral element ("zero") for the addition is zero times a mapping of the
 # proper type.
 zero(A::Mapping) = 0*A
 
@@ -254,18 +262,69 @@ isone(::Mapping) = false
 #------------------------------------------------------------------------------
 # UNQUALIFIED OUTER CONSTRUCTORS
 
-# Unqualified outer constructors are provided which simply call the appropriate
-# basic methods which are extended (elsewhere) to perform all suitable
-# simplifications.
+# Unqualified outer constructors are provided which call the corresponding
+# inner constructors with all suitable parameters and rely on the inner
+# constructors to check whether the call was allowed or not.
 Direct(A::Mapping) = A # provided for completeness
-Adjoint(A::Mapping) = adjoint(A)
-Inverse(A::Mapping) = inv(A)
-InverseAdjoint(A::Mapping) = inv(adjoint(A))
-Scaled(α::Number, A::Mapping) = α*A
-Sum(args::Mapping...) = _simplify_sum(args)
-Composition(args::Mapping...) =
-    # FIXME: Calling Composition() directly does not simplify expression.
-    _merge_sum(args)
+Adjoint(A::T) where {T<:Mapping} = Adjoint{T}(A)
+Inverse(A::T) where {T<:Mapping} = Inverse{T}(A)
+InverseAdjoint(A::T) where {T<:Mapping} = InverseAdjoint{T}(A)
+Scaled(α::S, A::T) where {S<:Number,T<:Mapping} = Scaled{T,S}(α, A)
+Sum(ops::T) where {N,T<:NTuple{N,Mapping}} = Sum{N,T}(ops)
+Composition(ops::T) where {N,T<:NTuple{N,Mapping}} = Composition{N,T}(ops)
+
+CanBuildAdjointTrait(A::T) where {T<:Mapping} = CanBuildAdjointTrait(T)
+
+CanBuildAdjointTrait(::Type{<:Mapping}       ) =    CanBuildAdjoint()
+CanBuildAdjointTrait(::Type{<:Adjoint}       ) = CannotBuildAdjoint()
+CanBuildAdjointTrait(::Type{<:Inverse}       ) = CannotBuildAdjoint()
+CanBuildAdjointTrait(::Type{<:InverseAdjoint}) = CannotBuildAdjoint()
+CanBuildAdjointTrait(::Type{<:Scaled}        ) = CannotBuildAdjoint()
+CanBuildAdjointTrait(::Type{<:Sum}           ) = CannotBuildAdjoint()
+CanBuildAdjointTrait(::Type{<:Composition}   ) = CannotBuildAdjoint()
+
+@noinline illegal_call_to(::Type{Adjoint}) =
+    bad_argument("the `Adjoint` constructor can only be applied to a simple linear mapping, use expressions like `A'` or `adjoint(A)`")
+
+
+CanBuildInverseTrait(A::T) where {T<:Mapping} = CanBuildInverseTrait(T)
+
+CanBuildInverseTrait(::Type{<:Mapping}       ) =    CanBuildInverse()
+CanBuildInverseTrait(::Type{<:Adjoint}       ) = CannotBuildInverse()
+CanBuildInverseTrait(::Type{<:Inverse}       ) = CannotBuildInverse()
+CanBuildInverseTrait(::Type{<:InverseAdjoint}) = CannotBuildInverse()
+CanBuildInverseTrait(::Type{<:Scaled}        ) = CannotBuildInverse()
+CanBuildInverseTrait(::Type{<:Sum}           ) =    CanBuildInverse()
+CanBuildInverseTrait(::Type{<:Composition}   ) = CannotBuildInverse()
+
+@noinline illegal_call_to(::Type{Inverse}) =
+    bad_argument("the `Inverse` constructor can only be applied to a simple mapping or to a sum of mappings, use expressions like `A\\B`, `A/B` or `inv(A)`")
+
+CanBuildInverseAdjointTrait(A::T) where {T<:Mapping} = CanBuildInverseAdjointTrait(T)
+
+CanBuildInverseAdjointTrait(::Type{<:Mapping}       ) =    CanBuildInverseAdjoint()
+CanBuildInverseAdjointTrait(::Type{<:Adjoint}       ) = CannotBuildInverseAdjoint()
+CanBuildInverseAdjointTrait(::Type{<:Inverse}       ) = CannotBuildInverseAdjoint()
+CanBuildInverseAdjointTrait(::Type{<:InverseAdjoint}) = CannotBuildInverseAdjoint()
+CanBuildInverseAdjointTrait(::Type{<:Scaled}        ) = CannotBuildInverseAdjoint()
+CanBuildInverseAdjointTrait(::Type{<:Sum}           ) = CannotBuildInverseAdjoint()
+CanBuildInverseAdjointTrait(::Type{<:Composition}   ) = CannotBuildInverseAdjoint()
+
+@noinline illegal_call_to(::Type{InverseAdjoint}) =
+    bad_argument("the `InverseAdjoint` constructor can only be applied to a simple linear mapping or to a sum of linear mappings, use expressions like `A'\\B`, `A/(B')`, `inv(A')` or `inv(A)'`")
+
+CanBuildScaledTrait(A::T) where {T<:Mapping} = CanBuildScaledTrait(T)
+
+CanBuildScaledTrait(::Type{<:Mapping}       ) =    CanBuildScaled()
+CanBuildScaledTrait(::Type{<:Adjoint}       ) =    CanBuildScaled()
+CanBuildScaledTrait(::Type{<:Inverse}       ) =    CanBuildScaled()
+CanBuildScaledTrait(::Type{<:InverseAdjoint}) =    CanBuildScaled()
+CanBuildScaledTrait(::Type{<:Scaled}        ) = CannotBuildScaled()
+CanBuildScaledTrait(::Type{<:Sum}           ) =    CanBuildScaled()
+CanBuildScaledTrait(::Type{<:Composition}   ) =    CanBuildScaled()
+
+@noinline illegal_call_to(::Type{Scaled}) =
+    bad_argument("the `Scaled` constructor can only be applied to an unscaled mapping, use expressions like `α*A`")
 
 #------------------------------------------------------------------------------
 # SCALED TYPE
@@ -275,67 +334,70 @@ Composition(args::Mapping...) =
 # the scaled identity.
 *(α::S, A::T) where {S<:Number,T<:Mapping} =
     (α == one(α) ? A : isfinite(α) ? Scaled{T,S}(α, A) :
-     throw(ArgumentError("non-finite multiplier")))
-*(α::Number, A::Scaled) = (α*multiplier(A))*operand(A)
+     bad_argument("non-finite multiplier"))
+*(α::Number, A::Scaled) = (α*multiplier(A))*unscaled(A)
 \(α::Number, A::Mapping) = inv(α)*A
-\(α::Number, A::Scaled) = (multiplier(A)/α)*operand(A)
+\(α::Number, A::Scaled) = (multiplier(A)/α)*unscaled(A)
 
 #------------------------------------------------------------------------------
 # ADJOINT TYPE
 
-# Adjoint for non-specific operands.
+# Adjoint for non-specific mappings.
+adjoint(A::T) where {T<:Mapping} = Adjoint{T}(A)
 adjoint(A::LinearMapping) = _adjoint(SelfAdjointType(A), A)
 _adjoint(::SelfAdjoint, A::LinearMapping) = A
 _adjoint(::NonSelfAdjoint, A::T) where {T<:LinearMapping} = Adjoint{T}(A)
-function adjoint(A::T) where {T<:Mapping}
-    is_linear(A) ||
-        throw(ArgumentError("undefined adjoint of a non-linear operand"))
-    return Adjoint{T}(A)
-end
 
-# Adjoint for specific operand types.
+# Adjoint for specific mapping types.
 adjoint(A::Identity) = I
 adjoint(A::Scaled{Identity}) = conj(multiplier(A))*I
-adjoint(A::Scaled) = conj(multiplier(A))*adjoint(operand(A))
-adjoint(A::Adjoint) = operand(A)
-adjoint(A::Inverse) = inv(adjoint(operand(A)))
-adjoint(A::InverseAdjoint) = inv(operand(A))
+adjoint(A::Scaled) = conj(multiplier(A))*adjoint(unscaled(A))
+adjoint(A::Adjoint) = unveil(A)
+adjoint(A::Inverse) = inv(adjoint(unveil(A)))
+adjoint(A::InverseAdjoint) = inv(unveil(A))
 adjoint(A::Composition) =
     # It is assumed that the composition has already been simplified, so we
     # just apply the mathematical formula for the adjoint of a composition.
-    _merge_mul(reversemap(adjoint, operands(A)))
-adjoint(A::Sum) =
+    Simplify.merge_mul(reversemap(adjoint, terms(A)))
+
+function adjoint(A::Sum{N}) where {N}
     # It is assumed that the sum has already been simplified, so we just apply
-    # the mathematical formula for the adjoint of a sum (keeping the same
-    # ordering of terms).
-    _sort_sum(map(adjoint, operands(A)))
+    # the mathematical formula for the adjoint of a sum and sort the resulting
+    # terms.
+    B = Vector{Mapping}(undef, N)
+    @inbounds for i in 1:N
+        B[i] = adjoint(A[i])
+    end
+    return Sum(to_tuple(sort!(B)))
+end
 
 #------------------------------------------------------------------------------
 # INVERSE TYPE
 
-# Inverse for non-specific operands (a simple operand or a sum or operands).
+# Inverse for non-specific mappings (a simple mapping or a sum or mappings).
 inv(A::T) where {T<:Mapping} = Inverse{T}(A)
 
-# Inverse for specific operand types.
+# Inverse for specific mapping types.
 inv(A::Identity) = I
 inv(A::Scaled{Identity}) = inv(multiplier(A))*I
-inv(A::Scaled) = (is_linear(operand(A)) ? inv(multiplier(A))*inv(operand(A)) :
-                  inv(operand(A))*(inv(multiplier(A))*I))
-inv(A::Inverse) = operand(A)
-inv(A::AdjointInverse) = adjoint(operand(A))
-inv(A::Adjoint{T}) where {T<:Mapping} = AdjointInverse{T}(operand(A))
+inv(A::Scaled) = (is_linear(unscaled(A)) ?
+                  inv(multiplier(A))*inv(unscaled(A)) :
+                  inv(unscaled(A))*(inv(multiplier(A))*I))
+inv(A::Inverse) = unveil(A)
+inv(A::AdjointInverse) = adjoint(unveil(A))
+inv(A::Adjoint{T}) where {T<:Mapping} = AdjointInverse{T}(unveil(A))
 inv(A::Composition) =
     # Even though the composition has already been simplified, taking the
     # inverse may trigger other simplifications, so we must rebuild the
     # composition term by term in reverse order (i.e. applying the mathematical
     # formula for the inverse of a composition).
-    _merge_inv_mul(operands(A))
+    _merge_inv_mul(terms(A))
 
 # `_merge_inv_mul([A,i,]B)` is recursively called to build the inverse of a
 # composition.  Argument A is a mapping (initially not specified or the
 # identity) of the resulting composition, argument `i` is the index of the next
 # component to take (initially not specified or set to `N` the number of
-# operands), argument `B` is a tuple (initially full) of the remaining terms.
+# terms), argument `B` is a tuple (initially full) of the remaining terms.
 _merge_inv_mul(B::NTuple{N,Mapping}) where {N} =
     # Initialize recursion.
     _merge_inv_mul(inv(last(B)), N - 1, B)
@@ -347,147 +409,21 @@ function _merge_inv_mul(A::Mapping, i::Int, B::NTuple{N,Mapping}) where {N}
 end
 
 #------------------------------------------------------------------------------
-# SUM OF OPERANDS
+# SUM OF MAPPINGS
 
 # Unary minus and unary plus.
 -(A::Mapping) = (-1)*A
--(A::Scaled) = (-multiplier(A))*operand(A)
+-(A::Scaled) = (-multiplier(A))*unscaled(A)
 +(A::Mapping) = A
 
 # Subtraction.
 -(A::Mapping, B::Mapping) = A + (-B)
 
 # Rules for sums built by `A + B`.
-+(A::Mapping, B::Mapping) = _simplify_sum((_split_sum(A)..., _split_sum(B)...))
-
-# `_split_sum(A)` yields a tuple of the operands of `A` if it is a sum or just
-# `(A,)` otherwise.
-_split_sum(A::Sum) = operands(A)
-_split_sum(A::Mapping) = (A,)
-
-# `_merge_sum(args...)` constructs a fully qualified sum.  It is assumed that
-# the argument(s) have already been simplified.  An empty sum is forbidden
-# because there is no universal neutral element ("zero") for the addition.
-_merge_sum(arg::Mapping) = arg
-_merge_sum(args::Mapping...) = _merge_sum(args)
-_merge_sum(args::Tuple{}) = throw(ArgumentError("empty sum"))
-_merge_sum(args::Tuple{Mapping}) = args[1]
-_merge_sum(args::T) where {N,T<:NTuple{N,Mapping}} = Sum{N,T}(args)
-
-# `_simplify_sum(args...)` simplifies the sum of all operands in `args...` and
-# returns a single operand (possibly an instance of `Sum`).  It is assumed that
-# the operator `+` is associative and commutative.
-
-# Make a sum out of 0-1 operands.
-_simplify_sum(args::Tuple{}) = _merge_sum(args)
-_simplify_sum(args::Tuple{Mapping}) = args[1]
-
-# Make a sum out of N operands (with N ≥ 2).
-function _simplify_sum(args::NTuple{N,Mapping}) where {N}
-    # First group terms corresponding to identical operands (up to an optional
-    # multiplier) to produce a single (possibly scaled) operand per group.
-    # FIXME: The following algorithm scales as O(N²) which is probably not
-    # optimal.  Nevertheless, it never compares twice the same pair of
-    # arguments.
-    terms = Array{Mapping}(undef, 0)
-    flags = fill!(Array{Bool}(undef, N), true)
-    i = 1
-    while i != 0
-        # Push next ungrouped argument.
-        push!(terms, args[i])
-        flags[i] = false
-
-        # Find any other argument which is identical, possibly scaled, operand.
-        k = i + 1
-        i = 0
-        for j = k:N
-            if flags[j]
-                if _simplify_sum!(terms, terms[end], args[j])
-                    flags[j] = false
-                elseif i == 0
-                    # Next ungrouped argument to consider.
-                    i = j
-                end
-            end
-        end
-    end
-
-    # Make a sum out of the terms after having eliminated the zeros.
-    return _sort_sum(terms)
-end
-
-# `_simplify_sum!(terms, A, B)` is a helper function for the `_simplify_sum`
-# method which attempts to make a trivial simplification for `A + B` when
-# `A = λ⋅M` and `B = μ⋅M` for any numbers `λ` and `μ` and any operand `M`.
-# If such a simplification can be done, the result `(λ + μ)⋅M` is stored as
-# the last component of `terms` and `true` is returned; otherwise, `false`
-# is returned.
-_simplify_sum!(terms::Vector{Mapping}, A::Mapping, B::Mapping) = false
-
-function _simplify_sum!(terms::Vector{Mapping},
-                        A::Scaled{T}, B::Scaled{T}) where {T<:Mapping}
-    operand(A) === operand(B) || return false
-    @inbounds terms[end] = (multiplier(A) + multiplier(B))*operand(A)
-    return true
-end
-
-function _simplify_sum!(terms::Vector{Mapping},
-                        A::Scaled{T}, B::T) where {T<:Mapping}
-    operand(A) === B || return false
-    @inbounds terms[end] = (multiplier(A) + one(multiplier(A)))*B
-    return true
-end
-
-function _simplify_sum!(terms::Vector{Mapping},
-                        A::T, B::Scaled{T}) where {T<:Mapping}
-    A === operand(B) || return false
-    @inbounds terms[end] = (one(multiplier(B)) + multiplier(B))*A
-    return true
-end
-
-function _simplify_sum!(terms::Vector{Mapping},
-                        A::T, B::T) where {T<:Mapping}
-    A === B || return false
-    @inbounds terms[end] = 2*A
-    return true
-end
-
-# Sort the terms of a sum (so that all equivalent expressions eventually yield
-# the same result after simplifications) and eliminate the "zeros"
-# (if all terms are "zero", the sum simplifies to the first one).
-_sort_sum(args::Mapping...) = _sort_sum(args)
-_sort_sum(args::Tuple{Mapping}) = args[1]
-function _sort_sum(terms::Union{Tuple{Vararg{Mapping}},Vector{<:Mapping}})
-    perms = sortperm([_identifier(terms[i]) for i in 1:length(terms)])
-    n = 0
-    @inbounds for i in 1:length(perms)
-        j = perms[i]
-        if ! iszero(terms[j])
-            n += 1
-            perms[n] = j
-        end
-    end
-    if n ≤ 1
-        # All terms are zero or only one term is non-zero, return the first
-        # sorted term.
-        return terms[perms[1]]
-    else
-        # Make a sum out of the remaing sorted terms.
-        return _merge_sum(ntuple(i -> terms[perms[i]], n))
-    end
-end
-
-# `_identifier(A)` yields an (almost) unique identifier of operand `A` (of its
-# operand component for a scaled operand).  This identifier is suitable for
-# sorting terms in a sum of operands.
-#
-# FIXME: For now, the sorting is not perfect as it is based on objectid()
-#        which is a hashing method.
-_identifier(A::Mapping) = objectid(A)
-_identifier(A::Scaled) = objectid(operand(A))
++(A::Mapping, B::Mapping) = Simplify.add(A, B)
 
 #------------------------------------------------------------------------------
-# COMPOSITION OF OPERANDS
+# COMPOSITION OF MAPPINGS
 
 # Dot operator (\cdot + tab) involving a mapping acts as the multiply or
 # compose operator.
@@ -498,127 +434,42 @@ _identifier(A::Scaled) = objectid(operand(A))
 # Compose operator (\circ + tab) beween mappings.
 ∘(A::Mapping, B::Mapping) = A*B
 
-# Rules for the composition of 2 operands.
-*(A::Identity, B::Identity) = I
+# Rules for the composition of 2 mappings.
+*(A::Identity, B::Identity) = B
 *(A::Identity, B::Scaled) = B
 *(A::Identity, B::Composition) = B
 *(A::Identity, B::Mapping) = B
 *(A::Scaled, B::Identity) = A
 *(A::Scaled, B::Scaled) =
-    (is_linear(A) ? (multiplier(A)*multiplier(B))*(operand(A)*operand(B)) :
-     multiplier(A)*_merge_mul(operand(A), B))
-*(A::Scaled, B::Composition) = multiplier(A)*(operand(A)*B)
-*(A::Scaled, B::Mapping) = multiplier(A)*(operand(A)*B)
+    (is_linear(A) ? (multiplier(A)*multiplier(B))*(unscaled(A)*unscaled(B)) :
+     multiplier(A)*Simplify.merge_mul(unscaled(A), B))
+*(A::Scaled, B::Composition) = multiplier(A)*(unscaled(A)*B)
+*(A::Scaled, B::Mapping) = multiplier(A)*(unscaled(A)*B)
 *(A::Composition, B::Identity) = A
 *(A::Composition, B::Scaled) =
-    (is_linear(A) ? multiplier(B)*(A*operand(B)) : _simplify_mul(A, B))
-*(A::Composition, B::Composition) = _simplify_mul(A, B)
-*(A::Composition, B::Mapping) = _simplify_mul(A, B)
+    (is_linear(A) ? multiplier(B)*(A*unscaled(B)) : Simplify.compose(A, B))
+*(A::Composition, B::Composition) = Simplify.compose(A, B)
+*(A::Composition, B::Mapping) = Simplify.compose(A, B)
 *(A::Mapping, B::Identity) = A
 *(A::Mapping, B::Scaled) =
-    (is_linear(A) ? multiplier(B)*(A*operand(B)) : _merge_mul(A, B))
-*(A::Mapping, B::Composition) = _simplify_mul(A, B)
-*(A::Mapping, B::Mapping) = _merge_mul(A, B)
+    (is_linear(A) ? multiplier(B)*(A*unscaled(B)) : Simplify.merge_mul(A, B))
+*(A::Mapping, B::Composition) = Simplify.compose(A, B)
+*(A::Mapping, B::Mapping) = Simplify.merge_mul(A, B)
 
 *(A::Inverse{T}, B::T) where {T<:Mapping} =
-    (operand(A) === B ? I : _merge_mul(A, B))
+    (unveil(A) === B ? I : Simplify.merge_mul(A, B))
 *(A::T, B::Inverse{T}) where {T<:Mapping} =
-    (A === operand(B) ? I : _merge_mul(A, B))
-*(A::Inverse, B::Inverse) = _merge_mul(A, B)
+    (A === unveil(B) ? I : Simplify.merge_mul(A, B))
+*(A::Inverse, B::Inverse) = Simplify.merge_mul(A, B)
 *(A::InverseAdjoint{T}, B::Adjoint{T}) where {T<:Mapping} =
-    (operand(A) === operand(B) ? I : _merge_mul(A, B))
+    (unveil(A) === unveil(B) ? I : Simplify.merge_mul(A, B))
 *(A::Adjoint{T}, B::InverseAdjoint{T}) where {T<:Mapping} =
-    (operand(A) === operand(B) ? I : _merge_mul(A, B))
-*(A::InverseAdjoint, B::InverseAdjoint) = _merge_mul(A, B)
+    (unveil(A) === unveil(B) ? I : Simplify.merge_mul(A, B))
+*(A::InverseAdjoint, B::InverseAdjoint) = Simplify.merge_mul(A, B)
 
 # Left and right divisions.
 \(A::Mapping, B::Mapping) = inv(A)*B
 /(A::Mapping, B::Mapping) = A*inv(B)
-
-# `_split_mul(A)` yields a tuple of the operands of `A` if it is a composition
-# or just `(A,)` otherwise.
-_split_mul(A::Composition) = operands(A)
-_split_mul(A::Mapping) = (A,)
-
-# `_merge_mul(args...)` constructs a fully qualified composition.  It is
-# assumed that the argument(s) have already been simplified.  An empty
-# composition yields the identity which is the universal neutral element
-# ("one") for the composition.
-_merge_mul(arg::Mapping) = arg
-_merge_mul(args::Mapping...) = _merge_mul(args)
-_merge_mul(args::Tuple{}) = I
-_merge_mul(args::Tuple{Mapping}) = args[1]
-_merge_mul(args::T) where {N,T<:NTuple{N,Mapping}} = Composition{N,T}(args)
-
-# `_simplify_mul(A, B)` simplifies the product of `A` and `B`.  The result is a
-# tuple `C` of the resulting operands if `A` and `B` are both tuples of
-# mappings or an instance of `Mapping` if `A` and `B` are both mappings.  If no
-# simplification can be made, the result is just the concatenation of the
-# operands in `A` and `B`.  To perform simplifications, it is assumed that, if
-# they are compositions, `A` and `B` have already been simplified.  It is also
-# assumed that the composition is associative but non-commutative.
-_simplify_mul(A::Mapping, B::Mapping) =
-    _merge_mul(_simplify_mul(_split_mul(A), _split_mul(B)))
-
-# The following versions of `_simplify_mul` are for `A` and `B` in the form of
-# tuples and return a tuple.  The algorithm is recursive and should works for
-# any non-commutative binary operator.
-_simplify_mul(A::Tuple{}, B::Tuple{}) = (I,)
-_simplify_mul(A::Tuple{Vararg{Mapping}}, B::Tuple{}) = A
-_simplify_mul(A::Tuple{}, B::Tuple{Vararg{Mapping}}) = B
-function _simplify_mul(A::NTuple{M,Mapping},
-                       B::NTuple{N,Mapping}) where {M,N}
-    # Here M ≥ 1 and N ≥ 1.
-    @assert M ≥ 1 && N ≥ 1
-
-    # Attempt to simplify the product of operands at their junction.
-    C = _split_mul(A[M]*B[1])
-    len = length(C)
-    if len == 2
-        if C === (A[M], B[1])
-            # No simplification, just concatenate the 2 compositions.
-            return (A..., B...)
-        else
-            # There have been some changes, but the result of A[M]*B[1] still
-            # have two terms which cannot be further simplified.  So we
-            # simplify its head with the remaining leftmost operands and its
-            # tail with the remaining rightmost operands.
-            L = _simplify_mul(A[1:M-1], C[1]) # simplify leftmost operands
-            R = _simplify_mul(C[2], B[2:N])   # simplify rightmost operands
-            if L[end] !== C[1] || R[1] !== C[2]
-                # At least one of the last of resulting rightmost operands or
-                # the first of the resulting leftmost operands has been
-                # modified so there may be other possible simplifications.
-                return _simplify_mul(L, R)
-            else
-                # No further simplifications possible.
-                return (L..., R...)
-            end
-        end
-    elseif len == 1
-        # Simplications have occured resulting in a single operand.  This
-        # operand can be simplified whith the remaining leftmost operands
-        # and/or with the remaining rightmost operands.  To benefit from the
-        # maximum simplifications, we can either do:
-        #
-        #     _simplify_mul(A[1:end-1], _simplify_mul(C, B[2:end]))
-        #
-        # that is, simplify right then left, or:
-        #
-        #     _simplify_mul(_simplify_mul(A[1:end-1], C), B[2:end])
-        #
-        # that is simplify left then right.  Since we want to propagate
-        # multipliers to the right of compositions, the former is the most
-        # appropriate.
-        return _simplify_mul(A[1:end-1], _simplify_mul(C, B[2:end]))
-    else# len == 0
-        # The result of A[M]*B[1] is the neutral element for * thus eliminating
-        # these operands from the merging.  We just have to repeat the process
-        # with the truncated associations in case further simplications are
-        # possible.
-        return _simplify_mul(A[1:M-1], B[2:N-1])
-    end
-end
 
 #------------------------------------------------------------------------------
 # VCREATE, APPLY AND APPLY!
@@ -826,7 +677,7 @@ for (P, expr) in ((:Direct, :(α*multiplier(A))),
     @eval begin
 
         apply!(α::Number, ::Type{$P}, A::Scaled, x, scratch::Bool, β::Number, y) =
-            apply!($expr, $P, operand(A), x, scratch, β, y)
+            apply!($expr, $P, unscaled(A), x, scratch, β, y)
 
     end
 end
@@ -848,27 +699,27 @@ overwritable(scratch::Bool, x, y) =
 # calling `vcreate` as done by the default implementation of `apply`.  This is
 # needed for scaled compositions among others.
 function apply(::Type{Direct}, A::Scaled, x, scratch::Bool)
-    y = apply(Direct, operand(A), x, scratch)
+    y = apply(Direct, unscaled(A), x, scratch)
     vscale!((overwritable(scratch, x, y) ? y : vcopy(y)), multiplier(A))
 end
 
 function apply(::Type{Adjoint}, A::Scaled, x, scratch::Bool)
-    y = apply(Direct, operand(A), x, scratch)
+    y = apply(Direct, unscaled(A), x, scratch)
     vscale!((overwritable(scratch, x, y) ? y : vcopy(y)), conj(multiplier(A)))
 end
 
 function apply(::Type{Inverse}, A::Scaled, x, scratch::Bool)
-    y = apply(Direct, operand(A), x, scratch)
+    y = apply(Direct, unscaled(A), x, scratch)
     vscale!((overwritable(scratch, x, y) ? y : vcopy(y)), 1/multiplier(A))
 end
 
 function apply(::Type{InverseAdjoint}, A::Scaled, x, scratch::Bool)
-    y = apply(Direct, operand(A), x, scratch)
+    y = apply(Direct, unscaled(A), x, scratch)
     vscale!((overwritable(scratch, x, y) ? y : vcopy(y)), 1/conj(multiplier(A)))
 end
 
 vcreate(P::Type{<:Operations}, A::Scaled, x, scratch::Bool) =
-    vcreate(P, operand(A), x, scratch)
+    vcreate(P, unscaled(A), x, scratch)
 
 # Implemention of the `apply!(α,P,A,x,scratch,β,y)` and
 # `vcreate(P,A,x,scratch=false)` methods for the various decorations of a
@@ -888,10 +739,10 @@ for (T1, T2, T3) in ((:Direct,         :Adjoint,        :Adjoint),
     @eval begin
 
         vcreate(::Type{$T1}, A::$T2, x, scratch::Bool) =
-            vcreate($T3, operand(A), x, scratch)
+            vcreate($T3, unveil(A), x, scratch)
 
         apply!(α::Number, ::Type{$T1}, A::$T2, x, scratch::Bool, β::Number, y) =
-            apply!(α, $T3, operand(A), x, scratch, β, y)
+            apply!(α, $T3, unveil(A), x, scratch, β, y)
 
     end
 end
@@ -965,7 +816,7 @@ apply!(α::Number, ::Type{InverseAdjoint}, A::Gram, x, scratch::Bool, β::Number
 function apply!(α::Number, P::Type{<:Union{Direct,InverseAdjoint}},
                 A::Composition{N}, x, scratch::Bool, β::Number, y) where {N}
     @assert N ≥ 2 "bug in Composition constructor"
-    ops = operands(A)
+    ops = terms(A)
     w = _apply(P, ops[2:N], x, scratch)
     scratch = overwritable(scratch, w, x)
     return apply!(α, P, ops[1], w, scratch, β, y)
@@ -974,7 +825,7 @@ end
 function apply(P::Type{<:Union{Direct,InverseAdjoint}},
                A::Composition{N}, x, scratch::Bool) where {N}
     @assert N ≥ 2 "bug in Composition constructor"
-    return _apply(P, operands(A), x, scratch)
+    return _apply(P, terms(A), x, scratch)
 end
 
 function _apply(P::Type{<:Union{Direct,InverseAdjoint}},
@@ -991,7 +842,7 @@ end
 function apply!(α::Number, P::Type{<:Union{Adjoint,Inverse}},
                 A::Composition{N}, x, scratch::Bool, β::Number, y) where {N}
     @assert N ≥ 2 "bug in Composition constructor"
-    ops = operands(A)
+    ops = terms(A)
     w = _apply(P, ops[1:N-1], x, scratch)
     scratch = overwritable(scratch, w, x)
     return apply!(α, P, ops[N], w, scratch, β, y)
@@ -1000,7 +851,7 @@ end
 function apply(P::Type{<:Union{Adjoint,Inverse}},
                A::Composition{N}, x, scratch::Bool) where {N}
     @assert N ≥ 2 "bug in Composition constructor"
-    return _apply(P, operands(A), x, scratch)
+    return _apply(P, terms(A), x, scratch)
 end
 
 function _apply(P::Type{<:Union{Adjoint,Inverse}},

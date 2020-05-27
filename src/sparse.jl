@@ -19,8 +19,11 @@ export
     unpack!
 
 using ..LazyAlgebra
-using ..LazyAlgebra: @callable, promote_multiplier, Endomorphism, Morphism
-import ..LazyAlgebra: vcreate, apply!, are_same_mappings, coefficients, check,
+using ..LazyAlgebra:
+    @callable, promote_multiplier, Endomorphism, Morphism,
+    bad_argument, bad_size
+import ..LazyAlgebra:
+    vcreate, apply!, are_same_mappings, coefficients, check,
     MorphismType, input_size, output_size, input_ndims, output_ndims
 
 using ArrayTools
@@ -146,7 +149,7 @@ SparseOperator(A::AbstractArray{T}, n::Integer = 1) where {T} =
     SparseOperator{T}(A, n)
 
 function SparseOperator{T}(A::AbstractArray{S,N}, n::Integer = 1) where {T,S,N}
-    1 ≤ n < N || throw(ArgumentError("bad number of of leading dimensions"))
+    1 ≤ n < N || bad_argument("bad number of of leading dimensions")
     has_standard_indexing(A) || _bad_indexing()
     dims = size(A)
     rowdims = dims[1:n]
@@ -301,9 +304,9 @@ function reshape(S::SparseOperator,
                  rowdims::Tuple{Vararg{Int}},
                  coldims::Tuple{Vararg{Int}})
     prod(rowdims) == nrows(S) ||
-        throw(DimensionMismatch("products of row dimensions must be equal"))
+        bad_size("products of row dimensions must be equal")
     prod(coldims) == ncols(S) ||
-        throw(DimensionMismatch("products of column dimensions must be equal"))
+        bad_size("products of column dimensions must be equal")
     return SparseOperator(rows(S), cols(S), coefficients(S), rowdims, coldims)
 end
 
@@ -326,7 +329,7 @@ function *(W::NonuniformScaling, S::SparseOperator)
     D = coefficients(W)
     @assert has_standard_indexing(D)
     size(D) == output_size(S) ||
-        throw(DimensionMismatch("the non-uniform scaling array and the rows of the sparse operator must have the same dimensions"))
+        bad_size("the non-uniform scaling array and the rows of the sparse operator must have the same dimensions")
     I, J, C = rows(S), cols(S), coefficients(S)
     T = promote_eltype(D, C)
     return SparseOperator(I, J, _scaleleft(T, D, I, C),
@@ -337,7 +340,7 @@ function *(S::SparseOperator, W::NonuniformScaling)
     D = coefficients(W)
     @assert has_standard_indexing(D)
     size(D) == input_size(S) ||
-        throw(DimensionMismatch("the non-uniform scaling array and the columns of the sparse operator must have the same dimensions"))
+        bad_size("the non-uniform scaling array and the columns of the sparse operator must have the same dimensions")
     I, J, C = rows(S), cols(S), coefficients(S)
     T = promote_eltype(D, C)
     return SparseOperator(I, J, _scaleright(T, C, D, J),
@@ -372,15 +375,12 @@ function _scaleright(::Type{T},
     return Q
 end
 
-_bad_input_dimensions() = throw(DimensionMismatch("bad input dimensions"))
-_bad_output_dimensions() = throw(DimensionMismatch("bad output dimensions"))
+_bad_input_dimensions() = bad_size("bad input dimensions")
+_bad_output_dimensions() = bad_size("bad output dimensions")
 
-_bad_indexing() =
-    throw(ArgumentError("array has non-standard indices"))
-_bad_input_indexing() =
-    throw(ArgumentError("input array has non-standard indices"))
-_bad_output_indexing() =
-    throw(ArgumentError("output array has non-standard indices"))
+_bad_indexing() = bad_argument("array has non-standard indices")
+_bad_input_indexing() = bad_argument("input array has non-standard indices")
+_bad_output_indexing() = bad_argument("output array has non-standard indices")
 
 function vcreate(::Type{Direct},
                  S::SparseOperator{<:Any,M,N},

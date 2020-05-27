@@ -208,6 +208,27 @@ abstract type DiagonalType <: Trait end
 struct NonDiagonalMapping <: DiagonalType end
 struct DiagonalMapping <: DiagonalType end
 
+# What kind of argument is allowed or not when calling a constructor is highly
+# dependent on which simplifications are possible and should have been applied.
+# A trait must be used to determine this because not all decoration types are
+# known when inner constructors are defined.
+
+abstract type CanBuildAdjointTrait end
+struct CanBuildAdjoint <: CanBuildAdjointTrait end
+struct CannotBuildAdjoint <: CanBuildAdjointTrait end
+
+abstract type CanBuildInverseTrait end
+struct CanBuildInverse <: CanBuildInverseTrait end
+struct CannotBuildInverse <: CanBuildInverseTrait end
+
+abstract type CanBuildInverseAdjointTrait end
+struct CanBuildInverseAdjoint <: CanBuildInverseAdjointTrait end
+struct CannotBuildInverseAdjoint <: CanBuildInverseAdjointTrait end
+
+abstract type CanBuildScaledTrait end
+struct CanBuildScaled <: CanBuildScaledTrait end
+struct CannotBuildScaled <: CanBuildScaledTrait end
+
 """
 
 Type `Direct` is a singleton type to indicate that a linear mapping should
@@ -227,9 +248,9 @@ mapping to indicate the conjugate transpose and/or inverse of the mapping.  The
 to get the inverse of `A`.  Furthermore, `A'`, `adjoint(A)`, `inv(A)` or `I/A`
 may be able to perform some simplications resulting in improved efficiency.
 
-To benefit from such simplications, directly calling `Adjoint(A)`, `Inverse(A)`
-or `InverseAdjoint(A)` is forbidden (it will throw an error).  Only the inner
-constructors can be used if really needed.
+FIXME: To benefit from such simplications, directly calling `Adjoint(A)`, `Inverse(A)`
+FIXME: or `InverseAdjoint(A)` is forbidden (it will throw an error).  Only the inner
+FIXME: constructors can be used if really needed.
 
 `AdjointInverse` is just an alias for `InverseAdjoint`.  Note that the adjoint
 only makes sense for linear mappings.
@@ -240,43 +261,49 @@ See also: [`LinearMapping`](@ref), [`apply`](@ref), [`Operations`](@ref).
 struct Adjoint{T<:Mapping} <: LinearMapping
     op::T
 
-    # The inner constructors prevent direct calls like `Adjoint(A)` and make
-    # sure that the argument is a linear mapping.
-    Adjoint{T}(A::T) where {T<:LinearMapping} = new{T}(A)
+    # The inner constructor prevents illegal calls to `Adjoint(A)` and make
+    # sure that the argument is a simple linear mapping.
     function Adjoint{T}(A::T) where {T<:Mapping}
+        CanBuildAdjointTrait(T) === CanBuildAdjoint() ||
+            illegal_call_to(Adjoint)
         is_linear(A) ||
-            error("taking the adjoint of non-linear mappings is not allowed")
+            bad_argument("taking the adjoint of non-linear mappings is not allowed")
         return new{T}(A)
     end
 
     # Identity is treated specially.
-    Adjoint{T}(I::T) where {T<:Identity} = I
+    Adjoint{T}(A::T) where {T<:Identity} = A
 end
 
 struct Inverse{T<:Mapping} <: Mapping
     op::T
 
-    # The inner constructor prevents direct calls like `Inverse(A)`.
-    Inverse{T}(A::T) where {T<:Mapping} = new{T}(A)
+    # The inner constructor prevents illegal calls like `Inverse(A)`.
+    function Inverse{T}(A::T) where {T<:Mapping}
+        CanBuildInverseTrait(T) === CanBuildInverse() ||
+            illegal_call_to(Inverse)
+        return new{T}(A)
+    end
 
     # Identity is treated specially.
-    Inverse{T}(I::T) where {T<:Identity} = I
+    Inverse{T}(A::T) where {T<:Identity} = A
 end
 
 struct InverseAdjoint{T<:Mapping} <: LinearMapping
     op::T
 
-    # The inner constructors prevent direct calls like `InverseAdjoint(A)` and
-    # make sure that the argument is a linear mapping.
-    InverseAdjoint{T}(A::T) where {T<:LinearMapping} = new{T}(A)
+    # The inner constructor prevents illegal calls to `InverseAdjoint(A)` and
+    # make sure that the argument is a simple linear mapping or a sum of linear mappings.
     function InverseAdjoint{T}(A::T) where {T<:Mapping}
+        CanBuildInverseAdjointTrait(T) === CanBuildInverseAdjoint() ||
+            illegal_call_to(InverseAdjoint)
         is_linear(A) ||
-            error("taking the inverse adjoint of non-linear mappings is not allowed")
+            bad_argument("taking the inverse adjoint of non-linear mappings is not allowed")
         return new{T}(A)
     end
 
     # Identity is treated specially.
-    InverseAdjoint{T}(I::T) where {T<:Identity} = I
+    InverseAdjoint{T}(A::T) where {T<:Identity} = A
 end
 
 const AdjointInverse{T} = InverseAdjoint{T}
@@ -287,9 +314,8 @@ end
 
 """
 
-`Operations` is the union of the possible ways to apply a linear mapping:
-`Direct`, `Adjoint`, `Inverse` and `InverseAdjoint` (or its alias
-`AdjointInverse`).
+`Operations` is the union of the possible ways to apply a mapping: `Direct`,
+`Adjoint`, `Inverse` and `InverseAdjoint` (or its alias `AdjointInverse`).
 
 See also: [`LinearMapping`](@ref), [`apply`](@ref), [`Direct`](@ref),
           [`Adjoint`](@ref).
@@ -299,10 +325,10 @@ const Operations = Union{Direct,Adjoint,Inverse,InverseAdjoint}
 
 """
 
-A `Scaled` mapping is used to represent a mappings times a scalar.  End-users
-should not use a `Scaled` constructor directly but rather use the `*` operator
-(with a scalar left operand) as it may be able to make some simplifications
-resulting in improved efficiency.
+A `Scaled` mapping is used to represent a mapping times a scalar.  End-users
+should not use athe `Scaled` constructor directly but rather use expressions
+like `λ*A` with `λ` a scalar number and `A` a mapping, as LazyAlgebra may be
+able to make some simplifications resulting in improved efficiency.
 
 """
 struct Scaled{T<:Mapping,S<:Number} <: Mapping
@@ -315,8 +341,9 @@ end
 """
 
 A `Sum` is used to represent an arbitrary sum of mappings.  End-users should
-not use a `Sum` constructor directly but rather use the `+` operator as it may
-be able to make some simplifications resulting in improved efficiency.
+not use the `Sum` constructor directly but rather use the `+` operator as
+LazyAlgebra may be able to make some simplifications resulting in improved
+efficiency.
 
 """
 struct Sum{N,T<:NTuple{N,Mapping}} <: Mapping
@@ -334,9 +361,9 @@ end
 A `Composition` is used to represent an arbitrary composition of mappings.
 Constructor `Composition(A,B)` may be extended in code implementing specific
 mappings of linear operators to provide *automatic* simplifications.  The
-end-user should not use `Composition` constructors directly but use the `.` or
-`*` operators instead as they may be able to make some simplifications
-resulting in improved efficiency.
+end-user should not use the `Composition` constructor directly but use the
+operators `*`, `∘` or `⋅` instead as LazyAlgebra may be able to make some
+simplifications resulting in improved efficiency.
 
 """
 struct Composition{N,T<:NTuple{N,Mapping}} <: Mapping

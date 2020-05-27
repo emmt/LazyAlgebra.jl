@@ -19,8 +19,11 @@ export
 
 using ..Coder
 using  ...LazyAlgebra
-import ...LazyAlgebra: vcreate, apply!, are_same_mappings
-using  ...LazyAlgebra: @callable, promote_multiplier, Floats
+import ...LazyAlgebra:
+    vcreate, apply!, are_same_mappings
+using  ...LazyAlgebra:
+    @callable, promote_multiplier, Floats,
+    bad_argument, bad_size
 using ArrayTools
 import Base: show, *
 
@@ -52,10 +55,10 @@ function vcreate(::Type{Adjoint},
                  scratch::Bool) where {T<:Floats,N}
     # In-place operation never possible, so ignore the scratch flag.
     N ≥ 2 ||
-        throw(DimensionMismatch("argument must have at least 2 dimensions"))
+        bad_size("argument must have at least 2 dimensions")
     dims = size(x)
     dims[1] == N - 1 ||
-        throw(DimensionMismatch("first dimension should be $(N-1)"))
+        bad_size("first dimension should be ", N - 1)
     return Array{T}(undef, dims[2:end])
 end
 
@@ -78,12 +81,12 @@ function apply!(α::Number,
                 β::Number,
                 y::AbstractArray{Ty,Ny}) where {Tx<:Floats,Nx,Ty<:Floats,Ny}
     Ny == Nx + 1 ||
-        throw(DimensionMismatch("incompatible number of dimensions"))
+        bad_size("incompatible number of dimensions")
     ydims = size(y)
     ydims[1]== Nx ||
-        throw(DimensionMismatch("first dimension of destination must be $Nx"))
+        bad_size("first dimension of destination must be ", Nx)
     ydims[2:end] == size(x) ||
-        throw(DimensionMismatch("dimensions 2:end of destination must be $(size(x))"))
+        bad_size("dimensions 2:end of destination must be ", size(x))
     if α == 0
         vscale!(y, β)
     else
@@ -100,12 +103,12 @@ function apply!(α::Number,
                 β::Number,
                 y::AbstractArray{Ty,Ny}) where {Tx<:Floats,Nx,Ty<:Floats,Ny}
     Ny == Nx - 1 ||
-        throw(DimensionMismatch("incompatible number of dimensions"))
+        bad_size("incompatible number of dimensions")
     xdims = size(x)
     xdims[1]== Ny ||
-        throw(DimensionMismatch("first dimension of source must be $Ny"))
+        bad_size("first dimension of source must be ", Ny)
     xdims[2:end] == size(y) ||
-        throw(DimensionMismatch("dimensions 2:end of source must be $(size(y))"))
+        bad_size("dimensions 2:end of source must be ", size(y))
     β == 1 || vscale!(y, β)
     α == 0 || _apply_Dt!(promote_multiplier(α, Tx), x, y)
     return y
@@ -119,9 +122,9 @@ function apply!(α::Number,
                 β::Number,
                 y::AbstractArray{Ty,Ny}) where {Tx<:Floats,Nx,Ty<:Floats,Ny}
     Ny == Nx ||
-        throw(DimensionMismatch("incompatible number of dimensions"))
+        bad_size("incompatible number of dimensions")
     size(x) == size(y) ||
-        throw(DimensionMismatch("source and destination must have the same dimensions"))
+        bad_size("source and destination must have the same dimensions")
     β == 1 || vscale!(y, β)
     α == 0 || _apply_DtD!(promote_multiplier(α, Tx), x, y)
     return y

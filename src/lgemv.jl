@@ -363,7 +363,7 @@ for (f, T) in ((:dgemv_, Float64),
             #    (length(x) == (trans == 'N' ? ncols : nrows) &&
             #     length(y) == (trans == 'N' ? nrows : ncols) &&
             #     length(A) == nrows*ncols) ||
-            #     throw(DimensionMismatch("incompatible sizes"))
+            #     bad_size("incompatible sizes")
             #end
             ccall((@blasfunc($f), libblas), Cvoid,
                   (Ref{UInt8}, Ref{BlasInt}, Ref{BlasInt}, Ref{$T},

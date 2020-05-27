@@ -23,7 +23,8 @@ export
 
 using ArrayTools
 using ..LazyAlgebra
-using ..LazyAlgebra: dimensions, Dimensions, @callable
+using ..LazyAlgebra: dimensions, Dimensions, @callable,
+    bad_argument, bad_size
 import ..LazyAlgebra: apply!, vcreate,
     input_size, input_ndims, output_size, output_ndims
 
@@ -143,13 +144,13 @@ function apply!(α::Number,
                 β::Number,
                 y::AbstractArray{T,N}) where {T,N}
     has_standard_indexing(x) ||
-        throw(ArgumentError("input array has non-standard indexing"))
+        bad_argument("input array has non-standard indexing")
     size(x) == input_size(C) ||
-        throw(DimensionMismatch("bad input array dimensions"))
+        bad_size("bad input array dimensions")
     has_standard_indexing(y) ||
-        throw(ArgumentError("output array has non-standard indexing"))
+        bad_argument("output array has non-standard indexing")
     size(y) == output_size(C) ||
-        throw(DimensionMismatch("bad output array dimensions"))
+        bad_size("bad output array dimensions")
     if α == 0
         β == 1 || vscale!(y, β)
     else
@@ -206,13 +207,13 @@ function apply!(α::Number,
                 β::Number,
                 y::AbstractArray{T,N}) where {T,N}
     has_standard_indexing(x) ||
-        throw(ArgumentError("input array has non-standard indexing"))
+        bad_argument("input array has non-standard indexing")
     size(x) == output_size(C) ||
-        throw(DimensionMismatch("bad input array dimensions"))
+        bad_size("bad input array dimensions")
     has_standard_indexing(y) ||
-        throw(ArgumentError("output array has non-standard indexing"))
+        bad_argument("output array has non-standard indexing")
     size(y) == input_size(C) ||
-        throw(DimensionMismatch("bad output array dimensions"))
+        bad_size("bad output array dimensions")
     β == 1 || vscale!(y, β)
     if α != 0
         k = offset(C)

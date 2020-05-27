@@ -21,7 +21,8 @@ export
 
 using ..LazyAlgebra
 using ..LazyAlgebra: Complexes, Floats, Reals, axes, promote_multiplier,
-    libblas, @blasfunc, BlasInt, BlasReal, BlasFloat, BlasComplex
+    libblas, @blasfunc, BlasInt, BlasReal, BlasFloat, BlasComplex,
+    bad_argument, bad_size
 using ArrayTools  # for `cartesian_indices`, `isflatarray`, etc.
 using LinearAlgebra
 using LinearAlgebra.BLAS
@@ -64,10 +65,10 @@ for S in (:Basic, :Blas, :Linear, :Generic)
 end
 
 incompatible_dimensions() =
-    throw(DimensionMismatch("incompatible dimensions"))
+    bad_size("incompatible dimensions")
 
 invalid_transpose_character() =
-    throw(ArgumentError("invalid transpose character"))
+    bad_argument("invalid transpose character")
 
 include("lgemv.jl")
 include("lgemm.jl")

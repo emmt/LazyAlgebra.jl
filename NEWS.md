@@ -1,3 +1,22 @@
+Future:
+
+* The exported constant `I = Identity()` has been renamed as `Id` to avoid
+  conflicts with standard `LinearAlgebra` package.  The constant `LinearAlgebra.I`
+  is recognized by LazyAlgebra.
+
+* Exported methods and types have been limited to the ones for the end-user.
+  Use `using LAzyAlgebra.LowLevel` to get the others.
+
+Done:
+
+* `operand` and `operands` deprecated in favor of `unveil` and `terms` which
+  are less confusing.
+
+* `unscaled` is introduced as the counterpart of `multiplier` so that
+  `multiplier(A)*unscaled(A) === A` always holds.  Previously it was wrongly
+  suggested to use `operand` (now `unveil`) for that but, then the strict
+  equality was only true for `A` being a scaled mapping.
+
 * `NonuniformScalingOperator` deprecated in favor of `NonuniformScaling`.
 
 * In most cases, complex-valued arrays and multipliers are supported.

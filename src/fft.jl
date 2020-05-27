@@ -27,11 +27,15 @@ export
     rfftdims
 
 using ..LazyAlgebra
-import ..LazyAlgebra: adjoint, apply!, vcreate, MorphismType, mul!,
+import ..LazyAlgebra:
+    adjoint, apply!, vcreate, MorphismType, mul!,
     input_size, input_ndims, input_eltype,
     output_size, output_ndims, output_eltype,
     are_same_mappings
-using ..LazyAlgebra: _merge_mul, @callable, promote_multiplier
+using ..LazyAlgebra:
+    @callable, promote_multiplier, bad_argument, bad_size
+
+import ..Simplify
 
 import Base: *, /, \, inv, show
 
@@ -58,12 +62,10 @@ const PLANNING = (FFTW.ESTIMATE | FFTW.MEASURE | FFTW.PATIENT |
 
 macro checksize(name, arg, dims)
     return quote
-        size($(esc(arg))) == $(esc(dims)) || badsize($(esc(name)), $(esc(dims)))
+        size($(esc(arg))) == $(esc(dims)) ||
+            bad_size($(esc(name)), " must have dimensions ", $(esc(dims)))
     end
 end
-
-@noinline badsize(name::String, dims::Tuple{Vararg{Integer}}) =
-    throw(DimensionMismatch("$name must have dimensions $dims"))
 
 input_size(P::FFTWPlan) = P.sz
 output_size(P::FFTWPlan) = P.osz
@@ -422,9 +424,9 @@ FFTOperator(A::DenseArray{T,N}; kwds...) where {T<:fftwNumber,N} =
 MorphismType(::FFTOperator{<:Complex}) = Endomorphism()
 
 ncols(A::FFTOperator) = A.ncols
-ncols(A::Adjoint{<:FFTOperator}) = ncols(operand(A))
-ncols(A::Inverse{<:FFTOperator}) = ncols(operand(A))
-ncols(A::InverseAdjoint{<:FFTOperator}) = ncols(operand(A))
+ncols(A::Adjoint{<:FFTOperator}) = ncols(unveil(A))
+ncols(A::Inverse{<:FFTOperator}) = ncols(unveil(A))
+ncols(A::InverseAdjoint{<:FFTOperator}) = ncols(unveil(A))
 
 input_size(A::FFTOperator) = A.inpdims # FIXME: input_size(A.forward)
 input_size(A::FFTOperator, i::Integer) = get_dimension(input_size(A), i)
@@ -450,15 +452,15 @@ show(io::IO, A::FFTOperator) = print(io, "FFT")
 #     ==> F⋅F' = F'⋅F = n⋅I
 #     ==> inv(F⋅F') = inv(F'⋅F) = inv(F)⋅inv(F') = inv(F')⋅inv(F) = n\I
 *(A::Adjoint{F}, B::F) where {F<:FFTOperator} =
-    (are_same_mappings(operand(A), B) ? ncols(A)*I : _merge_mul(A, B))
+    (are_same_mappings(unveil(A), B) ? ncols(A)*I : Simplify.merge_mul(A, B))
 *(A::F, B::Adjoint{F}) where {F<:FFTOperator} =
-    (are_same_mappings(A, operand(B)) ? ncols(A)*I : _merge_mul(A, B))
+    (are_same_mappings(A, unveil(B)) ? ncols(A)*I : Simplify.merge_mul(A, B))
 *(A::InverseAdjoint{F}, B::Inverse{F}) where {F<:FFTOperator} =
-    (are_same_mappings(operand(A), operand(B)) ? (1//ncols(A))*I :
-     _merge_mul(A, B))
+    (are_same_mappings(unveil(A), unveil(B)) ? (1//ncols(A))*I :
+     Simplify.merge_mul(A, B))
 *(A::Inverse{F}, B::InverseAdjoint{F}) where {F<:FFTOperator} =
-    (are_same_mappings(operand(A), operand(B)) ? (1//ncols(A))*I :
-     _merge_mul(A, B))
+    (are_same_mappings(unveil(A), unveil(B)) ? (1//ncols(A))*I :
+     Simplify.merge_mul(A, B))
 
 function vcreate(P::Type{<:Union{Direct,InverseAdjoint}},
                  A::FFTOperator{T,N,C},
@@ -650,7 +652,7 @@ function CirculantConvolution(psf::DenseArray{T,N};
     mul!(mtf, forward, (shift ? ifftshift(psf) : psf))
     if normalize
         sum = mtf[1]
-        sum <= 0 && throw(ArgumentError("cannot normalize: sum(PSF) ≤ 0"))
+        sum <= 0 && bad_argument("cannot normalize: sum(PSF) ≤ 0")
         sum != 1 && vscale!(mtf, 1/sum)
     end
 
@@ -828,7 +830,7 @@ http://www.fftw.org/doc/Planner-Flags.html) and returns the filtered flags.
 function check_flags(flags::Integer)
     planning = flags & PLANNING
     flags == planning ||
-        throw(ArgumentError("only FFTW planning flags can be specified"))
+        bad_argument("only FFTW planning flags can be specified")
     return UInt32(planning)
 end
 
@@ -842,7 +844,7 @@ function check_dimensions(dims::NTuple{N,Int}) where {N}
     number = 1
     for i in 1:length(dims)
         dim = dims[i]
-        dim ≥ 1 || throw(ArgumentError("invalid dimension(s)"))
+        dim ≥ 1 || bad_argument("invalid dimension(s)")
         number *= dim
     end
     return number

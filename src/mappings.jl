@@ -461,7 +461,7 @@ function vcreate(P::Type{<:Union{Direct,InverseAdjoint}},
     # parameter, a new array is returned as the operation cannot be done
     # in-place.
     @noinline incompatible_dimensions() =
-        throw(DimensionMismatch("the indices of `x` do not match the trailing indices of `A`"))
+        bad_size("the indices of `x` do not match the trailing indices of `A`")
     1 ≤ Nx < Na || incompatible_dimensions()
     Ny = Na - Nx
     @inbounds for d in 1:Nx
@@ -480,7 +480,7 @@ function vcreate(P::Type{<:Union{Adjoint,Inverse}},
     # parameter, a new array is returned as the operation cannot be done
     # in-place.
     @noinline incompatible_dimensions() =
-        throw(DimensionMismatch("the indices of `x` do not match the leading indices of `A`"))
+        bad_size("the indices of `x` do not match the leading indices of `A`")
     1 ≤ Nx < Na || incompatible_dimensions()
     Ny = Na - Nx
     @inbounds for d in 1:Nx
