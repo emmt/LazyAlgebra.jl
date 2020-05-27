@@ -89,47 +89,44 @@ end
 
 function build_sum!(A::Vector{Mapping}, B::Mapping)
     # Nothing to do if B is zero times anything.
-    if multiplier(B) != 0
-        # Update A in-place if exact match found; otherwise insert B in A in
-        # order.
-        found = false
-        n = length(A)
-        @inbounds for i in 1:n
-            if unscaled(A[i]) === unscaled(B)
-                found = true
-                λ = multiplier(A[i]) + multiplier(B)
-                if λ == 1
-                    A[i] = unscaled(B)
-                elseif λ != 0
-                    A[i] = λ*unscaled(B)
-                else
-                    # Multiplier is zero. Drop term if there are other terms
-                    # or keep the single term times zero.
-                    if n > 1
-                        for j in i:n-1
-                            A[j] = A[j+1]
-                        end
-                        resize!(A, n - 1)
-                    else
-                        A[1] = 0*unscaled(A[1])
+    multiplier(B) == 0 && return A
+
+    # If exact match found, update A in-place and return.
+    n = length(A)
+    @inbounds for i in 1:n
+        if unscaled(A[i]) === unscaled(B)
+            λ = multiplier(A[i]) + multiplier(B)
+            if λ == 1
+                A[i] = unscaled(B)
+            elseif λ != 0
+                A[i] = λ*unscaled(B)
+            else
+                # Multiplier is zero. Drop term if there are other terms
+                # or keep the single term times zero.
+                if n > 1
+                    for j in i:n-1
+                        A[j] = A[j+1]
                     end
+                    resize!(A, n - 1)
+                else
+                    A[1] = 0*unscaled(A[1])
                 end
             end
-        end
-        if found == false
-            # No exact match found.  Insert B in A in order.
-            id = identifier(B)
-            i = 1
-            while i ≤ n && @inbounds(identifier(A[i])) < id
-                i += 1
-            end
-            resize!(A, n + 1)
-            @inbounds for j in n:-1:i
-                A[j+1] = A[j]
-            end
-            A[i] = B
+            return A
         end
     end
+
+    # If no exact match found, insert B in A in order.
+    id = identifier(B)
+    i = 1
+    while i ≤ n && @inbounds(identifier(A[i])) < id
+        i += 1
+    end
+    resize!(A, n + 1)
+    @inbounds for j in n:-1:i
+        A[j+1] = A[j]
+    end
+    A[i] = B
     return A
 end
 
