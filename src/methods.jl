@@ -46,22 +46,24 @@ show(io::IO, ::MIME"text/plain", A::Mapping) = show(io, A)
 show(io::IO, A::Identity) = print(io, "Id")
 
 function show(io::IO, A::Scaled)
-    if multiplier(A) == -one(multiplier(A))
+    λ, M = multiplier(A), unscaled(A)
+    if λ == -one(λ)
         print(io, "-")
-    elseif multiplier(A) != one(multiplier(A))
-        print(io, multiplier(A), "⋅")
+    elseif λ != one(λ)
+        print(io, λ, "⋅")
     end
-    show(io, unveil(A))
+    show(io, M)
 end
 
 function show(io::IO, A::Scaled{<:Sum})
-    if multiplier(A) == -one(multiplier(A))
+    λ, M = multiplier(A), unscaled(A)
+    if λ == -one(λ)
         print(io, "-(")
-    elseif multiplier(A) != one(multiplier(A))
-        print(io, multiplier(A), "⋅(")
+    elseif λ != one(λ)
+        print(io, λ, "⋅(")
     end
-    show(io, unveil(A))
-    if multiplier(A) != one(multiplier(A))
+    show(io, M)
+    if λ != one(λ)
         print(io, ")")
     end
 end
@@ -100,7 +102,7 @@ function show(io::IO, A::Sum{N}) where {N}
     for i in 1:N
         let B = A[i]
             if isa(B, Scaled)
-                λ = multiplier(B)
+                λ, M = multiplier(B), unscaled(B)
                 if λ < 0
                     print(io, (i == 1 ? "-" : " - "))
                     λ = -λ
@@ -110,7 +112,7 @@ function show(io::IO, A::Sum{N}) where {N}
                 if λ != 1
                     print(io, λ, "⋅")
                 end
-                show_term(io, unveil(B))
+                show_term(io, M)
             else
                 if i > 1
                     print(io, " + ")
@@ -139,37 +141,33 @@ function show(io::IO, A::Composition{N}) where {N}
 end
 
 """
-```julia
-terms(A)
-```
+    terms(A)
 
 yields the list (as a tuple) of terms that compose mapping `A`.  If `A` is a
-sum or a composition, the list of terms is returned; otherwise, the 1-tuple
-`(A,)` is returned.
+sum or a composition of mappings, the list of terms is returned; otherwise, the
+1-tuple `(A,)` is returned.
 
 """
+terms(A::Union{Sum,Composition}) = getfield(A, :ops)
 terms(A::Mapping) = (A,)
-terms(A::Sum) = A.ops
-terms(A::Composition) = A.ops
 
 @deprecate operands terms
 
 """
     unveil(A)
 
-unveils the mapping embedded in mapping `A` if it is a *decorated* mapping or
-just returns `A` if it is not a *decorated* mapping.
+unveils the mapping embedded in mapping `A` if it is a *decorated* mapping (see
+[`DecoratedMapping`](@ref)); otherwise, just returns `A` if it is not a
+*decorated* mapping.
 
-See also: [`Scaled`](@ref), [`Adjoint`](@ref), [`Inverse`](@ref),
-[`InverseAdjoint`](@ref).
+As a special case, `A` may be an instance of `LinearAlgebra.UniformScaling` and
+the result is the LazyAlgebra mapping corresponding to `A`.
 
 """
-unveil(A::Scaled) = A.M # FIXME: shall returns A
-unveil(A::Adjoint) = A.op
-unveil(A::Inverse) = A.op
-unveil(A::InverseAdjoint) = A.op
+unveil(A::DecoratedMapping) = getfield(A, :op)
 unveil(A::Mapping) = A
-# FIXME: extend for UniformScaling
+unveil(A::UniformScaling) = multiplier(A)*Id
+Mapping(A::UniformScaling) = unveil(A)
 
 @deprecate operand unveil
 
@@ -181,13 +179,12 @@ and
     multiplier(A)
 
 respectively yield the mapping `M` and the multiplier `λ` if `A = λ*M` is a
-scaled mapping; `A` and `1` otherwise.
-
-See also: [`Scaled`](@ref).
+scaled mapping (see [`Scaled`](@ref)); `A` and `1` otherwise.  Note that these
+methods also work for intances of `LinearAlgebra.UniformScaling`.
 
 """
 unscaled(A::Mapping) = A
-unscaled(A::Scaled) = unveil(A)
+unscaled(A::Scaled) = getfield(A, :M)
 unscaled(A::UniformScaling) = Id
 multiplier(A::Scaled) = getfield(A, :λ)
 multiplier(A::Mapping) = 1
@@ -214,10 +211,10 @@ Base.isless(A::Mapping, B::Mapping) = isless(identifier(A), identifier(B))
 # Extend base methods to simplify the code for reducing expressions.
 first(A::Mapping) = A
 last(A::Mapping) = A
-first(A::Union{Sum,Composition}) = A.ops[1]
-last(A::Union{Sum{N},Composition{N}}) where {N} = A.ops[N]
+first(A::Union{Sum,Composition}) = @inbounds A[1]
+last(A::Union{Sum{N},Composition{N}}) where {N} = @inbounds A[N]
 length(A::Union{Sum{N},Composition{N}}) where {N} = N
-@inline @propagate_inbounds getindex(A::Union{Sum,Composition}, i) = A.ops[i]
+@inline @propagate_inbounds getindex(A::Union{Sum,Composition}, i) = terms(A)[i]
 
 # To complement first() and last() when applied to tuples.
 tail(A::NTuple{N}) where {N} = @inbounds A[2:N]
@@ -266,14 +263,14 @@ for sfx in (:size, :eltype, :ndims, :type),
         @eval begin
 
             if $(P != Direct)
-                $fn1(A::$P{<:$T}) = $fn2(A.op)
+                $fn1(A::$P{<:$T}) = $fn2(unveil(A))
             end
 
             $fn1(::Type{$P}, A::$T) = $fn2(A)
 
             if $(sfx == :size)
                 if $(P != Direct)
-                    $fn1(A::$P{<:$T}, dim...) = $fn2(A.op, dim...)
+                    $fn1(A::$P{<:$T}, dim...) = $fn2(unveil(A), dim...)
                 end
                 $fn1(::Type{$P}, A::$T, dim...) = $fn2(A, dim...)
             end

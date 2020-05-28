@@ -36,7 +36,6 @@ apply!(α::Number, ::Type{<:Operations}, ::Identity, x, ::Bool, β::Number, y) =
 # (\cdot) and ∘ (\circ) as they are already converted in calls to *.  But in
 # the case of UniformScaling, we must explicitly do that for * and for ∘ (not
 # for ⋅ which is replaced by a * by existing rules).
-Mapping(A::UniformScaling) = multiplier(A)*Id
 for op in (:(+), :(-), :(*), :(∘), :(/), Symbol("\\"))
     @eval begin
         Base.$op(A::UniformScaling, B::Mapping) = $op(Mapping(A), B)

@@ -12,13 +12,21 @@ Done:
   `LinearAlgebra.UniformScaling` is recognized by LazyAlgebra in the sense that
   they behave as the identity when combined with any LazyAlgebra mapping.
 
-* `operand` and `operands` deprecated in favor of `unveil` and `terms` which
-  are less confusing.
+* `operand` and `operands` are deprecated in favor of `unveil` and `terms`
+  which are less confusing.  The `terms` method behaves exactly like the former
+  `operands` method.  Compared to `operand`, the `unveil` method has a better
+  defined behavior: for a *decorated* mapping (that is an instance of
+  `Adjoint`, `Inverse` or `InverseAdjoint`), it yields the embedded mapping;
+  for other LazyAlgebra mappings (including scaled ones), it returns its
+  argument; for an instance of `LinearAlgebra.UniformScaling`, it returns the
+  equivalent LazyAlgebra mapping (that is `λ⋅Id`).  To get the mapping embedded
+  in a scaled mapping, call the `unscaled` method.
 
 * `unscaled` is introduced as the counterpart of `multiplier` so that
   `multiplier(A)*unscaled(A) === A` always holds.  Previously it was wrongly
   suggested to use `operand` (now `unveil`) for that but, then the strict
-  equality was only true for `A` being a scaled mapping.
+  equality was only true for `A` being a scaled mapping.  These methods also
+  work for instances of `LinearAlgebra.UniformScaling`.
 
 * `NonuniformScalingOperator` deprecated in favor of `NonuniformScaling`.
 

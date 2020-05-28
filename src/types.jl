@@ -303,6 +303,17 @@ end
 
 """
 
+`DecoratedMapping` is the union of the *decorated* mapping types:
+[`Adjoint`](@ref), [`Inverse`](@ref) and [`InverseAdjoint`](@ref).
+
+The method `unveil(A)` can be called to reveal the mapping embedded in
+decorated mapping `A`.
+
+"""
+const DecoratedMapping = Union{Adjoint,Inverse,InverseAdjoint}
+
+"""
+
 `Operations` is the union of the possible ways to apply a mapping: `Direct`,
 `Adjoint`, `Inverse` and `InverseAdjoint` (or its alias `AdjointInverse`).
 
@@ -315,9 +326,13 @@ const Operations = Union{Direct,Adjoint,Inverse,InverseAdjoint}
 """
 
 A `Scaled` mapping is used to represent a mapping times a scalar.  End-users
-should not use athe `Scaled` constructor directly but rather use expressions
-like `λ*A` with `λ` a scalar number and `A` a mapping, as LazyAlgebra may be
+should not use the `Scaled` constructor directly but rather use expressions
+like `λ*M` with `λ` a scalar number and `M` a mapping, as LazyAlgebra may be
 able to make some simplifications resulting in improved efficiency.
+
+
+Methods `multiplier` and `unscaled` can be applied to a scaled mapping `A =
+λ*M` to retrieve `λ` and `M` respectively.
 
 """
 struct Scaled{T<:Mapping,S<:Number} <: Mapping

@@ -60,8 +60,7 @@ See also: [`Trait`](@ref), [`is_selfadjoint`](@ref).
 
 """
 SelfAdjointType(::Mapping) = NonSelfAdjoint()
-SelfAdjointType(A::Union{Inverse,Adjoint,InverseAdjoint}) =
-    SelfAdjointType(unveil(A))
+SelfAdjointType(A::DecoratedMapping) = SelfAdjointType(unveil(A))
 SelfAdjointType(A::Scaled) = SelfAdjointType(unscaled(A))
 SelfAdjointType(A::Sum) =
     (allof(x -> SelfAdjointType(x) === SelfAdjoint(), terms(A)...) ?
@@ -85,7 +84,7 @@ See also: [`Trait`](@ref), [`is_endomorphism`](@ref).
 
 """
 MorphismType(::Mapping) = Morphism()
-MorphismType(A::Union{Inverse,Adjoint,InverseAdjoint}) = MorphismType(unveil(A))
+MorphismType(A::DecoratedMapping) = MorphismType(unveil(A))
 MorphismType(A::Scaled) = MorphismType(unscaled(A))
 MorphismType(A::Union{Sum,Composition}) =
     (allof(x -> MorphismType(x) === Endomorphism(), terms(A)...) ?
@@ -109,7 +108,7 @@ See also: [`Trait`](@ref), [`is_diagonal`](@ref).
 
 """
 DiagonalType(::Mapping) = NonDiagonalMapping()
-DiagonalType(A::Union{Inverse,Adjoint,InverseAdjoint}) = DiagonalType(unveil(A))
+DiagonalType(A::DecoratedMapping) = DiagonalType(unveil(A))
 DiagonalType(A::Scaled) = DiagonalType(unscaled(A))
 DiagonalType(A::Union{Sum,Composition}) =
     (allof(x -> DiagonalType(x) === DiagonalMapping(), terms(A)...) ?
@@ -723,7 +722,7 @@ vcreate(P::Type{<:Operations}, A::Scaled, x, scratch::Bool) =
 
 # Implemention of the `apply!(α,P,A,x,scratch,β,y)` and
 # `vcreate(P,A,x,scratch=false)` methods for the various decorations of a
-# mapping so as to automativcally unveil the embedded mapping.
+# mapping so as to automatically unveil the embedded mapping.
 for (T1, T2, T3) in ((:Direct,         :Adjoint,        :Adjoint),
                      (:Adjoint,        :Adjoint,        :Direct),
                      (:Inverse,        :Adjoint,        :InverseAdjoint),
