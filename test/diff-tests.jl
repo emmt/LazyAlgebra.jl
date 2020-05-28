@@ -7,6 +7,29 @@
 using LazyAlgebra
 using Test
 
+
+"""
+    random([T=Float64,], siz)
+
+yield an array of size `siz` of pseudo random numbers of type `T` uniformly
+distributed on `[-1/2,+1/2)`.
+
+"""
+random(siz::Integer...) = random(siz)
+random(siz::Tuple{Vararg{Integer}}) = random(Float64, siz)
+random(::Type{T}, siz::Integer...) where {T<:AbstractFloat} =
+    random(T, siz)
+random(::Type{T}, siz::Tuple{Vararg{Integer}}) where {T<:AbstractFloat} =
+    random(T, map(Int, siz))
+function random(::Type{T}, siz::NTuple{N,Int}) where {T<:AbstractFloat,N}
+    A = rand(T, siz)
+    b = one(T)/2
+    @inbounds @simd for i in eachindex(A)
+        A[i] -= b
+    end
+    return A
+end
+
 @testset "Finite differences" begin
     include("common.jl")
     types = (Float32, Float64)
@@ -14,11 +37,11 @@ using Test
     D = SimpleFiniteDifferences()
     DtD = gram(D)
     for T in types, dims in sizes
-        x = randn(T, dims)
+        x = random(T, dims)
         xsav = vcopy(x)
-        y = randn(T, ndims(x), size(x)...)
+        y = random(T, ndims(x), size(x)...)
         ysav = vcopy(y)
-        z = randn(T, size(x))
+        z = random(T, size(x))
         zsav = vcopy(z)
         # Apply direct and adjoint of D "by-hand".
         Dx_truth = Array{T}(undef, size(y))
