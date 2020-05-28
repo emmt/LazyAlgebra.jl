@@ -43,7 +43,7 @@ end
 
 show(io::IO, ::MIME"text/plain", A::Mapping) = show(io, A)
 
-show(io::IO, A::Identity) = print(io, "I")
+show(io::IO, A::Identity) = print(io, "Id")
 
 function show(io::IO, A::Scaled)
     if multiplier(A) == -one(multiplier(A))
@@ -164,11 +164,12 @@ See also: [`Scaled`](@ref), [`Adjoint`](@ref), [`Inverse`](@ref),
 [`InverseAdjoint`](@ref).
 
 """
-unveil(A::Scaled) = A.M
+unveil(A::Scaled) = A.M # FIXME: shall returns A
 unveil(A::Adjoint) = A.op
 unveil(A::Inverse) = A.op
 unveil(A::InverseAdjoint) = A.op
 unveil(A::Mapping) = A
+# FIXME: extend for UniformScaling
 
 @deprecate operand unveil
 
@@ -187,8 +188,10 @@ See also: [`Scaled`](@ref).
 """
 unscaled(A::Mapping) = A
 unscaled(A::Scaled) = unveil(A)
-multiplier(A::Scaled) = A.λ
+unscaled(A::UniformScaling) = Id
+multiplier(A::Scaled) = getfield(A, :λ)
 multiplier(A::Mapping) = 1
+multiplier(A::UniformScaling) = getfield(A, :λ)
 
 @doc @doc(unscaled) multiplier
 

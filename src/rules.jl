@@ -253,8 +253,8 @@ iszero(A::Scaled) = iszero(multiplier(A))
 iszero(::Mapping) = false
 
 # The neutral element ("one") for the composition is the identity.
-const I = Identity()
-one(::Mapping) = I
+const Id = Identity()
+one(::Mapping) = Id
 
 isone(::Identity) = true
 isone(::Mapping) = false
@@ -349,8 +349,8 @@ _adjoint(::SelfAdjoint, A::LinearMapping) = A
 _adjoint(::NonSelfAdjoint, A::T) where {T<:LinearMapping} = Adjoint{T}(A)
 
 # Adjoint for specific mapping types.
-adjoint(A::Identity) = I
-adjoint(A::Scaled{Identity}) = conj(multiplier(A))*I
+adjoint(A::Identity) = Id
+adjoint(A::Scaled{Identity}) = conj(multiplier(A))*Id
 adjoint(A::Scaled) = conj(multiplier(A))*adjoint(unscaled(A))
 adjoint(A::Adjoint) = unveil(A)
 adjoint(A::Inverse) = inv(adjoint(unveil(A)))
@@ -378,11 +378,11 @@ end
 inv(A::T) where {T<:Mapping} = Inverse{T}(A)
 
 # Inverse for specific mapping types.
-inv(A::Identity) = I
-inv(A::Scaled{Identity}) = inv(multiplier(A))*I
+inv(A::Identity) = Id
+inv(A::Scaled{Identity}) = inv(multiplier(A))*Id
 inv(A::Scaled) = (is_linear(unscaled(A)) ?
                   inv(multiplier(A))*inv(unscaled(A)) :
-                  inv(unscaled(A))*(inv(multiplier(A))*I))
+                  inv(unscaled(A))*(inv(multiplier(A))*Id))
 inv(A::Inverse) = unveil(A)
 inv(A::AdjointInverse) = adjoint(unveil(A))
 inv(A::Adjoint{T}) where {T<:Mapping} = AdjointInverse{T}(unveil(A))
@@ -457,14 +457,14 @@ end
 *(A::Mapping, B::Mapping) = Simplify.merge_mul(A, B)
 
 *(A::Inverse{T}, B::T) where {T<:Mapping} =
-    (unveil(A) === B ? I : Simplify.merge_mul(A, B))
+    (unveil(A) === B ? Id : Simplify.merge_mul(A, B))
 *(A::T, B::Inverse{T}) where {T<:Mapping} =
-    (A === unveil(B) ? I : Simplify.merge_mul(A, B))
+    (A === unveil(B) ? Id : Simplify.merge_mul(A, B))
 *(A::Inverse, B::Inverse) = Simplify.merge_mul(A, B)
 *(A::InverseAdjoint{T}, B::Adjoint{T}) where {T<:Mapping} =
-    (unveil(A) === unveil(B) ? I : Simplify.merge_mul(A, B))
+    (unveil(A) === unveil(B) ? Id : Simplify.merge_mul(A, B))
 *(A::Adjoint{T}, B::InverseAdjoint{T}) where {T<:Mapping} =
-    (unveil(A) === unveil(B) ? I : Simplify.merge_mul(A, B))
+    (unveil(A) === unveil(B) ? Id : Simplify.merge_mul(A, B))
 *(A::InverseAdjoint, B::InverseAdjoint) = Simplify.merge_mul(A, B)
 
 # Left and right divisions.

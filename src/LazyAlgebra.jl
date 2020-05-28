@@ -26,6 +26,7 @@ export
     FFTOperator,
     GeneralMatrix,
     Gram,
+    Id,
     Identity,
     Inverse,
     InverseAdjoint,
@@ -53,9 +54,9 @@ export
     adjoint,
     apply!,
     apply,
+    coefficients,
     conjgrad!,
     conjgrad,
-    coefficients,
     diag,
     gram,
     input_eltype,
@@ -101,8 +102,6 @@ export
     vupdate!,
     vzero!,
     vzeros
-
-@static isdefined(Base, :I) || export I
 
 using Printf
 using ArrayTools

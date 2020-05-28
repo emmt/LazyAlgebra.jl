@@ -16,7 +16,7 @@
 
 * Rationalize exceptions and error messages.
 
-* Separate simplifications (like `inv(A)*A -> I`) and optimizations (like
+* Separate simplifications (like `inv(A)*A -> Id`) and optimizations (like
   multiplying two diagonal operators yields a single diagonal operator),
   perhaps via methods `simplify(X)` and `optimize(X)` with `X` a construction
   of mappings.
@@ -84,7 +84,7 @@
   - `α*A` => `O` if `α = 0` with `O` the null mapping which is represented as
     `0` times a mapping, here `A`.  This is needed to know the result of
     applying the null mapping.  In other words, there is no *universal* neutral
-    element for the addition of mappings; whereas the identity `I` is the
+    element for the addition of mappings; whereas the identity `Id` is the
     *universal* neutral element for the composition of mappings.
 
   - `A*(β*B)` => `β*(A*B)` if `A` is a a linear mapping.
@@ -104,14 +104,14 @@
 
   - `(α*A)\(β*B)` => `(β/α)*(A\B)` if `A` is a linear mapping.
 
-  - `(α*I)*A` => `α*A` where `I` is the identity.
+  - `(α*Id)*A` => `α*A` where `Id` is the identity.
 
-  - `A/A`, `A\A`, or `inv(A)*A` => `I` for `A` *invertible* (this trait means
+  - `A/A`, `A\A`, or `inv(A)*A` => `Id` for `A` *invertible* (this trait means
     that `A` can be safely assumed invertible, possibilities: `Invertible`,
     `NonInvertible` to trigger an error on attempt to invert,
     `PossiblyInvertible` for mappings that may be invertible but not always and
     for which it is too costly to check.  For intance, checking for a uniform
-    scaling `(α*I)` is trivial as it suffices to check whether `α` is
+    scaling `(α*Id)` is trivial as it suffices to check whether `α` is
     non-zero).
 
 * Concrete implementation of mappings on arrays is not consistent for

@@ -10,7 +10,6 @@ using LinearAlgebra: ⋅, UniformScaling
 
 @testset "Mappings" begin
     include("common.jl")
-    I = Identity()
     Scaled = LazyAlgebra.Scaled
     Sum = LazyAlgebra.Sum
     Composition = LazyAlgebra.Composition
@@ -22,40 +21,40 @@ using LinearAlgebra: ⋅, UniformScaling
 
     @testset "UniformScaling" begin
         # Check + operator.
-        @test I + UniformScaling(1) === 2I
-        @test I + UniformScaling(2) === 3I
-        @test UniformScaling(1) + I === 2I
-        @test UniformScaling(2) + I === 3I
+        @test Id + UniformScaling(1) === 2Id
+        @test Id + UniformScaling(2) === 3Id
+        @test UniformScaling(1) + Id === 2Id
+        @test UniformScaling(2) + Id === 3Id
         # Check - operator.
-        @test I - UniformScaling(1) === 0I
-        @test I - UniformScaling(2) === -I
-        @test UniformScaling(1) - I === 0I
-        @test UniformScaling(2) - I === I
+        @test Id - UniformScaling(1) === 0Id
+        @test Id - UniformScaling(2) === -Id
+        @test UniformScaling(1) - Id === 0Id
+        @test UniformScaling(2) - Id === Id
         # Check * operator.
-        @test I*UniformScaling(1) === I
-        @test I*UniformScaling(2) === 2I
-        @test UniformScaling(1)*I === I
-        @test UniformScaling(2)*I === 2I
+        @test Id*UniformScaling(1) === Id
+        @test Id*UniformScaling(2) === 2Id
+        @test UniformScaling(1)*Id === Id
+        @test UniformScaling(2)*Id === 2Id
         # Check \circ operator.
-        @test I∘UniformScaling(1) === I
-        @test I∘UniformScaling(2) === 2I
-        @test UniformScaling(1)∘I === I
-        @test UniformScaling(2)∘I === 2I
+        @test Id∘UniformScaling(1) === Id
+        @test Id∘UniformScaling(2) === 2Id
+        @test UniformScaling(1)∘Id === Id
+        @test UniformScaling(2)∘Id === 2Id
         # \cdot is specific.
-        @test I⋅UniformScaling(1) === I
-        @test I⋅UniformScaling(2) === 2I
-        @test UniformScaling(1)⋅I === I
-        @test UniformScaling(2)⋅I === 2I
+        @test Id⋅UniformScaling(1) === Id
+        @test Id⋅UniformScaling(2) === 2Id
+        @test UniformScaling(1)⋅Id === Id
+        @test UniformScaling(2)⋅Id === 2Id
         # Check / operator.
-        @test I/UniformScaling(1) === I
-        @test I/UniformScaling(2) === (1/2)*I
-        @test UniformScaling(1)/I === I
-        @test UniformScaling(2)/I === 2I
+        @test Id/UniformScaling(1) === Id
+        @test Id/UniformScaling(2) === (1/2)*Id
+        @test UniformScaling(1)/Id === Id
+        @test UniformScaling(2)/Id === 2Id
         # Check \ operator.
-        @test I\UniformScaling(1) === I
-        @test I\UniformScaling(2) === 2I
-        @test UniformScaling(1)\I === I
-        @test UniformScaling(2)\I === (1/2)*I
+        @test Id\UniformScaling(1) === Id
+        @test Id\UniformScaling(2) === 2Id
+        @test UniformScaling(1)\Id === Id
+        @test UniformScaling(2)\Id === (1/2)*Id
     end
 
     @testset "Uniform scaling ($T)" for T in (Float32, Float64)
@@ -63,7 +62,7 @@ using LinearAlgebra: ⋅, UniformScaling
         x = randn(T, dims)
         y = randn(T, dims)
         λ = sqrt(2)
-        U = λ*I
+        U = λ*Id
         atol, rtol = zero(T), sqrt(eps(T))
         @test U*x  ≈ λ*x       atol=atol rtol=rtol
         @test U'*x ≈ λ*x       atol=atol rtol=rtol
@@ -95,8 +94,8 @@ using LinearAlgebra: ⋅, UniformScaling
         @test LinearType(A) === Linear()
         @test LinearType(C) === Linear()
         @test MorphismType(C) === Endomorphism()
-        @test A*I === A
-        @test I*A === A
+        @test A*Id === A
+        @test Id*A === A
         @test A*x  ≈ sum(w.*x)*w atol=atol rtol=rtol norm=vnorm2
         @test A'*x ≈ sum(w.*x)*w atol=atol rtol=rtol norm=vnorm2
         @test B*x  ≈ sum(y.*x)*w atol=atol rtol=rtol norm=vnorm2

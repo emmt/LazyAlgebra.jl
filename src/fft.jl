@@ -449,17 +449,17 @@ show(io::IO, A::FFTOperator) = print(io, "FFT")
 
 # Impose the following simplifying rules:
 #     inv(F) = n\F'
-#     ==> F⋅F' = F'⋅F = n⋅I
-#     ==> inv(F⋅F') = inv(F'⋅F) = inv(F)⋅inv(F') = inv(F')⋅inv(F) = n\I
+#     ==> F⋅F' = F'⋅F = n⋅Id
+#     ==> inv(F⋅F') = inv(F'⋅F) = inv(F)⋅inv(F') = inv(F')⋅inv(F) = n\Id
 *(A::Adjoint{F}, B::F) where {F<:FFTOperator} =
-    (are_same_mappings(unveil(A), B) ? ncols(A)*I : Simplify.merge_mul(A, B))
+    (are_same_mappings(unveil(A), B) ? ncols(A)*Id : Simplify.merge_mul(A, B))
 *(A::F, B::Adjoint{F}) where {F<:FFTOperator} =
-    (are_same_mappings(A, unveil(B)) ? ncols(A)*I : Simplify.merge_mul(A, B))
+    (are_same_mappings(A, unveil(B)) ? ncols(A)*Id : Simplify.merge_mul(A, B))
 *(A::InverseAdjoint{F}, B::Inverse{F}) where {F<:FFTOperator} =
-    (are_same_mappings(unveil(A), unveil(B)) ? (1//ncols(A))*I :
+    (are_same_mappings(unveil(A), unveil(B)) ? (1//ncols(A))*Id :
      Simplify.merge_mul(A, B))
 *(A::Inverse{F}, B::InverseAdjoint{F}) where {F<:FFTOperator} =
-    (are_same_mappings(unveil(A), unveil(B)) ? (1//ncols(A))*I :
+    (are_same_mappings(unveil(A), unveil(B)) ? (1//ncols(A))*Id :
      Simplify.merge_mul(A, B))
 
 function vcreate(P::Type{<:Union{Direct,InverseAdjoint}},

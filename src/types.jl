@@ -152,28 +152,14 @@ same as the input argument.
 The identity is a singleton and is also available as:
 
 ```julia
-LazyAlgebra.I
+Id
 ```
 
-which is not exported by default (to avoid collisions with the `LinearAlgebra`
-module).  You may do it explicitly:
-
-```julia
-import LazyAlgebra: I
-```
-
-This should not be necessary if you are `using LinearAlgebra` as the identity
-`I` defined in this standard library as `UniformScaling(1)` can be
-automatically converted into `LazyAlgebra` own version of the identity when
-combined with other LazyAlgebra mappings.  If you are using any of these
-versions of the identity `I`, then:
-
-```julia
-I/A
-A\\I
-```
-
-both yield `inv(A)` for any LazyAlgebra mappings `A`.
+The `LinearAlgebra` module of the standard library exports a constant `I` which
+also corresponds to the identity (but in the sense of a matrix).  When `I` is
+combined with any LazyAlgebra mapping, it is recognized as an alias of `Id`.
+So that, for instance, `I/A`, `A\\I`, `Id/A` and `A\\Id` all yield `inv(A)` for
+any LazyAlgebra mappings `A`.
 
 """
 struct Identity <: LinearMapping; end
@@ -242,18 +228,21 @@ struct Direct; end
 """
 
 Types `Adjoint`, `Inverse` and `InverseAdjoint` are used to *decorate* a
-mapping to indicate the conjugate transpose and/or inverse of the mapping.  The
-`adjoint` method is extended, so that in the code, it is sufficient to write
-`A'` or `adjoint(A)`.  Simarly, use `inv(A)` or `I/A` (with `I` the identity)
-to get the inverse of `A`.  Furthermore, `A'`, `adjoint(A)`, `inv(A)` or `I/A`
-may be able to perform some simplications resulting in improved efficiency.
+mapping to indicate the conjugate transpose and/or inverse of the mapping.
+`AdjointInverse` is just an alias for `InverseAdjoint`.  The adjoint only makes
+sense for linear mappings.
 
-FIXME: To benefit from such simplications, directly calling `Adjoint(A)`, `Inverse(A)`
-FIXME: or `InverseAdjoint(A)` is forbidden (it will throw an error).  Only the inner
-FIXME: constructors can be used if really needed.
+Call `unveil(A)` to reveal the mapping embedded in decorated mapping `A`.
 
-`AdjointInverse` is just an alias for `InverseAdjoint`.  Note that the adjoint
-only makes sense for linear mappings.
+LazyAlgebra extends the `adjoint` and `inv` methods and the `*`, `∘`, `.`, `+`,
+`-`, `/` and `\\' operators, so that directly calling the constructors
+`Adjoint`, `Inverse` and `InverseAdjoint` should not be needed for the
+end-user.  For instance, it is sufficient to write `A'` or `adjoint(A)` and
+`inv(A)` or `Id/A` (with `Id` the identity) to get the adjoint and the inverse
+of `A`.  Furthermore, `A'`, `adjoint(A)`, `inv(A)` or `Id/A`, etc.  may be able
+to perform some simplications resulting in improved efficiency.  These
+simplifications are not permorfed if the constructors of the decorated types
+are directly called.
 
 See also: [`LinearMapping`](@ref), [`apply`](@ref), [`Operations`](@ref).
 

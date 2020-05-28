@@ -14,7 +14,7 @@
 module Cropping
 
 # FIXME: add simplifying rules:
-#   Z'*Z = I (not Z*Z' = I)  crop zero-padded array is identity
+#   Z'*Z = Id (not Z*Z' = Id)  crop zero-padded array is identity
 
 export
     CroppingOperator,

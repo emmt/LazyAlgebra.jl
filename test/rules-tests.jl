@@ -58,44 +58,44 @@ using Test
     @test_broken is_selfadjoint(B'*A*A'*B) == true
 
     # Test identity.
-    @test I === LazyAlgebra.I
-    @test I' === I
-    @test inv(I) === I
-    @test 1I === I
-    @test I*M*I === M
-    @test I*I === I
-    @test I*I*I === I
-    @test I\I === I
-    @test I/I === I
-    @test I + I === 2I
-    @test I - I === 0I
-    @test I + 2I === 3I
-    @test 2I + 3I === 5I
-    @test -4I + (I + 2I) === -I
-    @test I + I - 2I === 0I
-    @test 2I - (I + I) === 0I
-    @test inv(3I) === (1/3)*I
-    @test SelfAdjointType(I) === SelfAdjoint()
-    @test MorphismType(I) === Endomorphism()
-    @test DiagonalType(I) === DiagonalMapping()
+    @test Id === LazyAlgebra.Id
+    @test Id' === Id
+    @test inv(Id) === Id
+    @test 1Id === Id
+    @test Id*M*Id === M
+    @test Id*Id === Id
+    @test Id*Id*Id === Id
+    @test Id\Id === Id
+    @test Id/Id === Id
+    @test Id + Id === 2Id
+    @test Id - Id === 0Id
+    @test Id + 2Id === 3Id
+    @test 2Id + 3Id === 5Id
+    @test -4Id + (Id + 2Id) === -Id
+    @test Id + Id - 2Id === 0Id
+    @test 2Id - (Id + Id) === 0Id
+    @test inv(3Id) === (1/3)*Id
+    @test SelfAdjointType(Id) === SelfAdjoint()
+    @test MorphismType(Id) === Endomorphism()
+    @test DiagonalType(Id) === DiagonalMapping()
     for T in (Float32, Float64)
         atol, rtol = zero(T), sqrt(eps(T))
         x = randn(T, dims)
         y = randn(T, dims)
-        @test I*x === x # test same object
+        @test Id*x === x # test same object
         for P in (Direct, Adjoint, Inverse, InverseAdjoint)
-            @test apply(P,I,x) === x # test same object
-            test_api(P, I, x, y)
+            @test apply(P,Id,x) === x # test same object
+            test_api(P, Id, x, y)
         end
     end
 
     # Neutral elements.
-    @test isone(I)
-    @test iszero(I) == false
+    @test isone(Id)
+    @test iszero(Id) == false
     @test iszero(A - A)
     @test iszero(-M + M)
-    @test one(A) === I
-    @test one(M) === I
+    @test one(A) === Id
+    @test one(M) === Id
     @test zero(A) === 0*A
     @test zero(M) === 0*M
 
@@ -127,14 +127,14 @@ using Test
     @test (A + 2B)' - A' === 2*B'
 
     # Inverse.
-    @test inv(M) === I/M
+    @test inv(M) === Id/M
     @test inv(inv(M)) === M
-    @test I/A === inv(A)
-    @test I\A === A
+    @test Id/A === inv(A)
+    @test Id\A === A
     @test M/Q === M*inv(Q)
     @test M\Q === inv(M)*Q
-    @test inv(2M) === inv(M)*(2\I)
-    @test inv(2M) === inv(M)*((1/2)*I)
+    @test inv(2M) === inv(M)*(2\Id)
+    @test inv(2M) === inv(M)*((1/2)*Id)
     @test inv(2A) === 2\inv(A)
     @test inv(2A) === (1/2)*inv(A)
     @test inv(A*B) === inv(B)*inv(A)
@@ -142,15 +142,15 @@ using Test
     @test 4A/4B === A/B
     @test 4A\4B === A\B
     @test inv(A*M*B*Q) === inv(Q)*inv(B)*inv(M)*inv(A)
-    @test inv(M)*M === I
-    @test M*inv(M) === I
+    @test inv(M)*M === Id
+    @test M*inv(M) === Id
     let D = M*Q*(A - B)
-        @test inv(D)*D === I
-        @test D*inv(D) === I
+        @test inv(D)*D === Id
+        @test D*inv(D) === Id
     end
     let D = A + 2B - C
-        @test inv(D)*D === I
-        @test D*inv(D) === I
+        @test inv(D)*D === Id
+        @test D*inv(D) === Id
     end
     @test inv(M*Q*(A - B)) === inv(A - B)*inv(Q)*inv(M)
     @test inv(A*3M) === inv(M)*(3\inv(A))
@@ -160,8 +160,8 @@ using Test
 
     # Inverse-adjoint.
     @test inv(A)' === inv(A')
-    @test inv(A')*A' === I
-    @test A'*inv(A') === I
+    @test inv(A')*A' === Id
+    @test A'*inv(A') === Id
     let E = inv(A'), F = inv(A)'
         @test inv(E) === A'
         @test inv(F) === A'

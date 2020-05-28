@@ -32,15 +32,15 @@ apply!(α::Number, ::Type{<:Operations}, ::Identity, x, ::Bool, β::Number, y) =
     vcombine!(y, α, x, β, y)
 
 # Rules to automatically convert UniformScaling from standard library module
-# LinearAlgebra into λ*I.  For other operators, there is no needs to extend ⋅
+# LinearAlgebra into λ*Id.  For other operators, there is no needs to extend ⋅
 # (\cdot) and ∘ (\circ) as they are already converted in calls to *.  But in
 # the case of UniformScaling, we must explicitly do that for * and for ∘ (not
 # for ⋅ which is replaced by a * by existing rules).
-simplify(A::UniformScaling) = A.λ*I
+Mapping(A::UniformScaling) = multiplier(A)*Id
 for op in (:(+), :(-), :(*), :(∘), :(/), Symbol("\\"))
     @eval begin
-        Base.$op(A::UniformScaling, B::Mapping) = $op(simplify(A), B)
-        Base.$op(A::Mapping, B::UniformScaling) = $op(A, simplify(B))
+        Base.$op(A::UniformScaling, B::Mapping) = $op(Mapping(A), B)
+        Base.$op(A::Mapping, B::UniformScaling) = $op(A, Mapping(B))
     end
 end
 

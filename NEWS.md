@@ -1,13 +1,16 @@
 Future:
 
-* The exported constant `I = Identity()` has been renamed as `Id` to avoid
-  conflicts with standard `LinearAlgebra` package.  The constant `LinearAlgebra.I`
-  is recognized by LazyAlgebra.
-
 * Exported methods and types have been limited to the ones for the end-user.
   Use `using LAzyAlgebra.LowLevel` to get the others.
 
 Done:
+
+* The exported constant `I = Identity()` has been renamed as `Id` to avoid
+  conflicts with standard `LinearAlgebra` package.  `Id` is systematically
+  exported while `I` was only exported if not already defined in the `Base`
+  module.  The constant `LinearAlgebra.I` and, more generally, any instance of
+  `LinearAlgebra.UniformScaling` is recognized by LazyAlgebra in the sense that
+  they behave as the identity when combined with any LazyAlgebra mapping.
 
 * `operand` and `operands` deprecated in favor of `unveil` and `terms` which
   are less confusing.

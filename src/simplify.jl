@@ -152,7 +152,7 @@ split_mul(A::Mapping) = (A,)
 # composition.
 merge_mul(arg::Mapping) = arg
 merge_mul(args::Mapping...) = merge_mul(args)
-merge_mul(args::Tuple{}) = I
+merge_mul(args::Tuple{}) = Id
 merge_mul(args::Tuple{Mapping}) = args[1]
 merge_mul(args::T) where {N,T<:NTuple{N,Mapping}} = Composition{N,T}(args)
 
@@ -169,7 +169,7 @@ simplify_mul(A::Mapping, B::Mapping) =
 # The following versions of `simplify_mul` are for `A` and `B` in the form of
 # tuples and return a tuple.  The algorithm is recursive and should works for
 # any non-commutative binary operator.
-simplify_mul(A::Tuple{}, B::Tuple{}) = (I,)
+simplify_mul(A::Tuple{}, B::Tuple{}) = (Id,)
 simplify_mul(A::Tuple{Vararg{Mapping}}, B::Tuple{}) = A
 simplify_mul(A::Tuple{}, B::Tuple{Vararg{Mapping}}) = B
 function simplify_mul(A::NTuple{M,Mapping},
