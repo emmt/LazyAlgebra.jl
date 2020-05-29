@@ -227,7 +227,9 @@ _is_diagonal(::NonDiagonalMapping) = false
 #    per group, the resulting terms are sorted (so that all equivalent
 #    expressions yield the same result) and the "zeros" eliminated (if all
 #    terms are "zero", the sum simplifies to the first one).  For now, the
-#    sorting is not perfect as it is based on `objectid()` hashing method.
+#    sorting is not absolutely perfect as it is based on `objectid()` hashing
+#    method.  The odds of having the same identifier for two different things
+#    are however extremely low.
 #
 #  - To simplify a composition, a fusion algorithm is applied and "ones" are
 #    eliminated.  It is assumed that composition is non-commutative so the

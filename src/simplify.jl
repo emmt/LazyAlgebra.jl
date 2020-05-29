@@ -42,20 +42,10 @@ using ..LazyAlgebra:
 
 yields a simplied sum of mappings `A + B`.
 
-"""
-add(A::Mapping, B::Mapping) = simplify_sum(A, B)
+""" add
 
-function simplify_sum(A::Sum, B::Mapping)
-    V = build_sum!(as_vector(A), B)
-    length(V) == 1 ? V[1] : Sum(to_tuple(V))
-end
-
-function simplify_sum(A::Mapping, B::Sum)
-    V = build_sum!(as_vector(A), B)
-    length(V) == 1 ? V[1] : Sum(to_tuple(V))
-end
-
-function simplify_sum(A::Mapping, B::Mapping)
+# Simplify the sum of two mappings none of which being a sum.
+function add(A::Mapping, B::Mapping)
     if unscaled(A) === unscaled(B)
         return (multiplier(A) + multiplier(B))*unscaled(A)
     elseif identifier(A) ≤ identifier(B)
@@ -65,29 +55,25 @@ function simplify_sum(A::Mapping, B::Mapping)
     end
 end
 
-function as_vector(A::Mapping)
-    V = Vector{Mapping}(undef, 1)
-    V[1] = A
-    return V
+# Simplify the sum of two mappings at least one of which being a sum.
+add(A::Sum,     B::Mapping) = _add(A, B)
+add(A::Mapping, B::Sum    ) = _add(A, B)
+add(A::Sum,     B::Sum    ) = _add(A, B)
+function _add(A::Mapping, B::Mapping)
+    V = add!(as_vector(A), B)
+    length(V) == 1 ? V[1] : Sum(to_tuple(V))
 end
 
-function as_vector(A::Sum{N}) where {N}
-    V = Vector{Mapping}(undef, N)
+# Add the terms of a sum one-by-one.  Since terms must be re-ordered, there are
+# no obvious better ways to recombine.
+function add!(A::Vector{Mapping}, B::Sum{N}) where {N}
     @inbounds for i in 1:N
-        V[i] = A[i]
-    end
-    return V
-end
-
-# Add the terms of a sum one-by-one.
-function build_sum!(A::Vector{Mapping}, B::Sum{N}) where {N}
-    @inbounds for i in 1:N
-        build_sum!(A, B[i])
+        add!(A, B[i])
     end
     return A
 end
 
-function build_sum!(A::Vector{Mapping}, B::Mapping)
+function add!(A::Vector{Mapping}, B::Mapping)
     # Nothing to do if B is zero times anything.
     multiplier(B) == 0 && return A
 
@@ -224,6 +210,23 @@ function simplify_mul(A::NTuple{M,Mapping},
         # are possible.
         return simplify_mul(A[1:M-1], B[2:N-1])
     end
+end
+
+#------------------------------------------------------------------------------
+# UTILITIES
+
+function as_vector(A::Mapping)
+    V = Vector{Mapping}(undef, 1)
+    V[1] = A
+    return V
+end
+
+function as_vector(A::Sum{N}) where {N}
+    V = Vector{Mapping}(undef, N)
+    @inbounds for i in 1:N
+        V[i] = A[i]
+    end
+    return V
 end
 
 end # module
