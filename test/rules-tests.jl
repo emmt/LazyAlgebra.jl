@@ -99,6 +99,24 @@ using Test
     @test zero(A) === 0*A
     @test zero(M) === 0*M
 
+    # Basic methods for sums and compositions of mappings.
+    let A1 = A + B + M, A2 = C*B*M*Q
+        @test eltype(A1) <: Mapping
+        @test eltype(A2) <: Mapping
+        @test Tuple(A1) === terms(A1)
+        @test Tuple(A2) === terms(A2)
+        @test length(A1) == 3
+        @test length(A2) == 4
+        @test firstindex(A1) == 1
+        @test firstindex(A2) == 1
+        @test lastindex(A1) == length(A1)
+        @test lastindex(A2) == length(A2)
+        @test first(A1) === A1[1]
+        @test first(A2) === A2[1]
+        @test last(A1) === A1[end]
+        @test last(A2) === A2[end]
+    end
+
     @test B + A === A + B
     @test B + A + Q === Q + A + B
     @test B + (M + A + Q) === A + B + M + Q

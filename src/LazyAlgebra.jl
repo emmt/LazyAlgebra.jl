@@ -106,10 +106,11 @@ export
 using Printf
 using ArrayTools
 
-import Base: *, ∘, +, -, \, /, ==, adjoint, inv, axes,
+import Base: *, ∘, +, -, \, /, ==
+import Base: Tuple, adjoint, inv, axes,
     show, showerror, convert, eltype, ndims, size, length, stride, strides,
-    getindex, setindex!, eachindex, first, last, one, zero, isone, iszero,
-    @propagate_inbounds
+    getindex, setindex!, eachindex, first, last, firstindex, lastindex,
+    one, zero, isone, iszero, @propagate_inbounds
 
 # Import/using from LinearAlgebra, BLAS and SparseArrays.
 using LinearAlgebra

@@ -147,6 +147,9 @@ yields the list (as a tuple) of terms that compose mapping `A`.  If `A` is a
 sum or a composition of mappings, the list of terms is returned; otherwise, the
 1-tuple `(A,)` is returned.
 
+If `A` is sum or a composition of mappings, `Tuple(A)` yields the same result
+as `terms(A)`.
+
 """
 terms(A::Union{Sum,Composition}) = getfield(A, :ops)
 terms(A::Mapping) = (A,)
@@ -213,7 +216,14 @@ first(A::Mapping) = A
 last(A::Mapping) = A
 first(A::Union{Sum,Composition}) = @inbounds A[1]
 last(A::Union{Sum{N},Composition{N}}) where {N} = @inbounds A[N]
+firstindex(A::Union{Sum,Composition}) = 1
+lastindex(A::Union{Sum{N},Composition{N}}) where {N} = N
 length(A::Union{Sum{N},Composition{N}}) where {N} = N
+eltype(::Type{<:Sum{N,T}}) where {N,T} = eltype(T)
+eltype(::Type{<:Composition{N,T}}) where {N,T} = eltype(T)
+Tuple(A::Union{Sum,Composition}) = terms(A)
+
+# FIXME: Shall we restrict the index to be an integer?
 @inline @propagate_inbounds getindex(A::Union{Sum,Composition}, i) = terms(A)[i]
 
 # To complement first() and last() when applied to tuples.
