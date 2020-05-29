@@ -226,12 +226,6 @@ Tuple(A::Union{Sum,Composition}) = terms(A)
 # FIXME: Shall we restrict the index to be an integer?
 @inline @propagate_inbounds getindex(A::Union{Sum,Composition}, i) = terms(A)[i]
 
-# To complement first() and last() when applied to tuples.
-tail(A::NTuple{N}) where {N} = @inbounds A[2:N]
-tail(A::Tuple) = A[2:end]
-head(A::NTuple{N}) where {N} = @inbounds A[1:N-1]
-head(A::Tuple) = A[1:end-1]
-
 """
 ```julia
 input_type([P=Direct,] A)
