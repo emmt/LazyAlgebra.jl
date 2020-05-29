@@ -359,7 +359,7 @@ adjoint(A::InverseAdjoint) = inv(unveil(A))
 adjoint(A::Composition) =
     # It is assumed that the composition has already been simplified, so we
     # just apply the mathematical formula for the adjoint of a composition.
-    Simplify.merge_mul(reversemap(adjoint, terms(A)))
+    Composition(reversemap(adjoint, terms(A)))
 
 function adjoint(A::Sum{N}) where {N}
     # It is assumed that the sum has already been simplified, so we just apply
@@ -435,38 +435,41 @@ end
 # Compose operator (\circ + tab) beween mappings.
 ∘(A::Mapping, B::Mapping) = A*B
 
-# Rules for the composition of 2 mappings.
-*(A::Identity, B::Identity) = B
-*(A::Identity, B::Scaled) = B
-*(A::Identity, B::Composition) = B
-*(A::Identity, B::Mapping) = B
-*(A::Scaled, B::Identity) = A
-*(A::Scaled, B::Scaled) =
-    (is_linear(A) ? (multiplier(A)*multiplier(B))*(unscaled(A)*unscaled(B)) :
-     multiplier(A)*Simplify.merge_mul(unscaled(A), B))
-*(A::Scaled, B::Composition) = multiplier(A)*(unscaled(A)*B)
-*(A::Scaled, B::Mapping) = multiplier(A)*(unscaled(A)*B)
-*(A::Composition, B::Identity) = A
-*(A::Composition, B::Scaled) =
-    (is_linear(A) ? multiplier(B)*(A*unscaled(B)) : Simplify.compose(A, B))
+# Rules for the composition of 2 mappings.  Mappings that may behave
+# specifically in a composition have type `Identity`, `Scaled` and
+# `Composition`; all others have the same behavior.
+*(A::Identity,    B::Identity   ) = B
+*(A::Identity,    B::Scaled     ) = B
+*(A::Identity,    B::Composition) = B
+*(A::Identity,    B::Mapping    ) = B
+*(A::Scaled,      B::Identity   ) = A
+*(A::Scaled,      B::Mapping    ) = multiplier(A)*(unscaled(A)*B)
+*(A::Scaled,      B::Scaled     ) = (is_linear(A) ?
+                                     (multiplier(A)*multiplier(B))*(unscaled(A)*unscaled(B)) :
+                                     multiplier(A)*(unscaled(A)*B))
+*(A::Composition, B::Identity   ) = A
 *(A::Composition, B::Composition) = Simplify.compose(A, B)
-*(A::Composition, B::Mapping) = Simplify.compose(A, B)
-*(A::Mapping, B::Identity) = A
-*(A::Mapping, B::Scaled) =
-    (is_linear(A) ? multiplier(B)*(A*unscaled(B)) : Simplify.merge_mul(A, B))
-*(A::Mapping, B::Composition) = Simplify.compose(A, B)
-*(A::Mapping, B::Mapping) = Simplify.merge_mul(A, B)
+*(A::Composition, B::Mapping    ) = Simplify.compose(A, B)
+*(A::Composition, B::Scaled     ) = (is_linear(A) ?
+                                     multiplier(B)*(A*unscaled(B)) :
+                                     Simplify.compose(A, B))
+*(A::Mapping,     B::Identity   ) = A
+*(A::Mapping,     B::Scaled     ) = (is_linear(A) ?
+                                     multiplier(B)*(A*unscaled(B)) :
+                                     Composition((A, B)))
+*(A::Mapping,    B::Composition) = Simplify.compose(A, B)
+*(A::Mapping,    B::Mapping    ) = Composition((A, B))
 
-*(A::Inverse{T}, B::T) where {T<:Mapping} =
-    (unveil(A) === B ? Id : Simplify.merge_mul(A, B))
-*(A::T, B::Inverse{T}) where {T<:Mapping} =
-    (A === unveil(B) ? Id : Simplify.merge_mul(A, B))
-*(A::Inverse, B::Inverse) = Simplify.merge_mul(A, B)
+*(A::Inverse{T}, B::T) where {T<:Mapping} = (unveil(A) === B ? Id :
+                                             Composition((A, B)))
+*(A::T, B::Inverse{T}) where {T<:Mapping} = (A === unveil(B) ? Id :
+                                             Composition((A, B)))
+*(A::Inverse, B::Inverse) = Composition((A, B))
 *(A::InverseAdjoint{T}, B::Adjoint{T}) where {T<:Mapping} =
-    (unveil(A) === unveil(B) ? Id : Simplify.merge_mul(A, B))
+    (unveil(A) === unveil(B) ? Id : Composition((A, B)))
 *(A::Adjoint{T}, B::InverseAdjoint{T}) where {T<:Mapping} =
-    (unveil(A) === unveil(B) ? Id : Simplify.merge_mul(A, B))
-*(A::InverseAdjoint, B::InverseAdjoint) = Simplify.merge_mul(A, B)
+    (unveil(A) === unveil(B) ? Id : Composition((A, B)))
+*(A::InverseAdjoint, B::InverseAdjoint) = Composition((A, B))
 
 # Left and right divisions.
 \(A::Mapping, B::Mapping) = inv(A)*B

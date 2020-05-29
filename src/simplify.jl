@@ -60,7 +60,7 @@ add(A::Sum,     B::Mapping) = _add(A, B)
 add(A::Mapping, B::Sum    ) = _add(A, B)
 add(A::Sum,     B::Sum    ) = _add(A, B)
 function _add(A::Mapping, B::Mapping)
-    V = add!(as_vector(A), B)
+    V = add!(as_vector(+, A), B)
     length(V) == 1 ? V[1] : Sum(to_tuple(V))
 end
 
@@ -122,111 +122,146 @@ end
 """
     Simplify.compose(A, B)
 
-yields a simplified composition of mappings `A*B`.
+yields a simplified composition of mappings `A*B` when at least one of `A` or
+`B` are a composition.  Just yields the composition `A` by `B` without
+simplifications if none are a composition.
+
+The ability to perform simplifications relies on implemented specializations of
+`A*B` when neither `A` nor `B` are compositions.  It is also assumed that `A`
+and `B` have already been simplified if they are compositions.
 
 """
-compose(A::Mapping, B::Mapping) = simplify_mul(A, B)
+compose(A::Mapping,     B::Mapping    ) = Composition((A, B))
+compose(A::Composition, B::Mapping    ) = _compose(A, B)
+compose(A::Mapping,     B::Composition) = _compose(A, B)
+compose(A::Composition, B::Composition) = _compose(A, B)
 
-# `split_mul(A)` yields a tuple of the terms of `A` if it is a composition or
-# just `(A,)` otherwise.
-split_mul(A::Composition) = terms(A)
-split_mul(A::Mapping) = (A,)
+function _compose(A::Mapping, B::Mapping)
+    C = compose!(as_vector(*, A), B)
+    n = length(C)
+    return (n == 0 ? Id :
+            n == 1 ? C[1] :
+            Composition(to_tuple(C)))
+end
 
-# `merge_mul(args...)` constructs a fully qualified composition.  It is assumed
-# that the argument(s) have already been simplified.  An empty composition
-# yields the identity which is the universal neutral element ("one") for the
-# composition.
-merge_mul(arg::Mapping) = arg
-merge_mul(args::Mapping...) = merge_mul(args)
-merge_mul(args::Tuple{}) = Id
-merge_mul(args::Tuple{Mapping}) = args[1]
-merge_mul(args::T) where {N,T<:NTuple{N,Mapping}} = Composition{N,T}(args)
+"""
+    compose!(A, B) -> A
 
-# `simplify_mul(A,B)` simplifies the product of `A` and `B`.  The result is a
-# tuple `C` of the resulting terms if `A` and `B` are both tuples of mappings
-# or an instance of `Mapping` if `A` and `B` are both mappings.  If no
-# simplification can be made, the result is just the concatenation of the terms
-# in `A` and `B`.  To perform simplifications, it is assumed that, if they are
-# compositions, `A` and `B` have already been simplified.  It is also assumed
-# that the composition is associative but non-commutative.
-simplify_mul(A::Mapping, B::Mapping) =
-    merge_mul(simplify_mul(split_mul(A), split_mul(B)))
+overwrites `A` with a simplified composition of a left operand `A` and a right
+operand `B`.  The left operand is a composition of (0, 1, or more) mappings
+whose terms are stored in the vector of mappings `A` (if `A` is empty, the left
+operand is assumed to be the identity).  On return, the vector `A` is modified
+to store the terms of the simplified composition of `A` and `B`.  The left
+operand `B` may be itself a composition (as an instance of
+`LazyAlgebra.Composition` or as a vector of mappings) or any other kind of
+mapping.
 
-# The following versions of `simplify_mul` are for `A` and `B` in the form of
-# tuples and return a tuple.  The algorithm is recursive and should works for
-# any non-commutative binary operator.
-simplify_mul(A::Tuple{}, B::Tuple{}) = (Id,)
-simplify_mul(A::Tuple{Vararg{Mapping}}, B::Tuple{}) = A
-simplify_mul(A::Tuple{}, B::Tuple{Vararg{Mapping}}) = B
-function simplify_mul(A::NTuple{M,Mapping},
-                       B::NTuple{N,Mapping}) where {M,N}
-    # Here M ≥ 1 and N ≥ 1.
-    @assert M ≥ 1 && N ≥ 1
+""" compose!
 
-    # Attempt to simplify the product of the terms at the junction.
-    C = split_mul(A[M]*B[1])
-    len = length(C)
-    if len == 2
-        if C === (A[M], B[1])
-            # No simplification, just concatenate the 2 compositions.
-            return (A..., B...)
-        else
-            # There have been some changes, but the result of A[M]*B[1] still
-            # have two terms which cannot be further simplified.  So we
-            # simplify its head with the remaining leftmost operands and its
-            # tail with the remaining rightmost operands.
-            L = simplify_mul(A[1:M-1], C[1]) # simplify leftmost operands
-            R = simplify_mul(C[2], B[2:N])   # simplify rightmost operands
-            if L[end] !== C[1] || R[1] !== C[2]
-                # At least one of the last of resulting rightmost operands or
-                # the first of the resulting leftmost operands has been
-                # modified so there may be other possible simplifications.
-                return simplify_mul(L, R)
-            else
-                # No further simplifications possible.
-                return (L..., R...)
-            end
+function compose!(A::Vector{Mapping}, B::Composition{N}) where {N}
+    @inbounds for i in 1:N
+        # Build the simplified composition A*B[i].
+        compose!(A, B[i])
+        if last(A) === B[i]
+            # The last term of the simplified composition A*B[i] is still B[i],
+            # which indicates that composing A with B[i] did not yield any
+            # simplifications.  It is sufficient to append all the other terms
+            # of B to A as no further simplifications are expected.
+            return append_terms!(A, B, (i+1):N)
         end
-    elseif len == 1
-        # Simplications have occured resulting in a single operand.  This
-        # operand can be simplified whith the remaining leftmost operands
-        # and/or with the remaining rightmost operands.  To benefit from the
-        # maximum simplifications, we can either do:
-        #
-        #     simplify_mul(A[1:end-1], simplify_mul(C, B[2:end]))
-        #
-        # that is, simplify right then left, or:
-        #
-        #     simplify_mul(simplify_mul(A[1:end-1], C), B[2:end])
-        #
-        # that is simplify left then right.  Since we want to propagate
-        # multipliers to the right of compositions, the former is the most
-        # appropriate.
-        return simplify_mul(A[1:end-1], simplify_mul(C, B[2:end]))
-    else
-        # len == 0 The result of A[M]*B[1] is the neutral element for * thus
-        # eliminating these terms from the merging.  We just have to repeat the
-        # process with the truncated associations in case further simplications
-        # are possible.
-        return simplify_mul(A[1:M-1], B[2:N-1])
     end
+    return A
+end
+
+function compose!(A::Vector{Mapping}, B::Mapping)
+    # Compute the simplified composition of the last term of A with B.  The
+    # result is either a simple mapping or a simplified composition.
+    m = length(A); @assert m > 0
+    C = A[m]*B
+
+    # Replace the last term of A with C.
+    if C isa Composition && C[1] === A[m]
+        # Nothing has changed at the tail of the composition A.  No further
+        # simplifications are expected.  Push all terms of C to A, but the
+        # first term of C which is identical to the last term of A.
+        append_terms!(A, C, 2:length(C))
+    elseif m > 1
+        # Drop the last term of A and compose the remaining terms with C.  This
+        # may trigger further simplifications
+        compose!(resize!(A, m - 1), C)
+    elseif C isa Composition
+        # Replace the only term of A by all the terms of the composition C.
+        # This is the same as above but avoids calling `resize!` as a small
+        # optimization.
+        A[1] = C[1]
+        append_terms!(A, C, 2:length(C))
+    else
+        # Replace the only term of A by the simple mapping C.
+        A[1] = C
+    end
+    return A
 end
 
 #------------------------------------------------------------------------------
 # UTILITIES
 
-function as_vector(A::Mapping)
+"""
+    as_vector(op, A)
+
+yields a vector of mappings with the terms of the mapping `A`.  Argument `op`
+is `+` or `*`.  If `op` is `+` (resp. `*`) and `A` is a sum (resp. a
+composition) of mappings, the terms of `A` are extracted in the returned
+vector; otherwise, the returned vector has just one element which is `A`.
+
+"""
+function as_vector(::Union{typeof(+),typeof(*)}, A::Mapping)
     V = Vector{Mapping}(undef, 1)
     V[1] = A
     return V
 end
 
-function as_vector(A::Sum{N}) where {N}
+as_vector(::typeof(+), A::Sum        ) = collect_terms(A)
+as_vector(::typeof(*), A::Composition) = collect_terms(A)
+
+"""
+    collect_terms(A)
+
+collects the terms of the mapping `A` into a vector.  This is similar to
+`collect(A)` except that the element type of the result is forced to be
+`Mapping`.
+
+"""
+function collect_terms(A::Union{Sum{N},Composition{N}}) where {N}
     V = Vector{Mapping}(undef, N)
     @inbounds for i in 1:N
         V[i] = A[i]
     end
     return V
+end
+
+"""
+    append_terms!(A, B, I=1:length(B)) -> A
+
+pushes all terms `B[i]` for all `i ∈ I` to `A` and returns `A`.
+
+"""
+function append_terms!(A::Vector{Mapping},
+                       B::Union{Vector{Mapping},Composition},
+                       I::AbstractUnitRange{<:Integer} = Base.OneTo(length(B)))
+
+    imin, imax = Int(first(I)), Int(last(I))
+    (1 ≤ imin && imax ≤ length(B)) ||
+        bad_argument("out of bounds indices in given range")
+    if imin ≤ imax
+        m = length(A)
+        n = imax - imin + 1
+        resize!(A, m + n)
+        k = m + 1 - imin
+        @inbounds for i in I
+            A[k+i] = B[i]
+        end
+    end
+    return A
 end
 
 end # module
