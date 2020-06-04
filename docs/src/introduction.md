@@ -146,25 +146,25 @@ B = 3A
 C = 7B'
 ```
 
-where mappings `B` and `C` are such that `B*x ≡ 3*(A*x)` and `C*x ≡ 21*(A*x)`
+where mappings `B` and `C` are such that `B*x -> 3*(A*x)` and `C*x -> 21*(A*x)`
 for any *vector* `x`.  That is `C*x` is evaluated as `21*(A*x)` not as
 `7*(3*(A*x))` thanks to simplifications occurring while the mapping `C` is
 constructed.
 
-Using the `≡` to denote in the right-hand side the actual construction made by
-LazyAlgebra for the expression in the left-hand side and assuming `A`, `B`
-and `C` are linear mappings, the following simplications will occur:
+Using the `->` to denote in the right-hand side the actual construction made by
+LazyAlgebra for the expression in the left-hand side and assuming `A`, `B` and
+`C` are linear mappings, the following simplications will occur:
 
 ```julia
-(A + C + B + 3C)' ≡ A' + B' + 4C'
-(A*B*3C)'         ≡ 3C'*B'*A'
-inv(A*B*3C)       ≡ 3\inv(C)*inv(B)*inv(A)
+(A + C + B + 3C)' -> A' + B' + 4C'
+(A*B*3C)'         -> 3C'*B'*A'
+inv(A*B*3C)       -> 3\inv(C)*inv(B)*inv(A)
 ```
 
 However, if `M` is a non-linear mapping, then:
 
 ```julia
-inv(A*B*3M) ≡ inv(M)*(3\inv(B))*inv(A)
+inv(A*B*3M) -> inv(M)*(3\inv(B))*inv(A)
 ```
 
 which can be compared to `inv(A*B*3C)` when all operands are linear mappings.
