@@ -23,8 +23,7 @@ export
 
 using ArrayTools
 using ..LazyAlgebra
-using ..LazyAlgebra: dimensions, Dimensions, @callable,
-    bad_argument, bad_size
+using ..LazyAlgebra: @callable, bad_argument, bad_size
 import ..LazyAlgebra: apply!, vcreate,
     input_size, input_ndims, output_size, output_ndims
 
@@ -93,11 +92,11 @@ output_size(C::CroppingOperator, i...) = output_size(C)[i...]
 # Union of acceptable types for the offset.
 const Offset = Union{CartesianIndex,Integer,Tuple{Vararg{Integer}}}
 
-CroppingOperator(outdims::Dimensions, inpdims::Dimensions) =
-    CroppingOperator(dimensions(outdims), dimensions(inpdims))
+CroppingOperator(outdims::ArraySize, inpdims::ArraySize) =
+    CroppingOperator(to_size(outdims), to_size(inpdims))
 
-CroppingOperator(outdims::Dimensions, inpdims::Dimensions, offset::Offset) =
-    CroppingOperator(dimensions(outdims), dimensions(inpdims),
+CroppingOperator(outdims::ArraySize, inpdims::ArraySize, offset::Offset) =
+    CroppingOperator(to_size(outdims), to_size(inpdims),
                      CartesianIndex(offset))
 
 CroppingOperator(::Tuple{Vararg{Int}}, ::Tuple{Vararg{Int}}) =

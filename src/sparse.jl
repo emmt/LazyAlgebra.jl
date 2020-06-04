@@ -72,7 +72,7 @@ to build an instance of `SparseOperator` whose coefficients have type `T`.
     If `C`, `I` and/or `J` are not fast arrays, they will be automatically
     converted to linearly indexed arrays.
 
-See also [`isfastarray`](@ref), [`GeneralMatrix`](@ref) and [`lgemv`](@ref).
+See also [`is_fast_array`](@ref), [`GeneralMatrix`](@ref) and [`lgemv`](@ref).
 
 """
 struct SparseOperator{T,M,N,
@@ -114,8 +114,8 @@ end
 function SparseOperator{T}(I::AbstractVector{<:Integer},
                            J::AbstractVector{<:Integer},
                            C::AbstractVector,
-                           rowdims::Dimensions,
-                           coldims::Dimensions) where {T}
+                           rowdims::ArraySize,
+                           coldims::ArraySize) where {T}
     # Convert indices.
     convert_indices(I::DenseVector{Int}) = I
     convert_indices(I::AbstractVector{<:Integer}) =
@@ -128,14 +128,14 @@ function SparseOperator{T}(I::AbstractVector{<:Integer},
 
     SparseOperator{T}(convert_indices(I), convert_indices(J),
                       convert_coefficients(T, C),
-                      dimensions(rowdims), dimensions(coldims))
+                      to_size(rowdims), to_size(coldims))
 end
 
 function SparseOperator(I::AbstractVector{<:Integer},
                         J::AbstractVector{<:Integer},
                         C::AbstractVector{T},
-                        rowdims::Dimensions,
-                        coldims::Dimensions) where {T}
+                        rowdims::ArraySize,
+                        coldims::ArraySize) where {T}
     SparseOperator{T}(I, J, C, rowdims, coldims)
 end
 
@@ -223,7 +223,7 @@ nrows(S::SparseOperator) = prod(output_size(S))
 ncols(S::SparseOperator) = prod(input_size(S))
 
 function check(S::SparseOperator{T,M,N}) where {T,M,N}
-    @assert isfastarray(coefficients(S), rows(S), cols(S))
+    @assert is_fast_array(coefficients(S), rows(S), cols(S))
     @assert length(coefficients(S)) == length(rows(S)) == length(cols(S))
     @assert samedims(S) == (output_size(S) == input_size(S))
     imin, imax = 1, nrows(S)
@@ -297,8 +297,8 @@ function unpack!(A::Array{Bool}, S::SparseOperator{Bool})
     return A
 end
 
-reshape(S::SparseOperator, rowdims::Dimensions, coldims::Dimensions) =
-    reshape(S, dimensions(rowdims), dimensions(coldims))
+reshape(S::SparseOperator, rowdims::ArraySize, coldims::ArraySize) =
+    reshape(S, to_size(rowdims), to_size(coldims))
 
 function reshape(S::SparseOperator,
                  rowdims::Tuple{Vararg{Int}},

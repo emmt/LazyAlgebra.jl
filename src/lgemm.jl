@@ -98,7 +98,7 @@ for (atyp, eltyp) in ((Real,   BlasReal),
                                 transB::Char,
                                 B::AbstractMatrix{T},
                                 Nc::Int) where {T<:$eltyp}
-            return (isflatarray(A, B) ? Blas() : Basic())
+            return (is_flat_array(A, B) ? Blas() : Basic())
         end
 
         function Implementation(::Val{:lgemm},
@@ -109,7 +109,7 @@ for (atyp, eltyp) in ((Real,   BlasReal),
                                 B::AbstractMatrix{T},
                                 β::$atyp,
                                 C::AbstractMatrix{T}) where {T<:$eltyp}
-            return (isflatarray(A, B, C) ? Blas() : Basic())
+            return (is_flat_array(A, B, C) ? Blas() : Basic())
         end
 
         function Implementation(::Val{:lgemm},
@@ -140,7 +140,7 @@ for (atyp, eltyp) in ((Real,   BlasReal),
                                 transB::Char,
                                 B::AbstractArray{T},
                                 Nc::Int) where {T<:$eltyp}
-            return (isflatarray(A, B) ? Blas() : Basic())
+            return (is_flat_array(A, B) ? Blas() : Basic())
         end
 
         function Implementation(::Val{:lgemm},
@@ -151,7 +151,7 @@ for (atyp, eltyp) in ((Real,   BlasReal),
                                 B::AbstractArray{T},
                                 β::$atyp,
                                 C::AbstractArray{T}) where {T<:$eltyp}
-            return (isflatarray(A, B, C) ? Blas() : Basic())
+            return (is_flat_array(A, B, C) ? Blas() : Basic())
         end
     end
 end
@@ -184,7 +184,7 @@ function Implementation(::Val{:lgemm},
                         transB::Char,
                         B::AbstractArray,
                         Nc::Int)
-    return (isflatarray(A, B) ? Linear() : Generic())
+    return (is_flat_array(A, B) ? Linear() : Generic())
 end
 
 function Implementation(::Val{:lgemm},
@@ -195,7 +195,7 @@ function Implementation(::Val{:lgemm},
                         B::AbstractArray,
                         β::Number,
                         C::AbstractArray)
-    return (isflatarray(A, B, C) ? Linear() : Generic())
+    return (is_flat_array(A, B, C) ? Linear() : Generic())
 end
 
 """
@@ -402,7 +402,7 @@ end
 
 #
 # Call low-level BLAS version.  The differences with LinearAlgebra.BLAS.gemm!
-# are that inputs are assumed to be flat arrays (see isflatarray) and that
+# are that inputs are assumed to be flat arrays (see is_flat_array) and that
 # multipliers are automatically converted.
 #
 for (f, T) in ((:dgemm_, Float64),

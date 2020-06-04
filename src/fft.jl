@@ -39,6 +39,8 @@ import ..Simplify
 
 import Base: *, /, \, inv, show
 
+using ArrayTools
+
 import AbstractFFTs: Plan, fftshift, ifftshift
 
 using FFTW
@@ -357,7 +359,7 @@ function FFTOperator(::Type{T},
     # Check arguments and build dimension list of the result of the forward
     # real-to-complex (r2c) transform.
     planning = check_flags(flags)
-    ncols = check_dimensions(dims)
+    ncols = check_size(dims)
     zdims = rfftdims(dims)
 
     # Compute the plans with suitable FFTW flags.  The forward transform (r2c)
@@ -387,7 +389,7 @@ function FFTOperator(::Type{T},
     # Check arguments.  The input and output of the complex-to-complex
     # transform have the same dimensions.
     planning = check_flags(flags)
-    ncols = check_dimensions(dims)
+    ncols = check_size(dims)
     temp = Array{T}(undef, dims)
 
     # Compute the plans with suitable FFTW flags.  For maximum efficiency, the
@@ -412,9 +414,9 @@ FFTOperator(T::Type{<:fftwNumber}, dims::Integer...; kwds...) =
 
 # The following 2 definitions are needed to avoid ambiguities.
 FFTOperator(T::Type{<:fftwReal}, dims::Tuple{Vararg{Integer}}; kwds...) =
-    FFTOperator(T, map(Int, dims); kwds...)
+    FFTOperator(T, to_size(dims); kwds...)
 FFTOperator(T::Type{<:fftwComplex}, dims::Tuple{Vararg{Integer}}; kwds...) =
-    FFTOperator(T, map(Int, dims); kwds...)
+    FFTOperator(T, to_size(dims); kwds...)
 
 # Constructor for transforms applicable to a given array.
 FFTOperator(A::DenseArray{T,N}; kwds...) where {T<:fftwNumber,N} =
@@ -832,22 +834,6 @@ function check_flags(flags::Integer)
     flags == planning ||
         bad_argument("only FFTW planning flags can be specified")
     return UInt32(planning)
-end
-
-"""
-
-`check_dimensions(dims)` checks whether the list of dimensions `dims` is
-correct and returns the corresponding total number of elements.
-
-"""
-function check_dimensions(dims::NTuple{N,Int}) where {N}
-    number = 1
-    for i in 1:length(dims)
-        dim = dims[i]
-        dim ≥ 1 || bad_argument("invalid dimension(s)")
-        number *= dim
-    end
-    return number
 end
 
 """

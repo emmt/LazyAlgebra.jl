@@ -5,6 +5,9 @@ Future:
 
 Done:
 
+* Methods `has_oneto_axes`, `densearray`, `densevector` and `densematrix` have
+  been replaced by `has_standard_indexing` and `to_flat_array` from `ArrayTools`.
+
 * The exported constant `I = Identity()` has been renamed as `Id` to avoid
   conflicts with standard `LinearAlgebra` package.  `Id` is systematically
   exported while `I` was only exported if not already defined in the `Base`
@@ -66,10 +69,6 @@ Done:
 * Skip bound checking when applying a `SparseOperator` (unless the operator
   structure has been corrupted, checking the dimensions of the arguments is
   sufficient to insure that inidices are correct).
-
-* Methods `is_flat_array`, `has_oneto_axes`, `densearray`, `densevector` and
-  `densematrix` have been deprecated in favor of `isflatarray`,
-  `has_standard_indexing`, `flatarray`, `flatvector` and `flatmatrix`.
 
 * Provide `lgemv` and `lgemv!` for *Lazily Generalized Matrix-Vector
   mutiplication* and `lgemm` and `lgemm!` for *Lazily Generalized Matrix-Matrix

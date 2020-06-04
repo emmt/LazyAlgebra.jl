@@ -132,7 +132,7 @@ for (atyp, eltyp) in ((Real,   BlasReal),
                                 trans::Char,
                                 A::AbstractMatrix{T},
                                 x::AbstractVector{T}) where {T<:$eltyp}
-            return (isflatarray(A, x) ? Blas() : Basic())
+            return (is_flat_array(A, x) ? Blas() : Basic())
         end
 
         function Implementation(::Val{:lgemv},
@@ -142,7 +142,7 @@ for (atyp, eltyp) in ((Real,   BlasReal),
                                 x::AbstractVector{T},
                                 β::$atyp,
                                 y::AbstractVector{T}) where {T<:$eltyp}
-            return (isflatarray(A, x, y) ? Blas() : Basic())
+            return (is_flat_array(A, x, y) ? Blas() : Basic())
         end
 
         function Implementation(::Val{:lgemv},
@@ -168,7 +168,7 @@ for (atyp, eltyp) in ((Real,   BlasReal),
                                 trans::Char,
                                 A::AbstractArray{T},
                                 x::AbstractArray{T}) where {T<:$eltyp}
-            return (isflatarray(A, x) ? Blas() : Basic())
+            return (is_flat_array(A, x) ? Blas() : Basic())
         end
 
         function Implementation(::Val{:lgemv},
@@ -178,7 +178,7 @@ for (atyp, eltyp) in ((Real,   BlasReal),
                                 x::AbstractArray{T},
                                 β::$atyp,
                                 y::AbstractArray{T}) where {T<:$eltyp}
-            return (isflatarray(A, x, y) ? Blas() : Basic())
+            return (is_flat_array(A, x, y) ? Blas() : Basic())
         end
     end
 end
@@ -206,7 +206,7 @@ function Implementation(::Val{:lgemv},
                         trans::Char,
                         A::AbstractArray,
                         x::AbstractArray)
-    return (isflatarray(A, x) ? Linear() : Generic())
+    return (is_flat_array(A, x) ? Linear() : Generic())
 end
 
 function Implementation(::Val{:lgemv},
@@ -216,7 +216,7 @@ function Implementation(::Val{:lgemv},
                         x::AbstractArray,
                         β::Number,
                         y::AbstractArray)
-    return (isflatarray(A, x, y) ? Linear() : Generic())
+    return (is_flat_array(A, x, y) ? Linear() : Generic())
 end
 
 # BLAS implementations for (generalized) matrices and vectors.
@@ -331,7 +331,7 @@ end
 
 #
 # Call low-level BLAS version.  The differences with LinearAlgebra.BLAS.gemv!
-# are that inputs are assumed to be flat arrays (see isflatarray) and that
+# are that inputs are assumed to be flat arrays (see is_flat_array) and that
 # multipliers are automatically converted.
 #
 for (f, T) in ((:dgemv_, Float64),

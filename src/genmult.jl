@@ -23,7 +23,7 @@ using ..LazyAlgebra
 using ..LazyAlgebra: Complexes, Floats, Reals, axes, promote_multiplier,
     libblas, @blasfunc, BlasInt, BlasReal, BlasFloat, BlasComplex,
     bad_argument, bad_size
-using ArrayTools  # for `cartesian_indices`, `isflatarray`, etc.
+using ArrayTools  # for `cartesian_indices`, `is_flat_array`, etc.
 using LinearAlgebra
 using LinearAlgebra.BLAS
 
