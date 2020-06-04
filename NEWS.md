@@ -88,7 +88,7 @@ Done:
 
 * `show` has been extend for mapping constructions.
 
-* `contents`, too vague, is about to be suppressed and replaced by `operands` or
+* `contents`, too vague, has been suppressed and replaced by `operands` or
   `operand`.  Getter `multiplier` is provided to query the multiplier of a
   scaled mapping.  Methods `getindex`, `first` and `last` are extended.  In
   principle, direct reference to a field of any base mapping structures is no
@@ -107,7 +107,7 @@ Done:
   `scratch` argument of the `vcreate` and `apply!` methods.  `InPlaceType`
   trait and `is_applicable_in_place` method have been removed.
 
-* `promote_scalar` has been modified and renamed as `convert_multipler`.
+* `promote_scalar` has been modified and renamed as `promote_multipler`.
 
 * Provide `SimpleFiniteDifferences` operator.
 
