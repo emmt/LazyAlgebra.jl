@@ -5,7 +5,7 @@ uuid = "621f4979-c628-5d54-868e-fcf4e3e8185c"
 version = "0.5.0"
 
 [[ArrayTools]]
-git-tree-sha1 = "f5a7734e20351b07458b890520f0214de92e7e22"
+git-tree-sha1 = "6c8d1e1807262c920c82d02564c25969fdbbc5c9"
 repo-rev = "master"
 repo-url = "https://github.com/emmt/ArrayTools.jl"
 uuid = "1dc0ca97-c5ce-4e77-ac6d-c576ac9d7f27"
