@@ -13,10 +13,6 @@ julia:
   - 1.4
   - nightly
 
-matrix:
-  allow_failures:
-    - julia: nightly
-
 notifications:
   email: false
 
@@ -25,6 +21,8 @@ codecov: true
 coveralls: true
 
 jobs:
+  allow_failures:
+    - julia: nightly
   include:
     - stage: "Documentation"
       julia: 1.0
