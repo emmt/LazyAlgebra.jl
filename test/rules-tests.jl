@@ -5,7 +5,8 @@
 #
 
 using LazyAlgebra
-import LazyAlgebra: ⋅
+import LazyAlgebra: ⋅, Adjoint, Inverse, InverseAdjoint,
+    Scaled, Sum, Composition
 using Test
 
 @testset "Algebraic rules" begin
@@ -223,5 +224,31 @@ using Test
 
     @test_throws ArgumentError M' # non-linear
     @test_throws ArgumentError inv(M)' # non-linear
+
+    # Test forbidden calls to constructors because they should yield an
+    # instance of a different type if simplification rules were applied.
+    @test_throws ArgumentError Adjoint(Id)
+    @test_throws ArgumentError Adjoint(M')
+    @test_throws ArgumentError Adjoint(inv(M))
+    @test_throws ArgumentError Adjoint(inv(M'))
+    @test_throws ArgumentError Adjoint(3M)
+    @test_throws ArgumentError Adjoint(A + B)
+    @test_throws ArgumentError Adjoint(A*B)
+
+    @test_throws ArgumentError Inverse(Id)
+    @test_throws ArgumentError Inverse(M')
+    @test_throws ArgumentError Inverse(inv(M))
+    @test_throws ArgumentError Inverse(inv(M'))
+    @test_throws ArgumentError Inverse(3M)
+    @test_throws ArgumentError Inverse(A*B)
+
+    @test_throws ArgumentError InverseAdjoint(Id)
+    @test_throws ArgumentError InverseAdjoint(M')
+    @test_throws ArgumentError InverseAdjoint(inv(M))
+    @test_throws ArgumentError InverseAdjoint(inv(M'))
+    @test_throws ArgumentError InverseAdjoint(3M)
+    @test_throws ArgumentError InverseAdjoint(A*B)
+
+    @test_throws ArgumentError Scaled(2,3M)
 end
 nothing

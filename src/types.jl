@@ -194,27 +194,6 @@ abstract type DiagonalType <: Trait end
 struct NonDiagonalMapping <: DiagonalType end
 struct DiagonalMapping <: DiagonalType end
 
-# What kind of argument is allowed or not when calling a constructor is highly
-# dependent on which simplifications are possible and should have been applied.
-# A trait must be used to determine this because not all decoration types are
-# known when inner constructors are defined.
-
-abstract type CanBuildAdjointTrait end
-struct CanBuildAdjoint <: CanBuildAdjointTrait end
-struct CannotBuildAdjoint <: CanBuildAdjointTrait end
-
-abstract type CanBuildInverseTrait end
-struct CanBuildInverse <: CanBuildInverseTrait end
-struct CannotBuildInverse <: CanBuildInverseTrait end
-
-abstract type CanBuildInverseAdjointTrait end
-struct CanBuildInverseAdjoint <: CanBuildInverseAdjointTrait end
-struct CannotBuildInverseAdjoint <: CanBuildInverseAdjointTrait end
-
-abstract type CanBuildScaledTrait end
-struct CanBuildScaled <: CanBuildScaledTrait end
-struct CannotBuildScaled <: CanBuildScaledTrait end
-
 """
 
 Type `Direct` is a singleton type to indicate that a linear mapping should
@@ -250,49 +229,33 @@ See also: [`LinearMapping`](@ref), [`apply`](@ref), [`Operations`](@ref).
 struct Adjoint{T<:Mapping} <: LinearMapping
     op::T
 
-    # The inner constructor prevents illegal calls to `Adjoint(A)` and make
-    # sure that the argument is a simple linear mapping.
+    # The outer constructors prevent most illegal calls to `Adjoint(A)` we
+    # just have to check that the argument is a simple linear mapping.
     function Adjoint{T}(A::T) where {T<:Mapping}
-        CanBuildAdjointTrait(T) === CanBuildAdjoint() ||
-            illegal_call_to(Adjoint)
         is_linear(A) ||
             bad_argument("taking the adjoint of non-linear mappings is not allowed")
         return new{T}(A)
     end
-
-    # Identity is treated specially.
-    Adjoint{T}(A::T) where {T<:Identity} = A
 end
 
 struct Inverse{T<:Mapping} <: Mapping
     op::T
 
-    # The inner constructor prevents illegal calls like `Inverse(A)`.
-    function Inverse{T}(A::T) where {T<:Mapping}
-        CanBuildInverseTrait(T) === CanBuildInverse() ||
-            illegal_call_to(Inverse)
-        return new{T}(A)
-    end
-
-    # Identity is treated specially.
-    Inverse{T}(A::T) where {T<:Identity} = A
+    # The outer constructors prevent all illegal calls to `Inverse(A)` so there
+    # is nothing more to check.
+    Inverse{T}(A::T) where {T<:Mapping} = new{T}(A)
 end
 
 struct InverseAdjoint{T<:Mapping} <: LinearMapping
     op::T
 
-    # The inner constructor prevents illegal calls to `InverseAdjoint(A)` and
-    # make sure that the argument is a simple linear mapping or a sum of linear mappings.
+    # The outer constructors prevent most illegal calls to `InverseAdjoint(A)`
+    # we just have to check that the argument is a simple linear mapping.
     function InverseAdjoint{T}(A::T) where {T<:Mapping}
-        CanBuildInverseAdjointTrait(T) === CanBuildInverseAdjoint() ||
-            illegal_call_to(InverseAdjoint)
         is_linear(A) ||
             bad_argument("taking the inverse adjoint of non-linear mappings is not allowed")
         return new{T}(A)
     end
-
-    # Identity is treated specially.
-    InverseAdjoint{T}(A::T) where {T<:Identity} = A
 end
 
 const AdjointInverse{T} = InverseAdjoint{T}

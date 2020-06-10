@@ -265,7 +265,9 @@ isone(::Mapping) = false
 
 # Unqualified outer constructors are provided which call the corresponding
 # inner constructors with all suitable parameters and rely on the inner
-# constructors to check whether the call was allowed or not.
+# constructors to check whether the call was allowed or not.  A constraint that
+# must hold is that T(A), with T an unqualified type constructor, always yields
+# an instance of T.
 Direct(A::Mapping) = A # provided for completeness
 Adjoint(A::T) where {T<:Mapping} = Adjoint{T}(A)
 Inverse(A::T) where {T<:Mapping} = Inverse{T}(A)
@@ -274,58 +276,69 @@ Scaled(α::S, A::T) where {S<:Number,T<:Mapping} = Scaled{T,S}(α, A)
 Sum(ops::T) where {N,T<:NTuple{N,Mapping}} = Sum{N,T}(ops)
 Composition(ops::T) where {N,T<:NTuple{N,Mapping}} = Composition{N,T}(ops)
 
-CanBuildAdjointTrait(A::T) where {T<:Mapping} = CanBuildAdjointTrait(T)
+# Qualified outer constructors to forbid decoration of mappings of specific
+# types when, according to the simplification rules, another more simple
+# construction should be built instead.  Everything not forbidden is allowed
+# except that additional tests may be performed by the inner constructors
+# (e.g., Adjoint check that its argument is linear).
+#
+# FIXME: Some restrictions may be bad ideas like adjoint of sums or
+# compositions.
 
-CanBuildAdjointTrait(::Type{<:Mapping}       ) =    CanBuildAdjoint()
-CanBuildAdjointTrait(::Type{<:Adjoint}       ) = CannotBuildAdjoint()
-CanBuildAdjointTrait(::Type{<:Inverse}       ) = CannotBuildAdjoint()
-CanBuildAdjointTrait(::Type{<:InverseAdjoint}) = CannotBuildAdjoint()
-CanBuildAdjointTrait(::Type{<:Scaled}        ) = CannotBuildAdjoint()
-CanBuildAdjointTrait(::Type{<:Sum}           ) = CannotBuildAdjoint()
-CanBuildAdjointTrait(::Type{<:Composition}   ) = CannotBuildAdjoint()
+for (func, blacklist) in ((:Adjoint, (:Identity,
+                                      :Adjoint,
+                                      :Inverse,
+                                      :InverseAdjoint,
+                                      :Scaled,
+                                      :Sum,
+                                      :Composition)),
+                          (:Inverse, (:Identity,
+                                      :Adjoint,
+                                      :Inverse,
+                                      :InverseAdjoint,
+                                      :Scaled,
+                                      :Composition)),
+                          (:InverseAdjoint, (:Identity,
+                                             :Adjoint,
+                                             :Inverse,
+                                             :InverseAdjoint,
+                                             :Scaled,
+                                             :Composition)),
+                          (:Scaled, (:Scaled,)))
+    for T in blacklist
+        if func === :Scaled
+            @eval $func{T,S}(α::S, A::T) where {S<:Number,T<:$T} =
+                illegal_call_to($func, T)
+        else
+            @eval $func{T}(A::T) where {T<:$T} = illegal_call_to($func, T)
+        end
+    end
+end
 
-@noinline illegal_call_to(::Type{Adjoint}) =
-    bad_argument("the `Adjoint` constructor can only be applied to a simple linear mapping, use expressions like `A'` or `adjoint(A)`")
+@noinline illegal_call_to(::Type{Adjoint}, T::Type) =
+    bad_argument("the `Adjoint` constructor cannot be applied to an instance of `",
+                 brief(T), "`, use expressions like `A'` or `adjoint(A)`")
 
+@noinline illegal_call_to(::Type{Inverse}, T::Type) =
+    bad_argument("the `Inverse` constructor cannot be applied to an instance of `",
+                 brief(T), "`, use expressions like `A\\B`, `A/B` or `inv(A)`")
 
-CanBuildInverseTrait(A::T) where {T<:Mapping} = CanBuildInverseTrait(T)
+@noinline illegal_call_to(::Type{InverseAdjoint}, T::Type) =
+    bad_argument("the `InverseAdjoint` constructor cannot be applied to an instance of `",
+                 brief(T), "`, use expressions like `A'\\B`, `A/(B')`, `inv(A')` or `inv(A)'`")
 
-CanBuildInverseTrait(::Type{<:Mapping}       ) =    CanBuildInverse()
-CanBuildInverseTrait(::Type{<:Adjoint}       ) = CannotBuildInverse()
-CanBuildInverseTrait(::Type{<:Inverse}       ) = CannotBuildInverse()
-CanBuildInverseTrait(::Type{<:InverseAdjoint}) = CannotBuildInverse()
-CanBuildInverseTrait(::Type{<:Scaled}        ) = CannotBuildInverse()
-CanBuildInverseTrait(::Type{<:Sum}           ) =    CanBuildInverse()
-CanBuildInverseTrait(::Type{<:Composition}   ) = CannotBuildInverse()
+@noinline illegal_call_to(::Type{Scaled}, T::Type) =
+    bad_argument("the `Scaled` constructor cannot be applied to an instance of `",
+                 brief(T), "`, use expressions like `α*A`")
 
-@noinline illegal_call_to(::Type{Inverse}) =
-    bad_argument("the `Inverse` constructor can only be applied to a simple mapping or to a sum of mappings, use expressions like `A\\B`, `A/B` or `inv(A)`")
-
-CanBuildInverseAdjointTrait(A::T) where {T<:Mapping} = CanBuildInverseAdjointTrait(T)
-
-CanBuildInverseAdjointTrait(::Type{<:Mapping}       ) =    CanBuildInverseAdjoint()
-CanBuildInverseAdjointTrait(::Type{<:Adjoint}       ) = CannotBuildInverseAdjoint()
-CanBuildInverseAdjointTrait(::Type{<:Inverse}       ) = CannotBuildInverseAdjoint()
-CanBuildInverseAdjointTrait(::Type{<:InverseAdjoint}) = CannotBuildInverseAdjoint()
-CanBuildInverseAdjointTrait(::Type{<:Scaled}        ) = CannotBuildInverseAdjoint()
-CanBuildInverseAdjointTrait(::Type{<:Sum}           ) = CannotBuildInverseAdjoint()
-CanBuildInverseAdjointTrait(::Type{<:Composition}   ) = CannotBuildInverseAdjoint()
-
-@noinline illegal_call_to(::Type{InverseAdjoint}) =
-    bad_argument("the `InverseAdjoint` constructor can only be applied to a simple linear mapping or to a sum of linear mappings, use expressions like `A'\\B`, `A/(B')`, `inv(A')` or `inv(A)'`")
-
-CanBuildScaledTrait(A::T) where {T<:Mapping} = CanBuildScaledTrait(T)
-
-CanBuildScaledTrait(::Type{<:Mapping}       ) =    CanBuildScaled()
-CanBuildScaledTrait(::Type{<:Adjoint}       ) =    CanBuildScaled()
-CanBuildScaledTrait(::Type{<:Inverse}       ) =    CanBuildScaled()
-CanBuildScaledTrait(::Type{<:InverseAdjoint}) =    CanBuildScaled()
-CanBuildScaledTrait(::Type{<:Scaled}        ) = CannotBuildScaled()
-CanBuildScaledTrait(::Type{<:Sum}           ) =    CanBuildScaled()
-CanBuildScaledTrait(::Type{<:Composition}   ) =    CanBuildScaled()
-
-@noinline illegal_call_to(::Type{Scaled}) =
-    bad_argument("the `Scaled` constructor can only be applied to an unscaled mapping, use expressions like `α*A`")
+brief(::Type{<:Adjoint}) = "Adjoint"
+brief(::Type{<:Inverse}) = "Inverse"
+brief(::Type{<:InverseAdjoint}) = "InverseAdjoint"
+brief(::Type{<:Scaled}) = "Scaled"
+brief(::Type{<:Sum}) = "Sum"
+brief(::Type{<:Composition}) = "Composition"
+brief(::Type{<:Identity}) = "Identity"
+brief(T::Type) = repr(T)
 
 #------------------------------------------------------------------------------
 # SCALED TYPE
