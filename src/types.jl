@@ -141,9 +141,8 @@ abstract type LinearMapping <: Mapping end
 @doc @doc(Mapping) LinearMapping
 
 """
-```julia
-Identity()
-```
+
+    Identity()
 
 yields the identity linear mapping.  The purpose of this mapping is to be as
 efficient as possible, hence the result of applying this mapping may be the
@@ -151,9 +150,7 @@ same as the input argument.
 
 The identity is a singleton and is also available as:
 
-```julia
-Id
-```
+    Id
 
 The `LinearAlgebra` module of the standard library exports a constant `I` which
 also corresponds to the identity (but in the sense of a matrix).  When `I` is
@@ -206,25 +203,17 @@ struct Direct; end
 
 """
 
-Types `Adjoint`, `Inverse`, `InverseAdjoint` and `Jacobian` are used to
-*decorate* a mapping to indicate the conjugate transpose and/or inverse of the
-mapping.  `AdjointInverse` is just an alias for `InverseAdjoint`.  The adjoint
-only makes sense for linear mappings, the Jacobian only makes sense for a
-non-linear mapping.
+    Adjoint(A) -> obj
 
-Call `unveil(A)` to reveal the mapping embedded in decorated mapping `A`.
+yields an object instance `obj` representing `A'`, the adjoint of the linear
+mapping `A`.
 
-LazyAlgebra extends the `adjoint` and `inv` methods and the `*`, `∘`, `.`, `+`,
-`-`, `/` and `\\' operators, so that directly calling the constructors
-`Adjoint`, `Inverse` and `InverseAdjoint` should not be needed for the
-end-user.  For instance, it is sufficient to write `A'` or `adjoint(A)` and
-`inv(A)` or `Id/A` (with `Id` the identity) to get the adjoint and the inverse
-of `A`.  Furthermore, `A'`, `adjoint(A)`, `inv(A)` or `Id/A`, etc.  may be able
-to perform some simplications resulting in improved efficiency.  These
-simplifications are not permorfed if the constructors of the decorated types
-are directly called.
+Directly calling this constructor is discouraged, use an expression like `A'`
+instead and benefit from automatic simplification rules.
 
-See also: [`LinearMapping`](@ref), [`apply`](@ref), [`Operations`](@ref).
+Call [`unveil(obj)`](@ref) to reveal the linear mapping `A` embedded in `obj`.
+
+See also [`DecoratedMapping`](@ref).
 
 """
 struct Adjoint{T<:Mapping} <: LinearMapping
@@ -239,6 +228,19 @@ struct Adjoint{T<:Mapping} <: LinearMapping
     end
 end
 
+"""
+    Inverse(A) -> obj
+
+yields an object instance `obj` representing the inverse of the mapping `A`.
+
+Directly calling this constructor is discouraged, call `inv(A)` or use an
+expression like `Id/A` instead and benefit from automatic simplification rules.
+
+Call [`unveil(obj)`](@ref) to reveal the mapping `A` embedded in `obj`.
+
+See also [`DecoratedMapping`](@ref).
+
+"""
 struct Inverse{T<:Mapping} <: Mapping
     op::T
 
@@ -247,6 +249,23 @@ struct Inverse{T<:Mapping} <: Mapping
     Inverse{T}(A::T) where {T<:Mapping} = new{T}(A)
 end
 
+"""
+    InverseAdjoint(A) -> obj
+
+yields an object instance `obj` representing the inverse of the adjoint of the
+linear mapping `A`.
+
+Directly calling this constructor is discouraged, use expressions like
+`inv(A')`, `inv(A')` or `Id/A'` instead and benefit from automatic
+simplification rules.
+
+Call [`unveil(obj)`](@ref) to reveal the mapping `A` embedded in `obj`.
+
+`AdjointInverse` is an alias for `InverseAdjoint`.
+
+See also [`DecoratedMapping`](@ref).
+
+"""
 struct InverseAdjoint{T<:Mapping} <: LinearMapping
     op::T
 
@@ -260,10 +279,7 @@ struct InverseAdjoint{T<:Mapping} <: LinearMapping
 end
 
 const AdjointInverse{T} = InverseAdjoint{T}
-
-for T in (:Inverse, :InverseAdjoint, :AdjointInverse)
-    @eval @doc @doc(Adjoint) $T
-end
+@doc @doc(InverseAdjoint) AdjointInverse
 
 struct Jacobian{T<:Mapping} <: Mapping
     op::T
@@ -279,15 +295,18 @@ struct Jacobian{T<:Mapping} <: Mapping
 end
 
 """
-    Gram(A)
 
-yields the linear mapping representing the composition `A'*A` for the linear
-mapping `A`.
+    Gram(A) -> obj
+
+yields an object instance `obj` representing the composition `A'*A` for the
+linear mapping `A`.
 
 Directly calling this constructor is discouraged, call [`gram(A)`](@ref) or use
-expression `A'*A` instead.
+expression `A'*A` instead and benefit from automatic simplification rules.
 
-See also [`gram`](@ref) and [`DecoratedMapping`](@ref).
+Call [`unveil(obj)`](@ref) to reveal the linear mapping `A` embedded in `obj`.
+
+See also [`gram`](@ref), [`unveil`](@ref) and [`DecoratedMapping`](@ref).
 
 """
 struct Gram{T<:Mapping} <: LinearMapping
@@ -307,33 +326,35 @@ end
 [`Adjoint`](@ref), [`Inverse`](@ref), [`InverseAdjoint`](@ref),
 [`Jacobian`](@ref) and [`Gram`](@ref).
 
-The method `unveil(A)` can be called to reveal the mapping embedded in
-decorated mapping `A`.
+The method [`unveil(A)`](@ref) can be called to reveal the mapping embedded in
+a decorated mapping `A`.
 
 """
 const DecoratedMapping = Union{Adjoint,Inverse,InverseAdjoint,Jacobian,Gram}
 
 """
 
-`Operations` is the union of the possible ways to apply a mapping: `Direct`,
-`Adjoint`, `Inverse` and `InverseAdjoint` (or its alias `AdjointInverse`).
+`Operations` is the union of the possible variants to apply a mapping:
+[`Direct`](@ref), [`Adjoint`](@ref), [`Inverse`](@ref) and
+[`InverseAdjoint`](@ref) (or its alias [`AdjointInverse`](@ref)).
 
-See also: [`LinearMapping`](@ref), [`apply`](@ref), [`Direct`](@ref),
-          [`Adjoint`](@ref).
+See also: [`apply`](@ref) and [`apply!`](@ref).
 
 """
 const Operations = Union{Direct,Adjoint,Inverse,InverseAdjoint}
 
 """
 
-A `Scaled` mapping is used to represent a mapping times a scalar.  End-users
-should not use the `Scaled` constructor directly but rather use expressions
-like `λ*M` with `λ` a scalar number and `M` a mapping, as LazyAlgebra may be
-able to make some simplifications resulting in improved efficiency.
+    Scaled(λ, M) -> obj
 
+yields an object instance `obj` representing `λ*M`, the mapping `M` multiplied
+by a scalar `λ`.
 
-Methods `multiplier` and `unscaled` can be applied to a scaled mapping `A =
-λ*M` to retrieve `λ` and `M` respectively.
+Directly calling this constructor is discouraged, use expressions like `λ*M`
+instead and benefit from automatic simplification rules.
+
+Call [`multiplier(obj)`](@ref) and [`unscaled(obj)`](@ref) with a scaled
+mapping `obj = λ*M` to retrieve `λ` and `M` respectively.
 
 """
 struct Scaled{T<:Mapping,S<:Number} <: Mapping
@@ -345,10 +366,16 @@ end
 
 """
 
-A `Sum` is used to represent an arbitrary sum of mappings.  End-users should
-not use the `Sum` constructor directly but rather use the `+` operator as
-LazyAlgebra may be able to make some simplifications resulting in improved
-efficiency.
+    Sum(A, B, ...) -> obj
+
+yields an object instance `obj` representing the sum `A + B + ...` of the
+mappings `A`, `B`, ...
+
+Directly calling this constructor is discouraged, use expressions like `A + B +
+...` instead and benefit from automatic simplification rules.
+
+Call [`terms(obj)`](@ref) retrieve the tuple `(A,B,...)` of the terms of the
+sum stored in `obj`.
 
 """
 struct Sum{N,T<:NTuple{N,Mapping}} <: Mapping
@@ -364,12 +391,17 @@ end
 
 """
 
-A `Composition` is used to represent an arbitrary composition of mappings.
-Constructor `Composition(A,B)` may be extended in code implementing specific
-mappings of linear operators to provide *automatic* simplifications.  The
-end-user should not use the `Composition` constructor directly but use the
-operators `*`, `∘` or `⋅` instead as LazyAlgebra may be able to make some
-simplifications resulting in improved efficiency.
+    Composition(A, B, ...) -> obj
+
+yields an object instance `obj` representing the composition `A*B*...` of the
+mappings `A`, `B`, ...
+
+Directly calling this constructor is discouraged, use expressions like
+`A*B*...` `A∘B∘...` or `A⋅B⋅...` instead and benefit from automatic
+simplification rules.
+
+Call [`terms(obj)`](@ref) retrieve the tuple `(A,B,...)` of the terms of the
+composition stored in `obj`.
 
 """
 struct Composition{N,T<:NTuple{N,Mapping}} <: Mapping

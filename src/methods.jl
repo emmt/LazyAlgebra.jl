@@ -21,9 +21,8 @@ function unimplemented(func::Union{AbstractString,Symbol},
 end
 
 """
-```julia
-@callable T
-```
+
+    @callable T
 
 makes concrete type `T` callable as a regular mapping that is `A(x)` yields
 `apply(A,x)` for any `A` of type `T`.
@@ -149,6 +148,7 @@ function show(io::IO, A::Composition{N}) where {N}
 end
 
 """
+
     terms(A)
 
 yields the list (as a tuple) of terms that compose mapping `A`.  If `A` is a
@@ -165,6 +165,7 @@ terms(A::Mapping) = (A,)
 @deprecate operands terms
 
 """
+
     unveil(A)
 
 unveils the mapping embedded in mapping `A` if it is a *decorated* mapping (see
@@ -183,6 +184,7 @@ Mapping(A::UniformScaling) = unveil(A)
 @deprecate operand unveil
 
 """
+
     unscaled(A)
 
 and
@@ -204,6 +206,7 @@ multiplier(A::UniformScaling) = getfield(A, :λ)
 @doc @doc(unscaled) multiplier
 
 """
+
     identifier(A)
 
 yields an (almost) unique identifier of the mapping `A` computed as
@@ -231,18 +234,17 @@ eltype(::Type{<:Sum{N,T}}) where {N,T} = eltype(T)
 eltype(::Type{<:Composition{N,T}}) where {N,T} = eltype(T)
 Tuple(A::Union{Sum,Composition}) = terms(A)
 
-# FIXME: Shall we restrict the index to be an integer?
-@inline @propagate_inbounds getindex(A::Union{Sum,Composition}, i) = terms(A)[i]
+@inline @propagate_inbounds getindex(A::Union{Sum,Composition}, i) =
+    getindex(terms(A), i)
 
 """
-```julia
-input_type([P=Direct,] A)
-output_type([P=Direct,] A)
-```
+
+    input_type([P=Direct,] A)
+    output_type([P=Direct,] A)
 
 yield the (preferred) types of the input and output arguments of the operation
-`P` with mapping `A`.  If `A` operates on Julia arrays, the element type,
-list of dimensions, `i`-th dimension and number of dimensions for the input and
+`P` with mapping `A`.  If `A` operates on Julia arrays, the element type, list
+of dimensions, `i`-th dimension and number of dimensions for the input and
 output are given by:
 
     input_eltype([P=Direct,] A)          output_eltype([P=Direct,] A)
@@ -322,9 +324,7 @@ end
 
 """
 
-```julia
-coefficients(A)
-```
+    coefficients(A)
 
 yields the object backing the storage of the coefficients of the linear mapping
 `A`.  Not all linear mappings extend this method.
@@ -333,9 +333,7 @@ yields the object backing the storage of the coefficients of the linear mapping
 
 """
 
-```julia
-check(A) -> A
-```
+    check(A) -> A
 
 checks integrity of mapping `A` and returns it.
 
@@ -343,9 +341,8 @@ checks integrity of mapping `A` and returns it.
 check(A::Mapping) = A
 
 """
-```julia
-checkmapping(y, A, x) -> (v1, v2, v1 - v2)
-```
+
+    checkmapping(y, A, x) -> (v1, v2, v1 - v2)
 
 yields `v1 = vdot(y, A*x)`, `v2 = vdot(A'*y, x)` and their difference for `A` a
 linear mapping, `y` a "vector" of the output space of `A` and `x` a "vector"
@@ -355,9 +352,7 @@ same whatever `x` and `y`; otherwise the mapping has a bug.
 Simple linear mappings operating on Julia arrays can be tested on random
 "vectors" with:
 
-```julia
-checkmapping([T=Float64,] outdims, A, inpdims) -> (v1, v2, v1 - v2)
-```
+    checkmapping([T=Float64,] outdims, A, inpdims) -> (v1, v2, v1 - v2)
 
 with `outdims` and `outdims` the dimensions of the output and input "vectors"
 for `A`.  Optional argument `T` is the element type.
@@ -365,14 +360,12 @@ for `A`.  Optional argument `T` is the element type.
 If `A` operates on Julia arrays and methods `input_eltype`, `input_size`,
 `output_eltype` and `output_size` have been specialized for `A`, then:
 
-```julia
-checkmapping(A) -> (v1, v2, v1 - v2)
-```
-
+    checkmapping(A) -> (v1, v2, v1 - v2)
+=
 is sufficient to check `A` against automatically generated random arrays.
 
 See also: [`vdot`](@ref), [`vcreate`](@ref), [`apply!`](@ref),
-          [`input_type`](@ref).
+[`input_type`](@ref).
 
 """
 function checkmapping(y::Ty, A::Mapping, x::Tx) where {Tx, Ty}
@@ -399,6 +392,7 @@ checkmapping(A::LinearMapping) =
     checkmapping(randn(output_eltype(A), output_size(A)), A,
                  randn(input_eltype(A), input_size(A)))
 """
+
     is_same_mapping(A, B)
 
 yields whether `A` is the same mapping as `B` in the sense that their effects
@@ -424,11 +418,10 @@ The default implementation is to return `A === B`.
 
 """
 
-```julia
-gram(A) -> A'*A
-```
+    gram(A) -> A'*A
 
-yields the Gram operator of the "*columns*" of the linear mapping `A`.
+yields the Gram operator built out of the linear mapping `A`.  The result is
+equivalent to `A'*A` but its type depends on simplifications that may occur.
 
 See also [`Gram`](@ref).
 
