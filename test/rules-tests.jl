@@ -250,5 +250,13 @@ using Test
     @test_throws ArgumentError InverseAdjoint(A*B)
 
     @test_throws ArgumentError Scaled(2,3M)
+
+    # Check that sums and compositions must have at least 2 terms
+    @test_throws ArgumentError Sum()
+    @test_throws ArgumentError Sum(A)
+    @test Sum(A,B) isa Sum
+    @test_throws ArgumentError Composition()
+    @test_throws ArgumentError Composition(A)
+    @test Composition(A,B) isa Composition
 end
 nothing
