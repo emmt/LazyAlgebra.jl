@@ -62,6 +62,7 @@ SelfAdjointType(A::Scaled) = SelfAdjointType(unscaled(A))
 SelfAdjointType(A::Sum) =
     (allof(x -> SelfAdjointType(x) === SelfAdjoint(), terms(A)...) ?
      SelfAdjoint() : NonSelfAdjoint())
+SelfAdjointType(A::Gram) = SelfAdjoint()
 
 @doc @doc(SelfAdjointType) SelfAdjoint
 @doc @doc(SelfAdjointType) NonSelfAdjoint
@@ -82,6 +83,7 @@ See also: [`Trait`](@ref), [`is_endomorphism`](@ref).
 """
 MorphismType(::Mapping) = Morphism()
 MorphismType(A::DecoratedMapping) = MorphismType(unveil(A))
+MorphismType(A::Gram) = Endomorphism()
 MorphismType(A::Scaled) = MorphismType(unscaled(A))
 MorphismType(A::Union{Sum,Composition}) =
     (allof(x -> MorphismType(x) === Endomorphism(), terms(A)...) ?
@@ -269,6 +271,7 @@ Direct(A::Mapping) = A # provided for completeness
 Adjoint(A::T) where {T<:Mapping} = Adjoint{T}(A)
 Inverse(A::T) where {T<:Mapping} = Inverse{T}(A)
 InverseAdjoint(A::T) where {T<:Mapping} = InverseAdjoint{T}(A)
+Gram(A::T) where {T<:Mapping} = Gram{T}(A)
 Jacobian(A::T) where {T<:Mapping} = Jacobian{T}(A)
 Scaled(α::S, A::T) where {S<:Number,T<:Mapping} = Scaled{T,S}(α, A)
 Sum(ops::Mapping...) = Sum(ops)
@@ -304,6 +307,9 @@ for (func, blacklist) in ((:Adjoint,        (:Identity,
                                              :InverseAdjoint,
                                              :Scaled,
                                              :Composition)),
+                          (:Gram,           (:Inverse,
+                                             :InverseAdjoint,
+                                             :Scaled,)),
                           (:Jacobian,       (:Scaled,)),
                           (:Scaled,         (:Scaled,)))
     for T in blacklist
@@ -328,9 +334,13 @@ end
     bad_argument("the `InverseAdjoint` constructor cannot be applied to an instance of `",
                  brief(T), "`, use expressions like `A'\\B`, `A/(B')`, `inv(A')` or `inv(A)'`")
 
+@noinline illegal_call_to(::Type{Gram}, T::Type) =
+    bad_argument("the `Gram` constructor cannot be applied to an instance of `",
+                 brief(T), "`, use expressions like `A'*A` or `gram(A)`")
+
 @noinline illegal_call_to(::Type{Jacobian}, T::Type) =
     bad_argument("the `Jacobian` constructor cannot be applied to an instance of `",
-                 brief(T), "`, use expressions like `A'`")
+                 brief(T), "`, use an expression like `A'`")
 
 @noinline illegal_call_to(::Type{Scaled}, T::Type) =
     bad_argument("the `Scaled` constructor cannot be applied to an instance of `",
@@ -339,6 +349,7 @@ end
 brief(::Type{<:Adjoint}       ) = "Adjoint"
 brief(::Type{<:Inverse}       ) = "Inverse"
 brief(::Type{<:InverseAdjoint}) = "InverseAdjoint"
+brief(::Type{<:Gram}          ) = "Gram"
 brief(::Type{<:Jacobian}      ) = "Jacobian"
 brief(::Type{<:Scaled}        ) = "Scaled"
 brief(::Type{<:Sum}           ) = "Sum"
@@ -378,6 +389,7 @@ adjoint(A::Adjoint) = unveil(A)
 adjoint(A::Inverse) = inv(adjoint(unveil(A)))
 adjoint(A::InverseAdjoint) = inv(unveil(A))
 adjoint(A::Jacobian) = Jacobian(A)
+adjoint(A::Gram) = A
 adjoint(A::Composition) =
     # It is assumed that the composition has already been simplified, so we
     # just apply the mathematical formula for the adjoint of a composition.
@@ -501,6 +513,31 @@ end
 *(A::Adjoint{T}, B::InverseAdjoint{T}) where {T<:Mapping} =
     (unveil(A) === unveil(B) ? Id : Composition(A, B))
 *(A::InverseAdjoint, B::InverseAdjoint) = Composition(A, B)
+
+# Automatically build Gram operators, Gram(A) ≡ A'*A.  The following automatic
+# rules are implemented (for an "allowed" linear mapping A):
+#
+#     A'*A -> Gram(A)
+#     A*A' -> Gram(A')
+#     inv(A)*inv(A') -> inv(A'*A) -> inv(Gram(A))
+#     inv(A')*inv(A) -> inv(A*A') -> inv(Gram(A'))
+#
+# other rules implemented elsewhere:
+#
+#     Gram(inv(A))  -> inv(Gram(A'))
+#     Gram(inv(A')) -> inv(Gram(A))
+#
+# In principle, if forming the adjoint has been allowed, it not needed
+# to check whether operands are linear mappings.
+*(A::Adjoint{T}, B::T) where {T<:Mapping} =
+    (unveil(A) === B ? Gram(B) : Composition(A, B))
+*(A::T, B::Adjoint{T}) where {T<:Mapping} =
+    (A === unveil(B) ? Gram(B) : Composition(A, B))
+*(A::Inverse{T}, B::InverseAdjoint{T}) where {T<:Mapping} =
+    (unveil(A) === unveil(B) ? Inverse(Gram(unveil(A))) : Composition(A, B))
+*(A::InverseAdjoint{T}, B::Inverse{T}) where {T<:Mapping} =
+    (unveil(A) === unveil(B) ? Inverse(Gram(Adjoint(unveil(A)))) :
+     Composition(A, B))
 
 # Left and right divisions.
 \(A::Mapping, B::Mapping) = inv(A)*B
@@ -756,8 +793,8 @@ end
 vcreate(P::Type{<:Operations}, A::Scaled, x, scratch::Bool) =
     vcreate(P, unscaled(A), x, scratch)
 
-# Implemention of the `apply!(α,P,A,x,scratch,β,y)` and
-# `vcreate(P,A,x,scratch=false)` methods for the various decorations of a
+# Implemention of the `vcreate(P,A,x,scratch)` and
+# `apply!(α,P,A,x,scratch,β,y)` methods for the various decorations of a
 # mapping so as to automatically unveil the embedded mapping.
 for (T1, T2, T3) in ((:Direct,         :Adjoint,        :Adjoint),
                      (:Adjoint,        :Adjoint,        :Direct),
@@ -849,12 +886,6 @@ function vcreate(::Type{<:Operations},
     error("it is not possible to create the output of a composition of mappings")
 end
 
-# Gram matrices are Hermitian by construction.
-apply!(α::Number, ::Type{Adjoint}, A::Gram, x, scratch::Bool, β::Number, y) =
-    apply!(α, Direct, A, x, scratch, β, y)
-apply!(α::Number, ::Type{InverseAdjoint}, A::Gram, x, scratch::Bool, β::Number, y) =
-    apply!(α, Inverse, A, x, scratch, β, y)
-
 function apply!(α::Number, ::Type{P}, A::Composition{N}, x, scratch::Bool,
                 β::Number, y) where {N,P<:Union{Direct,InverseAdjoint}}
     if α == 0
@@ -907,4 +938,37 @@ function apply(::Type{P}, ::typeof(*), ops::NTuple{N,Mapping}, x,
     N == 1 && return w
     scratch = overwritable(scratch, w, x)
     apply(P, *, ops[2:N], w, scratch)
+end
+
+# Default rules to apply a Gram operator.  Gram matrices are Hermitian by
+# construction which left only 2 cases to deal with.
+
+apply!(α::Number, ::Type{Adjoint}, A::Gram, x, scratch::Bool, β::Number, y) =
+    apply!(α, Direct, A, x, scratch, β, y)
+
+apply!(α::Number, ::Type{InverseAdjoint}, A::Gram, x, scratch::Bool, β::Number, y) =
+    apply!(α, Inverse, A, x, scratch, β, y)
+
+function apply!(α::Number, ::Type{Direct}, A::Gram, x, scratch::Bool, β::Number, y)
+    if α == 0
+        vscale!(y, β)
+    else
+        B = unveil(A) # A ≡ B'*B
+        z = apply(Direct, B, x, scratch) # z <- B⋅x
+        apply!(α, Adjoint, B, z, (z !== x), β, y) # y <- α⋅B'⋅z + β⋅y
+    end
+    return y
+end
+
+function apply!(α::Number, ::Type{Inverse}, A::Gram, x, scratch::Bool, β::Number, y)
+    if α == 0
+        vscale!(y, β)
+    else
+        B = unveil(A) # A ≡ B'⋅B
+        # Compute α⋅inv(A)⋅x + β⋅y = α⋅inv(B'⋅B)⋅x + β⋅y
+        #                          = α⋅inv(B)⋅inv(B')⋅x + β⋅y
+        z = apply(InverseAdjoint, B, x, scratch) # z <- inv(B')⋅x
+        apply!(α, Inverse, B, z, (z !== x), β, y) # y <- α⋅inv(B)⋅z + β⋅y
+    end
+    return y
 end

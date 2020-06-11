@@ -61,8 +61,8 @@ end
     @test is_endomorphism(A) == false
     @test is_selfadjoint(M) == false
     @test is_selfadjoint(A) == false
-    @test_broken is_selfadjoint(A'*A) == true
-    @test_broken is_selfadjoint(A*A') == true
+    @test is_selfadjoint(A'*A) == true # FIXME: was broken
+    @test is_selfadjoint(A*A') == true # FIXME: was broken
     @test_broken is_selfadjoint(B'*A*A'*B) == true
 
     # Test identity.

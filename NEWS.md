@@ -5,14 +5,19 @@ Future:
 * Exported methods and types have been limited to the ones for the end-user.
   Use `using LazyAlgebra.LowLevel` to get the others.
 
-* Since forming the adjoint or the inverse-adjoint of a non-linear mapping is
-  forbidden by their inner constructors, `LinearType`, `is_linear` and `Gram`
-  have been optimized to avoid further checks.  If `A'` is allowed for a
-  non-linear mapping, convert it to something like `Jacobian(A)` if that makes
-  sense to distinguish form `Adjoint(A)`.  In particular, `(A')'` does not
-  simplify to `A` is `A` is non-linear but to `Jacobain(Jacobian(A))`.
+* The notation `A'` is only allowed for linear mappings and always denote the
+  adjoint of `A`.  The Jacobian of a non-linear mapping is a linear mapping
+  (not clear how to apply it though) whose adjoint can be taken.  Call `∇(A,x)`
+  or `jacobian(A,x)` to build the representation of the Jacobian of a mapping
+  `A` at the point `x`. The Jacobian of a linear-mapping `A` is `A` whatever `x`.
 
 Done:
+
+* `Gram` type is no longer an alias, it is now part of the *decorated types*
+  and some constructions are automaticaly recognized as valid Gram operators.
+  Making this work for more complex constructions (like sums and compositions)
+  would require to change the simplification rules (notably for the adjoint of
+  such constructions).
 
 * New `Jacobian` decoration type to denote the Jacobian of a non-linear mapping
   and associated `jacobian` (aliased to `∇`) method.  For now, `adjoint` and

@@ -279,16 +279,39 @@ struct Jacobian{T<:Mapping} <: Mapping
 end
 
 """
+    Gram(A)
+
+yields the linear mapping representing the composition `A'*A` for the linear
+mapping `A`.
+
+Directly calling this constructor is discouraged, call [`gram(A)`](@ref) or use
+expression `A'*A` instead.
+
+See also [`gram`](@ref) and [`DecoratedMapping`](@ref).
+
+"""
+struct Gram{T<:Mapping} <: LinearMapping
+    op::T
+
+    # The outer constructors prevent most illegal calls to `Gram(A)` we
+    # just have to check that the argument is a simple linear mapping.
+    function Gram{T}(A::T) where {T<:Mapping}
+        is_linear(A) || throw_forbidden_Gram_of_non_linear_mapping()
+        return new{T}(A)
+    end
+end
+
+"""
 
 `DecoratedMapping` is the union of the *decorated* mapping types:
-[`Adjoint`](@ref), [`Inverse`](@ref), [`InverseAdjoint`](@ref) and
-[`Jacobian`](@ref).
+[`Adjoint`](@ref), [`Inverse`](@ref), [`InverseAdjoint`](@ref),
+[`Jacobian`](@ref) and [`Gram`](@ref).
 
 The method `unveil(A)` can be called to reveal the mapping embedded in
 decorated mapping `A`.
 
 """
-const DecoratedMapping = Union{Adjoint,Inverse,InverseAdjoint,Jacobian}
+const DecoratedMapping = Union{Adjoint,Inverse,InverseAdjoint,Jacobian,Gram}
 
 """
 
@@ -359,13 +382,3 @@ struct Composition{N,T<:NTuple{N,Mapping}} <: Mapping
         new{N,T}(ops)
     end
 end
-
-"""
-
-`Gram{typeof(A)}` is an alias to represent the type of the construction
-`gram(A) = A'*A` for the linear mapping `A`.
-
-See also [`gram`](@ref).
-
-"""
-const Gram{T<:LinearMapping} = Composition{2,Tuple{Adjoint{T},T}}

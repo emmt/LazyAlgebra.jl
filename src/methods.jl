@@ -37,6 +37,8 @@ end
 @callable Adjoint
 @callable Inverse
 @callable InverseAdjoint
+@callable Jacobian
+@callable Gram
 @callable Scaled
 @callable Sum
 @callable Composition
@@ -445,12 +447,17 @@ are_same_mappings(A::T, B::T) where {T<:Mapping} = (A === B)
 gram(A) -> A'*A
 ```
 
-yields the Gram matrix of the "*columns*" of the linear mapping `A`.
+yields the Gram operator of the "*columns*" of the linear mapping `A`.
 
 See also [`Gram`](@ref).
 
 """
 gram(A::LinearMapping) = A'*A
+gram(A::Mapping) =
+    is_linear(A) ? A'*A : throw_forbidden_Gram_of_non_linear_mapping()
+
+@noinline throw_forbidden_Gram_of_non_linear_mapping() =
+    bad_argument("making a Gram operator out of a non-linear mapping is not allowed")
 
 # Functions that will be inlined to execute an elementary operation when
 # performing `α⋅x + β⋅y`.  Passing these (simple) functions to another method
