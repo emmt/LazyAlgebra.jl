@@ -11,9 +11,6 @@
 # Copyright (c) 2017-2020 Éric Thiébaut.
 #
 
-const UnsupportedInverseOfSumOfMappings =
-    "automatic dispatching of the inverse of a sum of mappings is not supported"
-
 """
 
 ```julia
@@ -777,27 +774,34 @@ end
 
 function apply!(α::Number, P::Type{<:Union{Direct,Adjoint}}, A::Sum{N},
                 x, scratch::Bool, β::Number, y) where {N}
-    # Apply first mapping with β and then other with β=1.  Scratch flag is
-    # always false until last mapping because we must preserve x as there is
-    # more than one term.
-    @assert N ≥ 2 "bug in Sum constructor"
-    apply!(α, P, A[1], x, false, β, y)
-    for i in 2:N
-        apply!(α, P, A[i], x, (scratch && i == N), 1, y)
+    if α == 0
+        # Just scale the destination.
+        vscale!(y, β)
+    else
+        # Apply first mapping with β and then other with β=1.  Scratch flag is
+        # always false until last mapping because we must preserve x as there
+        # is more than one term.
+        apply!(α, P, A[1], x, false, β, y)
+        for i in 2:N
+            apply!(α, P, A[i], x, (scratch && i == N), 1, y)
+        end
     end
     return y
 end
 
 vcreate(::Type{<:Union{Inverse,InverseAdjoint}}, A::Sum, x, scratch::Bool) =
-    error(UnsupportedInverseOfSumOfMappings)
+    throw_unsupported_inverse_of_sum()
 
 apply(::Type{<:Union{Inverse,InverseAdjoint}}, A::Sum, x, scratch::Bool) =
-    error(UnsupportedInverseOfSumOfMappings)
+    throw_unsupported_inverse_of_sum()
 
 function apply!(α::Number, ::Type{<:Union{Inverse,InverseAdjoint}}, A::Sum,
                 x, scratch::Bool, β::Number, y)
-    error(UnsupportedInverseOfSumOfMappings)
+    throw_unsupported_inverse_of_sum()
 end
+
+throw_unsupported_inverse_of_sum() =
+    error("automatic dispatching of the inverse of a sum of mappings is not supported")
 
 # Implementation of the `apply!(α,P,A,x,scratch,β,y)` method for a composition
 # of mappings.  There is no possible `vcreate(P,A,x,scratch)` method for a
@@ -819,7 +823,7 @@ end
 # To break the type barrier, this is done by a recursion.  The recursion is
 # just done in the other direction for the Adjoint or Inverse operation.
 
-function vcreate(P::Type{<:Operations},
+function vcreate(::Type{<:Operations},
                  A::Composition{N}, x, scratch::Bool) where {N}
     error("it is not possible to create the output of a composition of mappings")
 end
@@ -830,54 +834,56 @@ apply!(α::Number, ::Type{Adjoint}, A::Gram, x, scratch::Bool, β::Number, y) =
 apply!(α::Number, ::Type{InverseAdjoint}, A::Gram, x, scratch::Bool, β::Number, y) =
     apply!(α, Inverse, A, x, scratch, β, y)
 
-function apply!(α::Number, P::Type{<:Union{Direct,InverseAdjoint}},
-                A::Composition{N}, x, scratch::Bool, β::Number, y) where {N}
-    @assert N ≥ 2 "bug in Composition constructor"
-    ops = terms(A)
-    w = _apply(P, ops[2:N], x, scratch)
-    scratch = overwritable(scratch, w, x)
-    return apply!(α, P, ops[1], w, scratch, β, y)
+function apply!(α::Number, ::Type{P}, A::Composition{N}, x, scratch::Bool,
+                β::Number, y) where {N,P<:Union{Direct,InverseAdjoint}}
+    if α == 0
+        # Just scale the destination.
+        vscale!(y, β)
+    else
+        ops = terms(A)
+        w = apply(P, *, ops[2:N], x, scratch)
+        scratch = overwritable(scratch, w, x)
+        apply!(α, P, ops[1], w, scratch, β, y)
+    end
+    return y
 end
 
-function apply(P::Type{<:Union{Direct,InverseAdjoint}},
-               A::Composition{N}, x, scratch::Bool) where {N}
-    @assert N ≥ 2 "bug in Composition constructor"
-    return _apply(P, terms(A), x, scratch)
+function apply(::Type{P}, A::Composition{N}, x,
+               scratch::Bool) where {N,P<:Union{Direct,InverseAdjoint}}
+    apply(P, *, terms(A), x, scratch)
 end
 
-function _apply(P::Type{<:Union{Direct,InverseAdjoint}},
-                ops::NTuple{N,Mapping}, x, scratch::Bool) where {N}
+function apply(::Type{P}, ::typeof(*), ops::NTuple{N,Mapping}, x,
+               scratch::Bool) where {N,P<:Union{Direct,InverseAdjoint}}
     w = apply(P, ops[N], x, scratch)
-    if N > 1
-        scratch = overwritable(scratch, w, x)
-        return _apply(P, ops[1:N-1], w, scratch)
-    else
-        return w
-    end
-end
-
-function apply!(α::Number, P::Type{<:Union{Adjoint,Inverse}},
-                A::Composition{N}, x, scratch::Bool, β::Number, y) where {N}
-    @assert N ≥ 2 "bug in Composition constructor"
-    ops = terms(A)
-    w = _apply(P, ops[1:N-1], x, scratch)
+    N == 1 && return w
     scratch = overwritable(scratch, w, x)
-    return apply!(α, P, ops[N], w, scratch, β, y)
+    apply(P, *, ops[1:N-1], w, scratch)
 end
 
-function apply(P::Type{<:Union{Adjoint,Inverse}},
-               A::Composition{N}, x, scratch::Bool) where {N}
-    @assert N ≥ 2 "bug in Composition constructor"
-    return _apply(P, terms(A), x, scratch)
-end
-
-function _apply(P::Type{<:Union{Adjoint,Inverse}},
-                ops::NTuple{N,Mapping}, x, scratch::Bool) where {N}
-    w = apply(P, ops[1], x, scratch)
-    if N > 1
-        scratch = overwritable(scratch, w, x)
-        return _apply(P, ops[2:N], w, scratch)
+function apply!(α::Number, ::Type{P}, A::Composition{N}, x, scratch::Bool,
+                β::Number, y) where {N,P<:Union{Adjoint,Inverse}}
+    if α == 0
+        # Just scale the destination.
+        vscale!(y, β)
     else
-        return w
+        ops = terms(A)
+        w = apply(P, *, ops[1:N-1], x, scratch)
+        scratch = overwritable(scratch, w, x)
+        apply!(α, P, ops[N], w, scratch, β, y)
     end
+    return y
+end
+
+function apply(::Type{P}, A::Composition{N}, x,
+               scratch::Bool) where {N,P<:Union{Adjoint,Inverse}}
+    apply(P, *, terms(A), x, scratch)
+end
+
+function apply(::Type{P}, ::typeof(*), ops::NTuple{N,Mapping}, x,
+               scratch::Bool) where {N,P<:Union{Adjoint,Inverse}}
+    w = apply(P, ops[1], x, scratch)
+    N == 1 && return w
+    scratch = overwritable(scratch, w, x)
+    apply(P, *, ops[2:N], w, scratch)
 end
