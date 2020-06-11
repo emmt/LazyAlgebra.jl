@@ -206,10 +206,11 @@ struct Direct; end
 
 """
 
-Types `Adjoint`, `Inverse` and `InverseAdjoint` are used to *decorate* a
-mapping to indicate the conjugate transpose and/or inverse of the mapping.
-`AdjointInverse` is just an alias for `InverseAdjoint`.  The adjoint only makes
-sense for linear mappings.
+Types `Adjoint`, `Inverse`, `InverseAdjoint` and `Jacobian` are used to
+*decorate* a mapping to indicate the conjugate transpose and/or inverse of the
+mapping.  `AdjointInverse` is just an alias for `InverseAdjoint`.  The adjoint
+only makes sense for linear mappings, the Jacobian only makes sense for a
+non-linear mapping.
 
 Call `unveil(A)` to reveal the mapping embedded in decorated mapping `A`.
 
@@ -264,16 +265,30 @@ for T in (:Inverse, :InverseAdjoint, :AdjointInverse)
     @eval @doc @doc(Adjoint) $T
 end
 
+struct Jacobian{T<:Mapping} <: Mapping
+    op::T
+
+    # The outer constructors prevent most illegal calls to `Jacobian(A)` we
+    # just have to check that the argument is not a simple linear mapping.
+    function Jacobian{T}(A::T) where {T<:Mapping}
+        is_linear(A) &&
+            bad_argument("the Jacobian of a linear mapping of type `",
+                         T, "` should be its adjoint")
+        return new{T}(A)
+    end
+end
+
 """
 
 `DecoratedMapping` is the union of the *decorated* mapping types:
-[`Adjoint`](@ref), [`Inverse`](@ref) and [`InverseAdjoint`](@ref).
+[`Adjoint`](@ref), [`Inverse`](@ref), [`InverseAdjoint`](@ref) and
+[`Jacobian`](@ref).
 
 The method `unveil(A)` can be called to reveal the mapping embedded in
 decorated mapping `A`.
 
 """
-const DecoratedMapping = Union{Adjoint,Inverse,InverseAdjoint}
+const DecoratedMapping = Union{Adjoint,Inverse,InverseAdjoint,Jacobian}
 
 """
 
@@ -318,7 +333,8 @@ struct Sum{N,T<:NTuple{N,Mapping}} <: Mapping
 
     # The inner constructor ensures that the number of arguments is at least 2.
     function Sum{N,T}(ops::T) where {N,T<:NTuple{N,Mapping}}
-        N ≥ 2 || error("a sum of mappings has at least 2 components")
+        N ≥ 2 ||
+            throw(ArgumentError("a sum of mappings has at least 2 components"))
         new{N,T}(ops)
     end
 end
@@ -338,7 +354,8 @@ struct Composition{N,T<:NTuple{N,Mapping}} <: Mapping
 
     # The inner constructor ensures that the number of arguments is at least 2.
     function Composition{N,T}(ops::T) where {N,T<:NTuple{N,Mapping}}
-        N ≥ 2 || error("a composition of mappings has at least 2 components")
+        N ≥ 2 ||
+            throw(ArgumentError("a composition of mappings has at least 2 components"))
         new{N,T}(ops)
     end
 end

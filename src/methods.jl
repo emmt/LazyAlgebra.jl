@@ -91,6 +91,12 @@ function show(io::IO, A::InverseAdjoint{<:Mapping})
     print(io, ")'")
 end
 
+function show(io::IO, A::Jacobian{<:Mapping})
+    print(io, "∇(")
+    show(io, unveil(A))
+    print(io, ")")
+end
+
 function show(io::IO, A::Sum{N}) where {N}
     function show_term(io::IO, A::Sum)
         print(io, "(")

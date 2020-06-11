@@ -1,9 +1,24 @@
+# Visible changes in LazyAlgebra
+
 Future:
 
 * Exported methods and types have been limited to the ones for the end-user.
-  Use `using LAzyAlgebra.LowLevel` to get the others.
+  Use `using LazyAlgebra.LowLevel` to get the others.
+
+* Since forming the adjoint or the inverse-adjoint of a non-linear mapping is
+  forbidden by their inner constructors, `LinearType`, `is_linear` and `Gram`
+  have been optimized to avoid further checks.  If `A'` is allowed for a
+  non-linear mapping, convert it to something like `Jacobian(A)` if that makes
+  sense to distinguish form `Adjoint(A)`.  In particular, `(A')'` does not
+  simplify to `A` is `A` is non-linear but to `Jacobain(Jacobian(A))`.
 
 Done:
+
+* New `Jacobian` decoration type to denote the Jacobian of a non-linear mapping
+  and associated `jacobian` (aliased to `∇`) method.  For now, `adjoint` and
+  `jacobian` behave the same.  In part this is because I could not figure out
+  how to directly extend the ' postfix operator and could only extend the
+  `adjoint` method.
 
 * Methods `has_oneto_axes`, `densearray`, `densevector` and `densematrix` have
   been replaced by `has_standard_indexing` and `to_flat_array` from `ArrayTools`.

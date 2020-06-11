@@ -5,9 +5,16 @@
 #
 
 using LazyAlgebra
-import LazyAlgebra: ⋅, Adjoint, Inverse, InverseAdjoint,
+import LazyAlgebra: ⋅,
+    Adjoint, Inverse, InverseAdjoint, Jacobian,
     Scaled, Sum, Composition
 using Test
+
+function to_string(A::Mapping)
+    io = IOBuffer()
+    show(io, A)
+    String(take!(io))
+end
 
 @testset "Algebraic rules" begin
     include("common.jl")
@@ -136,14 +143,28 @@ using Test
     @test 3A*2M === 6A*M
     @test 3R*2M !== 6R*M
 
-    # Test adjoint.
+    # Test adjoint and Jacobian.
     @test (A*A')' === A*A'
     for X in (A*A', A'*A, B'*A'*A*B, B'*A*A'*B)
         @test X' === X
     end
-    @test A' === adjoint(A)
-    @test (A')' === A'' === A
+    @test A' === Adjoint(A)
+    @test A' isa Adjoint
+    @test A'' === (A')' === A
+    @test adjoint(A) === A'
+    @test jacobian(A) === A'
+    @test ∇(A) === A'
+    @test (3A)' === 3*(A')
     @test (A + 2B)' - A' === 2*B'
+    @test_throws ArgumentError Jacobian(A)
+    @test M' === Jacobian(M)
+    @test M' isa Jacobian
+    @test M'' isa Jacobian{<:Jacobian}
+    @test adjoint(M) === M'
+    @test jacobian(M) === M'
+    @test ∇(M) === M'
+    @test (3M)' === 3*(M')
+    @test_throws ArgumentError Adjoint(M)
 
     # Inverse.
     @test inv(M) === Id/M
@@ -222,32 +243,31 @@ using Test
     @test 10M - 3M === 7M
     @test M + A + M === A + 2M
 
-    @test_throws ArgumentError M' # non-linear
-    @test_throws ArgumentError inv(M)' # non-linear
-
     # Test forbidden calls to constructors because they should yield an
     # instance of a different type if simplification rules were applied.
     @test_throws ArgumentError Adjoint(Id)
-    @test_throws ArgumentError Adjoint(M')
-    @test_throws ArgumentError Adjoint(inv(M))
-    @test_throws ArgumentError Adjoint(inv(M'))
-    @test_throws ArgumentError Adjoint(3M)
+    @test_throws ArgumentError Adjoint(A')
+    @test_throws ArgumentError Adjoint(inv(A))
+    @test_throws ArgumentError Adjoint(inv(A'))
+    @test_throws ArgumentError Adjoint(3A)
     @test_throws ArgumentError Adjoint(A + B)
     @test_throws ArgumentError Adjoint(A*B)
 
     @test_throws ArgumentError Inverse(Id)
-    @test_throws ArgumentError Inverse(M')
-    @test_throws ArgumentError Inverse(inv(M))
-    @test_throws ArgumentError Inverse(inv(M'))
-    @test_throws ArgumentError Inverse(3M)
+    @test_throws ArgumentError Inverse(A')
+    @test_throws ArgumentError Inverse(inv(A))
+    @test_throws ArgumentError Inverse(inv(A'))
+    @test_throws ArgumentError Inverse(3A)
     @test_throws ArgumentError Inverse(A*B)
 
     @test_throws ArgumentError InverseAdjoint(Id)
-    @test_throws ArgumentError InverseAdjoint(M')
-    @test_throws ArgumentError InverseAdjoint(inv(M))
-    @test_throws ArgumentError InverseAdjoint(inv(M'))
-    @test_throws ArgumentError InverseAdjoint(3M)
+    @test_throws ArgumentError InverseAdjoint(A')
+    @test_throws ArgumentError InverseAdjoint(inv(A))
+    @test_throws ArgumentError InverseAdjoint(inv(A'))
+    @test_throws ArgumentError InverseAdjoint(3A)
     @test_throws ArgumentError InverseAdjoint(A*B)
+
+    @test_throws ArgumentError Jacobian(3M)
 
     @test_throws ArgumentError Scaled(2,3M)
 
@@ -258,5 +278,17 @@ using Test
     @test_throws ArgumentError Composition()
     @test_throws ArgumentError Composition(A)
     @test Composition(A,B) isa Composition
+
+    # Test the `show` method.
+    @test to_string(A) == "A"
+    @test to_string(A') == "A'"
+    @test to_string(A + A) == "2⋅A"
+    @test to_string(A' + A') == "2⋅A'"
+    @test to_string(Id/A) == "inv(A)"
+    @test to_string(Id/(A + B)) == "inv($(to_string(A + B)))"
+    @test to_string(M) == "M"
+    @test to_string(M') == "∇(M)"
+    @test to_string(M + M) == "2⋅M"
+    @test to_string(M' + M') == "2⋅∇(M)"
 end
 nothing

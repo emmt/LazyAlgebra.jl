@@ -269,6 +269,7 @@ Direct(A::Mapping) = A # provided for completeness
 Adjoint(A::T) where {T<:Mapping} = Adjoint{T}(A)
 Inverse(A::T) where {T<:Mapping} = Inverse{T}(A)
 InverseAdjoint(A::T) where {T<:Mapping} = InverseAdjoint{T}(A)
+Jacobian(A::T) where {T<:Mapping} = Jacobian{T}(A)
 Scaled(α::S, A::T) where {S<:Number,T<:Mapping} = Scaled{T,S}(α, A)
 Sum(ops::Mapping...) = Sum(ops)
 Sum(ops::T) where {N,T<:NTuple{N,Mapping}} = Sum{N,T}(ops)
@@ -284,26 +285,27 @@ Composition(ops::T) where {N,T<:NTuple{N,Mapping}} = Composition{N,T}(ops)
 # FIXME: Some restrictions may be bad ideas like adjoint of sums or
 # compositions.
 
-for (func, blacklist) in ((:Adjoint, (:Identity,
-                                      :Adjoint,
-                                      :Inverse,
-                                      :InverseAdjoint,
-                                      :Scaled,
-                                      :Sum,
-                                      :Composition)),
-                          (:Inverse, (:Identity,
-                                      :Adjoint,
-                                      :Inverse,
-                                      :InverseAdjoint,
-                                      :Scaled,
-                                      :Composition)),
+for (func, blacklist) in ((:Adjoint,        (:Identity,
+                                             :Adjoint,
+                                             :Inverse,
+                                             :InverseAdjoint,
+                                             :Scaled,
+                                             :Sum,
+                                             :Composition)),
+                          (:Inverse,        (:Identity,
+                                             :Adjoint,
+                                             :Inverse,
+                                             :InverseAdjoint,
+                                             :Scaled,
+                                             :Composition)),
                           (:InverseAdjoint, (:Identity,
                                              :Adjoint,
                                              :Inverse,
                                              :InverseAdjoint,
                                              :Scaled,
                                              :Composition)),
-                          (:Scaled, (:Scaled,)))
+                          (:Jacobian,       (:Scaled,)),
+                          (:Scaled,         (:Scaled,)))
     for T in blacklist
         if func === :Scaled
             @eval $func{T,S}(α::S, A::T) where {S<:Number,T<:$T} =
@@ -326,17 +328,22 @@ end
     bad_argument("the `InverseAdjoint` constructor cannot be applied to an instance of `",
                  brief(T), "`, use expressions like `A'\\B`, `A/(B')`, `inv(A')` or `inv(A)'`")
 
+@noinline illegal_call_to(::Type{Jacobian}, T::Type) =
+    bad_argument("the `Jacobian` constructor cannot be applied to an instance of `",
+                 brief(T), "`, use expressions like `A'`")
+
 @noinline illegal_call_to(::Type{Scaled}, T::Type) =
     bad_argument("the `Scaled` constructor cannot be applied to an instance of `",
                  brief(T), "`, use expressions like `α*A`")
 
-brief(::Type{<:Adjoint}) = "Adjoint"
-brief(::Type{<:Inverse}) = "Inverse"
+brief(::Type{<:Adjoint}       ) = "Adjoint"
+brief(::Type{<:Inverse}       ) = "Inverse"
 brief(::Type{<:InverseAdjoint}) = "InverseAdjoint"
-brief(::Type{<:Scaled}) = "Scaled"
-brief(::Type{<:Sum}) = "Sum"
-brief(::Type{<:Composition}) = "Composition"
-brief(::Type{<:Identity}) = "Identity"
+brief(::Type{<:Jacobian}      ) = "Jacobian"
+brief(::Type{<:Scaled}        ) = "Scaled"
+brief(::Type{<:Sum}           ) = "Sum"
+brief(::Type{<:Composition}   ) = "Composition"
+brief(::Type{<:Identity}      ) = "Identity"
 brief(T::Type) = repr(T)
 
 #------------------------------------------------------------------------------
@@ -356,10 +363,12 @@ brief(T::Type) = repr(T)
 # ADJOINT TYPE
 
 # Adjoint for non-specific mappings.
-adjoint(A::T) where {T<:Mapping} = Adjoint{T}(A)
-adjoint(A::LinearMapping) = _adjoint(SelfAdjointType(A), A)
-_adjoint(::SelfAdjoint, A::LinearMapping) = A
-_adjoint(::NonSelfAdjoint, A::T) where {T<:LinearMapping} = Adjoint{T}(A)
+adjoint(A::Mapping) = _adjoint(LinearType(A), A)
+adjoint(A::LinearMapping) = _adjoint(Linear(), SelfAdjointType(A), A)
+_adjoint(::NonLinear, A::Mapping) = Jacobian(A)
+_adjoint(::Linear, A::Mapping) = _adjoint(Linear(), SelfAdjointType(A), A)
+_adjoint(::Linear, ::SelfAdjoint, A::Mapping) = A
+_adjoint(::Linear, ::NonSelfAdjoint, A::Mapping) = Adjoint(A)
 
 # Adjoint for specific mapping types.
 adjoint(A::Identity) = Id
@@ -368,6 +377,7 @@ adjoint(A::Scaled) = conj(multiplier(A))*adjoint(unscaled(A))
 adjoint(A::Adjoint) = unveil(A)
 adjoint(A::Inverse) = inv(adjoint(unveil(A)))
 adjoint(A::InverseAdjoint) = inv(unveil(A))
+adjoint(A::Jacobian) = Jacobian(A)
 adjoint(A::Composition) =
     # It is assumed that the composition has already been simplified, so we
     # just apply the mathematical formula for the adjoint of a composition.
@@ -383,6 +393,15 @@ function adjoint(A::Sum{N}) where {N}
     end
     return Sum(to_tuple(sort!(B)))
 end
+
+#------------------------------------------------------------------------------
+# JACOBIAN
+
+# For now, adjoint and jacobian behave the same.  In part this is because I
+# could not figure out how to directly extend the ' postfix operator and could
+# only extend the `adjoint` method.
+jacobian(A::Mapping) = adjoint(A)
+∇(A::Mapping) = jacobian(A)
 
 #------------------------------------------------------------------------------
 # INVERSE TYPE
