@@ -49,9 +49,9 @@ function add(A::Mapping, B::Mapping)
     if unscaled(A) === unscaled(B)
         return (multiplier(A) + multiplier(B))*unscaled(A)
     elseif identifier(A) ≤ identifier(B)
-        return Sum((A, B))
+        return Sum(A, B)
     else
-        return Sum((B, A))
+        return Sum(B, A)
     end
 end
 
@@ -131,7 +131,7 @@ The ability to perform simplifications relies on implemented specializations of
 and `B` have already been simplified if they are compositions.
 
 """
-compose(A::Mapping,     B::Mapping    ) = Composition((A, B))
+compose(A::Mapping,     B::Mapping    ) = Composition(A, B)
 compose(A::Composition, B::Mapping    ) = _compose(A, B)
 compose(A::Mapping,     B::Composition) = _compose(A, B)
 compose(A::Composition, B::Composition) = _compose(A, B)

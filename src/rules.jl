@@ -270,7 +270,9 @@ Adjoint(A::T) where {T<:Mapping} = Adjoint{T}(A)
 Inverse(A::T) where {T<:Mapping} = Inverse{T}(A)
 InverseAdjoint(A::T) where {T<:Mapping} = InverseAdjoint{T}(A)
 Scaled(α::S, A::T) where {S<:Number,T<:Mapping} = Scaled{T,S}(α, A)
+Sum(ops::Mapping...) = Sum(ops)
 Sum(ops::T) where {N,T<:NTuple{N,Mapping}} = Sum{N,T}(ops)
+Composition(ops::Mapping...) = Composition(ops)
 Composition(ops::T) where {N,T<:NTuple{N,Mapping}} = Composition{N,T}(ops)
 
 # Qualified outer constructors to forbid decoration of mappings of specific
@@ -466,20 +468,20 @@ end
 *(A::Mapping,     B::Identity   ) = A
 *(A::Mapping,     B::Scaled     ) = (is_linear(A) ?
                                      multiplier(B)*(A*unscaled(B)) :
-                                     Composition((A, B)))
+                                     Composition(A, B))
 *(A::Mapping,    B::Composition) = Simplify.compose(A, B)
-*(A::Mapping,    B::Mapping    ) = Composition((A, B))
+*(A::Mapping,    B::Mapping    ) = Composition(A, B)
 
 *(A::Inverse{T}, B::T) where {T<:Mapping} = (unveil(A) === B ? Id :
-                                             Composition((A, B)))
+                                             Composition(A, B))
 *(A::T, B::Inverse{T}) where {T<:Mapping} = (A === unveil(B) ? Id :
-                                             Composition((A, B)))
-*(A::Inverse, B::Inverse) = Composition((A, B))
+                                             Composition(A, B))
+*(A::Inverse, B::Inverse) = Composition(A, B)
 *(A::InverseAdjoint{T}, B::Adjoint{T}) where {T<:Mapping} =
-    (unveil(A) === unveil(B) ? Id : Composition((A, B)))
+    (unveil(A) === unveil(B) ? Id : Composition(A, B))
 *(A::Adjoint{T}, B::InverseAdjoint{T}) where {T<:Mapping} =
-    (unveil(A) === unveil(B) ? Id : Composition((A, B)))
-*(A::InverseAdjoint, B::InverseAdjoint) = Composition((A, B))
+    (unveil(A) === unveil(B) ? Id : Composition(A, B))
+*(A::InverseAdjoint, B::InverseAdjoint) = Composition(A, B)
 
 # Left and right divisions.
 \(A::Mapping, B::Mapping) = inv(A)*B
