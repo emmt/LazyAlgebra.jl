@@ -18,7 +18,7 @@ end
 
 @testset "Algebraic rules" begin
     include("common.jl")
-    are_same_mappings = LazyAlgebra.are_same_mappings
+    is_same_mapping = LazyAlgebra.is_same_mapping
     Composition = LazyAlgebra.Composition
     dims = (3,4,5)
 
@@ -33,9 +33,9 @@ end
     # Test properties.
     @test M !== R
     @test A !== B
-    @test are_same_mappings(A, B) == false
+    @test is_same_mapping(A, B) == false
     let E = A
-        @test are_same_mappings(A, E) == true
+        @test is_same_mapping(A, E) == true
     end
     @test is_linear(M) == false
     @test is_linear(A) == true

@@ -487,31 +487,29 @@ end
 *(A::Identity,    B::Mapping    ) = B
 *(A::Scaled,      B::Identity   ) = A
 *(A::Scaled,      B::Mapping    ) = multiplier(A)*(unscaled(A)*B)
-*(A::Scaled,      B::Scaled     ) = (is_linear(A) ?
-                                     (multiplier(A)*multiplier(B))*(unscaled(A)*unscaled(B)) :
-                                     multiplier(A)*(unscaled(A)*B))
+*(A::Scaled,      B::Scaled     ) =
+    is_linear(A) ? (multiplier(A)*multiplier(B))*(unscaled(A)*unscaled(B)) :
+    multiplier(A)*(unscaled(A)*B)
 *(A::Composition, B::Identity   ) = A
 *(A::Composition, B::Composition) = Simplify.compose(A, B)
 *(A::Composition, B::Mapping    ) = Simplify.compose(A, B)
-*(A::Composition, B::Scaled     ) = (is_linear(A) ?
-                                     multiplier(B)*(A*unscaled(B)) :
-                                     Simplify.compose(A, B))
+*(A::Composition, B::Scaled     ) =
+    is_linear(A) ? multiplier(B)*(A*unscaled(B)) : Simplify.compose(A, B)
 *(A::Mapping,     B::Identity   ) = A
-*(A::Mapping,     B::Scaled     ) = (is_linear(A) ?
-                                     multiplier(B)*(A*unscaled(B)) :
-                                     Composition(A, B))
+*(A::Mapping,     B::Scaled     ) =
+    is_linear(A) ? multiplier(B)*(A*unscaled(B)) : Composition(A, B)
 *(A::Mapping,    B::Composition) = Simplify.compose(A, B)
 *(A::Mapping,    B::Mapping    ) = Composition(A, B)
 
-*(A::Inverse{T}, B::T) where {T<:Mapping} = (unveil(A) === B ? Id :
-                                             Composition(A, B))
-*(A::T, B::Inverse{T}) where {T<:Mapping} = (A === unveil(B) ? Id :
-                                             Composition(A, B))
+*(A::Inverse{T}, B::T) where {T<:Mapping} =
+    is_same_mapping(unveil(A), B) ? Id : Composition(A, B)
+*(A::T, B::Inverse{T}) where {T<:Mapping} =
+    is_same_mapping(A, unveil(B)) ? Id : Composition(A, B)
 *(A::Inverse, B::Inverse) = Composition(A, B)
 *(A::InverseAdjoint{T}, B::Adjoint{T}) where {T<:Mapping} =
-    (unveil(A) === unveil(B) ? Id : Composition(A, B))
+    is_same_mapping(unveil(A), unveil(B)) ? Id : Composition(A, B)
 *(A::Adjoint{T}, B::InverseAdjoint{T}) where {T<:Mapping} =
-    (unveil(A) === unveil(B) ? Id : Composition(A, B))
+    is_same_mapping(unveil(A), unveil(B)) ? Id : Composition(A, B)
 *(A::InverseAdjoint, B::InverseAdjoint) = Composition(A, B)
 
 # Automatically build Gram operators, Gram(A) ≡ A'*A.  The following automatic
@@ -530,14 +528,15 @@ end
 # In principle, if forming the adjoint has been allowed, it not needed
 # to check whether operands are linear mappings.
 *(A::Adjoint{T}, B::T) where {T<:Mapping} =
-    (unveil(A) === B ? Gram(B) : Composition(A, B))
+    is_same_mapping(unveil(A), B) ? Gram(B) : Composition(A, B)
 *(A::T, B::Adjoint{T}) where {T<:Mapping} =
-    (A === unveil(B) ? Gram(B) : Composition(A, B))
+    is_same_mapping(A, unveil(B)) ? Gram(B) : Composition(A, B)
 *(A::Inverse{T}, B::InverseAdjoint{T}) where {T<:Mapping} =
-    (unveil(A) === unveil(B) ? Inverse(Gram(unveil(A))) : Composition(A, B))
+    is_same_mapping(unveil(A), unveil(B)) ? Inverse(Gram(unveil(A))) :
+    Composition(A, B)
 *(A::InverseAdjoint{T}, B::Inverse{T}) where {T<:Mapping} =
-    (unveil(A) === unveil(B) ? Inverse(Gram(Adjoint(unveil(A)))) :
-     Composition(A, B))
+    is_same_mapping(unveil(A), unveil(B)) ?
+    Inverse(Gram(Adjoint(unveil(A)))) : Composition(A, B)
 
 # Left and right divisions.
 \(A::Mapping, B::Mapping) = inv(A)*B
@@ -755,17 +754,13 @@ for (P, expr) in ((:Direct, :(α*multiplier(A))),
 end
 
 """
-
-```julia
-overwritable(scratch, x, y) -> bool
-```
+    overwritable(scratch, x, y) -> bool
 
 yields whether the result `y` of applying a mapping to `x` with scratch flag
 `scratch` can overwritten.  Arguments `x` and `y` can be reversed.
 
 """
-overwritable(scratch::Bool, x, y) =
-    (scratch || ! is_same_mutable_object(x, y))
+overwritable(scratch::Bool, x, y) = (scratch || x !== y)
 
 # Implement `apply` for scaled operators to avoid the needs of explicitly
 # calling `vcreate` as done by the default implementation of `apply`.  This is

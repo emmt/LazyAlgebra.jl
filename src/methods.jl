@@ -398,48 +398,29 @@ end
 checkmapping(A::LinearMapping) =
     checkmapping(randn(output_eltype(A), output_size(A)), A,
                  randn(input_eltype(A), input_size(A)))
-
 """
-```julia
-is_same_mutable_object(a, b)
-```
+    is_same_mapping(A, B)
 
-yields whether `a` and `b` are references to the same object.  This function
-can be used to check whether [`vcreate`](@ref) returns the same object as the
-input variables.
-
-This function is very fast, it takes a few nanoseonds on my laptop.
-
-"""
-is_same_mutable_object(a, b) =
-    (! isimmutable(a) && ! isimmutable(b) &&
-     pointer_from_objref(a) === pointer_from_objref(b))
-
-"""
-```julia
-are_same_mappings(A, B)
-```
-
-yields whether `A` and `B` are the same mappings in the sense that their
-effects will always be the same.  This method is used to perform some
-simplifications and optimizations and may have to be specialized for specific
-mapping types.  The default implementation is to return `A === B`.
+yields whether `A` is the same mapping as `B` in the sense that their effects
+will always be the same.  This method is used to perform some simplifications
+and optimizations and may have to be specialized for specific mapping types.
+The default implementation is to return `A === B`.
 
 !!! note
     The returned result may be true although `A` and `B` are not necessarily
     the same objects.  For instance, if `A` and `B` are two sparse matrices
-    whose coefficients and indices are stored in the same vectors (as can be
-    tested with [`is_same_mutable_object`](@ref)) this method should return
-    `true` because the two operators will behave identically (any changes in
-    the coefficients or indices of `A` will be reflected in `B`).  If any of
-    the vectors storing the coefficients or the indices are not the same
-    objects, then `are_same_mappings(A,B)` must return `false` even though the
-    stored values may be the same because it is possible, later, to change one
-    operator without affecting identically the other.
+    whose coefficients and indices are stored in the same arrays (as can be
+    tested with the `===` or `≡` operators, `is_same_mapping(A,B)` should
+    return `true` because the two operators will always behave identically (any
+    changes in the coefficients or indices of `A` will be reflected in `B`).
+    If any of the arrays storing the coefficients or the indices are not the
+    same objects, then `is_same_mapping(A,B)` must return `false` even though
+    the stored values may be the same because it is possible, later, to change
+    one operator without affecting identically the other.
 
 """
-are_same_mappings(::Mapping, ::Mapping) = false # false if not same types
-are_same_mappings(A::T, B::T) where {T<:Mapping} = (A === B)
+@inline is_same_mapping(::Mapping, ::Mapping) = false # false if not same types
+@inline is_same_mapping(A::T, B::T) where {T<:Mapping} = (A === B)
 
 """
 

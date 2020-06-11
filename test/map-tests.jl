@@ -15,7 +15,7 @@ using LinearAlgebra: ⋅, UniformScaling
     Composition = LazyAlgebra.Composition
     Endomorphism = LazyAlgebra.Endomorphism
     MorphismType = LazyAlgebra.MorphismType
-    are_same_mappings = LazyAlgebra.are_same_mappings
+    is_same_mapping = LazyAlgebra.is_same_mapping
     ALPHAS = (0, 1, -1,  2.71, π)
     BETAS = (0, 1, -1, -1.33, Base.MathConstants.φ)
 

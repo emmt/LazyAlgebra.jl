@@ -23,7 +23,7 @@ using ..LazyAlgebra:
     @callable, promote_multiplier, Endomorphism, Morphism,
     bad_argument, bad_size
 import ..LazyAlgebra:
-    vcreate, apply!, are_same_mappings, coefficients, check,
+    vcreate, apply!, is_same_mapping, coefficients, check,
     MorphismType, input_size, output_size, input_ndims, output_ndims
 
 using ArrayTools
@@ -237,9 +237,10 @@ function check(S::SparseOperator{T,M,N}) where {T,M,N}
     return S
 end
 
-are_same_mappings(A::T, B::T) where {T<:SparseOperator} =
-    (coefficients(A) === coefficients(B) && rows(A) === rows(B) && cols(A) === cols(B) &&
-     output_size(A) == output_size(B) && input_size(A) == input_size(B))
+is_same_mapping(A::T, B::T) where {T<:SparseOperator} =
+    (coefficients(A) === coefficients(B) && rows(A) === rows(B) &&
+     cols(A) === cols(B) && output_size(A) == output_size(B) &&
+     input_size(A) == input_size(B))
 
 # FIXME: This cannot be considered as a *pure* trait as it does not only
 #        depend on the type of the object.

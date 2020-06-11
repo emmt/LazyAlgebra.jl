@@ -36,8 +36,8 @@ using Test
         @test input_size(S) == cols
         @test SparseOperator(S) === S
         @test SparseOperator{T}(S) === S
-        @test LazyAlgebra.are_same_mappings(SparseOperator(S), S)
-        @test LazyAlgebra.are_same_mappings(SparseOperator{T}(S), S)
+        @test LazyAlgebra.is_same_mapping(SparseOperator(S), S)
+        @test LazyAlgebra.is_same_mapping(SparseOperator{T}(S), S)
 
         # Check `apply!` and `vcreate`.
         atol, rtol = zero(R), sqrt(ε)
@@ -103,7 +103,7 @@ using Test
         @test getrows(S1) === getrows(S)
         @test getcols(S1) === getcols(S)
         @test coefficients(S1) ≈ coefficients(S) atol=0 rtol=2*eps(Float32)
-        @test LazyAlgebra.are_same_mappings(S1, S) == false
+        @test LazyAlgebra.is_same_mapping(S1, S) == false
 
         # Check reshaping.
         S2d = reshape(S, prod(output_size(S)), prod(input_size(S)))
@@ -112,7 +112,7 @@ using Test
         @test getrows(S2d) === getrows(S)
         @test getcols(S2d) === getcols(S)
         @test coefficients(S2d) === coefficients(S)
-        @test LazyAlgebra.are_same_mappings(S2d, S) == false
+        @test LazyAlgebra.is_same_mapping(S2d, S) == false
 
         # Convert to a sparse matrix.
         S2 = sparse(S)

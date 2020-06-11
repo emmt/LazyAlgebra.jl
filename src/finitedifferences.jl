@@ -20,7 +20,7 @@ export
 using ..Coder
 using  ...LazyAlgebra
 import ...LazyAlgebra:
-    vcreate, apply!, are_same_mappings
+    vcreate, apply!, is_same_mapping
 using  ...LazyAlgebra:
     @callable, promote_multiplier, Floats,
     bad_argument, bad_size
@@ -32,7 +32,7 @@ import Base: show, *
 struct SimpleFiniteDifferences <: LinearMapping end
 @callable SimpleFiniteDifferences
 
-are_same_mappings(::SimpleFiniteDifferences, ::SimpleFiniteDifferences) = true
+is_same_mapping(::SimpleFiniteDifferences, ::SimpleFiniteDifferences) = true
 
 show(io::IO, ::SimpleFiniteDifferences) = print(io, "Diff")
 show(io::IO, ::Gram{SimpleFiniteDifferences}) = print(io, "(Diff'⋅Diff)")
