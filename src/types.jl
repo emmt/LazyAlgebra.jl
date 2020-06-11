@@ -222,8 +222,7 @@ struct Adjoint{T<:Mapping} <: LinearMapping
     # The outer constructors prevent most illegal calls to `Adjoint(A)` we
     # just have to check that the argument is a simple linear mapping.
     function Adjoint{T}(A::T) where {T<:Mapping}
-        is_linear(A) ||
-            bad_argument("taking the adjoint of non-linear mappings is not allowed")
+        is_linear(A) || throw_forbidden_adjoint_of_non_linear_mapping()
         return new{T}(A)
     end
 end
@@ -281,19 +280,6 @@ end
 const AdjointInverse{T} = InverseAdjoint{T}
 @doc @doc(InverseAdjoint) AdjointInverse
 
-struct Jacobian{T<:Mapping} <: Mapping
-    op::T
-
-    # The outer constructors prevent most illegal calls to `Jacobian(A)` we
-    # just have to check that the argument is not a simple linear mapping.
-    function Jacobian{T}(A::T) where {T<:Mapping}
-        is_linear(A) &&
-            bad_argument("the Jacobian of a linear mapping of type `",
-                         T, "` should be its adjoint")
-        return new{T}(A)
-    end
-end
-
 """
 
     Gram(A) -> obj
@@ -323,14 +309,39 @@ end
 """
 
 `DecoratedMapping` is the union of the *decorated* mapping types:
-[`Adjoint`](@ref), [`Inverse`](@ref), [`InverseAdjoint`](@ref),
-[`Jacobian`](@ref) and [`Gram`](@ref).
+[`Adjoint`](@ref), [`Inverse`](@ref), [`InverseAdjoint`](@ref), and
+[`Gram`](@ref).
 
 The method [`unveil(A)`](@ref) can be called to reveal the mapping embedded in
 a decorated mapping `A`.
 
 """
-const DecoratedMapping = Union{Adjoint,Inverse,InverseAdjoint,Jacobian,Gram}
+const DecoratedMapping = Union{Adjoint,Inverse,InverseAdjoint,Gram}
+
+"""
+
+    Jacobian(A,x) -> obj
+
+yields an object instance `obj` representing the Jacobian `∇(A,x)` of the non-linear
+mapping `A` for the variables `x`.
+
+Directly calling this constructor is discouraged, call [`jacobian(A,x)`](@ref) or
+[`∇(A,x)`](@ref) instead and benefit from automatic simplification rules.
+
+"""
+struct Jacobian{M<:Mapping,T} <: Mapping
+    A::M
+    x::T
+
+    # The outer constructors prevent most illegal calls to `Jacobian(A)` we
+    # just have to check that the argument is not a simple linear mapping.
+    function Jacobian{M,T}(A::M, x::T) where {M<:Mapping,T}
+        is_linear(A) &&
+            bad_argument("the Jacobian of a linear mapping of type `",
+                         M, "` should be the mapping itself")
+        return new{M,T}(A, x)
+    end
+end
 
 """
 

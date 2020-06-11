@@ -272,7 +272,7 @@ Adjoint(A::T) where {T<:Mapping} = Adjoint{T}(A)
 Inverse(A::T) where {T<:Mapping} = Inverse{T}(A)
 InverseAdjoint(A::T) where {T<:Mapping} = InverseAdjoint{T}(A)
 Gram(A::T) where {T<:Mapping} = Gram{T}(A)
-Jacobian(A::T) where {T<:Mapping} = Jacobian{T}(A)
+Jacobian(A::M, x::T) where {M<:Mapping,T} = Jacobian{M,T}(A, x)
 Scaled(α::S, A::T) where {S<:Number,T<:Mapping} = Scaled{T,S}(α, A)
 Sum(ops::Mapping...) = Sum(ops)
 Sum(ops::T) where {N,T<:NTuple{N,Mapping}} = Sum{N,T}(ops)
@@ -316,6 +316,9 @@ for (func, blacklist) in ((:Adjoint,        (:Identity,
         if func === :Scaled
             @eval $func{T,S}(α::S, A::T) where {S<:Number,T<:$T} =
                 illegal_call_to($func, T)
+        elseif func === :Jacobian
+            @eval $func{M,T}(A::M, x::T) where {M<:$T,T} =
+                illegal_call_to($func, M)
         else
             @eval $func{T}(A::T) where {T<:$T} = illegal_call_to($func, T)
         end
@@ -340,7 +343,7 @@ end
 
 @noinline illegal_call_to(::Type{Jacobian}, T::Type) =
     bad_argument("the `Jacobian` constructor cannot be applied to an instance of `",
-                 brief(T), "`, use an expression like `A'`")
+                 brief(T), "`, use an expression like `∇(A,x)`")
 
 @noinline illegal_call_to(::Type{Scaled}, T::Type) =
     bad_argument("the `Scaled` constructor cannot be applied to an instance of `",
@@ -376,7 +379,8 @@ brief(T::Type) = repr(T)
 # Adjoint for non-specific mappings.
 adjoint(A::Mapping) = _adjoint(LinearType(A), A)
 adjoint(A::LinearMapping) = _adjoint(Linear(), SelfAdjointType(A), A)
-_adjoint(::NonLinear, A::Mapping) = Jacobian(A)
+_adjoint(::NonLinear, A::Mapping) =
+    throw_forbidden_adjoint_of_non_linear_mapping()
 _adjoint(::Linear, A::Mapping) = _adjoint(Linear(), SelfAdjointType(A), A)
 _adjoint(::Linear, ::SelfAdjoint, A::Mapping) = A
 _adjoint(::Linear, ::NonSelfAdjoint, A::Mapping) = Adjoint(A)
@@ -406,14 +410,33 @@ function adjoint(A::Sum{N}) where {N}
     return Sum(to_tuple(sort!(B)))
 end
 
+@noinline throw_forbidden_adjoint_of_non_linear_mapping() =
+    bad_argument("taking the adjoint of non-linear mappings is not allowed")
+
 #------------------------------------------------------------------------------
 # JACOBIAN
 
-# For now, adjoint and jacobian behave the same.  In part this is because I
-# could not figure out how to directly extend the ' postfix operator and could
-# only extend the `adjoint` method.
-jacobian(A::Mapping) = adjoint(A)
-∇(A::Mapping) = jacobian(A)
+"""
+    ∇(A, x)
+
+yields a result corresponding to the Jacobian (first partial derivatives) of
+the linear mapping `A` for the variables `x`.  If `A` is a linear mapping,
+`A` is returned whatever `x`.
+
+The call
+
+    jacobian(A, x)
+
+is an alias for `∇(A,x)`.
+
+"""
+∇(A::Mapping, x) = jacobian(A, x)
+jacobian(A::Mapping, x) = _jacobian(LinearType(A), A, x)
+_jacobian(::Linear, A::Mapping, x) = A
+_jacobian(::NonLinear, A::Mapping, x) = Jacobian(A, x)
+jacobian(A::Scaled, x) = multiplier(A)*jacobian(unscaled(A), x)
+
+@doc @doc(∇) jacobian
 
 #------------------------------------------------------------------------------
 # INVERSE TYPE

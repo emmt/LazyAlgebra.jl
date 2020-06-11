@@ -94,8 +94,8 @@ end
 
 function show(io::IO, A::Jacobian{<:Mapping})
     print(io, "∇(")
-    show(io, unveil(A))
-    print(io, ")")
+    show(io, primitive(A))
+    print(io, ",x)")
 end
 
 function show(io::IO, A::Sum{N}) where {N}
@@ -204,6 +204,22 @@ multiplier(A::Mapping) = 1
 multiplier(A::UniformScaling) = getfield(A, :λ)
 
 @doc @doc(unscaled) multiplier
+
+"""
+
+    primitive(J)
+
+and
+
+    variables(J)
+
+respectively yield the mapping `A` and the variables `x` embedded in Jacobian
+`J = ∇(A,x)`.
+
+"""
+primitive(J::Jacobian) = getfield(J, :A)
+variables(J::Jacobian) = getfield(J, :x)
+@doc @doc(primitive) variables
 
 """
 
