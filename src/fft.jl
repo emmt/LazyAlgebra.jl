@@ -322,7 +322,7 @@ faster than calling `fft`, `rfft`, `ifft`, etc.  This is especially true on
 small arrays.  Keywords `flags` and `timelimit` may be used to specify
 planning options and time limit to create the FFT plans (see
 http://www.fftw.org/doc/Planner-Flags.html).  The defaults are
-`flags=FFTW.ESTIMATE` and no time limit.
+`flags=FFTW.MEASURE` and no time limit.
 
 An instance of `FFTOperator` is a linear mapping which can be used as any
 other mapping:
@@ -355,7 +355,7 @@ end
 function FFTOperator(::Type{T},
                      dims::NTuple{N,Int};
                      timelimit::Real = FFTW.NO_TIMELIMIT,
-                     flags::Integer = FFTW.ESTIMATE) where {T<:fftwReal,N}
+                     flags::Integer = FFTW.MEASURE) where {T<:fftwReal,N}
     # Check arguments and build dimension list of the result of the forward
     # real-to-complex (r2c) transform.
     planning = check_flags(flags)
@@ -385,7 +385,7 @@ end
 function FFTOperator(::Type{T},
                      dims::NTuple{N,Int};
                      timelimit::Real = FFTW.NO_TIMELIMIT,
-                     flags::Integer = FFTW.ESTIMATE) where {T<:fftwComplex,N}
+                     flags::Integer = FFTW.MEASURE) where {T<:fftwComplex,N}
     # Check arguments.  The input and output of the complex-to-complex
     # transform have the same dimensions.
     planning = check_flags(flags)
@@ -576,7 +576,7 @@ and `mtf` the modulation transfer function.
 The operator `H` can be created by:
 
 ```julia
-H = CirculantConvolution(psf; flags=FFTW.ESTIMATE, timelimit=Inf, shift=false)
+H = CirculantConvolution(psf; flags=FFTW.MEASURE, timelimit=Inf, shift=false)
 ```
 
 where `psf` is the point spread function (PSF).  Note that the PSF is assumed
@@ -596,10 +596,10 @@ The following keywords can be specified:
 * `normalize` (`false` by default) indicates whether to divide `psf` by the sum
   of its values.  This keyword is only available for real-valued PSF.
 
-* `flags` is a bitwise-or of FFTW planner flags, defaulting to `FFTW.ESTIMATE`.
+* `flags` is a bitwise-or of FFTW planner flags, defaulting to `FFTW.MEASURE`.
   If the operator is to be used many times (as in iterative methods), it is
-  recommended to use at least `flags=FFTW.MEASURE` which generally yields
-  faster transforms compared to the default `flags=FFTW.ESTIMATE`.
+  recommended to use at least `flags=FFTW.MEASURE` (the default) which
+  generally yields faster transforms compared to `flags=FFTW.ESTIMATE`.
 
 * `timelimit` specifies a rough upper bound on the allowed planning time, in
   seconds.
@@ -628,7 +628,7 @@ end
 
 # Create a circular convolution operator for real arrays.
 function CirculantConvolution(psf::DenseArray{T,N};
-                              flags::Integer = FFTW.ESTIMATE,
+                              flags::Integer = FFTW.MEASURE,
                               normalize::Bool = false,
                               shift::Bool = false,
                               kwds...) where {T<:fftwReal,N}
@@ -667,7 +667,7 @@ end
 # Create a circular convolution operator for complex arrays (see
 # docs/convolution.md for explanations).
 function CirculantConvolution(psf::DenseArray{T,N};
-                              flags::Integer = FFTW.ESTIMATE,
+                              flags::Integer = FFTW.MEASURE,
                               normalize::Bool = false,
                               shift::Bool = false,
                               kwds...) where {T<:fftwComplex,N}
@@ -702,7 +702,7 @@ complex fast Fourier transform of `x`.  This method is the same as `plan_rfft`
 except that it makes sure that `x` is preserved.
 
 """
-function safe_plan_rfft(x::AbstractArray{T,N}; flags::Integer = FFTW.ESTIMATE,
+function safe_plan_rfft(x::AbstractArray{T,N}; flags::Integer = FFTW.MEASURE,
                         kwds...) where {T<:fftwReal,N}
     planning = (flags & PLANNING)
     if isa(x, StridedArray) && (planning == FFTW.ESTIMATE ||
