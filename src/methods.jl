@@ -433,11 +433,11 @@ gram(A::Mapping) =
 # performing `α⋅x + β⋅y`.  Passing these (simple) functions to another method
 # is to simplify the coding of vectorized methods and of the the `apply!`
 # method by mappings.
-axpby_yields_x(    α, x, β, y) = x         # α = 1, β = 0
-axpby_yields_xpy(  α, x, β, y) = x + y     # α = 1, β = 1
-axpby_yields_xmy(  α, x, β, y) = x - y     # α = 1, β = -1
-axpby_yields_xpby( α, x, β, y) = x + β*y   # α = 1, any β
-axpby_yields_ax(   α, x, β, y) = α*x       # any α, β = 0
-axpby_yields_axpy( α, x, β, y) = α*x + y   # any α, β = 1
-axpby_yields_axmy( α, x, β, y) = α*x - y   # any α, β = -1
-axpby_yields_axpby(α, x, β, y) = α*x + β*y # any α, any β
+@inline axpby_yields_x(    α, x, β, y) = x         # α = 1, β = 0
+@inline axpby_yields_xpy(  α, x, β, y) = x + y     # α = 1, β = 1
+@inline axpby_yields_xmy(  α, x, β, y) = x - y     # α = 1, β = -1
+@inline axpby_yields_xpby( α, x, β, y) = x + β*y   # α = 1, any β
+@inline axpby_yields_ax(   α, x, β, y) = α*x       # any α, β = 0
+@inline axpby_yields_axpy( α, x, β, y) = α*x + y   # any α, β = 1
+@inline axpby_yields_axmy( α, x, β, y) = α*x - y   # any α, β = -1
+@inline axpby_yields_axpby(α, x, β, y) = α*x + β*y # any α, any β
