@@ -14,7 +14,7 @@
 #------------------------------------------------------------------------------
 # IDENTITY AND UNIFORM SCALING
 
-is_same_mapping(::Identity, ::Identity) = true
+identical(::Identity, ::Identity) = true
 
 @callable Identity
 
@@ -56,8 +56,8 @@ SymbolicLinearMapping(x::Symbol) = SymbolicLinearMapping{Val{x}}()
 show(io::IO, A::SymbolicMapping{Val{T}}) where {T} = print(io, T)
 show(io::IO, A::SymbolicLinearMapping{Val{T}}) where {T} = print(io, T)
 
-is_same_mapping(::T, ::T) where {T<:SymbolicMapping} = true
-is_same_mapping(::T, ::T) where {T<:SymbolicLinearMapping} = true
+identical(::T, ::T) where {T<:SymbolicMapping} = true
+identical(::T, ::T) where {T<:SymbolicLinearMapping} = true
 
 #------------------------------------------------------------------------------
 # NON-UNIFORM SCALING
@@ -112,7 +112,7 @@ Diag(A) = NonuniformScaling(A)
 coefficients(A::NonuniformScaling) = A.diag
 LinearAlgebra.diag(A::NonuniformScaling) = coefficients(A)
 
-is_same_mapping(A::T, B::T) where {T<:NonuniformScaling} =
+identical(A::T, B::T) where {T<:NonuniformScaling} =
     coefficients(A) === coefficients(B)
 
 function inv(A::NonuniformScaling{<:AbstractArray{T,N}}
@@ -283,7 +283,7 @@ output_size(A::RankOneOperator) = size(A.u)
 output_size(A::RankOneOperator, d...) = size(A.u, d...)
 output_eltype(A::RankOneOperator) = eltype(A.u)
 
-is_same_mapping(A::T, B::T) where {T<:RankOneOperator} =
+identical(A::T, B::T) where {T<:RankOneOperator} =
     ((A.u === B.u)&(A.v === B.v))
 
 """
@@ -332,7 +332,7 @@ output_size(A::SymmetricRankOneOperator) = size(A.u)
 output_size(A::SymmetricRankOneOperator, d...) = size(A.u, d...)
 output_eltype(A::SymmetricRankOneOperator) = eltype(A.u)
 
-is_same_mapping(A::T, B::T) where {T<:SymmetricRankOneOperator} =
+identical(A::T, B::T) where {T<:SymmetricRankOneOperator} =
     (A.u === B.u)
 
 #------------------------------------------------------------------------------
@@ -378,7 +378,7 @@ stride(A::GeneralMatrix, k) = stride(coefficients(A), k)
 strides(A::GeneralMatrix) = strides(coefficients(A))
 eachindex(A::GeneralMatrix) = eachindex(coefficients(A))
 
-is_same_mapping(A::T, B::T) where {T<:GeneralMatrix} =
+identical(A::T, B::T) where {T<:GeneralMatrix} =
     (coefficients(A) === coefficients(B))
 
 function apply!(α::Number,

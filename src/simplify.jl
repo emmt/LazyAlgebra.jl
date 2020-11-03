@@ -28,7 +28,7 @@ using ..LazyAlgebra:
     Scaled,
     Sum,
     identifier,
-    is_same_mapping,
+    identical,
     multiplier,
     terms,
     to_tuple,
@@ -47,7 +47,7 @@ yields a simplied sum of mappings `A + B`.
 
 # Simplify the sum of two mappings none of which being a sum.
 function add(A::Mapping, B::Mapping)
-    if is_same_mapping(unscaled(A), unscaled(B))
+    if identical(unscaled(A), unscaled(B))
         return (multiplier(A) + multiplier(B))*unscaled(A)
     elseif identifier(A) ≤ identifier(B)
         return Sum(A, B)
@@ -81,7 +81,7 @@ function add!(A::Vector{Mapping}, B::Mapping)
     # If exact match found, update A in-place and return.
     n = length(A)
     @inbounds for i in 1:n
-        if is_same_mapping(unscaled(A[i]), unscaled(B))
+        if identical(unscaled(A[i]), unscaled(B))
             λ = multiplier(A[i]) + multiplier(B)
             if λ == 1
                 A[i] = unscaled(B)
@@ -163,7 +163,7 @@ function compose!(A::Vector{Mapping}, B::Composition{N}) where {N}
     @inbounds for i in 1:N
         # Build the simplified composition A*B[i].
         compose!(A, B[i])
-        if is_same_mapping(last(A), B[i])
+        if identical(last(A), B[i])
             # The last term of the simplified composition A*B[i] is still B[i],
             # which indicates that composing A with B[i] did not yield any
             # simplifications.  It is sufficient to append all the other terms
@@ -181,7 +181,7 @@ function compose!(A::Vector{Mapping}, B::Mapping)
     C = A[m]*B
 
     # Replace the last term of A with C.
-    if C isa Composition && is_same_mapping(C[1], A[m])
+    if C isa Composition && identical(C[1], A[m])
         # Nothing has changed at the tail of the composition A.  No further
         # simplifications are expected.  Push all terms of C to A, but the
         # first term of C which is identical to the last term of A.

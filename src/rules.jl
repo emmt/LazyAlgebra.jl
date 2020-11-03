@@ -525,14 +525,14 @@ end
 *(A::Mapping,    B::Mapping    ) = Composition(A, B)
 
 *(A::Inverse{T}, B::T) where {T<:Mapping} =
-    is_same_mapping(unveil(A), B) ? Id : Composition(A, B)
+    identical(unveil(A), B) ? Id : Composition(A, B)
 *(A::T, B::Inverse{T}) where {T<:Mapping} =
-    is_same_mapping(A, unveil(B)) ? Id : Composition(A, B)
+    identical(A, unveil(B)) ? Id : Composition(A, B)
 *(A::Inverse, B::Inverse) = Composition(A, B)
 *(A::InverseAdjoint{T}, B::Adjoint{T}) where {T<:Mapping} =
-    is_same_mapping(unveil(A), unveil(B)) ? Id : Composition(A, B)
+    identical(unveil(A), unveil(B)) ? Id : Composition(A, B)
 *(A::Adjoint{T}, B::InverseAdjoint{T}) where {T<:Mapping} =
-    is_same_mapping(unveil(A), unveil(B)) ? Id : Composition(A, B)
+    identical(unveil(A), unveil(B)) ? Id : Composition(A, B)
 *(A::InverseAdjoint, B::InverseAdjoint) = Composition(A, B)
 
 # Automatically build Gram operators, Gram(A) ≡ A'*A.  The following automatic
@@ -551,14 +551,14 @@ end
 # In principle, if forming the adjoint has been allowed, it not needed
 # to check whether operands are linear mappings.
 *(A::Adjoint{T}, B::T) where {T<:Mapping} =
-    is_same_mapping(unveil(A), B) ? Gram(B) : Composition(A, B)
+    identical(unveil(A), B) ? Gram(B) : Composition(A, B)
 *(A::T, B::Adjoint{T}) where {T<:Mapping} =
-    is_same_mapping(A, unveil(B)) ? Gram(B) : Composition(A, B)
+    identical(A, unveil(B)) ? Gram(B) : Composition(A, B)
 *(A::Inverse{T}, B::InverseAdjoint{T}) where {T<:Mapping} =
-    is_same_mapping(unveil(A), unveil(B)) ? Inverse(Gram(unveil(A))) :
+    identical(unveil(A), unveil(B)) ? Inverse(Gram(unveil(A))) :
     Composition(A, B)
 *(A::InverseAdjoint{T}, B::Inverse{T}) where {T<:Mapping} =
-    is_same_mapping(unveil(A), unveil(B)) ?
+    identical(unveil(A), unveil(B)) ?
     Inverse(Gram(Adjoint(unveil(A)))) : Composition(A, B)
 
 # Left and right divisions.

@@ -386,7 +386,7 @@ checkmapping(A::LinearMapping) =
                  randn(input_eltype(A), input_size(A)))
 
 """
-    is_same_mapping(A, B)
+    identical(A, B)
 
 yields whether `A` is the same mapping as `B` in the sense that their effects
 will always be the same.  This method is used to perform some simplifications
@@ -397,17 +397,17 @@ The default implementation is to return `A === B`.
     The returned result may be true although `A` and `B` are not necessarily
     the same objects.  For instance, if `A` and `B` are two sparse matrices
     whose coefficients and indices are stored in the same arrays (as can be
-    tested with the `===` or `≡` operators, `is_same_mapping(A,B)` should
-    return `true` because the two operators will always behave identically (any
+    tested with the `===` or `≡` operators, `identical(A,B)` should return
+    `true` because the two operators will always behave identically (any
     changes in the coefficients or indices of `A` will be reflected in `B`).
     If any of the arrays storing the coefficients or the indices are not the
-    same objects, then `is_same_mapping(A,B)` must return `false` even though
-    the stored values may be the same because it is possible, later, to change
-    one operator without affecting identically the other.
+    same objects, then `identical(A,B)` must return `false` even though the
+    stored values may be the same because it is possible, later, to change one
+    operator without affecting identically the other.
 
 """
-@inline is_same_mapping(::Mapping, ::Mapping) = false # false if not same types
-@inline is_same_mapping(A::T, B::T) where {T<:Mapping} = (A === B)
+@inline identical(::Mapping, ::Mapping) = false # false if not same types
+@inline identical(A::T, B::T) where {T<:Mapping} = (A === B)
 
 """
     gram(A) -> A'*A

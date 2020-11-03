@@ -61,7 +61,7 @@ using AbstractFFTs, FFTW
                 @test LazyAlgebra.FFTs.preserves_input(F.forward) == true
                 @test LazyAlgebra.FFTs.preserves_input(F.backward) == false
             end
-            @test LazyAlgebra.is_same_mapping(F, F) == true
+            @test LazyAlgebra.identical(F, F) == true
             io = IOBuffer()
             show(io, F)
             @test String(take!(io)) == "FFT"
@@ -80,9 +80,9 @@ using AbstractFFTs, FFTW
 
             # Create operators which should be considered as the same as F.
             F1 =  FFTOperator(T, dims...)
-            @test LazyAlgebra.is_same_mapping(F1, F) == true
+            @test LazyAlgebra.identical(F1, F) == true
             F2 =  FFTOperator(T, map(Int16, dims))
-            @test LazyAlgebra.is_same_mapping(F2, F) == true
+            @test LazyAlgebra.identical(F2, F) == true
 
             # Check applying operator.
             xbad = rand(T, ntuple(i -> (i == 1 ? dims[i]+1 : dims[i]), length(dims)))

@@ -23,7 +23,7 @@ using ..LazyAlgebra:
     @callable, promote_multiplier, Endomorphism, Morphism,
     bad_argument, bad_size
 import ..LazyAlgebra:
-    vcreate, apply!, is_same_mapping, coefficients, check,
+    vcreate, apply!, identical, coefficients, check,
     MorphismType, input_size, output_size, input_ndims, output_ndims
 
 using ArrayTools
@@ -237,7 +237,7 @@ function check(S::SparseOperator{T,M,N}) where {T,M,N}
     return S
 end
 
-is_same_mapping(A::T, B::T) where {T<:SparseOperator} =
+identical(A::T, B::T) where {T<:SparseOperator} =
     (coefficients(A) === coefficients(B) && rows(A) === rows(B) &&
      cols(A) === cols(B) && output_size(A) == output_size(B) &&
      input_size(A) == input_size(B))
