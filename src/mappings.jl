@@ -73,10 +73,8 @@ The method [`Diag`](@ref) is a shortcut to build a non-uniform scaling operator
 and the scaling factors of a non-uniform scaling operator retrieved with the
 [`diag`](@ref) method:
 
-```julia
-W = Diag(A)
-diag(W) === A  # this is true
-```
+    W = Diag(A)
+    diag(W) === A  # this is true
 
 !!! note
     Beware of the differences between the [`Diag`](@ref) (with an uppercase
@@ -87,7 +85,6 @@ struct NonuniformScaling{T} <: LinearMapping
     diag::T
 end
 
-@deprecate NonuniformScalingOperator NonuniformScaling
 @callable NonuniformScaling
 
 # Traits:

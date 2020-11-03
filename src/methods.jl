@@ -161,8 +161,6 @@ as `terms(A)`.
 terms(A::Union{Sum,Composition}) = getfield(A, :ops)
 terms(A::Mapping) = (A,)
 
-@deprecate operands terms
-
 """
     unveil(A)
 
@@ -178,8 +176,6 @@ unveil(A::DecoratedMapping) = getfield(A, :op)
 unveil(A::Mapping) = A
 unveil(A::UniformScaling) = multiplier(A)*Id
 Mapping(A::UniformScaling) = unveil(A)
-
-@deprecate operand unveil
 
 """
     unscaled(A)
