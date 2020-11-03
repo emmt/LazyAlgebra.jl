@@ -21,6 +21,7 @@ export
     Diag,
     DiagonalMapping,
     DiagonalType,
+    Diff,
     Direct,
     Endomorphism,
     FFTOperator,
@@ -140,7 +141,7 @@ import .SparseOperators: SparseOperator, sparse, unpack!
 include("cropping.jl")
 import .Cropping: CroppingOperator, ZeroPaddingOperator, defaultoffset
 include("finitedifferences.jl")
-import .FiniteDifferences: SimpleFiniteDifferences
+import .FiniteDifferences: SimpleFiniteDifferences, Diff
 include("fft.jl")
 import .FFTs: CirculantConvolution, FFTOperator
 include("conjgrad.jl")

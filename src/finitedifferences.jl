@@ -32,6 +32,8 @@ import Base: show, *
 struct SimpleFiniteDifferences <: LinearMapping end
 @callable SimpleFiniteDifferences
 
+const Diff = SimpleFiniteDifferences
+
 identical(::SimpleFiniteDifferences, ::SimpleFiniteDifferences) = true
 
 show(io::IO, ::SimpleFiniteDifferences) = print(io, "Diff")
