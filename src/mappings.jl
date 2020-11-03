@@ -63,16 +63,16 @@ identical(::T, ::T) where {T<:SymbolicLinearMapping} = true
 # NON-UNIFORM SCALING
 
 """
-    NonuniformScaling(A)
+    Diag(A) -> NonuniformScaling(A)
 
-creates a non-uniform scaling linear mapping whose effect is to apply
-elementwise multiplication of its argument by the scaling factors `A`.  This
-mapping can be thought as a *diagonal* operator.
+yields a non-uniform scaling linear mapping (of type `NonuniformScaling`) whose
+effect is to apply elementwise multiplication of its argument by the scaling
+factors `A`.  This mapping can be thought as a *diagonal* operator.
 
-The method [`Diag`](@ref) is a shortcut to build a non-uniform scaling operator
-and the scaling factors of a non-uniform scaling operator retrieved with the
-[`diag`](@ref) method:
+The `diag` method in `LinearAlgebra` can be called to retrieve the scaling
+factors:
 
+    using LinearAlgebra
     W = Diag(A)
     diag(W) === A  # this is true
 
@@ -85,6 +85,8 @@ struct NonuniformScaling{T} <: LinearMapping
     diag::T
 end
 
+const Diag{T} = NonuniformScaling{T}
+
 @callable NonuniformScaling
 
 # Traits:
@@ -96,18 +98,6 @@ _selfadjointtype(::Type{<:Real}, ::NonuniformScaling) =
     SelfAdjoint()
 _selfadjointtype(::Type{<:Complex}, ::NonuniformScaling) =
     NonSelfAdjoint()
-
-"""
-    Diag(A)
-
-yields a non-uniform scaling linear mapping whose effect is to apply
-elementwise multiplication of its argument by the scaling factors `A`.  This
-mapping can be thought as a *diagonal* operator.
-
-See also: [`NonuniformScaling`](@ref), [`diag`](@ref).
-
-"""
-Diag(A) = NonuniformScaling(A)
 
 coefficients(A::NonuniformScaling) = A.diag
 LinearAlgebra.diag(A::NonuniformScaling) = coefficients(A)
