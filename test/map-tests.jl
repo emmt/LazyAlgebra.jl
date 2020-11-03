@@ -124,7 +124,6 @@ using LinearAlgebra: ⋅, UniformScaling
         x = randn(T, dims)
         y = randn(T, dims)
         z = vcreate(y)
-        @test_deprecated S = NonuniformScalingOperator(w)
         S = NonuniformScaling(w)
         @test diag(S) === w
         @test Diag(w) === S

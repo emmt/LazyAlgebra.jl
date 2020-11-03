@@ -144,6 +144,5 @@ import .FiniteDifferences: SimpleFiniteDifferences
 include("fft.jl")
 import .FFTs: CirculantConvolution, FFTOperator
 include("conjgrad.jl")
-include("deprecations.jl")
 
 end
