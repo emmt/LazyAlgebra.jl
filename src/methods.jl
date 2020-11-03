@@ -11,20 +11,20 @@
 # Copyright (c) 2017-2020 Éric Thiébaut.
 #
 
-function unimplemented(::Type{P}, ::Type{T}) where {P<:Operations, T<:Mapping}
+@noinline function unimplemented(::Type{P},
+                                 ::Type{T}) where {P<:Operations, T<:Mapping}
     throw(UnimplementedOperation("unimplemented operation `$P` for mapping $T"))
 end
 
-function unimplemented(func::Union{AbstractString,Symbol},
-                       ::Type{T}) where {T<:Mapping}
+@noinline function unimplemented(func::Union{AbstractString,Symbol},
+                                 ::Type{T}) where {T<:Mapping}
     throw(UnimplementedMethod("unimplemented method `$func` for mapping $T"))
 end
 
 """
-
     @callable T
 
-makes concrete type `T` callable as a regular mapping that is `A(x)` yields
+makes concrete type `T` callable as a regular mapping, that is `A(x)` yields
 `apply(A,x)` for any `A` of type `T`.
 
 """
@@ -148,7 +148,6 @@ function show(io::IO, A::Composition{N}) where {N}
 end
 
 """
-
     terms(A)
 
 yields the list (as a tuple) of terms that compose mapping `A`.  If `A` is a
@@ -165,7 +164,6 @@ terms(A::Mapping) = (A,)
 @deprecate operands terms
 
 """
-
     unveil(A)
 
 unveils the mapping embedded in mapping `A` if it is a *decorated* mapping (see
@@ -184,7 +182,6 @@ Mapping(A::UniformScaling) = unveil(A)
 @deprecate operand unveil
 
 """
-
     unscaled(A)
 
 and
@@ -206,7 +203,6 @@ multiplier(A::UniformScaling) = getfield(A, :λ)
 @doc @doc(unscaled) multiplier
 
 """
-
     primitive(J)
 
 and
@@ -222,7 +218,6 @@ variables(J::Jacobian) = getfield(J, :x)
 @doc @doc(primitive) variables
 
 """
-
     identifier(A)
 
 yields an (almost) unique identifier of the mapping `A` computed as
@@ -254,7 +249,6 @@ Tuple(A::Union{Sum,Composition}) = terms(A)
     getindex(terms(A), i)
 
 """
-
     input_type([P=Direct,] A)
     output_type([P=Direct,] A)
 
@@ -268,7 +262,8 @@ output are given by:
     input_size([P=Direct,] A, i)         output_size([P=Direct,] A, i)
     input_ndims([P=Direct,] A)           output_ndims([P=Direct,] A)
 
-Only `input_size(A)` and `output_size(A)` have to be implemented.
+For mappings operating on Julia arrays, only `input_size(A)` and
+`output_size(A)` have to be implemented.
 
 Also see: [`vcreate`](@ref), [`apply!`](@ref), [`LinearMapping`](@ref),
 [`Operations`](@ref).
@@ -283,54 +278,43 @@ for sfx in (:size, :eltype, :ndims, :type),
 
     for P in (Direct, Adjoint, Inverse, InverseAdjoint)
 
-        fn2 = Symbol(P == Adjoint || P == Inverse ?
-                     (pfx == :output ? :input : :output) : pfx, "_", sfx)
+        fn2 = Symbol(P === Adjoint || P === Inverse ?
+                     (pfx === :output ? :input : :output) : pfx, "_", sfx)
 
-        T = (P == Adjoint || P == InverseAdjoint ? LinearMapping : Mapping)
+        T = (P === Adjoint || P === InverseAdjoint ? LinearMapping : Mapping)
 
         # Provide basic methods for the different operations and for tagged
         # mappings.
-        @eval begin
-
-            if $(P != Direct)
-                $fn1(A::$P{<:$T}) = $fn2(unveil(A))
+        @eval $fn1(::Type{$P}, A::$T) = $fn2(A)
+        if P !== Direct
+            @eval $fn1(A::$P{<:$T}) = $fn2(unveil(A))
+        end
+        if sfx === :size
+            if P !== Direct
+                @eval $fn1(A::$P{<:$T}, dim...) = $fn2(unveil(A), dim...)
             end
-
-            $fn1(::Type{$P}, A::$T) = $fn2(A)
-
-            if $(sfx == :size)
-                if $(P != Direct)
-                    $fn1(A::$P{<:$T}, dim...) = $fn2(unveil(A), dim...)
-                end
-                $fn1(::Type{$P}, A::$T, dim...) = $fn2(A, dim...)
-            end
+            @eval $fn1(::Type{$P}, A::$T, dim...) = $fn2(A, dim...)
         end
     end
 
     # Link documentation for the basic methods.
-    @eval begin
-        if $(fn1 != :input_type)
-            @doc @doc(:input_type) $fn1
-        end
+    if fn1 !== :input_type
+        @eval @doc @doc(:input_type) $fn1
     end
 
 end
 
 # Provide default methods for `$(sfx)_size(A, dim...)` and `$(sfx)_ndims(A)`.
 for pfx in (:input, :output)
-    pfx_size = Symbol(pfx, "_size")
-    pfx_ndims = Symbol(pfx, "_ndims")
+    get_size = Symbol(pfx, "_size")
+    get_ndims = Symbol(pfx, "_ndims")
     @eval begin
-
-        $pfx_ndims(A::Mapping) = length($pfx_size(A))
-
-        $pfx_size(A::Mapping, dim) = $pfx_size(A)[dim]
-
-        function $pfx_size(A::Mapping, dim...)
-            dims = $pfx_size(A)
+        $get_ndims(A::Mapping) = length($get_size(A))
+        $get_size(A::Mapping, dim) = $get_size(A)[dim]
+        function $get_size(A::Mapping, dim...)
+            dims = $get_size(A)
             ntuple(i -> dims[dim[i]], length(dim))
         end
-
     end
 end
 
@@ -339,7 +323,6 @@ for f in (:input_eltype, :output_eltype, :input_size, :output_size)
 end
 
 """
-
     coefficients(A)
 
 yields the object backing the storage of the coefficients of the linear mapping
@@ -348,7 +331,6 @@ yields the object backing the storage of the coefficients of the linear mapping
 """ coefficients
 
 """
-
     check(A) -> A
 
 checks integrity of mapping `A` and returns it.
@@ -357,27 +339,26 @@ checks integrity of mapping `A` and returns it.
 check(A::Mapping) = A
 
 """
-
     checkmapping(y, A, x) -> (v1, v2, v1 - v2)
 
 yields `v1 = vdot(y, A*x)`, `v2 = vdot(A'*y, x)` and their difference for `A` a
-linear mapping, `y` a "vector" of the output space of `A` and `x` a "vector"
-of the input space of `A`.  In principle, the two inner products should be the
-same whatever `x` and `y`; otherwise the mapping has a bug.
+linear mapping, `y` a *vector* of the output space of `A` and `x` a *vector* of
+the input space of `A`.  In principle, the two inner products should be equal
+whatever `x` and `y`; otherwise the mapping has a bug.
 
 Simple linear mappings operating on Julia arrays can be tested on random
-"vectors" with:
+*vectors* with:
 
     checkmapping([T=Float64,] outdims, A, inpdims) -> (v1, v2, v1 - v2)
 
-with `outdims` and `outdims` the dimensions of the output and input "vectors"
+with `outdims` and `outdims` the dimensions of the output and input *vectors*
 for `A`.  Optional argument `T` is the element type.
 
 If `A` operates on Julia arrays and methods `input_eltype`, `input_size`,
 `output_eltype` and `output_size` have been specialized for `A`, then:
 
     checkmapping(A) -> (v1, v2, v1 - v2)
-=
+
 is sufficient to check `A` against automatically generated random arrays.
 
 See also: [`vdot`](@ref), [`vcreate`](@ref), [`apply!`](@ref),
@@ -407,8 +388,8 @@ end
 checkmapping(A::LinearMapping) =
     checkmapping(randn(output_eltype(A), output_size(A)), A,
                  randn(input_eltype(A), input_size(A)))
-"""
 
+"""
     is_same_mapping(A, B)
 
 yields whether `A` is the same mapping as `B` in the sense that their effects
@@ -433,7 +414,6 @@ The default implementation is to return `A === B`.
 @inline is_same_mapping(A::T, B::T) where {T<:Mapping} = (A === B)
 
 """
-
     gram(A) -> A'*A
 
 yields the Gram operator built out of the linear mapping `A`.  The result is
