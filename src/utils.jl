@@ -17,7 +17,11 @@ bad_argument(mesg::String) = throw(ArgumentError(mesg))
 @noinline bad_size(args...) = bad_size(string(args...))
 bad_size(mesg::String) = throw(DimensionMismatch(mesg))
 
-incompatible_axes() = bad_size("arguments have incompatible dimensions/indices")
+arguments_have_incompatible_axes() =
+    bad_size("arguments have incompatible dimensions/indices")
+
+operands_have_incompatible_axes() =
+    bad_size("operands have incompatible dimensions/indices")
 
 """
     message([io=stdout,] header, args...; color=:blue)
@@ -51,19 +55,14 @@ warn(io::IO, args...) = message(io, "Warning:", args...; color=:yellow)
 #inform(io::IO, args...) = message(io, "Info:", args...; color=:blue)
 
 """
-
-```julia
-promote_multiplier(λ, T)
-```
+    promote_multiplier(λ, T)
 
 yields multiplier `λ` converted to a suitable floating-point type for
 multiplying values or expressions of type `T`.
 
 Multiple arguments can be specified after the multiplier `λ`:
 
-```julia
-promote_multiplier(λ, args...)
-```
+    promote_multiplier(λ, args...)
 
 to have `T` the promoted type of all types in `args...` or all element types of
 arrays in `args...`.

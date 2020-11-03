@@ -83,13 +83,14 @@ using LazyAlgebra
     #
     let bad_argument = LazyAlgebra.bad_argument,
         bad_size = LazyAlgebra.bad_size,
-        incompatible_axes = LazyAlgebra.incompatible_axes,
-        message = LazyAlgebra.message,
+        arguments_have_incompatible_axes = LazyAlgebra.arguments_have_incompatible_axes,
+        operands_have_incompatible_axes = LazyAlgebra.operands_have_incompatible_axes,        message = LazyAlgebra.message,
         warn = LazyAlgebra.warn,
         siz = (3,4,5)
         @test_throws ArgumentError bad_argument("argument must be nonnegative")
         @test_throws ArgumentError bad_argument("invalid size ", siz)
-        @test_throws DimensionMismatch incompatible_axes()
+        @test_throws DimensionMismatch arguments_have_incompatible_axes()
+        @test_throws DimensionMismatch operands_have_incompatible_axes()
         @test_throws DimensionMismatch bad_size("invalid size")
         @test_throws DimensionMismatch bad_size("invalid size ", siz)
         message("Info:", "array size ", siz; color=:magenta)

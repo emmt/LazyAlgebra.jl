@@ -16,9 +16,7 @@
 #
 
 """
-```julia
-vnorm2([T,] v)
-```
+    vnorm2([T,] v)
 
 yields the Euclidean (L2) norm of `v`.  The floating point type of the result
 can be imposed by optional argument `T`.  Also see [`vnorm1`](@ref) and
@@ -34,9 +32,7 @@ function vnorm2(v::AbstractArray{<:Union{T,Complex{T}}}) where {T<:AbstractFloat
 end
 
 """
-```julia
-vnorm1([T,] v)
-```
+    vnorm1([T,] v)
 
 yields the L1 norm of `v`, that is the sum of the absolute values of its
 elements.  The floating point type of the result can be imposed by optional
@@ -67,9 +63,7 @@ function vnorm1(v::AbstractArray{Complex{T}}) where {T<:AbstractFloat}
 end
 
 """
-```julia
-vnorminf([T,] v)
-```
+    vnorminf([T,] v)
 
 yields the infinite norm of `v`, that is the maximum absolute value of its
 elements.  The floating point type of the result can be imposed by optional
@@ -100,9 +94,7 @@ end
 #------------------------------------------------------------------------------
 
 """
-```julia
-vcreate(x)
-```
+    vcreate(x)
 
 yields a new variable instance similar to `x`.  If `x` is an array, the
 element type of the result is a floating-point type.
@@ -116,9 +108,7 @@ vcreate(x::AbstractArray{T,N}) where {R<:Real,T<:Union{R,Complex{R}},N} =
 #------------------------------------------------------------------------------
 
 """
-```julia
-vcopy!(dst, src) -> dst
-```
+    vcopy!(dst, src) -> dst
 
 copies the contents of `src` into `dst` and returns `dst`.  This function
 checks that the copy makes sense (for instance, for array arguments, the
@@ -131,7 +121,7 @@ Also see [`copyto!`](@ref), [`vcopy`](@ref), [`vswap!`](@ref).
 function vcopy!(dst::AbstractArray{<:Real,N},
                 src::AbstractArray{<:Real,N}) where {N}
     if dst !== src
-        axes(dst) == axes(src) || incompatible_axes()
+        axes(dst) == axes(src) || arguments_have_incompatible_axes()
         copyto!(dst, src)
     end
     return dst
@@ -140,16 +130,14 @@ end
 function vcopy!(dst::AbstractArray{<:Complex{<:Real},N},
                 src::AbstractArray{<:Complex{<:Real},N}) where {N}
     if dst !== src
-        axes(dst) == axes(src) || incompatible_axes()
+        axes(dst) == axes(src) || arguments_have_incompatible_axes()
         copyto!(dst, src)
     end
     return dst
 end
 
 """
-```julia
-vcopy(x)
-```
+    vcopy(x)
 
 yields a fresh copy of the *vector* `x`.  If `x` is is an array, the element
 type of the result is a floating-point type.
@@ -160,9 +148,7 @@ Also see [`copy`](@ref), [`vcopy!`](@ref), [`vcreate!`](@ref).
 vcopy(x) = vcopy!(vcreate(x), x)
 
 """
-```julia
-vswap!(x, y)
-```
+    vswap!(x, y)
 
 exchanges the contents of `x` and `y` (which must have the same element type
 and axes if they are arrays).
@@ -187,9 +173,7 @@ _swap!(x::AbstractArray{T,N}, y::AbstractArray{T,N}) where {T,N} =
 #------------------------------------------------------------------------------
 
 """
-```julia
-vfill!(x, α) -> x
-```
+    vfill!(x, α) -> x
 
 sets all elements of `x` with the scalar value `α` and return `x`.
 
@@ -206,10 +190,7 @@ vfill!(x::AbstractArray{T}, α::T) where {T} = begin
 end
 
 """
-
-```julia
-vzero!(x) -> x
-```
+    vzero!(x) -> x
 
 fills `x` with zeros and returns it.
 
@@ -220,10 +201,7 @@ vzero!(x) = vfill!(x, 0)
 vzero!(x::AbstractArray{T}) where {T} = vfill!(x, zero(T))
 
 """
-
-```julia
-vzeros(x)
-```
+    vzeros(x)
 
 yields a *vector* like `x` filled with zeros.
 
@@ -233,10 +211,7 @@ Also see [`vones`](@ref), [`vcreate`](@ref), [`vfill!`](@ref).
 vzeros(x) = vzero!(vcreate(x))
 
 """
-
-```julia
-vones(x)
-```
+    vones(x)
 
 yields a *vector* like `x` filled with ones.
 
@@ -248,17 +223,13 @@ vones(x) = vfill!(vcreate(x), 1)
 #------------------------------------------------------------------------------
 
 """
-```julia
-vscale!(dst, α, src) -> dst
-```
+    vscale!(dst, α, src) -> dst
 
 overwrites `dst` with `α*src` and returns `dst`.  Computations are done at the
 numerical precision of `promote_eltype(src,dst)`.  The source argument may be
 omitted to perform *in-place* scaling:
 
-```julia
-vscale!(x, α) -> x
-```
+    vscale!(x, α) -> x
 
 overwrites `x` with `α*x` and returns `x`.  The convention is that the result
 is zero-filled if `α=0` (whatever the values in the source).
@@ -266,10 +237,8 @@ is zero-filled if `α=0` (whatever the values in the source).
 Methods are provided by default so that the order of the factor `α` and the
 source vector may be reversed:
 
-```julia
-vscale!(dst, src, α) -> dst
-vscale!(α, x) -> x
-```
+    vscale!(dst, src, α) -> dst
+    vscale!(α, x) -> x
 
 Also see [`vscale`](@ref), [`LinearAlgebra.rmul!](@ref).
 
@@ -280,7 +249,7 @@ function vscale!(dst::AbstractArray{<:Floats,N},
     if α == 1
         vcopy!(dst, src)
     elseif α == 0
-        axes(dst) == axes(src) || incompatible_axes()
+        axes(dst) == axes(src) || arguments_have_incompatible_axes()
         vzero!(dst)
     elseif α == -1
         @inbounds @simd for i in all_indices(dst, src)
@@ -327,13 +296,11 @@ vscale!(::Number, ::Number, ::Any) = error("bad argument types")
 vscale!(::Number, ::Number, ::Number) = error("bad argument types")
 
 """
-```julia
-vscale(α, x)
-```
+    vscale(α, x)
+
 or
-```julia
-vscale(x, α)
-```
+
+    vscale(x, α)
 
 yield a new *vector* whose elements are those of `x` multiplied by the scalar
 `α`.
@@ -345,21 +312,16 @@ vscale(α::Number, x) = vscale!(vcreate(x), α, x)
 vscale(x, α::Number) = vscale(α, x)
 
 #------------------------------------------------------------------------------
+# ELEMENT-WISE MULTIPLICATION
 
 """
-### Elementwise multiplication
+    vproduct(x, y) -> z
 
-```julia
-vproduct(x, y) -> z
-```
-
-yields the elementwise multiplication of `x` by `y`.  To avoid allocating the
+yields the element-wise multiplication of `x` by `y`.  To avoid allocating the
 result, the destination array `dst` can be specified with the in-place version
 of the method:
 
-```julia
-vproduct!(dst, [sel,] x, y) -> dst
-```
+    vproduct!(dst, [sel,] x, y) -> dst
 
 which overwrites `dst` with the elementwise multiplication of `x` by `y`.
 Optional argument `sel` is a selection of indices to which apply the operation.
@@ -404,12 +366,11 @@ end
 
 @doc @doc(vproduct) vproduct!
 
-#--- VECTOR UPDATE ------------------------------------------------------------
+#------------------------------------------------------------------------------
+# VECTOR UPDATE
 
 """
-```julia
-vupdate!(y, [sel,] α, x) -> y
-```
+    vupdate!(y, [sel,] α, x) -> y
 
 overwrites `y` with `α*x + y` and returns `y`.  The code is optimized for some
 specific values of the multiplier `α`.  For instance, if `α` is zero, then `y`
@@ -475,20 +436,14 @@ end
 # LINEAR COMBINATION
 
 """
-### Linear combination of arrays
-
-```julia
-vcombine(α, x, β, y) -> dst
-```
+    vcombine(α, x, β, y) -> dst
 
 yields the linear combination `dst = α*x + β*y`.
 
 To avoid allocating the result, the destination array `dst` can be specified
 with the in-place version of the method:
 
-```julia
-vcombine!(dst, α, x, β, y) -> dst
-```
+    vcombine!(dst, α, x, β, y) -> dst
 
 The code is optimized for some specific values of the multipliers `α` and `β`.
 For instance, if `α` (resp. `β`) is zero, then the prior contents of `x`
@@ -497,10 +452,8 @@ For instance, if `α` (resp. `β`) is zero, then the prior contents of `x`
 The source(s) and the destination can be the same.  For instance, the two
 following lines of code produce the same result:
 
-```julia
-vcombine!(dst, 1, dst, α, x)
-vupdate!(dst, α, x)
-```
+    vcombine!(dst, 1, dst, α, x)
+    vupdate!(dst, α, x)
 
 See also: [`vscale!`](@ref), [`vupdate!](@ref).
 
@@ -514,10 +467,10 @@ function vcombine!(dst::AbstractArray{<:Floats,N},
                    β::Number,
                    y::AbstractArray{<:Floats,N}) where {N}
     if α == 0
-        axes(x) == axes(dst) || incompatible_axes()
+        axes(x) == axes(dst) || arguments_have_incompatible_axes()
         vscale!(dst, β, y)
     elseif β == 0
-        axes(y) == axes(dst) || incompatible_axes()
+        axes(y) == axes(dst) || arguments_have_incompatible_axes()
         vscale!(dst, α, x)
     else
         I = all_indices(dst, x, y)
@@ -574,14 +527,11 @@ end
 
 @doc @doc(vcombine) vcombine!
 
-#--- INNER PRODUCT ------------------------------------------------------------
+#------------------------------------------------------------------------------
+# INNER PRODUCT
 
 """
-### Inner product
-
-```julia
-vdot([T,] [w,] x, y)
-```
+    vdot([T,] [w,] x, y)
 
 yields the inner product of `x` and `y`; that is, the sum of `conj(x[i])*y[i]`
 or, if `w` is specified, the sum of `w[i]*conj(x[i])*y[i]` (`w` must have
@@ -590,9 +540,7 @@ floating point type of the result.
 
 Another possibility is:
 
-```julia
-vdot([T,] sel, x, y)
-```
+    vdot([T,] sel, x, y)
 
 with `sel` a selection of indices to restrict the computation of the inner
 product to some selected elements.  This yields the sum of `x[i]*y[i]` for all
@@ -602,10 +550,9 @@ If the arguments have complex-valued elements and `T` is specified as a
 floating-point type, complexes are considered as vectors of pairs of reals and
 the result is:
 
-```julia
-vdot(T::Type{AbstractFloat}, x, y) = (x[1].re*y[1].re + x[1].im*y[1].im) +
-                                     (x[2].re*y[2].re + x[2].im*y[2].im) + ...
-```
+    vdot(T::Type{AbstractFloat}, x, y)
+    -> ((x[1].re*y[1].re + x[1].im*y[1].im) +
+        (x[2].re*y[2].re + x[2].im*y[2].im) + ...)
 
 """
 vdot(::Type{T}, x, y) where {T<:AbstractFloat} = T(vdot(x,y))
@@ -771,7 +718,7 @@ end
                                 A::AbstractArray{<:Any,N},
                                 B::AbstractArray{<:Any,N}) where {N}
     @assert IndexStyle(B) === IndexLinear()
-    axes(A) == axes(B) || incompatible_axes()
+    axes(A) == axes(B) || arguments_have_incompatible_axes()
     checkselection(sel, A)
 end
 
@@ -781,7 +728,7 @@ end
                                 C::AbstractArray{<:Any,N}) where {N}
     @assert IndexStyle(B) === IndexLinear()
     @assert IndexStyle(C) === IndexLinear()
-    axes(A) == axes(B) == axes(C) || incompatible_axes()
+    axes(A) == axes(B) == axes(C) || arguments_have_incompatible_axes()
     checkselection(sel, A)
 end
 
