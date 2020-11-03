@@ -63,9 +63,7 @@ is_same_mapping(::T, ::T) where {T<:SymbolicLinearMapping} = true
 # NON-UNIFORM SCALING
 
 """
-```julia
-NonuniformScaling(A)
-```
+    NonuniformScaling(A)
 
 creates a non-uniform scaling linear mapping whose effect is to apply
 elementwise multiplication of its argument by the scaling factors `A`.  This
@@ -103,9 +101,7 @@ _selfadjointtype(::Type{<:Complex}, ::NonuniformScaling) =
     NonSelfAdjoint()
 
 """
-```
-Diag(A)
-```
+    Diag(A)
 
 yields a non-uniform scaling linear mapping whose effect is to apply
 elementwise multiplication of its argument by the scaling factors `A`.  This
@@ -234,19 +230,13 @@ end
 # RANK-1 OPERATORS
 
 """
+    RankOneOperator(u, v) -> A
 
-A `RankOneOperator` is defined by two *vectors* `u` and `v` and created by:
+yields the rank one linear operator `A = u⋅v'` defined by the two *vectors* `u`
+and `v` and behaving as:
 
-```julia
-A = RankOneOperator(u, v)
-```
-
-and behaves as if `A = u⋅v'`; that is:
-
-```julia
-A*x  = vscale(vdot(v, x)), u)
-A'*x = vscale(vdot(u, x)), v)
-```
+    A*x  -> vscale(vdot(v, x)), u)
+    A'*x -> vscale(vdot(u, x)), v)
 
 See also: [`SymmetricRankOneOperator`](@ref), [`LinearMapping`](@ref),
           [`apply!`](@ref), [`vcreate`](@ref).
@@ -279,13 +269,10 @@ function _apply_rank_one!(α::Number, u, v, x, β::Number, y)
     return y
 end
 
-
 # Lazily assume that x has correct type, dimensions, etc.
 # FIXME: optimize when scratch=true
-vcreate(::Type{Direct}, A::RankOneOperator, x, scratch::Bool) =
-    vcreate(A.v)
-vcreate(::Type{Adjoint}, A::RankOneOperator, x, scratch::Bool) =
-    vcreate(A.u)
+vcreate(::Type{Direct}, A::RankOneOperator, x, scratch::Bool) = vcreate(A.v)
+vcreate(::Type{Adjoint}, A::RankOneOperator, x, scratch::Bool) = vcreate(A.u)
 
 input_type(A::RankOneOperator{U,V}) where {U,V} = V
 input_ndims(A::RankOneOperator) = ndims(A.v)
@@ -300,21 +287,16 @@ output_size(A::RankOneOperator, d...) = size(A.u, d...)
 output_eltype(A::RankOneOperator) = eltype(A.u)
 
 is_same_mapping(A::T, B::T) where {T<:RankOneOperator} =
-    (A.u === B.u && A.v === B.v)
+    ((A.u === B.u)&(A.v === B.v))
 
 """
+    SymmetricRankOneOperator(u) -> A
 
-A `SymmetricRankOneOperator` is defined by a *vector* `u` and created by:
+yields the symmetric rank one operator `A = u⋅u'` defined by the *vector* `u`
+and behaving as follows:
 
-```julia
-A = SymmetricRankOneOperator(u)
-```
-
-and behaves as if `A = u⋅u'`; that is:
-
-```julia
-A*x = A'*x = vscale(vdot(u, x)), u)
-```
+    A'*x -> A*x
+    A*x  -> vscale(vdot(u, x)), u)
 
 See also: [`RankOneOperator`](@ref), [`LinearMapping`](@ref),
           [`Trait`](@ref) [`apply!`](@ref), [`vcreate`](@ref).
@@ -360,22 +342,20 @@ is_same_mapping(A::T, B::T) where {T<:SymmetricRankOneOperator} =
 # GENERALIZED MATRIX AND MATRIX-VECTOR PRODUCT
 
 """
-```julia
-GeneralMatrix(A)
-```
+    GeneralMatrix(A)
 
-creates a linear mapping given a multi-dimensional array `A` whose interest is
-to generalize the definition of the matrix-vector product without calling
-`reshape` to change the dimensions.
+creates a linear mapping whose coefficients are given by a multi-dimensional
+array `A` and which generalizes the definition of the matrix-vector product
+without calling `reshape` to change the dimensions.
 
 For instance, assuming that `G = GeneralMatrix(A)` with `A` a regular array,
 then `y = G*x` requires that the dimensions of `x` match the trailing
 dimensions of `A` and yields a result `y` whose dimensions are the remaining
-leading dimensions of `A`, such that `axes(A) = (axes(y)...,
-axes(x)...)`.  Applying the adjoint of `G` as in `y = G'*x` requires that
-the dimensions of `x` match the leading dimension of `A` and yields a result
-`y` whose dimensions are the remaining trailing dimensions of `A`, such that
-`axes(A) = (axes(x)..., axes(y)...)`.
+leading dimensions of `A`, such that `axes(A) = (axes(y)..., axes(x)...)`.
+Applying the adjoint of `G` as in `y = G'*x` requires that the dimensions of
+`x` match the leading dimension of `A` and yields a result `y` whose dimensions
+are the remaining trailing dimensions of `A`, such that `axes(A) = (axes(x)...,
+axes(y)...)`.
 
 See also: [`reshape`](@ref).
 
@@ -462,10 +442,12 @@ function vcreate(P::Type{<:Union{Direct,InverseAdjoint}},
         bad_size("the indices of `x` do not match the trailing indices of `A`")
     1 ≤ Nx < Na || incompatible_dimensions()
     Ny = Na - Nx
+    xinds = axes(x)
+    Ainds = axes(A)
     @inbounds for d in 1:Nx
-        axes(x, d) == axes(A, Ny + d) || incompatible_dimensions()
+        xinds[d] == Ainds[Ny + d] || incompatible_dimensions()
     end
-    shape = ntuple(d -> axes(A, d), Val(Ny))
+    shape = ntuple(d -> Ainds[d], Val(Ny)) # faster than Ainds[1:Ny]
     return similar(A, promote_type(Ta, Tx), shape)
 end
 
@@ -481,9 +463,11 @@ function vcreate(P::Type{<:Union{Adjoint,Inverse}},
         bad_size("the indices of `x` do not match the leading indices of `A`")
     1 ≤ Nx < Na || incompatible_dimensions()
     Ny = Na - Nx
+    xinds = axes(x)
+    Ainds = axes(A)
     @inbounds for d in 1:Nx
-        axes(x, d) == axes(A, d) || incompatible_dimensions()
+        xinds[d] == Ainds[d] || incompatible_dimensions()
     end
-    shape = ntuple(d -> axes(A, Nx + d), Val(Ny))
+    shape = ntuple(d -> Ainds[Nx + d], Val(Ny)) # faster than Ainds[Nx+1:end]
     return similar(A, promote_type(Ta, Tx), shape)
 end
