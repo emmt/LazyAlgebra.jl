@@ -319,6 +319,59 @@ for f in (:input_eltype, :output_eltype, :input_size, :output_size)
 end
 
 """
+    nrows(A)
+
+yields the *equivalent* number of rows of the linear operator `A`.  Not all
+operators extend this method.
+
+In the implemented generalization of linear operators, the equivalent number of
+rows is the number of element of the result of applying the operator be it
+single- or multi-dimensional.
+
+"""
+nrows(A::LinearMapping) = prod(row_size(A))
+@noinline nrows(A::Mapping) =
+    throw(ArgumentError("`nrows` is only implemented for linear mappings"))
+
+"""
+    ncols(A)
+
+yields the *equivalent* number of columns of the linear operator `A`.  Not all
+operators extend this method.
+
+In the implemented generalization of linear operators, the equivalent number of
+columns is the number of element of an argument of the operator be it single-
+or multi-dimensional.
+
+"""
+ncols(A::LinearMapping) = prod(col_size(A))
+@noinline ncols(A::Mapping) =
+    throw(ArgumentError("`ncols` is only implemented for linear mappings"))
+
+"""
+    row_size(A)
+
+yields the dimensions of the result of applying the linear operator `A`, this
+is equivalent to `output_size(A)`.  Not all operators extend this method.
+
+"""
+row_size(A::LinearMapping) = output_size(A)
+@noinline row_size(A::Mapping) =
+    throw(ArgumentError("`row_size` is only implemented for linear mappings"))
+
+"""
+    col_size(A)
+
+yields the dimensions of the argument of the linear operator `A`, this
+is equivalent to `input_size(A)`.  Not all
+operators extend this method.
+
+"""
+col_size(A::LinearMapping) = input_size(A)
+@noinline col_size(A::Mapping) =
+    throw(ArgumentError("`col_size` is only implemented for linear mappings"))
+
+"""
     coefficients(A)
 
 yields the object backing the storage of the coefficients of the linear mapping

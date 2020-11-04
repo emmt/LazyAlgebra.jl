@@ -135,7 +135,7 @@
   # Build instrumental model H (convolution by the PSF)
   H = F\Diag(F*ifftshift(psf))*F
   W = Diag(wgt)           # W is the precision matrix for independent noise
-  D = FiniteDifferences() # D will be used for the regularization
+  D = Diff()              # D will be used for the regularization
   A = H'*W*H + µ*D'*D     # left hand-side matrix of the normal equations
   b = H'*W*y              # right hand-side vector of the normal equations
   img = conjgrad(A, b)    # solve the normal equations using linear conjugate gradients

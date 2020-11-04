@@ -49,6 +49,9 @@ export
     SimpleFiniteDifferences,
     SingularSystem,
     SparseOperator,
+    SparseOperatorCSR,
+    SparseOperatorCSC,
+    SparseOperatorCOO,
     SymbolicLinearMapping,
     SymbolicMapping,
     SymmetricRankOneOperator,
@@ -58,6 +61,7 @@ export
     apply!,
     apply,
     coefficients,
+    col_size,
     conjgrad!,
     conjgrad,
     diag,
@@ -78,10 +82,15 @@ export
     lgemv!,
     lgemv,
     multiplier,
+    ncols,
+    nnz,
+    nonzeros,
+    nrows,
     output_eltype,
     output_ndims,
     output_size,
     output_type,
+    row_size,
     sparse,
     terms,
     unpack!,
@@ -136,8 +145,11 @@ include("coder.jl")
 include("simplify.jl")
 include("rules.jl")
 include("mappings.jl")
+
 include("sparse.jl")
-import .SparseOperators: SparseOperator, sparse, unpack!
+using .SparseOperators
+#import .SparseOperators: SparseOperator, sparse, unpack!
+
 include("cropping.jl")
 import .Cropping: CroppingOperator, ZeroPaddingOperator, defaultoffset
 include("finitedifferences.jl")
