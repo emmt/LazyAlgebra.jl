@@ -19,9 +19,7 @@
 module SparseOperators
 
 export
-    AbstractSparseOperatorCOO,
-    AbstractSparseOperatorCSC,
-    AbstractSparseOperatorCSR,
+    CompressedSparseOperator,
     SparseOperator,
     SparseOperatorCOO,
     SparseOperatorCSC,
@@ -124,119 +122,94 @@ as_matrix(A::AbstractArray, nrows::Int, ncols::Int) =
 
 """
 
-`SparseOperator{T,M,N}` is the abstract type inherited by the concrete types
-implementing compressed sparse storage of linear operators in various formats.
-Parameter `T` is the type of the elements.  Parameters `M` and `N` are the
-number of dimensions of the *rows* and of the *columns* respectively.
+`SparseOperator{T,M,N}` is the abstract type inherited by the sparse operator
+types. Parameter `T` is the type of the elements.  Parameters `M` and `N` are
+the number of dimensions of the *rows* and of the *columns* respectively.
+Sparse operators are a generalization of sparse matrices in the sense that they
+implement linear mappings which can be applied to `N`-dimensonal arguments to
+produce `M`-dimensional results (as explained below).  See
+[`GeneralMatrix`](@ref) for a similar generalization but for *dense* matrices.
 
-See [`SparseOperatorCSR`](@ref), [`SparseOperatorCSC`](@ref) and
-[`SparseOperatorCOO`](@ref) for concrete implementations.
+See [`CompressedSparseOperator`](@ref) for usage of sparse operators
+implementing compressed storage formats.
 
 """
 abstract type SparseOperator{T,M,N} <: LinearMapping end
 
 """
 
-`AbstractSparseOperatorCSR{T,M,N}` is an abstract sub-type of
+`CompressedSparseOperator{F,T,M,N}` is an abstract sub-type of
 `SparseOperator{T,M,N}` and is inherited by the concrete types implementing
-*Compressed Sparse Row* (CSR) storage of sparse operators.
+sparse operators with compressed storage in format `F`.
 
-To navigate into a sparse operator stored in CSR format `A` and retrieve the
-values `v` and their respective row `i` and column `j` indices for all the
-stored entries, the most efficient is too access them according to their
-storage order as shown by:
+Format `F` can be:
+
+- `:CSR` for *Compressed Sparse Row* storage format;
+- `:CSC` for *Compressed Sparse Column* storage format;
+- `:COO` for *Compressed Sparse Coordinate* storage format.
+
+See [`SparseOperatorCSR`](@ref), [`SparseOperatorCSC`](@ref) and
+[`SparseOperatorCOO`](@ref) for concrete implementations of these compressed
+sparse formats.
+
+It is possible to use a compressed sparse operator `A` as an iterator:
 
 ```julia
-using LazyAlgebra.SparseMethods
-for i in each_row(A)        # loop over row index
-    for k in each_off(A, i) # loop over structural non-zeros in this row
-        j = get_col(A, k)   # get column index of entry
-        v = get_val(A, k)   # get value of entry
-     end
+for (Aij,i,j) in A # simple but slow for CSR and CSC
+    ...
 end
 ```
 
-It is also possible to use the sparse operator as an iterator (see
-[`SparseOperator`](@ref)) to write simpler loops to the cost of efficiency.
-The low-level methods `each_row`, `each_off`, `get_col` and `get_val` are not
-automatically exported by `LazyAlgebra`, this is the purpose of the statement
-`using LazyAlgebra.SparseMethods`.
+to retrieve the values `Aij` and respective row `i` and column `j` indices for
+all the entries stored in `A`.  It is however more efficient to access them
+according to their storage order which depends on the compressed format.
 
-See [`SparseOperatorCSR`](@ref) for a concrete implementation of this
-compressed sparse format.
+- If `A` is in CSR format:
 
-"""
-abstract type AbstractSparseOperatorCSR{T,M,N} <: SparseOperator{T,M,N} end
+  ```julia
+  using LazyAlgebra.SparseMethods
+  for i in each_row(A)        # loop over row index
+      for k in each_off(A, i) # loop over structural non-zeros in this row
+          j   = get_col(A, k) # get column index of entry
+          Aij = get_val(A, k) # get value of entry
+       end
+  end
+  ```
 
-"""
+- If `A` is in CSS format:
 
-`AbstractSparseOperatorCSC{T,M,N}` is an abstract sub-type of
-`SparseOperator{T,M,N}` and is inherited by the concrete types implementing
-*Compressed Sparse Column* (CSC) storage of sparse operators.
+  ```julia
+  using LazyAlgebra.SparseMethods
+  for j in each_col(A)        # loop over column index
+      for k in each_off(A, j) # loop over structural non-zeros in this column
+          i   = get_row(A, k) # get row index of entry
+          Aij = get_val(A, k) # get value of entry
+       end
+  end
+  ```
 
-To navigate into a sparse operator stored in CSC format `A` and retrieve the
-values `v` and their respective row `i` and column `j` indices for all the
-stored entries, the most efficient is too access them according to their
-storage order as shown by:
+- If `A` is in COO format:
 
-```julia
-using LazyAlgebra.SparseMethods
-for j in each_col(A)        # loop over column index
-    for k in each_off(A, j) # loop over structural non-zeros in this column
-        i = get_row(A, k)   # get row index of entry
-        v = get_val(A, k)   # get value of entry
-     end
-end
-```
+  ```julia
+  using LazyAlgebra.SparseMethods
+  for k in each_off(A)
+       i   = get_row(A, k) # get row index of entry
+       j   = get_col(A, k) # get column index of entry
+       Aij = get_val(A, k) # get value of entry
+  end
+  ```
 
-It is also possible to use the sparse operator as an iterator (see
-[`SparseOperator`](@ref)) to write simpler loops to the cost of efficiency.
-The low-level methods `each_col`, `each_off`, `get_row` and `get_val` are not
-automatically exported by `LazyAlgebra`, this is the purpose of the statement
-`using LazyAlgebra.SparseMethods`.
-
-See [`SparseOperatorCSC`](@ref) for a concrete implementation of this
-compressed sparse format.
-
-"""
-abstract type AbstractSparseOperatorCSC{T,M,N} <: SparseOperator{T,M,N} end
+The low-level methods `each_row`, `each_col`, `each_off`, `get_row`, `get_col`
+and `get_val` are not automatically exported by `LazyAlgebra`, this is the
+purpose of the statement `using LazyAlgebra.SparseMethods`.
 
 """
-
-`AbstractSparseOperatorCOO{T,M,N}` is an abstract sub-type of
-`SparseOperator{T,M,N}` and is inherited by the concrete types implementing
-*Compressed Sparse Coordinate* (COO) storage of sparse operators.
-
-To navigate into a sparse operator stored in COO format `A` and retrieve the
-values `v` and their respective row `i` and column `j` indices for all the
-stored entries, the most efficient is too access them according to their
-storage order as shown by:
-
-```julia
-using LazyAlgebra.SparseMethods
-for k in each_off(A)
-     v = get_val(A, k)  # get value of entry
-     i = get_row(A, k)  # get row index of entry
-     j = get_col(A, k)  # get column index of entry
-end
-```
-
-It is also possible to use the sparse operator as an iterator (see
-[`SparseOperator`](@ref)) to write simpler loops to the cost of efficiency.
-The low-level methods `each_off`, `get_val`, `get_row` and `get_col` are not
-automatically exported by `LazyAlgebra`, this is the purpose of the statement
-`using LazyAlgebra.SparseMethods`.
-
-See [`SparseOperatorCOO`](@ref) for a concrete implementation of this
-compressed sparse format.
-
-"""
-abstract type AbstractSparseOperatorCOO{T,M,N} <: SparseOperator{T,M,N} end
+abstract type CompressedSparseOperator{F,T,M,N} <: SparseOperator{T,M,N} end
 
 struct SparseOperatorCSR{T,M,N,
                          V<:AbstractVector{T},
                          J<:AbstractVector{Int},
-                         K<:AbstractVector{Int}} <: AbstractSparseOperatorCSR{T,M,N}
+                         K<:AbstractVector{Int}} <: CompressedSparseOperator{:CSR,T,M,N}
     m::Int                # equivalent number of rows of the operator
     n::Int                # number of columns of the operator
     vals::V               # values of entries
@@ -263,7 +236,7 @@ end
 struct SparseOperatorCSC{T,M,N,
                          V<:AbstractVector{T},
                          I<:AbstractVector{Int},
-                         K<:AbstractVector{Int}} <: AbstractSparseOperatorCSC{T,M,N}
+                         K<:AbstractVector{Int}} <: CompressedSparseOperator{:CSC,T,M,N}
     m::Int                # equivalent number of rows of the operator
     n::Int                # number of columns of the operator
     vals::V               # values of entries
@@ -290,7 +263,7 @@ end
 struct SparseOperatorCOO{T,M,N,
                          V<:AbstractVector{T},
                          I<:AbstractVector{Int},
-                         J<:AbstractVector{Int}} <: AbstractSparseOperatorCOO{T,M,N}
+                         J<:AbstractVector{Int}} <: CompressedSparseOperator{:COO,T,M,N}
     m::Int                # equivalent number of rows of the operator
     n::Int                # number of columns of the operator
     vals::V               # values of entries
@@ -317,17 +290,14 @@ end
 # Unions of compressed sparse operators that can be considered as being in a
 # given storage format.
 
-const AnyCompressedSparseRow{T,N} = Union{
-    AbstractSparseOperatorCSR{T,N},
-    Adjoint{<:AbstractSparseOperatorCSC{T,N}}}
+const AnyCSR{T,M,N} = Union{CompressedSparseOperator{:CSR,T,M,N},
+                            Adjoint{<:CompressedSparseOperator{:CSC,T,M,N}}}
 
-const AnyCompressedSparseColumn{T,N} = Union{
-    AbstractSparseOperatorCSC{T,N},
-    Adjoint{<:AbstractSparseOperatorCSR{T,N}}}
+const AnyCSC{T,M,N} = Union{CompressedSparseOperator{:CSC,T,M,N},
+                            Adjoint{<:CompressedSparseOperator{:CSR,T,M,N}}}
 
-const AnyCompressedSparseCoordinate{T,N} = Union{
-    AbstractSparseOperatorCOO{T,N},
-    Adjoint{<:AbstractSparseOperatorCOO{T,N}}}
+const AnyCOO{T,M,N} = Union{CompressedSparseOperator{:COO,T,M,N},
+                            Adjoint{<:CompressedSparseOperator{:COO,T,M,N}}}
 
 #------------------------------------------------------------------------------
 # Accessors and basic methods.
@@ -353,17 +323,17 @@ MorphismType(A::SparseOperator) =
 
 coefficients(A::SparseOperator) = get_vals(A)
 
-identical(A::T, B::T) where {T<:AbstractSparseOperatorCSR} =
+identical(A::T, B::T) where {T<:CompressedSparseOperator{:CSR}} =
     (get_vals(A) === get_vals(B) && get_cols(A) === get_cols(B) &&
      get_offs(A) === get_offs(B) &&
      row_size(A) == row_size(B) && col_size(A) == col_size(B))
 
-identical(A::T, B::T) where {T<:AbstractSparseOperatorCSC} =
+identical(A::T, B::T) where {T<:CompressedSparseOperator{:CSC}} =
     (get_vals(A) === get_vals(B) && get_rows(A) === get_rows(B) &&
      get_offs(A) === get_offs(B) &&
      row_size(A) == row_size(B) && col_size(A) == col_size(B))
 
-identical(A::T, B::T) where {T<:AbstractSparseOperatorCOO} =
+identical(A::T, B::T) where {T<:CompressedSparseOperator{:COO}} =
     (get_vals(A) === get_vals(B) && get_rows(A) === get_rows(B) &&
      get_cols(A) === get_cols(B) &&
      row_size(A) == row_size(B) && col_size(A) == col_size(B))
@@ -439,7 +409,7 @@ to modify the contents of the returned array with no side effects on `A`.
 """
 get_rows(A::SparseOperatorCSC) = getfield(A, :rows)
 get_rows(A::SparseOperatorCOO) = getfield(A, :rows)
-get_rows(A::AbstractSparseOperatorCSR) =
+get_rows(A::CompressedSparseOperator{:CSR}) =
     copy_rows(A) # FIXME: yield an iterator
 get_rows(A::Adjoint{<:SparseOperator}) = get_cols(unveil(A))
 
@@ -455,7 +425,7 @@ function copy_rows(A::SparseOperator)
     rows = get_rows(A)
     copyto!(Vector{Int}(undef, size(rows)), rows)
 end
-function copy_rows(A::AbstractSparseOperatorCSR)
+function copy_rows(A::CompressedSparseOperator{:CSR})
     rows = Vector{Int}(undef, length(get_vals(A)))
     @inbounds for i in each_row(A)
         @simd for k in each_off(A, i)
@@ -475,7 +445,7 @@ want to modify the contents of the returned array with no side effects on `A`.
 """
 get_cols(A::SparseOperatorCSR) = getfield(A, :cols)
 get_cols(A::SparseOperatorCOO) = getfield(A, :cols)
-get_cols(A::Union{AbstractSparseOperatorCSC,SparseMatrixCSC}) =
+get_cols(A::Union{CompressedSparseOperator{:CSC},SparseMatrixCSC}) =
     copy_cols(A) # FIXME: yield an iterator
 get_cols(A::Adjoint{<:SparseOperator}) = get_rows(unveil(A))
 
@@ -491,7 +461,7 @@ function copy_cols(A::SparseOperator)
     cols = get_cols(A)
     copyto!(Vector{Int}(undef, size(cols)), cols)
 end
-function copy_cols(A::Union{AbstractSparseOperatorCSC,SparseMatrixCSC})
+function copy_cols(A::Union{CompressedSparseOperator{:CSC},SparseMatrixCSC})
     cols = Vector{Int}(undef, length(get_vals(A)))
     @inbounds for j in each_col(A)
         @simd for k in each_off(A, j)
@@ -536,17 +506,17 @@ that the `j`-th column is empty.  Calling `each_off(A,j)` directly yields
 """
 get_offs(A::SparseOperatorCSR) = getfield(A, :offs)
 get_offs(A::SparseOperatorCSC) = getfield(A, :offs)
-get_offs(A::Adjoint{<:AbstractSparseOperatorCSR}) = get_offs(unveil(A))
-get_offs(A::Adjoint{<:AbstractSparseOperatorCSC}) = get_offs(unveil(A))
+get_offs(A::Adjoint{<:CompressedSparseOperator{:CSR}}) = get_offs(unveil(A))
+get_offs(A::Adjoint{<:CompressedSparseOperator{:CSC}}) = get_offs(unveil(A))
 
-@inline function get_offs(A::AnyCompressedSparseRow, i::Int)
+@inline function get_offs(A::AnyCSR, i::Int)
     offs = get_offs(A)
     @boundscheck ((i < 1)|(i ≥ length(offs))) && out_of_range_row_index(A, i)
     return ((@inbounds offs[i] + 1),
             (@inbounds offs[i+1]))
 end
 
-@inline function get_offs(A::AnyCompressedSparseColumn, j::Int)
+@inline function get_offs(A::AnyCSC, j::Int)
     offs = get_offs(A)
     @boundscheck ((j < 1)|(j ≥ length(offs))) && out_of_range_column_index(A, j)
     return ((@inbounds offs[j] + 1),
@@ -583,18 +553,16 @@ and column indices for the `k`-th entry of the sparse linear operator `A`
 stored in a *Compressed Sparse Coordinate* (COO) format.
 
 """
-@inline each_off(A::AbstractSparseOperatorCOO) = Base.OneTo(nnz(A))
-@inline each_off(A::Adjoint{<:AbstractSparseOperatorCOO}) =
+@inline each_off(A::CompressedSparseOperator{:COO}) = Base.OneTo(nnz(A))
+@inline each_off(A::Adjoint{<:CompressedSparseOperator{:COO}}) =
     each_off(unveil(A))
 
-@propagate_inbounds @inline function each_off(A::AnyCompressedSparseRow,
-                                              i::Int)
+@propagate_inbounds @inline function each_off(A::AnyCSR, i::Int)
     k1, k2 = get_offs(A, i)
     return k1:k2
 end
 
-@propagate_inbounds @inline function each_off(A::AnyCompressedSparseColumn,
-                                              j::Int)
+@propagate_inbounds @inline function each_off(A::AnyCSC, j::Int)
     k1, k2 = get_offs(A, j)
     return k1:k2
 end
@@ -606,8 +574,8 @@ yields an iterator over the linear row indices of the sparse linear operator
 `A` stored in a *Compressed Sparse Row* (CSR) format.
 
 """
-each_row(A::AbstractSparseOperatorCSR) = Base.OneTo(nrows(A))
-each_row(A::Adjoint{<:AbstractSparseOperatorCSC}) = each_col(unveil(A))
+each_row(A::CompressedSparseOperator{:CSR}) = Base.OneTo(nrows(A))
+each_row(A::Adjoint{<:CompressedSparseOperator{:CSC}}) = each_col(unveil(A))
 
 """
     each_col(A)
@@ -616,8 +584,8 @@ yields an iterator over the linear column indices of the sparse linear operator
 `A` stored in a *Compressed Sparse Column* (CSC) format.
 
 """
-each_col(A::AbstractSparseOperatorCSC) = Base.OneTo(ncols(A))
-each_col(A::Adjoint{<:AbstractSparseOperatorCSR}) = each_row(unveil(A))
+each_col(A::CompressedSparseOperator{:CSC}) = Base.OneTo(ncols(A))
+each_col(A::Adjoint{<:CompressedSparseOperator{:CSR}}) = each_row(unveil(A))
 
 """
     get_row(A, k) -> i
@@ -671,8 +639,7 @@ end
 
 # Iterators to deliver (v,i,j).
 
-@inline function Base.iterate(A::AnyCompressedSparseRow,
-                              state::Tuple{Int,Int,Int} = (0,0,0))
+@inline function Base.iterate(A::AnyCSR, state::Tuple{Int,Int,Int} = (0,0,0))
     i, k, kmax = state
     @inbounds begin
         k += 1
@@ -689,8 +656,7 @@ end
     end
 end
 
-@inline function Base.iterate(A::AnyCompressedSparseColumn,
-                              state::Tuple{Int,Int,Int} = (0,0,0))
+@inline function Base.iterate(A::AnyCSC, state::Tuple{Int,Int,Int} = (0,0,0))
     j, k, kmax = state
     @inbounds begin
         k += 1
@@ -707,8 +673,7 @@ end
     end
 end
 
-@inline function Base.iterate(A::AnyCompressedSparseCoordinate,
-                              state::Tuple{Int,Int} = (0, nnz(A)))
+@inline function Base.iterate(A::AnyCOO, state::Tuple{Int,Int} = (0, nnz(A)))
     k, kmax = state
     @inbounds begin
         if k < kmax
@@ -763,7 +728,7 @@ entries of `A` to be selected in the sparse structure and `false` for the
 entries of `A` to discard.  The default selector is such that all non-zeros of
 `A` are selected.
 
-See [`AbstractSparseOperatorCSR`](@ref) about the most efficient way to access
+See [`CompressedSparseOperator{:CSR}`](@ref) about the most efficient way to access
 the entries of a sparse operator in CSR format.
 
 The equality `M + N = ndims(A)` must hold, so it is sufficient to only
@@ -836,7 +801,7 @@ entries of `A` and which is assumed to yield `true` for the entries of `A` to
 be selected in the sparse structure and `false` for the entries of `A` to
 discard.  The default selector is such that all non-zeros of `A` are selected.
 
-See [`AbstractSparseOperatorCSC`](@ref) about the most efficient way to access
+See [`CompressedSparseOperator{:CSC}`](@ref) about the most efficient way to access
 the entries of a sparse operator in CSC format.
 
 The equality `M + N = ndims(A)` must hold, so it is sufficient to only
@@ -1727,7 +1692,7 @@ checks the structure of the compressed sparse linear operator `A` throwing an
 exception if there are any inconsistencies.
 
 """
-function check_structure(A::AbstractSparseOperatorCSR)
+function check_structure(A::CompressedSparseOperator{:CSR})
     check_size(A)
     check_vals(A)
     check_cols(A)
@@ -1735,7 +1700,7 @@ function check_structure(A::AbstractSparseOperatorCSR)
     return A
 end
 
-function check_structure(A::AbstractSparseOperatorCSC)
+function check_structure(A::CompressedSparseOperator{:CSC})
     check_size(A)
     check_vals(A)
     check_rows(A)
@@ -1743,7 +1708,7 @@ function check_structure(A::AbstractSparseOperatorCSC)
     return A
 end
 
-function check_structure(A::AbstractSparseOperatorCOO)
+function check_structure(A::CompressedSparseOperator{:COO})
     check_size(A)
     check_vals(A)
     check_rows(A)
@@ -1812,12 +1777,12 @@ check the array of linear row indices `rows` for being a fast vetor of values
 in the range `1:m`.
 
 """
-function check_rows(A::Union{<:AbstractSparseOperatorCSC,
-                             <:AbstractSparseOperatorCOO})
+function check_rows(A::Union{<:CompressedSparseOperator{:CSC},
+                             <:CompressedSparseOperator{:COO}})
     rows = get_rows(A)
     length(rows) == nnz(A) || argument_error("bad number of row indices")
     check_rows(rows, nrows(A))
-    # FIXME: also check sorting for AbstractSparseOperatorCSC?
+    # FIXME: also check sorting for CompressedSparseOperator{:CSC}?
 end
 
 function check_rows(rows::AbstractVector{Int}, m::Int)
@@ -1844,12 +1809,12 @@ check the array of linear column indices `cols` for being a fast vetor of
 values in the range `1:n`.
 
 """
-function check_cols(A::Union{<:AbstractSparseOperatorCSR,
-                             <:AbstractSparseOperatorCOO})
+function check_cols(A::Union{<:CompressedSparseOperator{:CSR},
+                             <:CompressedSparseOperator{:COO}})
     cols = get_cols(A)
     length(cols) == nnz(A) || argument_error("bad number of column indices")
     check_cols(cols, ncols(A))
-    # FIXME: also check sorting for AbstractSparseOperatorCSR?
+    # FIXME: also check sorting for CompressedSparseOperator{:CSR}?
 end
 
 function check_cols(cols::AbstractVector{Int}, n::Int)
@@ -1871,11 +1836,11 @@ in a *Compressed Sparse Row* (CSR) or *Compressed Sparse Column* (CSC) format.
 Throws an exception in case of inconsistency.
 
 """
-function check_offs(A::T) where {T<:Union{AbstractSparseOperatorCSR,
-                                          AbstractSparseOperatorCSC}}
+function check_offs(A::T) where {T<:Union{CompressedSparseOperator{:CSR},
+                                          CompressedSparseOperator{:CSC}}}
     offs = get_offs(A)
     is_fast_array(offs) || not_fast_array("array of offsets")
-    n = (T <: AbstractSparseOperatorCSR ? nrows(A) : ncols(A))
+    n = (T <: CompressedSparseOperator{:CSR} ? nrows(A) : ncols(A))
     length(offs) == n + 1 || error("bad number of offsets")
     offs[1] == 0 || error("bad initial offset")
     len = 0
@@ -2140,7 +2105,7 @@ end
 
 function apply!(α::Number,
                 ::Type{Direct},
-                A::AbstractSparseOperatorCSR{Ta,M,N},
+                A::CompressedSparseOperator{:CSR,Ta,M,N},
                 x::AbstractArray{Tx,N},
                 scratch::Bool,
                 β::Number,
@@ -2151,7 +2116,7 @@ function apply!(α::Number,
 end
 
 function unsafe_apply_direct!(α::Number,
-                              A::AbstractSparseOperatorCSR{Ta,M,N},
+                              A::CompressedSparseOperator{:CSR,Ta,M,N},
                               x::AbstractArray{Tx,N},
                               β::Number,
                               y::AbstractArray{Ty,M},
@@ -2169,7 +2134,7 @@ end
 
 function apply!(α::Number,
                 ::Type{Adjoint},
-                A::AbstractSparseOperatorCSR{Ta,M,N},
+                A::CompressedSparseOperator{:CSR,Ta,M,N},
                 x::AbstractArray{Tx,M},
                 scratch::Bool,
                 β::Number,
@@ -2210,7 +2175,7 @@ end
 
 function apply!(α::Number,
                 ::Type{Direct},
-                A::AbstractSparseOperatorCSC{Ta,M,N},
+                A::CompressedSparseOperator{:CSC,Ta,M,N},
                 x::AbstractArray{Tx,N},
                 scratch::Bool,
                 β::Real,
@@ -2248,7 +2213,7 @@ end
 
 function apply!(α::Real,
                 ::Type{Adjoint},
-                A::AbstractSparseOperatorCSC{Ta,M,N},
+                A::CompressedSparseOperator{:CSC,Ta,M,N},
                 x::AbstractArray{Tx,M},
                 scratch::Bool,
                 β::Real,
@@ -2259,7 +2224,7 @@ function apply!(α::Real,
 end
 
 function unsafe_apply_adjoint!(α::Number,
-                               A::AbstractSparseOperatorCSC{Ta,M,N},
+                               A::CompressedSparseOperator{:CSC,Ta,M,N},
                                x::AbstractArray{Tx,M},
                                β::Number,
                                y::AbstractArray{Ty,N},
@@ -2281,7 +2246,7 @@ end
 
 function apply!(α::Number,
                 ::Type{Direct},
-                A::AbstractSparseOperatorCOO{Ta,M,N},
+                A::CompressedSparseOperator{:COO,Ta,M,N},
                 x::AbstractArray{Tx,N},
                 scratch::Bool,
                 β::Number,
@@ -2316,7 +2281,7 @@ end
 
 function apply!(α::Number,
                 ::Type{Adjoint},
-                A::AbstractSparseOperatorCOO{Ta,M,N},
+                A::CompressedSparseOperator{:COO,Ta,M,N},
                 x::AbstractArray{Tx,M},
                 scratch::Bool,
                 β::Number,
@@ -2356,12 +2321,7 @@ end # module SparseOperators
 module SparseMethods
 
 export
-    AbstractSparseOperatorCOO,
-    AbstractSparseOperatorCSC,
-    AbstractSparseOperatorCSR,
-    AnyCompressedSparseColumn,
-    AnyCompressedSparseCoordinate,
-    AnyCompressedSparseRow,
+    CompressedSparseOperator,
     SparseOperator,
     SparseOperatorCOO,
     SparseOperatorCSC,
@@ -2388,12 +2348,7 @@ export
     set_val!
 
 import ..SparseOperators:
-    AbstractSparseOperatorCOO,
-    AbstractSparseOperatorCSC,
-    AbstractSparseOperatorCSR,
-    AnyCompressedSparseColumn,
-    AnyCompressedSparseCoordinate,
-    AnyCompressedSparseRow,
+    CompressedSparseOperator,
     SparseOperator,
     SparseOperatorCOO,
     SparseOperatorCSC,

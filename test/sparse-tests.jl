@@ -10,6 +10,18 @@ using LazyAlgebra
 using LazyAlgebra.SparseMethods
 using Test
 
+is_csc(::SparseOperator) = false
+is_csc(::CompressedSparseOperator{:CSC}) = true
+is_csc(::Adjoint{<:CompressedSparseOperator{:CSR}}) = true
+
+is_csr(::SparseOperator) = false
+is_csr(::CompressedSparseOperator{:CSR}) = true
+is_csr(::Adjoint{<:CompressedSparseOperator{:CSC}}) = true
+
+is_coo(::SparseOperator) = false
+is_coo(::CompressedSparseOperator{:COO}) = true
+is_coo(::Adjoint{<:CompressedSparseOperator{:COO}}) = true
+
 @testset "Sparse operators" begin
     rows = (2,3,4)
     cols = (5,6)
@@ -111,12 +123,12 @@ using Test
             S1 = SparseOperator{T1}(S)
             @test eltype(S1) === T1
             @test ndims(S1) == ndims(S)
-            if isa(S, AbstractSparseOperatorCSC) || isa(S, AbstractSparseOperatorCOO)
+            if is_csc(S) || is_coo(S)
                 @test get_rows(S1) === get_rows(S)
             else
                 @test get_rows(S1) == get_rows(S)
             end
-            if isa(S, AbstractSparseOperatorCSR) || isa(S, AbstractSparseOperatorCOO)
+            if is_csr(S) || is_coo(S)
                 @test get_cols(S1) === get_cols(S)
             else
                 @test get_cols(S1) == get_cols(S)
@@ -128,12 +140,12 @@ using Test
             S2d = reshape(S, prod(output_size(S)), prod(input_size(S)))
             @test eltype(S2d) === eltype(S)
             @test ndims(S2d) == 2
-            if isa(S, AbstractSparseOperatorCSC) || isa(S, AbstractSparseOperatorCOO)
+            if is_csc(S) || is_coo(S)
                 @test get_rows(S2d) === get_rows(S)
             else
                 @test get_rows(S2d) == get_rows(S)
             end
-            if isa(S, AbstractSparseOperatorCSR) || isa(S, AbstractSparseOperatorCOO)
+            if is_csr(S) || is_coo(S)
                 @test get_cols(S2d) === get_cols(S)
             else
                 @test get_cols(S2d) == get_cols(S)
@@ -155,8 +167,8 @@ using Test
             # FIXME: @test 1*S === S
             # FIXME: S0 = 0*S
             # FIXME: @test isa(S0, SparseOperator)
-            # FIXME: @test length(getrows(S0)) == 0
-            # FIXME: @test length(getcols(S0)) == 0
+            # FIXME: @test length(get_rows(S0)) == 0
+            # FIXME: @test length(get_cols(S0)) == 0
             # FIXME: @test length(coefficients(S0)) == 0
             # FIXME: @test eltype(S0) == eltype(S)
             # FIXME: @test input_size(S0) == input_size(S)
@@ -164,8 +176,8 @@ using Test
             # FIXME: α = R(π)
             # FIXME: αS = α*S
             # FIXME: @test isa(αS, SparseOperator)
-            # FIXME: @test getrows(αS) === getrows(S)
-            # FIXME: @test getcols(αS) === getcols(S)
+            # FIXME: @test get_rows(αS) === get_rows(S)
+            # FIXME: @test get_cols(αS) === get_cols(S)
             # FIXME: @test coefficients(αS) ≈ α*coefficients(S) atol=0 rtol=2ε
             # FIXME: @test eltype(αS) == eltype(S)
             # FIXME: @test input_size(αS) == input_size(S)
@@ -181,8 +193,8 @@ using Test
             # FIXME: @test eltype(W1_S) === T
             # FIXME: @test output_size(W1_S) == output_size(S)
             # FIXME: @test input_size(W1_S) == input_size(S)
-            # FIXME: @test getrows(W1_S) === getrows(S)
-            # FIXME: @test getcols(W1_S) === getcols(S)
+            # FIXME: @test get_rows(W1_S) === get_rows(S)
+            # FIXME: @test get_cols(W1_S) === get_cols(S)
             # FIXME: @test coefficients(W1_S) ≈ c1 atol=0 rtol=2ε
             # FIXME: w2 = randn(T, input_size(S))
             # FIXME: W2 = NonuniformScaling(w2)
@@ -193,13 +205,13 @@ using Test
             # FIXME: @test eltype(S_W2) === T
             # FIXME: @test output_size(S_W2) == output_size(S)
             # FIXME: @test input_size(S_W2) == input_size(S)
-            # FIXME: @test getcols(S_W2) === getcols(S)
-            # FIXME: @test getrows(S_W2) === getrows(S)
+            # FIXME: @test get_cols(S_W2) === get_cols(S)
+            # FIXME: @test get_rows(S_W2) === get_rows(S)
             # FIXME: @test coefficients(S_W2) ≈ c2 atol=0 rtol=2ε
             # FIXME:
             # FIXME: # Use another constructor with integer conversion.
-            # FIXME: R = SparseOperator(Int32.(getrows(S)),
-            # FIXME:                    Int64.(getcols(S)),
+            # FIXME: R = SparseOperator(Int32.(get_rows(S)),
+            # FIXME:                    Int64.(get_cols(S)),
             # FIXME:                    coefficients(S),
             # FIXME:                    Int32.(output_size(S)),
             # FIXME:                    Int64.(input_size(S)))
