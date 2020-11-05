@@ -93,6 +93,7 @@ to_indices(inds::AbstractVector{<:Integer}) = to_values(Int, inds)
 # Convert to vector of values with given element type and make sure it is a
 # fast vector.
 to_values(vals::AbstractVector{T}) where {T} = to_values(T, vals)
+to_values(::Type{Any}, vals::AbstractVector{T}) where {T} = to_values(T, vals)
 to_values(::Type{T}, vals::Vector{T}) where {T} = vals
 to_values(::Type{T}, vals::AbstractVector) where {T} = convert(Vector{T}, vals)
 @inline to_values(::Type{T}, vals::AbstractVector{T}) where {T} =
