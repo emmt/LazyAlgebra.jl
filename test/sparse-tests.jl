@@ -79,7 +79,7 @@ end
     # Make a banded matrix with random entries.
     A = genarr(T, siz) .* StructuredArray((i,j) -> -1 ≤ i - j ≤ 2, siz)
     spm = sparse(A);
-    csr = SparseOperatorCSR(A);
+    csr = convert(SparseOperatorCSR, A); # same as SparseOperatorCSR(A)
     csc = SparseOperatorCSC(A);
     coo = SparseOperatorCOO(A);
     x = genarr(T, siz[2]);

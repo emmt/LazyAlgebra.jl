@@ -343,6 +343,9 @@ Base.ndims(A::SparseOperator{T,M,N}) where {T,M,N} = M+N
 Base.length(A::SparseOperator) = nrows(A)*ncols(A)
 Base.size(A::SparseOperator) = (row_size(A)..., col_size(A)...)
 
+# Use constructors to perform conversion.
+Base.convert(T::Type{<:SparseOperator}, A) = T(A)
+
 # FIXME: This cannot be considered as a *pure* trait as it does not only
 #        depend on the type of the object.
 MorphismType(A::SparseOperator) =
