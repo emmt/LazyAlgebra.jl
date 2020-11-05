@@ -6,9 +6,13 @@
 module TestingLazyAlgebraSparseArrays
 
 using SparseArrays
+using StructuredArrays
 using LazyAlgebra
+using LazyAlgebra: identical
 using LazyAlgebra.SparseMethods
+using LazyAlgebra.SparseOperators: check_structure, compute_offsets
 using Test
+using Random
 
 is_csc(::SparseOperator) = false
 is_csc(::CompressedSparseOperator{:CSC}) = true
@@ -43,7 +47,237 @@ function genarr(T::Type, dims::Tuple{Vararg{Integer}};
     return A
 end
 
-@testset "Sparse operators" begin
+# Unpack a sparse operator into a regular array using simplest iterator.  There
+# may be duplicates.
+function unpack_with_iterator!(dest::Array{T},
+                               A::SparseOperator{E},
+                               op = (E === Bool ? (|) : (+))) where {T,E}
+    C = fill!(reshape(dest, (nrows(A), ncols(A))), zero(T))
+    for (Aij, i, j) in A
+        C[i,j] = op(C[i,j], Aij)
+    end
+    return dest
+end
+
+@testset "Low level sparse utilities" begin
+    @test compute_offsets(2, Int[]) == [0,0,0]
+    @test compute_offsets(5, [2,2,3,5]) == [0,0,2,3,3,4]
+    @test compute_offsets(5, [1,3,3]) == [0,1,1,3,3,3]
+    # Check for non-increasing order.
+    @test_throws ErrorException compute_offsets(5, [1,3,2])
+    # Check for out-of-bounds.
+    @test_throws ErrorException compute_offsets(5, [0,3,3,7])
+    @test_throws ErrorException compute_offsets(5, [1,3,7])
+end
+
+@testset "Compressed sparse formats " begin
+    # Parameters.
+    siz = (5, 6)
+    T = Float64;
+    Tp = Float32; # for conversion
+
+    # Make a banded matrix with random entries.
+    A = genarr(T, siz) .* StructuredArray((i,j) -> -1 ≤ i - j ≤ 2, siz)
+    spm = sparse(A);
+    csr = SparseOperatorCSR(A);
+    csc = SparseOperatorCSC(A);
+    coo = SparseOperatorCOO(A);
+    x = genarr(T, siz[2]);
+    y = genarr(T, siz[1]);
+
+    # Make a COO version with randomly permuted entries.
+    kp = randperm(nnz(coo));
+    coo_perm = SparseOperatorCOO(get_vals(coo)[kp],
+                                 get_rows(coo)[kp],
+                                 get_cols(coo)[kp],
+                                 row_size(coo),
+                                 col_size(coo));
+
+    # Make a COO version with randomly permuted entries and some duplicates.
+    # Use fractions 1/3 and 3/4 for duplicating so that there is no loss of
+    # precision.
+    l = 7
+    k = zeros(Int, length(kp) + l)
+    w = ones(T, length(k))
+    k[1:length(kp)] = kp
+    for i in 1:l
+        j1 = length(kp) - i + 1
+        j2 = length(kp) + i
+        w[j1] *= 1/4
+        w[j2] *= 3/4
+        k[j2] = k[j1]
+    end
+    coo_dups = SparseOperatorCOO(get_vals(coo)[k] .* w,
+                                 get_rows(coo)[k],
+                                 get_cols(coo)[k],
+                                 row_size(coo),
+                                 col_size(coo))
+
+    # Check structures.
+    @test check_structure(csr) === csr
+    @test check_structure(csc) === csc
+    @test check_structure(coo) === coo
+
+    # Basic array-like methods
+    @test eltype(csr) === eltype(A)
+    @test eltype(csc) === eltype(A)
+    @test eltype(coo) === eltype(A)
+
+    @test length(csr) === length(A)
+    @test length(csc) === length(A)
+    @test length(coo) === length(A)
+
+    @test ndims(csr) === ndims(A)
+    @test ndims(csc) === ndims(A)
+    @test ndims(coo) === ndims(A)
+
+    @test size(csr) === size(A)
+    @test size(csc) === size(A)
+    @test size(coo) === size(A)
+
+    @test nrows(csr) === size(A,1)
+    @test nrows(csc) === size(A,1)
+    @test nrows(coo) === size(A,1)
+    @test nrows(spm) === size(A,1)
+
+    @test ncols(csr) === size(A,2)
+    @test ncols(csc) === size(A,2)
+    @test ncols(coo) === size(A,2)
+    @test ncols(spm) === size(A,2)
+
+    # Number of structural non-zeros.
+    nvals = count(x -> x != zero(x), A);
+    @test nnz(csr) === nvals
+    @test nnz(csc) === nvals
+    @test nnz(coo) === nvals
+    @test nnz(spm) === nvals
+    @test length(get_vals(csr)) === nvals
+    @test length(get_vals(csc)) === nvals
+    @test length(get_vals(coo)) === nvals
+    @test length(get_vals(spm)) === nvals
+
+    # `nonzeros` and `get_vals` should yield the same object.
+    @test get_vals(csr) === nonzeros(csr)
+    @test get_vals(csc) === nonzeros(csc)
+    @test get_vals(coo) === nonzeros(coo)
+    @test get_vals(spm) === nonzeros(spm)
+
+    # Julia arrays are column-major so values and row indices should be the
+    # same in compressed sparse column (CSC) and compressed sparse coordinate
+    # (COO) formats.
+    @test get_vals(coo) == get_vals(csc)
+    @test get_rows(coo) == get_rows(csc)
+    @test get_cols(coo) == get_cols(csc)
+    @test get_vals(coo) == get_vals(spm)
+    @test get_rows(coo) == get_rows(spm)
+    @test get_cols(coo) == get_cols(spm)
+
+    # Check converting back to standard array.
+    @test Array(csr) == A
+    @test Array(csc) == A
+    @test Array(coo) == A
+    @test Array(spm) == A
+    @test Array(coo_perm) == A
+    @test Array(coo_dups) == A
+
+    # Check matrix-vector multiplication (more serious tests in another
+    # section).
+    Ax = A*x
+    Aty = A'*y
+    @test csr*x == Ax
+    @test csc*x == Ax
+    @test coo*x == Ax
+    @test csr'*y == Aty
+    @test csc'*y == Aty
+    @test coo'*y == Aty
+
+    # Check iterators.
+    B = Array{T}(undef, size(A))
+    @test unpack_with_iterator!(B, csr) == A
+    @test unpack_with_iterator!(B, csc) == A
+    @test unpack_with_iterator!(B, coo) == A
+
+    # Check conversions to CSR format.
+    for src in (csc, csr, coo, coo_perm, coo_dups)
+        for (t, cnv) in ((T, SparseOperatorCSR(src)),
+                         (T, SparseOperatorCSR{T}(src)),
+                         (Tp, SparseOperatorCSR{Tp}(src)),)
+            @test check_structure(cnv) === cnv
+            @test eltype(cnv) === t
+            @test (cnv === csr) == (t === T && src === csr)
+            @test identical(cnv, csr) == (t === T && src === csr)
+            @test each_row(cnv) === each_row(csr)
+            @test get_rows(cnv) == get_rows(csr)
+            if is_csr(src)
+                @test get_cols(cnv) === get_cols(csr)
+            else
+                @test get_cols(cnv) == get_cols(csr)
+            end
+            if is_csr(src) && t === T
+                @test get_vals(cnv) === get_vals(csr)
+            else
+                @test get_vals(cnv) == get_vals(csr)
+            end
+        end
+    end
+
+
+    # Check conversions to CSC format.
+    for src in (csc, csr, coo, coo_perm, coo_dups)
+        for (t, cnv) in ((T, SparseOperatorCSC(src)),
+                         (T, SparseOperatorCSC{T}(src)),
+                         (Tp, SparseOperatorCSC{Tp}(src)),)
+            @test check_structure(cnv) === cnv
+            @test eltype(cnv) === t
+            @test (cnv === csc) == (t === T && src === csc)
+            @test identical(cnv, csc) == (t === T && src === csc)
+            if is_csc(src)
+                @test get_rows(cnv) === get_rows(csc)
+            else
+                @test get_rows(cnv) == get_rows(csc)
+            end
+            @test each_col(cnv) === each_col(csc)
+            @test get_cols(cnv) == get_cols(csc)
+            if is_csc(src) && t === T
+                @test get_vals(cnv) === get_vals(csc)
+            else
+                @test get_vals(cnv) == get_vals(csc)
+            end
+        end
+    end
+
+    # Check conversions to COO format.
+    for src in (csc, csr, coo, coo_perm, coo_dups)
+        for (t, cnv) in ((T, SparseOperatorCOO(src)),
+                         (T, SparseOperatorCOO{T}(src)),
+                         (Tp, SparseOperatorCOO{Tp}(src)),)
+            @test check_structure(cnv) === cnv
+            @test eltype(cnv) === t
+            @test (cnv === coo) == (t === T && src === coo)
+            @test identical(cnv, coo) == (t === T && src === coo)
+            if is_csc(src) || is_csr(src)
+                if is_csc(src)
+                    @test get_rows(cnv) === get_rows(src)
+                else
+                    @test get_rows(cnv) == get_rows(src)
+                end
+                if is_csr(src)
+                    @test get_cols(cnv) === get_cols(src)
+                else
+                    @test get_cols(cnv) == get_cols(src)
+                end
+                if t === T
+                    @test get_vals(cnv) === get_vals(src)
+                else
+                    @test get_vals(cnv) == get_vals(src)
+                end
+            end
+        end
+    end
+
+end # testset
+
+@testset "Sparse operations         " begin
     rows = (2,3,4)
     cols = (5,6)
     M = length(rows)
