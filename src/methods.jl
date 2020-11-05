@@ -478,14 +478,17 @@ gram(A::Mapping) =
 @noinline throw_forbidden_Gram_of_non_linear_mapping() =
     bad_argument("making a Gram operator out of a non-linear mapping is not allowed")
 
-# Functions that will be inlined to execute an elementary operation when
-# performing `α⋅x + β⋅y`.  Passing these (simple) functions to another method
+# Inlined functions called to perform `α*x + β*y` for specific values of the
+# multipliers `α` and `β`.  Passing these (simple) functions to another method
 # is to simplify the coding of vectorized methods and of the the `apply!`
 # method by mappings.
 @inline axpby_yields_x(    α, x, β, y) = x         # α = 1, β = 0
+@inline axpby_yields_mx(   α, x, β, y) = -x        # α = -1, β = 0
 @inline axpby_yields_xpy(  α, x, β, y) = x + y     # α = 1, β = 1
 @inline axpby_yields_xmy(  α, x, β, y) = x - y     # α = 1, β = -1
+@inline axpby_yields_ymx(  α, x, β, y) = y - x     # α = -1, β = 1
 @inline axpby_yields_xpby( α, x, β, y) = x + β*y   # α = 1, any β
+@inline axpby_yields_bymx( α, x, β, y) = β*y - x   # α = -1, any β
 @inline axpby_yields_ax(   α, x, β, y) = α*x       # any α, β = 0
 @inline axpby_yields_axpy( α, x, β, y) = α*x + y   # any α, β = 1
 @inline axpby_yields_axmy( α, x, β, y) = α*x - y   # any α, β = -1
