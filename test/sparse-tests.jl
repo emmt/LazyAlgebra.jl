@@ -14,15 +14,15 @@ using LazyAlgebra.SparseOperators: check_structure, compute_offsets
 using Test
 using Random
 
-is_csc(::SparseOperator) = false
+is_csc(::Any) = false
 is_csc(::CompressedSparseOperator{:CSC}) = true
 is_csc(::Adjoint{<:CompressedSparseOperator{:CSR}}) = true
 
-is_csr(::SparseOperator) = false
+is_csr(::Any) = false
 is_csr(::CompressedSparseOperator{:CSR}) = true
 is_csr(::Adjoint{<:CompressedSparseOperator{:CSC}}) = true
 
-is_coo(::SparseOperator) = false
+is_coo(::Any) = false
 is_coo(::CompressedSparseOperator{:COO}) = true
 is_coo(::Adjoint{<:CompressedSparseOperator{:COO}}) = true
 
@@ -72,7 +72,7 @@ end
 
 @testset "Compressed sparse formats " begin
     # Parameters.
-    siz = (5, 6)
+    siz = (5, 6) # these tests only for A a 2-D array
     T = Float64;
     Tp = Float32; # for conversion
 
@@ -197,79 +197,64 @@ end
     @test unpack_with_iterator!(B, csc) == A
     @test unpack_with_iterator!(B, coo) == A
 
-    # Check conversions to CSR format.
-    for src in (csc, csr, coo, coo_perm, coo_dups)
-        for (t, cnv) in ((T, SparseOperatorCSR(src)),
-                         (T, SparseOperatorCSR{T}(src)),
-                         (Tp, SparseOperatorCSR{Tp}(src)),)
-            @test check_structure(cnv) === cnv
-            @test eltype(cnv) === t
-            @test (cnv === csr) == (t === T && src === csr)
-            @test identical(cnv, csr) == (t === T && src === csr)
-            @test each_row(cnv) === each_row(csr)
-            @test get_rows(cnv) == get_rows(csr)
-            if is_csr(src)
-                @test get_cols(cnv) === get_cols(csr)
-            else
-                @test get_cols(cnv) == get_cols(csr)
-            end
-            if is_csr(src) && t === T
-                @test get_vals(cnv) === get_vals(csr)
-            else
-                @test get_vals(cnv) == get_vals(csr)
-            end
-        end
-    end
-
-
-    # Check conversions to CSC format.
-    for src in (csc, csr, coo, coo_perm, coo_dups)
-        for (t, cnv) in ((T, SparseOperatorCSC(src)),
-                         (T, SparseOperatorCSC{T}(src)),
-                         (Tp, SparseOperatorCSC{Tp}(src)),)
-            @test check_structure(cnv) === cnv
-            @test eltype(cnv) === t
-            @test (cnv === csc) == (t === T && src === csc)
-            @test identical(cnv, csc) == (t === T && src === csc)
-            if is_csc(src)
-                @test get_rows(cnv) === get_rows(csc)
-            else
-                @test get_rows(cnv) == get_rows(csc)
-            end
-            @test each_col(cnv) === each_col(csc)
-            @test get_cols(cnv) == get_cols(csc)
-            if is_csc(src) && t === T
-                @test get_vals(cnv) === get_vals(csc)
-            else
-                @test get_vals(cnv) == get_vals(csc)
-            end
-        end
-    end
-
-    # Check conversions to COO format.
-    for src in (csc, csr, coo, coo_perm, coo_dups)
-        for (t, cnv) in ((T, SparseOperatorCOO(src)),
-                         (T, SparseOperatorCOO{T}(src)),
-                         (Tp, SparseOperatorCOO{Tp}(src)),)
-            @test check_structure(cnv) === cnv
-            @test eltype(cnv) === t
-            @test (cnv === coo) == (t === T && src === coo)
-            @test identical(cnv, coo) == (t === T && src === coo)
-            if is_csc(src) || is_csr(src)
-                if is_csc(src)
-                    @test get_rows(cnv) === get_rows(src)
-                else
-                    @test get_rows(cnv) == get_rows(src)
-                end
-                if is_csr(src)
-                    @test get_cols(cnv) === get_cols(src)
-                else
-                    @test get_cols(cnv) == get_cols(src)
-                end
-                if t === T
-                    @test get_vals(cnv) === get_vals(src)
-                else
-                    @test get_vals(cnv) == get_vals(src)
+    # Check conversions to COO, CSC and CSR formats.
+    for F in (:COO, :CSC, :CSR)
+        for src in (A, csc, csr, coo, coo_perm, coo_dups)
+            for (t, cnv) in ((T, CompressedSparseOperator{F}(src)),
+                             (T, CompressedSparseOperator{F,T}(src)),
+                             (Tp, CompressedSparseOperator{F,Tp}(src)),)
+                @test check_structure(cnv) === cnv
+                @test eltype(cnv) === t
+                if F === :COO
+                    @test (cnv === coo) == (t === T && src === coo)
+                    @test identical(cnv, coo) == (t === T && src === coo)
+                    if is_csc(src) || is_csr(src)
+                        if is_csc(src)
+                            @test get_rows(cnv) === get_rows(src)
+                        else
+                            @test get_rows(cnv) == get_rows(src)
+                        end
+                        if is_csr(src)
+                            @test get_cols(cnv) === get_cols(src)
+                        else
+                            @test get_cols(cnv) == get_cols(src)
+                        end
+                        if t === T
+                            @test get_vals(cnv) === get_vals(src)
+                        else
+                            @test get_vals(cnv) == get_vals(src)
+                        end
+                    end
+                elseif F === :CSC
+                    @test (cnv === csc) == (t === T && src === csc)
+                    @test identical(cnv, csc) == (t === T && src === csc)
+                    if is_csc(src)
+                        @test get_rows(cnv) === get_rows(csc)
+                    else
+                        @test get_rows(cnv) == get_rows(csc)
+                    end
+                    @test each_col(cnv) === each_col(csc)
+                    @test get_cols(cnv) == get_cols(csc)
+                    if is_csc(src) && t === T
+                        @test get_vals(cnv) === get_vals(csc)
+                    else
+                        @test get_vals(cnv) == get_vals(csc)
+                    end
+                elseif F === :CSR
+                    @test (cnv === csr) == (t === T && src === csr)
+                    @test identical(cnv, csr) == (t === T && src === csr)
+                    @test each_row(cnv) === each_row(csr)
+                    @test get_rows(cnv) == get_rows(csr)
+                    if is_csr(src)
+                        @test get_cols(cnv) === get_cols(csr)
+                    else
+                        @test get_cols(cnv) == get_cols(csr)
+                    end
+                    if is_csr(src) && t === T
+                        @test get_vals(cnv) === get_vals(csr)
+                    else
+                        @test get_vals(cnv) == get_vals(csr)
+                    end
                 end
             end
         end

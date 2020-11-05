@@ -142,15 +142,30 @@ abstract type SparseOperator{T,M,N} <: LinearMapping end
 `SparseOperator{T,M,N}` and is inherited by the concrete types implementing
 sparse operators with compressed storage in format `F`.
 
-Format `F` can be:
+Format `F` is specificed as a symbol and can be:
 
-- `:CSR` for *Compressed Sparse Row* storage format;
-- `:CSC` for *Compressed Sparse Column* storage format;
-- `:COO` for *Compressed Sparse Coordinate* storage format.
+- `:COO` for *Compressed Sparse Coordinate* storage format.  This format is not
+  the most efficient, it is mostly used as an intermediate for building a
+  sparse operator in one of the following format.
 
-See [`SparseOperatorCSR`](@ref), [`SparseOperatorCSC`](@ref) and
-[`SparseOperatorCOO`](@ref) for concrete implementations of these compressed
-sparse formats.
+- `:CSC` for *Compressed Sparse Column* storage format.  This format is very
+  efficient for applying the adjoint of the sparse operator.
+
+- `:CSR` for *Compressed Sparse Row* storage format.  This format is very
+  efficient for directly applying the sparse operator.
+
+To construct (or convert to) a sparse operator with compressed storage format
+`F`, you can call:
+
+    CompressedSparseOperator{F}(args...; kwds...)
+    CompressedSparseOperator{F,T}(args...; kwds...)
+    CompressedSparseOperator{F,T,M}(args...; kwds...)
+    CompressedSparseOperator{F,T,M,N}(args...; kwds...)
+
+where given parameters `T`, `M` and `N`, arguments `args...` and optional
+keywords `kwds...` will be passed to the concrete constructor
+[`SparseOperatorCOO`](@ref), [`SparseOperatorCSC`](@ref) or
+[`SparseOperatorCSR`](@ref) corresponding to the format `F`.
 
 It is possible to use a compressed sparse operator `A` as an iterator:
 
@@ -164,6 +179,18 @@ to retrieve the values `Aij` and respective row `i` and column `j` indices for
 all the entries stored in `A`.  It is however more efficient to access them
 according to their storage order which depends on the compressed format.
 
+- If `A` is in CSC format:
+
+  ```julia
+  using LazyAlgebra.SparseMethods
+  for j in each_col(A)        # loop over column index
+      for k in each_off(A, j) # loop over structural non-zeros in this column
+          i   = get_row(A, k) # get row index of entry
+          Aij = get_val(A, k) # get value of entry
+       end
+  end
+  ```
+
 - If `A` is in CSR format:
 
   ```julia
@@ -171,18 +198,6 @@ according to their storage order which depends on the compressed format.
   for i in each_row(A)        # loop over row index
       for k in each_off(A, i) # loop over structural non-zeros in this row
           j   = get_col(A, k) # get column index of entry
-          Aij = get_val(A, k) # get value of entry
-       end
-  end
-  ```
-
-- If `A` is in CSS format:
-
-  ```julia
-  using LazyAlgebra.SparseMethods
-  for j in each_col(A)        # loop over column index
-      for k in each_off(A, j) # loop over structural non-zeros in this column
-          i   = get_row(A, k) # get row index of entry
           Aij = get_val(A, k) # get value of entry
        end
   end
@@ -209,7 +224,8 @@ abstract type CompressedSparseOperator{F,T,M,N} <: SparseOperator{T,M,N} end
 struct SparseOperatorCSR{T,M,N,
                          V<:AbstractVector{T},
                          J<:AbstractVector{Int},
-                         K<:AbstractVector{Int}} <: CompressedSparseOperator{:CSR,T,M,N}
+                         K<:AbstractVector{Int}
+                         } <: CompressedSparseOperator{:CSR,T,M,N}
     m::Int                # equivalent number of rows of the operator
     n::Int                # number of columns of the operator
     vals::V               # values of entries
@@ -221,14 +237,17 @@ struct SparseOperatorCSR{T,M,N,
     # An inner constructor is defined to prevent Julia from providing a simple
     # outer constructor, it is not meant to be called directly as it does not
     # check whether arguments are correct.
-    function SparseOperatorCSR{T,M,N,V,J,K}(
-        m::Int, n::Int,
-        vals::V, cols::J, offs::K,
-        rowsiz::NTuple{M,Int},
-        colsiz::NTuple{N,Int}) where {T,M,N,
-                                      V<:AbstractVector{T},
-                                      J<:AbstractVector{Int},
-                                      K<:AbstractVector{Int}}
+    function SparseOperatorCSR{T,M,N,V,J,K}(m::Int,
+                                            n::Int,
+                                            vals::V,
+                                            cols::J,
+                                            offs::K,
+                                            rowsiz::NTuple{M,Int},
+                                            colsiz::NTuple{N,Int}) where {
+                                                T,M,N,
+                                                V<:AbstractVector{T},
+                                                J<:AbstractVector{Int},
+                                                K<:AbstractVector{Int}}
         new{T,M,N,V,J,K}(m, n, vals, cols, offs, rowsiz, colsiz)
     end
 end
@@ -236,7 +255,8 @@ end
 struct SparseOperatorCSC{T,M,N,
                          V<:AbstractVector{T},
                          I<:AbstractVector{Int},
-                         K<:AbstractVector{Int}} <: CompressedSparseOperator{:CSC,T,M,N}
+                         K<:AbstractVector{Int}
+                         } <: CompressedSparseOperator{:CSC,T,M,N}
     m::Int                # equivalent number of rows of the operator
     n::Int                # number of columns of the operator
     vals::V               # values of entries
@@ -248,14 +268,17 @@ struct SparseOperatorCSC{T,M,N,
     # An inner constructor is defined to prevent Julia from providing a simple
     # outer constructor, it is not meant to be called directly as it does not
     # check whether arguments are correct.
-    function SparseOperatorCSC{T,M,N,V,I,K}(
-        m::Int, n::Int,
-        vals::V, rows::I, offs::K,
-        rowsiz::NTuple{M,Int},
-        colsiz::NTuple{N,Int}) where {T,M,N,
-                                      V<:AbstractVector{T},
-                                      I<:AbstractVector{Int},
-                                      K<:AbstractVector{Int}}
+    function SparseOperatorCSC{T,M,N,V,I,K}(m::Int,
+                                            n::Int,
+                                            vals::V,
+                                            rows::I,
+                                            offs::K,
+                                            rowsiz::NTuple{M,Int},
+                                            colsiz::NTuple{N,Int}) where {
+                                                T,M,N,
+                                                V<:AbstractVector{T},
+                                                I<:AbstractVector{Int},
+                                                K<:AbstractVector{Int}}
         new{T,M,N,V,I,K}(m, n, vals, rows, offs, rowsiz, colsiz)
     end
 end
@@ -263,7 +286,8 @@ end
 struct SparseOperatorCOO{T,M,N,
                          V<:AbstractVector{T},
                          I<:AbstractVector{Int},
-                         J<:AbstractVector{Int}} <: CompressedSparseOperator{:COO,T,M,N}
+                         J<:AbstractVector{Int}
+                         } <: CompressedSparseOperator{:COO,T,M,N}
     m::Int                # equivalent number of rows of the operator
     n::Int                # number of columns of the operator
     vals::V               # values of entries
@@ -275,14 +299,17 @@ struct SparseOperatorCOO{T,M,N,
     # An inner constructor is defined to prevent Julia from providing a simple
     # outer constructor, it is not meant to be called directly as it does not
     # check whether arguments are correct.
-    function SparseOperatorCOO{T,M,N,V,I,J}(
-        m::Int, n::Int,
-        vals::V, rows::I, cols::J,
-        rowsiz::NTuple{M,Int},
-        colsiz::NTuple{N,Int}) where {T,M,N,
-                                      V<:AbstractVector{T},
-                                      I<:AbstractVector{Int},
-                                      J<:AbstractVector{Int}}
+    function SparseOperatorCOO{T,M,N,V,I,J}(m::Int,
+                                            n::Int,
+                                            vals::V,
+                                            rows::I,
+                                            cols::J,
+                                            rowsiz::NTuple{M,Int},
+                                            colsiz::NTuple{N,Int}) where {
+                                                T,M,N,
+                                                V<:AbstractVector{T},
+                                                I<:AbstractVector{Int},
+                                                J<:AbstractVector{Int}}
         new{T,M,N,V,I,J}(m, n, vals, rows, cols, rowsiz, colsiz)
     end
 end
@@ -948,6 +975,22 @@ for F in (:SparseOperatorCSC, :SparseOperatorCSR, :SparseOperatorCOO)
     end
 end
 
+for (fmt,func) in ((:CSC, :SparseOperatorCSC),
+                   (:CSR, :SparseOperatorCSR),
+                   (:COO, :SparseOperatorCOO),)
+    F = Expr(:quote, Symbol(fmt))
+    @eval begin
+        CompressedSparseOperator{$F}(args...; kwds...) =
+            $func(args...; kwds...)
+        CompressedSparseOperator{$F,T}(args...; kwds...) where {T} =
+            $func{T}(args...; kwds...)
+        CompressedSparseOperator{$F,T,M}(args...; kwds...) where {T,M} =
+            $func{T,M}(args...; kwds...)
+        CompressedSparseOperator{$F,T,M,N}(args...; kwds...) where {T,M,N} =
+            $func{T,M,N}(args...; kwds...)
+    end
+end
+
 # Basic outer constructors return a fully checked structure.
 
 function SparseOperatorCSR(vals::AbstractVector,
@@ -986,37 +1029,45 @@ function SparseOperatorCOO(vals::AbstractVector,
                                to_size(colsiz)))
 end
 
+@inline isnonzero(v::T, i::Integer, j::Integer) where {T} = (v != zero(T))
+
 for CS in (:SparseOperatorCSR,
            :SparseOperatorCSC,
            :SparseOperatorCOO)
     @eval begin
         # Get rid of the M,N parameters, but keep/set T for conversion of
         # values.
-        $CS{T,M}(A::SparseOperator{<:Any,M}) where {T,M} =
-            $CS{T}(A)
-        $CS{T,M,N}(A::SparseOperator{<:Any,M,N}) where {T,M,N} =
-            $CS{T}(A)
-        $CS(A::SparseOperator{T}) where {T} =
-            $CS{T}(A)
+        $CS{T,M,N}(A::SparseOperator{<:Any,M,N}) where {T,M,N} = $CS{T}(A)
+        $CS{T,M}(A::SparseOperator{<:Any,M}) where {T,M} = $CS{T}(A)
+        $CS(A::SparseOperator{T}) where {T} = $CS{T}(A)
 
-        # Cases which does nothing (it makes sense that a constructor of an
-        # immutable type is able to just return its argument if it is already
+        # Cases which do nothing (it makes sense that a constructor of an
+        # immutable type be able to just return its argument if it is already
         # of the correct type).
         $CS{T}(A::$CS{T}) where {T} = A
-        $CS(A::$CS) = A
 
         # Manage to call constructors of compressed sparse linear operator
         # given a regular Julia array with correct parameters and selector.
-        $CS(A::AbstractMatrix{T}, args...) where {T} =
-            $CS{T,1,1}(A, args...)
-        function $CS{T,M}(A::AbstractArray{S,L}, args...) where {S,T,L,M}
-            @assert 1 < L < M
-            $CS{T,M,L-M}(A, args...)
+        $CS(A::AbstractMatrix{T}, args...; kwds...) where {T} =
+            $CS{T,1,1}(A, args...; kwds...)
+        $CS{Any}(A::AbstractMatrix{T}, args...; kwds...) where {T} =
+            $CS{T,1,1}(A, args...; kwds...)
+        $CS{T}(A::AbstractMatrix, args...; kwds...) where {T} =
+            $CS{T,1,1}(A, args...; kwds...)
+        $CS{Any,M}(A::AbstractArray{T}, args...; kwds...) where {T,M} =
+            $CS{T,M}(A, args...; kwds...)
+        $CS{Any,M,N}(A::AbstractArray{T}, args...; kwds...) where {T,M,N} =
+            $CS{T,M,N}(A, args...; kwds...)
+        $CS{Any,M,N,V}(A::AbstractArray{T}, args...; kwds...) where {T,M,N,V} =
+            $CS{T,M,N,V}(A, args...; kwds...)
+        function $CS{T,M}(A::AbstractArray{S,L}, args...; kwds...) where {S,T,L,M}
+            @assert 1 ≤ M < L
+            $CS{T,M,L-M}(A, args...; kwds...)
         end
-        $CS{T,M,N}(A::AbstractArray, args...) where {T,M,N} =
-            $CS{T,M,N,Vector{T}}(A)
-        $CS{T,M,N,V}(A::AbstractArray) where {T,M,N,V} =
-            $CS{T,M,N,V}(A, select_non_zeros)
+        $CS{T,M,N}(A::AbstractArray, args...; kwds...) where {T,M,N} =
+            $CS{T,M,N,Vector{T}}(A, args...; kwds...)
+        $CS{T,M,N,V}(A::AbstractArray, sel::Function = isnonzero) where {T,M,N,V} =
+           $CS{T,M,N,V}(A, sel)
     end
 end
 
@@ -1038,12 +1089,23 @@ SparseOperatorCOO{T}(A::SparseOperatorCOO{S,M,N}) where {S,T,M,N} =
 # Constructors for CSR format similar to the basic ones but have parameters
 # that may imply converting arguments.
 
-function SparseOperatorCSR{T}(vals::AbstractVector{T},
-                              cols::AbstractVector{<:Integer},
-                              offs::AbstractVector{<:Integer},
-                              rowsiz::ArraySize,
-                              colsiz::ArraySize) where {T}
-    SparseOperatorCSR(vals, cols, offs, rowsiz, colsiz)
+function SparseOperatorCSR{T,M,N}(vals::AbstractVector,
+                                  cols::AbstractVector{<:Integer},
+                                  offs::AbstractVector{<:Integer},
+                                  rowsiz::ArraySize,
+                                  colsiz::ArraySize) where {T,M,N}
+    @assert length(rowsiz) == M
+    @assert length(colsiz) == N
+    SparseOperatorCSR{T}(vals, cols, offs, rowsiz, colsiz)
+end
+
+function SparseOperatorCSR{T,M}(vals::AbstractVector,
+                                cols::AbstractVector{<:Integer},
+                                offs::AbstractVector{<:Integer},
+                                rowsiz::ArraySize,
+                                colsiz::ArraySize) where {T,M}
+    @assert length(rowsiz) == M
+    SparseOperatorCSR{T}(vals, cols, offs, rowsiz, colsiz)
 end
 
 function SparseOperatorCSR{T}(vals::AbstractVector,
@@ -1054,33 +1116,25 @@ function SparseOperatorCSR{T}(vals::AbstractVector,
     SparseOperatorCSR(to_values(T, vals), cols, offs, rowsiz, colsiz)
 end
 
-function SparseOperatorCSR{T,M,N}(vals::AbstractVector,
-                                  cols::AbstractVector{<:Integer},
+# Idem for CSC format.
+
+function SparseOperatorCSC{T,M,N}(vals::AbstractVector,
+                                  rows::AbstractVector{<:Integer},
                                   offs::AbstractVector{<:Integer},
                                   rowsiz::ArraySize,
                                   colsiz::ArraySize) where {T,M,N}
     @assert length(rowsiz) == M
     @assert length(colsiz) == N
-    SparseOperatorCSR(vals, cols, offs, rowsiz, colsiz)
+    SparseOperatorCSC{T}(vals, rows, offs, rowsiz, colsiz)
 end
 
-function SparseOperatorCSR{T,M}(vals::AbstractVector,
-                                cols::AbstractVector{<:Integer},
+function SparseOperatorCSC{T,M}(vals::AbstractVector,
+                                rows::AbstractVector{<:Integer},
                                 offs::AbstractVector{<:Integer},
                                 rowsiz::ArraySize,
-                                colsiz::ArraySize) where {T,M,N}
+                                colsiz::ArraySize) where {T,M}
     @assert length(rowsiz) == M
-    SparseOperatorCSR(vals, cols, offs, rowsiz, colsiz)
-end
-
-# Idem for CSC format.
-
-function SparseOperatorCSC{T}(vals::AbstractVector{T},
-                              rows::AbstractVector{<:Integer},
-                              offs::AbstractVector{<:Integer},
-                              rowsiz::ArraySize,
-                              colsiz::ArraySize) where {T}
-    SparseOperatorCSC(vals, rows, offs, rowsiz, colsiz)
+    SparseOperatorCSC{T}(vals, rows, offs, rowsiz, colsiz)
 end
 
 function SparseOperatorCSC{T}(vals::AbstractVector,
@@ -1091,42 +1145,7 @@ function SparseOperatorCSC{T}(vals::AbstractVector,
     SparseOperatorCSC(to_values(T, vals), rows, offs, rowsiz, colsiz)
 end
 
-function SparseOperatorCSC{T,M,N}(vals::AbstractVector,
-                                  rows::AbstractVector{<:Integer},
-                                  offs::AbstractVector{<:Integer},
-                                  rowsiz::ArraySize,
-                                  colsiz::ArraySize) where {T,M,N}
-    @assert length(rowsiz) == M
-    @assert length(colsiz) == N
-    SparseOperatorCSC(vals, rows, offs, rowsiz, colsiz)
-end
-
-function SparseOperatorCSC{T,M}(vals::AbstractVector,
-                                rows::AbstractVector{<:Integer},
-                                offs::AbstractVector{<:Integer},
-                                rowsiz::ArraySize,
-                                colsiz::ArraySize) where {T,M,N}
-    @assert length(rowsiz) == M
-    SparseOperatorCSC(vals, rows, offs, rowsiz, colsiz)
-end
-
 # Idem for COO format.
-
-function SparseOperatorCOO{T}(vals::AbstractVector{T},
-                              rows::AbstractVector{<:Integer},
-                              cols::AbstractVector{<:Integer},
-                              rowsiz::ArraySize,
-                              colsiz::ArraySize) where {T}
-    SparseOperatorCOO(vals, rows, cols, rowsiz, colsiz)
-end
-
-function SparseOperatorCOO{T}(vals::AbstractVector,
-                              rows::AbstractVector{<:Integer},
-                              cols::AbstractVector{<:Integer},
-                              rowsiz::ArraySize,
-                              colsiz::ArraySize) where {T}
-    SparseOperatorCOO(to_values(T, vals), rows, cols, rowsiz, colsiz)
-end
 
 function SparseOperatorCOO{T,M,N}(vals::AbstractVector,
                                   rows::AbstractVector{<:Integer},
@@ -1135,16 +1154,24 @@ function SparseOperatorCOO{T,M,N}(vals::AbstractVector,
                                   colsiz::ArraySize) where {T,M,N}
     @assert length(rowsiz) == M
     @assert length(colsiz) == N
-    SparseOperatorCOO(vals, rows, cols, rowsiz, colsiz)
+    SparseOperatorCOO{T}(vals, rows, cols, rowsiz, colsiz)
 end
 
 function SparseOperatorCOO{T,M}(vals::AbstractVector,
                                 rows::AbstractVector{<:Integer},
                                 cols::AbstractVector{<:Integer},
                                 rowsiz::ArraySize,
-                                colsiz::ArraySize) where {T,M,N}
+                                colsiz::ArraySize) where {T,M}
     @assert length(rowsiz) == M
-    SparseOperatorCOO(vals, rows, cols, rowsiz, colsiz)
+    SparseOperatorCOO{T}(vals, rows, cols, rowsiz, colsiz)
+end
+
+function SparseOperatorCOO{T}(vals::AbstractVector,
+                              rows::AbstractVector{<:Integer},
+                              cols::AbstractVector{<:Integer},
+                              rowsiz::ArraySize,
+                              colsiz::ArraySize) where {T}
+    SparseOperatorCOO(to_values(T, vals), rows, cols, rowsiz, colsiz)
 end
 
 
