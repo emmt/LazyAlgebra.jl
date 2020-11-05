@@ -22,6 +22,27 @@ is_coo(::SparseOperator) = false
 is_coo(::CompressedSparseOperator{:COO}) = true
 is_coo(::Adjoint{<:CompressedSparseOperator{:COO}}) = true
 
+# Generate a possibly sparse array of random values.  Value are small signed
+# integers so that all computations should be exact (except with non-integer
+# multipliers).
+genarr(T::Type, dims::Integer...; kwds...) = genarr(T, dims; kwds...)
+function genarr(T::Type, dims::Tuple{Vararg{Integer}};
+                sparsity::Real = 0,
+                range::AbstractUnitRange{<:Integer} = -17:17)
+    @assert 0 ≤ sparsity ≤ 1
+    A = Array{T}(undef, dims)
+    for i in eachindex(A)
+        if sparsity > 0 && rand() ≤ sparsity
+            A[i] = zero(T)
+        elseif T <: Complex
+            A[i] = T(rand(range), rand(range))
+        else
+            A[i] = T(rand(range))
+        end
+    end
+    return A
+end
+
 @testset "Sparse operators" begin
     rows = (2,3,4)
     cols = (5,6)
@@ -30,11 +51,10 @@ is_coo(::Adjoint{<:CompressedSparseOperator{:COO}}) = true
     for T in (Float32, Float64, Complex{Float64})
         R = real(T);
         ε = eps(R);
-        A = rand(T, rows..., cols...);
-        A[rand(Float64, size(A)) .≤ 0.7] .= 0; # 70% of zeros
-        x = rand(T, cols);
+        A = genarr(T, rows..., cols...; sparsity=0.7); # 70% of zeros
+        x = genarr(T, cols);
         xsav = vcopy(x);
-        y = rand(T, rows);
+        y = genarr(T, rows);
         ysav = vcopy(y);
         Scsc = SparseOperatorCSC{T,M,N}(A);
         Scsr = SparseOperatorCSR{T,M,N}(A);
@@ -62,25 +82,25 @@ is_coo(::Adjoint{<:CompressedSparseOperator{:COO}}) = true
             @test LazyAlgebra.identical(SparseOperator{T,M}(S), S)
             @test LazyAlgebra.identical(SparseOperator{T,M,N}(S), S)
 
-            # Check `apply!` and `vcreate`.
-            atol, rtol = zero(R), sqrt(ε);
+            # Check `apply!` and `vcreate` with integer valued multipliers so
+            # that exact results are expected.
             Sx  = S*x;  @test x == xsav;
             Sty = S'*y; @test y == ysav;
-            @test vdot(y, Sx) ≈ vdot(Sty, x);
-            for α in (0, 1, -1,  ),#2.71, π),
-                β in (0, 1, -1, ),#-1.33, Base.MathConstants.φ),
+            @test vdot(y, Sx) == vdot(Sty, x);
+            for α in (0, 1, -1, 3),
+                β in (0, 1, -1, 7),
                 scratch in (false, true)
                 # Test operator.
-                @test apply!(α, Direct, S, x, scratch, β, vcopy(y)) ≈
-                    R(α)*Sx + R(β)*y  atol=atol rtol=rtol
+                @test apply!(α, Direct, S, x, scratch, β, vcopy(y)) ==
+                    R(α)*Sx + R(β)*y
                 if scratch
                     vcopy!(x, xsav)
                 else
                     @test x == xsav
                 end
                 # Test  adjoint.
-                @test apply!(α, Adjoint, S, y, scratch, β, vcopy(x)) ≈
-                    R(α)*Sty + R(β)*x  atol=atol rtol=rtol
+                @test apply!(α, Adjoint, S, y, scratch, β, vcopy(x)) ==
+                    R(α)*Sty + R(β)*x
                 if scratch
                     vcopy!(y, ysav)
                 else
@@ -92,15 +112,15 @@ is_coo(::Adjoint{<:CompressedSparseOperator{:COO}}) = true
             G = GeneralMatrix(A);
             Gx  = G*x;  @test x == xsav;
             Gty = G'*y; @test y == ysav;
-            @test Sx  ≈ Gx   atol=atol rtol=rtol;
-            @test Sty ≈ Gty  atol=atol rtol=rtol;
+            @test Sx  == Gx
+            @test Sty == Gty
 
             # Compare to results with a 2D matrix and 1D vectors.
             Aflat = reshape(A, prod(rows), prod(cols));
             xflat = reshape(x, prod(cols));
             yflat = reshape(y, prod(rows));
-            @test Sx  ≈ reshape(Aflat*xflat,  rows)  atol=atol rtol=rtol
-            @test Sty ≈ reshape(Aflat'*yflat, cols)  atol=atol rtol=rtol
+            @test Sx  == reshape(Aflat*xflat,  rows)
+            @test Sty == reshape(Aflat'*yflat, cols)
 
             # Extract coefficients as an array or as a matrix.
             A1 = Array(S);
@@ -133,7 +153,7 @@ is_coo(::Adjoint{<:CompressedSparseOperator{:COO}}) = true
             else
                 @test get_cols(S1) == get_cols(S)
             end
-            @test coefficients(S1) ≈ coefficients(S) atol=0 rtol=2*eps(Float32)
+            @test coefficients(S1) == coefficients(S)
             @test LazyAlgebra.identical(S1, S) == false
 
             # Check reshaping.
@@ -158,10 +178,10 @@ is_coo(::Adjoint{<:CompressedSparseOperator{:COO}}) = true
             # FIXME: @test eltype(S2) === eltype(S)
             # FIXME: S3 = SparseOperator(S2)
             # FIXME: @test eltype(S3) === eltype(S)
-            # FIXME: x2 = randn(T, input_size(S3))
-            # FIXME: y2 = randn(T, output_size(S3))
-            # FIXME: @test S2*x2 ≈ S3*x2 atol=0 rtol=sqrt(ε)
-            # FIXME: @test S2'*y2 ≈ S3'*y2 atol=0 rtol=sqrt(ε)
+            # FIXME: x2 = genarr(T, input_size(S3))
+            # FIXME: y2 = genarr(T, output_size(S3))
+            # FIXME: @test S2*x2 == S3*x2
+            # FIXME: @test S2'*y2 == S3'*y2
             # FIXME:
             # FIXME: # Check multiplication by a scalar.
             # FIXME: @test 1*S === S
@@ -178,14 +198,14 @@ is_coo(::Adjoint{<:CompressedSparseOperator{:COO}}) = true
             # FIXME: @test isa(αS, SparseOperator)
             # FIXME: @test get_rows(αS) === get_rows(S)
             # FIXME: @test get_cols(αS) === get_cols(S)
-            # FIXME: @test coefficients(αS) ≈ α*coefficients(S) atol=0 rtol=2ε
+            # FIXME: @test coefficients(αS) == α*coefficients(S)
             # FIXME: @test eltype(αS) == eltype(S)
             # FIXME: @test input_size(αS) == input_size(S)
             # FIXME: @test output_size(αS) == output_size(S)
             # FIXME:
             # FIXME: # Check left and right multiplication by a non-uniform rescaling
             # FIXME: # operator.
-            # FIXME: w1 = randn(T, output_size(S))
+            # FIXME: w1 = genarr(T, output_size(S))
             # FIXME: W1 = NonuniformScaling(w1)
             # FIXME: W1_S = W1*S
             # FIXME: c1 = (w1 .* A)[A .!= zero(T)]
@@ -195,8 +215,8 @@ is_coo(::Adjoint{<:CompressedSparseOperator{:COO}}) = true
             # FIXME: @test input_size(W1_S) == input_size(S)
             # FIXME: @test get_rows(W1_S) === get_rows(S)
             # FIXME: @test get_cols(W1_S) === get_cols(S)
-            # FIXME: @test coefficients(W1_S) ≈ c1 atol=0 rtol=2ε
-            # FIXME: w2 = randn(T, input_size(S))
+            # FIXME: @test coefficients(W1_S) == c1
+            # FIXME: w2 = genarr(T, input_size(S))
             # FIXME: W2 = NonuniformScaling(w2)
             # FIXME: S_W2 = S*W2
             # FIXME: c2 = (A .* reshape(w2, (ones(Int, length(output_size(S)))...,
@@ -207,7 +227,7 @@ is_coo(::Adjoint{<:CompressedSparseOperator{:COO}}) = true
             # FIXME: @test input_size(S_W2) == input_size(S)
             # FIXME: @test get_cols(S_W2) === get_cols(S)
             # FIXME: @test get_rows(S_W2) === get_rows(S)
-            # FIXME: @test coefficients(S_W2) ≈ c2 atol=0 rtol=2ε
+            # FIXME: @test coefficients(S_W2) == c2
             # FIXME:
             # FIXME: # Use another constructor with integer conversion.
             # FIXME: R = SparseOperator(Int32.(get_rows(S)),
@@ -215,8 +235,8 @@ is_coo(::Adjoint{<:CompressedSparseOperator{:COO}}) = true
             # FIXME:                    coefficients(S),
             # FIXME:                    Int32.(output_size(S)),
             # FIXME:                    Int64.(input_size(S)))
-            # FIXME: @test Sx  ≈ R*x   atol=atol rtol=rtol
-            # FIXME: @test Sty ≈ R'*y  atol=atol rtol=rtol
+            # FIXME: @test Sx  == R*x
+            # FIXME: @test Sty == R'*y
         end
     end
 end
