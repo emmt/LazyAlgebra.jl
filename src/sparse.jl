@@ -343,8 +343,10 @@ Base.ndims(A::SparseOperator{T,M,N}) where {T,M,N} = M+N
 Base.length(A::SparseOperator) = nrows(A)*ncols(A)
 Base.size(A::SparseOperator) = (row_size(A)..., col_size(A)...)
 
-# Use constructors to perform conversion.
-Base.convert(T::Type{<:SparseOperator}, A) = T(A)
+# Use constructors to perform conversion (the first method is to resolve
+# ambiguities).
+Base.convert(::Type{T}, A::T) where {T<:SparseOperator} = A
+Base.convert(::Type{T}, A) where {T<:SparseOperator} = T(A)
 
 # FIXME: This cannot be considered as a *pure* trait as it does not only
 #        depend on the type of the object.
@@ -1344,10 +1346,15 @@ function SparseOperatorCOO{T,M,N,V}(arr::AbstractArray{S,L},
 end
 
 """
-    unpack!(A, S) -> A
+    unpack!(A, S; flatten=false) -> A
 
 unpacks the non-zero coefficients of the sparse operator `S` into the array `A`
-and returns `A`.
+and returns `A`.  Keyword `flatten` specifies whether to only consider the
+length of `A` instead of its dimensions.  In any cases, `A` must have as many
+elements as `length(S)` and standard linear indexing.
+
+Just call `Array(S)` to unpack the coefficients of a sparse operator `S`
+without providing the destination array.
 
 """ unpack!
 
@@ -1362,11 +1369,24 @@ function Base.Array{T,L}(A::SparseOperator{<:Any,M,N}) where {T,L,M,N}
     return unpack!(Array{T}(undef, (row_size(A)..., col_size(A)...,)), A)
 end
 
-function unpack!(B::Array{T,L},
-                 A::SparseOperatorCSR{<:Any,M,N}) where {T,L,M,N}
-    size(B) == (row_size(A)..., col_size(A)...,) ||
-        throw_incompatible_dimensions()
-    fill!(B, zero(T))
+function prepare_unpack!(dst::AbstractArray,
+                         src::SparseOperator,
+                         flatten::Bool)
+    is_fast_array(dst) || throw_non_standard_indexing("destination array")
+    if flatten
+        length(dst) == length(src) ||
+            throw_incompatible_number_of_elements()
+    else
+        size(dst) == (row_size(src)..., col_size(src)...,) ||
+            throw_incompatible_dimensions()
+    end
+    fill!(dst, zero(eltype(dst)))
+end
+
+function unpack!(B::AbstractArray{T,L},
+                 A::SparseOperatorCSR{<:Any,M,N};
+                 flatten::Bool = false) where {T,L,M,N}
+    prepare_unpack!(B, A, flatten)
     m = nrows(A) # used as the "stride" in B
     @inbounds for i in each_row(A)
         for k in each_off(A, i)
@@ -1378,11 +1398,10 @@ function unpack!(B::Array{T,L},
     return B
 end
 
-function unpack!(B::Array{T,L},
-                 A::SparseOperatorCSC{<:Any,M,N}) where {T,L,M,N}
-    size(B) == (row_size(A)..., col_size(A)...,) ||
-        throw_incompatible_dimensions()
-    fill!(B, zero(T))
+function unpack!(B::AbstractArray{T,L},
+                 A::SparseOperatorCSC{<:Any,M,N};
+                 flatten::Bool = false) where {T,L,M,N}
+    prepare_unpack!(B, A, flatten)
     m = nrows(A) # used as the "stride" in B
     @inbounds for j in each_col(A)
         for k in each_off(A, j)
@@ -1394,13 +1413,16 @@ function unpack!(B::Array{T,L},
     return B
 end
 
-unpack!(B::Array, A::SparseOperatorCOO) = unpack!(B, A, +)
-unpack!(B::Array, A::SparseOperatorCOO{Bool}) = unpack!(B, A, |)
-function unpack!(B::Array{T,L},
-                 A::SparseOperatorCOO{<:Any,M,N}, op) where {T,L,M,N}
-    size(B) == (row_size(A)..., col_size(A)...,) ||
-        throw_incompatible_dimensions()
-    fill!(B, zero(T))
+unpack!(B::AbstractArray, A::SparseOperatorCOO; kwds...) =
+    unpack!(B, A, +; kwds...)
+
+unpack!(B::AbstractArray, A::SparseOperatorCOO{Bool}; kwds...) =
+    unpack!(B, A, |; kwds...)
+
+function unpack!(B::AbstractArray{T,L},
+                 A::SparseOperatorCOO{<:Any,M,N},
+                 op::Function; flatten::Bool = false) where {T,L,M,N}
+    prepare_unpack!(B, A, flatten)
     m = nrows(A) # used as the "stride" in B
     @inbounds for k in each_off(A)
         i = get_row(A, k)
@@ -1411,12 +1433,6 @@ function unpack!(B::Array{T,L},
     end
     return B
 end
-
-@noinline throw_incompatible_dimensions() =
-    error("incompatible dimensions")
-
-@noinline throw_incompatible_number_of_dimensions() =
-    error("incompatible number of dimensions")
 
 function check_new_shape(A::SparseOperator,
                          rowsiz::Tuple{Vararg{Int}},
@@ -1647,7 +1663,7 @@ end
 
 # This error is due to the non-zeros selector not returning the same results in
 # the two selection passes.
-bad_selector() = argument_error("inconsistent selector function")
+bad_selector() = throw_argument_error("inconsistent selector function")
 
 @inline select_non_zeros(v::Bool, i::Int, j::Int) = v
 @inline select_non_zeros(v::T, i::Int, j::Int) where {T} = (v != zero(T))
@@ -1675,7 +1691,7 @@ function get_equivalent_size(A::AbstractArray{T,L},
     @assert M ≥ 1
     @assert N ≥ 1
     eachindex(A) == 1:length(A) ||
-        argument_error("array must have standard linear indexing")
+        throw_argument_error("array must have standard linear indexing")
     siz = size(A)
     rowsiz = siz[1:M]
     colsiz = siz[M+1:end]
@@ -1770,15 +1786,15 @@ end
 
 function check_size(A::SparseOperator)
     check_size(row_size(A), "row") == nrows(A) ||
-        dimension_mismatch("incompatible equivalent number of rows and row size")
+        throw_dimension_mismatch("incompatible equivalent number of rows and row size")
     check_size(col_size(A), "column") == ncols(A) ||
-        dimension_mismatch("incompatible equivalent number of columns and column size")
+        throw_dimension_mismatch("incompatible equivalent number of columns and column size")
     nothing
 end
 
 @noinline bad_dimension(dim::Integer, i::Integer, id) =
-    argument_error("invalid ", i, ordinal_suffix(i), " ", id,
-                   " dimension: ", dim)
+    throw_argument_error("invalid ", i, ordinal_suffix(i), " ", id,
+                         " dimension: ", dim)
 
 """
     check_vals(A)
@@ -1789,8 +1805,8 @@ exception if there are any inconsistencies.
 """
 function check_vals(A::SparseOperator)
     vals = get_vals(A)
-    is_fast_array(vals) || not_fast_array("array of values")
-    length(vals) == nnz(A) || argument_error("bad number of values")
+    is_fast_array(vals) || throw_not_fast_array("array of values")
+    length(vals) == nnz(A) || throw_argument_error("bad number of values")
     nothing
 end
 
@@ -1810,13 +1826,14 @@ in the range `1:m`.
 function check_rows(A::Union{<:CompressedSparseOperator{:CSC},
                              <:CompressedSparseOperator{:COO}})
     rows = get_rows(A)
-    length(rows) == nnz(A) || argument_error("bad number of row indices")
+    length(rows) == nnz(A) ||
+        throw_argument_error("bad number of row indices")
     check_rows(rows, nrows(A))
     # FIXME: also check sorting for CompressedSparseOperator{:CSC}?
 end
 
 function check_rows(rows::AbstractVector{Int}, m::Int)
-    is_fast_array(rows) || not_fast_array("array of row indices")
+    is_fast_array(rows) || throw_not_fast_array("array of row indices")
     anyerror = false
     @inbounds @simd for k in eachindex(rows)
         i = rows[k]
@@ -1842,13 +1859,14 @@ values in the range `1:n`.
 function check_cols(A::Union{<:CompressedSparseOperator{:CSR},
                              <:CompressedSparseOperator{:COO}})
     cols = get_cols(A)
-    length(cols) == nnz(A) || argument_error("bad number of column indices")
+    length(cols) == nnz(A) ||
+        throw_argument_error("bad number of column indices")
     check_cols(cols, ncols(A))
     # FIXME: also check sorting for CompressedSparseOperator{:CSR}?
 end
 
 function check_cols(cols::AbstractVector{Int}, n::Int)
-    is_fast_array(cols) || not_fast_array("array of column indices")
+    is_fast_array(cols) || throw_not_fast_array("array of column indices")
     anyerror = false
     @inbounds @simd for k in eachindex(cols)
         j = cols[k]
@@ -1869,7 +1887,7 @@ Throws an exception in case of inconsistency.
 function check_offs(A::T) where {T<:Union{CompressedSparseOperator{:CSR},
                                           CompressedSparseOperator{:CSC}}}
     offs = get_offs(A)
-    is_fast_array(offs) || not_fast_array("array of offsets")
+    is_fast_array(offs) || throw_not_fast_array("array of offsets")
     n = (T <: CompressedSparseOperator{:CSR} ? nrows(A) : ncols(A))
     length(offs) == n + 1 || error("bad number of offsets")
     offs[1] == 0 || error("bad initial offset")
@@ -2003,45 +2021,57 @@ indexing.  An exception is thrown if any of these do not hold.
 function check_argument(A::AbstractArray{<:Any,N},
                         siz::NTuple{N,Int},
                         id="array") where {N}
-    IndexStyle(A) === IndexLinear() || non_linear_indexing(id)
+    IndexStyle(A) === IndexLinear() || throw_non_linear_indexing(id)
     inds = axes(A)
     @inbounds for i in 1:N
-        first(inds[i]) == 1 || non_standard_indexing(id)
-        length(inds[i]) == siz[i] || incompatible_dimensions(id)
+        first(inds[i]) == 1 || throw_non_standard_indexing(id)
+        length(inds[i]) == siz[i] || throw_incompatible_dimensions(id)
     end
     nothing
 end
 
-@noinline incompatible_dimensions(id) =
-    dimension_mismatch(id, " has incompatible dimensions")
-
-@noinline not_fast_array(id) =
-    argument_error(id, " does not implement fast indexing")
-
-@noinline non_linear_indexing(id) =
-    argument_error(id, " does not implement linear indexing")
-
-@noinline non_standard_indexing(id) =
-    argument_error(id, " has non-standard indexing")
-
 """
-    argument_error(args...)
+    throw_argument_error(args...)
 
 throws an `ArgumentError` exception with a textual message made of `args...`.
 
 """
-argument_error(mesg::AbstractString) = throw(ArgumentError(mesg))
-@noinline argument_error(args...) = argument_error(string(args...))
+throw_argument_error(mesg::AbstractString) = throw(ArgumentError(mesg))
+@noinline throw_argument_error(args...) = throw_argument_error(string(args...))
+
+@noinline throw_not_fast_array(id) =
+    throw_argument_error(id, " does not implement fast indexing")
+
+@noinline throw_non_linear_indexing(id) =
+    throw_argument_error(id, " does not implement linear indexing")
+
+@noinline throw_non_standard_indexing(id) =
+    throw_argument_error(id, " has non-standard indexing")
 
 """
-    dimension_mismatch(args...)
+    throw_dimension_mismatch(args...)
 
 throws a `DimensionMismatch` exception with a textual message made of
 `args...`.
 
 """
-dimension_mismatch(mesg::AbstractString) = throw(DimensionMismatch(mesg))
-@noinline dimension_mismatch(args...) = dimension_mismatch(string(args...))
+throw_dimension_mismatch(mesg::AbstractString) =
+    throw(DimensionMismatch(mesg))
+
+@noinline throw_dimension_mismatch(args...) =
+    throw_dimension_mismatch(string(args...))
+
+@noinline throw_incompatible_dimensions(id) =
+    throw_dimension_mismatch(id, " has incompatible dimensions")
+
+@noinline throw_incompatible_dimensions() =
+    throw_dimension_mismatch("incompatible dimensions")
+
+@noinline throw_incompatible_number_of_dimensions() =
+    throw_dimension_mismatch("incompatible number of dimensions")
+
+@noinline throw_incompatible_number_of_elements() =
+    throw_dimension_mismatch("incompatible number of elements")
 
 """
     ordinal_suffix(n) -> "st" or "nd" or "rd" or "th"
