@@ -4,7 +4,7 @@
 # Tests for generalized matrix-vector and matrix-matrix products.
 #
 
-module GenMultTests
+module TestingLazyAlgebraGenMult
 
 using Test
 using Test: print_test_results
@@ -295,5 +295,6 @@ function test_all(reduced::Bool=false)
 end
 
 end # module
-GenMultTests.test_all()
+
+TestingLazyAlgebraGenMult.test_all()
 nothing

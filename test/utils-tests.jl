@@ -3,12 +3,13 @@
 #
 # Test utility functions.
 #
+module TestingLazyAlgebraUtilities
 
 using Random
 using Test
 using LazyAlgebra
 
-@testset "Utilities" begin
+@testset "Multipliers  " begin
     #
     # Tests for `promote_multiplier`.
     #
@@ -71,6 +72,9 @@ using LazyAlgebra
             @test_throws ErrorException promote_multiplier(1, T)
         end
     end
+end # testset
+
+@testset "Miscellaneous" begin
     #
     # Tests for `to_tuple`.
     #
@@ -78,13 +82,17 @@ using LazyAlgebra
         @test to_tuple(x) === (x...,)
         @test to_tuple(to_tuple(x)) === (x...,)
     end
+end # testset
+
+@testset "Messages     " begin
     #
     # Tests of message, etc.
     #
     let bad_argument = LazyAlgebra.bad_argument,
         bad_size = LazyAlgebra.bad_size,
         arguments_have_incompatible_axes = LazyAlgebra.arguments_have_incompatible_axes,
-        operands_have_incompatible_axes = LazyAlgebra.operands_have_incompatible_axes,        message = LazyAlgebra.message,
+        operands_have_incompatible_axes = LazyAlgebra.operands_have_incompatible_axes,
+        message = LazyAlgebra.message,
         warn = LazyAlgebra.warn,
         siz = (3,4,5)
         @test_throws ArgumentError bad_argument("argument must be nonnegative")
@@ -98,5 +106,8 @@ using LazyAlgebra
         warn("array size ", siz)
         warn(stdout, "Info:", "array size ", siz)
     end
-end
+end # testset
+
 nothing
+
+end # module

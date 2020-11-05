@@ -6,7 +6,7 @@
 
 #isdefined(:LazyAlgebra) || include("../src/LazyAlgebra.jl")
 
-module LazyAlgebraConjGradTests
+module TestingLazyAlgebraConjGrad
 
 using LazyAlgebra
 using Test
@@ -98,5 +98,7 @@ const DEBUG = true
 
     end
 end
+
+nothing
 
 end # module

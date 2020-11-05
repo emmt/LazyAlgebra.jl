@@ -3,6 +3,7 @@
 #
 # Tests for cropping and zero-padding.
 #
+module TestingLazyAlgebraCrop
 
 using Test
 using LazyAlgebra
@@ -133,3 +134,5 @@ using LazyAlgebra
     end
 end
 nothing
+
+end # module

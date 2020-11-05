@@ -3,6 +3,7 @@
 #
 # Test algebraic rules and simplifications.
 #
+module TestingLazyAlgebraRules
 
 using LazyAlgebra
 import LazyAlgebra: ⋅,
@@ -290,5 +291,7 @@ end
     @test to_string(M + M) == "2⋅M"
     @test to_string(∇(M,x)) == "∇(M,x)"
     @test to_string(∇(M,x) + ∇(M,x)) == "2⋅∇(M,x)"
-end
+end # testset
 nothing
+
+end # module

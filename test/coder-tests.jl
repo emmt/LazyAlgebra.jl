@@ -10,7 +10,7 @@
 #
 # Copyright (c) 2017-2020 Éric Thiébaut.
 #
-module CoderTests
+module TestingLazyAlgebraCoder
 
 # Deal with compatibility issues.
 using Printf

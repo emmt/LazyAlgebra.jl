@@ -3,6 +3,7 @@
 #
 # Tests for finite differences.
 #
+module TestingLazyAlgebraDiff
 
 using LazyAlgebra
 using Test
@@ -93,3 +94,5 @@ end
     end
 end
 nothing
+
+end # module
