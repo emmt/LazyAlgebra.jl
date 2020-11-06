@@ -28,8 +28,8 @@ Similar Julia packages:
 [license-url]: ./LICENSE.md
 [license-img]: http://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat
 
-[travis-img]: https://travis-ci.com/emmt/LazyAlgebra.jl.svg?branch=master
-[travis-url]: https://travis-ci.com/emmt/LazyAlgebra.jl
+[travis-img]: https://travis-ci.org/emmt/LazyAlgebra.jl.svg?branch=master
+[travis-url]: https://travis-ci.org/emmt/LazyAlgebra.jl
 
 [appveyor-img]: https://ci.appveyor.com/api/projects/status/github/emmt/LazyAlgebra.jl?branch=master
 [appveyor-url]: https://ci.appveyor.com/project/emmt/LazyAlgebra-jl/branch/master
