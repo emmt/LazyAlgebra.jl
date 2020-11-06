@@ -1,9 +1,9 @@
 #
-# diff-tests.jl -
+# sparse-tests.jl -
 #
-# Tests for finite differences.
+# Testing sparse operators.
 #
-module TestingLazyAlgebraSparseArrays
+module TestingLazyAlgebraSparseOperators
 
 using SparseArrays
 using StructuredArrays
