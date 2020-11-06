@@ -12,7 +12,7 @@ from the `LazyAlgebra` infrastruture, you have to:
   method is called to create a new output variable suitable to store the result
   of applying the mapping (or one of its variants) to some input variable.
 
-* Optionally specialize method `are_same_mappings` for two arguments of the new
+* Optionally specialize method `identical` for two arguments of the new
   mapping type.
 
 
@@ -39,17 +39,17 @@ The result returned by `vcreate` is a new output variables suitable to store
 the result of applying the mapping `A` (or one of its variants as indicated by
 `P`) to the input variables `x`.
 
-The `scratch` argument is a boolean to let the caller indicate whether
-the input variable `x` may be re-used to store the result.  If `scratch` is
-`true` and if that make sense, the value returned by `vcreate` may be `x`.
-Calling `vcreate` with `scratch=true` can be used to limit the allocation of
-resources when possible.  Having `scratch=true` is only indicative and a
-specific implementation of `vcreate` may legitimately always assume
-`scratch=false` and return a new variable whatever the value of this argument
-(e.g. because applying the considered mapping *in-place* is not possible or
-because the considered mapping is not an endomorphism).  Of course, the
-opposite behavior (i.e., assuming that `scratch=true` while the method was
-called with `scratch=false`) is forbidden.
+The `scratch` argument is a boolean to let the caller indicate whether the
+input variable `x` may be re-used to store the result.  If `scratch` is `true`
+and if that make sense, the value returned by `vcreate` may be `x`.  Calling
+`vcreate` with `scratch=true` can be used to limit the allocation of resources
+when possible.  Having `scratch=true` is only indicative and a specific
+implementation of `vcreate` may legitimately always assume `scratch=false` and
+return a new variable whatever the value of this argument (e.g. because
+applying the considered mapping *in-place* is not possible or because the
+considered mapping is not an endomorphism).  Of course, the opposite behavior
+(i.e., assuming that `scratch=true` while the method was called with
+`scratch=false`) is forbidden.
 
 The result returned by `vcreate` should be of predictible type to ensure
 *type-stability*.  Checking the validity (*e.g.* the size) of argument `x` in
@@ -83,12 +83,12 @@ of the input variable `x` may be overwritten during the operations.  If
 `scratch=false`, the `apply!` method shall not modify the contents of `x`.
 
 
-## The `are_same_mappings` method
+## The `identical` method
 
-The method `are_same_mappings(A,B)` yields whether `A` and `B` are the same
-mappings in the sense that their effects will **always** be the same.  This
-method is used to perform some simplifications and optimizations and may have
-to be specialized for specific mapping types.  The default implementation is to
+The method `identical(A,B)` yields whether `A` and `B` are the same mappings in
+the sense that their effects will **always** be the same.  This method is used
+to perform some simplifications and optimizations and may have to be
+specialized for specific mapping types.  The default implementation is to
 return `A === B`.
 
 The returned result may be true although `A` and `B` are not necessarily the
@@ -97,10 +97,10 @@ whose coefficients and indices are stored in the same vectors (as can be tested
 with the `===` operator) this method should return `true` because the two
 operators will behave identically (any changes in the coefficients or indices
 of `A` will be reflected in `B`).  If any of the vectors storing the
-coefficients or the indices are not the same objects, then
-`are_same_mappings(A,B)` must return `false` even though the stored values may
-be the same because it is possible, later, to change one operator without
-affecting identically the other.
+coefficients or the indices are not the same objects, then `identical(A,B)`
+must return `false` even though the stored values may be the same because it is
+possible, later, to change one operator without affecting identically the
+other.
 
 
 ## Example
@@ -184,7 +184,7 @@ function apply!(α::Real,
     return y
 end
 
-are_same_mappings(A::T, B::T) where {T<:SparseOperator} =
+identical(A::T, B::T) where {T<:SparseOperator} =
     (A.outdims == B.outdims && A.inpdims == B.inpdims &&
      A.A === B.A && A.I === B.I && A.J === B.J)
 ```
