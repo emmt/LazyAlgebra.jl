@@ -2159,7 +2159,8 @@ performing `y <- α*op(A)(x) + β*y` where `op(A)` denotes a variant of `A` whic
 usually depends on `f`.
 
 """
-function dispatch_multipliers!(α::Number, f::Function, A, x, β::Number, y)
+@inline function dispatch_multipliers!(α::Number, f::Function, A, x,
+                                       β::Number, y)
     if α == 0
         vscale!(y, β)
     elseif α == 1
