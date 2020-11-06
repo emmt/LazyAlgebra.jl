@@ -16,6 +16,8 @@ hit the `]` key to switch to the package manager REPL (you should get a
 
 ```julia
 pkg> add https://github.com/emmt/ArrayTools.jl
+pkg> add https://github.com/emmt/StructuredArrays.jl
+pkg> add https://github.com/emmt/ZippedArrays.jl
 pkg> add https://github.com/emmt/LazyAlgebra.jl
 ```
 
