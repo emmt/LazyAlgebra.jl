@@ -147,7 +147,7 @@ Format `F` is specificed as a symbol and can be:
 
 - `:COO` for *Compressed Sparse Coordinate* storage format.  This format is not
   the most efficient, it is mostly used as an intermediate for building a
-  sparse operator in one of the following format.
+  sparse operator in one of the following formats.
 
 - `:CSC` for *Compressed Sparse Column* storage format.  This format is very
   efficient for applying the adjoint of the sparse operator.
@@ -997,6 +997,15 @@ for (fmt,func) in ((:CSC, :SparseOperatorCSC),
     end
 end
 
+# Conversion without changing format (mostly for changing element type).
+CompressedSparseOperator{Any}(A::CompressedSparseOperator) = A
+CompressedSparseOperator{Any,T}(A::CompressedSparseOperator{F}) where {F,T} =
+    CompressedSparseOperator{F,T}(A)
+CompressedSparseOperator{Any,T,M}(A::CompressedSparseOperator{F}) where {F,T,M} =
+    CompressedSparseOperator{F,T,M}(A)
+CompressedSparseOperator{Any,T,M,N}(A::CompressedSparseOperator{F}) where {F,T,M,N} =
+    CompressedSparseOperator{F,T,M,N}(A)
+
 # Basic outer constructors return a fully checked structure.
 
 function SparseOperatorCSR(vals::AbstractVector,
@@ -1072,8 +1081,6 @@ for CS in (:SparseOperatorCSR,
         end
         $CS{T,M,N}(A::AbstractArray, args...; kwds...) where {T,M,N} =
             $CS{T,M,N,Vector{T}}(A, args...; kwds...)
-        $CS{T,M,N,V}(A::AbstractArray, sel::Function = isnonzero) where {T,M,N,V} =
-           $CS{T,M,N,V}(A, sel)
     end
 end
 
@@ -1188,8 +1195,8 @@ end
 # equivalent "matrix", that is a 2-dimensional array.
 
 function SparseOperatorCSR{T,M,N,V}(arr::AbstractArray{S,L},
-                                    sel::Function) where {S,T,L,M,N,
-                                                          V<:AbstractVector{T}}
+                                    sel::Function = isnonzero) where {
+                                        S,T,L,M,N,V<:AbstractVector{T}}
     # Get equivalent matrix dimensions.
     nrows, ncols, rowsiz, colsiz = get_equivalent_size(arr, Val(M), Val(N))
 
@@ -1241,8 +1248,8 @@ function SparseOperatorCSR{T,M,N,V}(arr::AbstractArray{S,L},
 end
 
 function SparseOperatorCSC{T,M,N,V}(arr::AbstractArray{S,L},
-                                    sel::Function) where {S,T,L,M,N,
-                                                          V<:AbstractVector{T}}
+                                    sel::Function = isnonzero) where {
+                                        S,T,L,M,N,V<:AbstractVector{T}}
     # Get equivalent matrix dimensions.
     nrows, ncols, rowsiz, colsiz = get_equivalent_size(arr, Val(M), Val(N))
 
@@ -1294,8 +1301,8 @@ function SparseOperatorCSC{T,M,N,V}(arr::AbstractArray{S,L},
 end
 
 function SparseOperatorCOO{T,M,N,V}(arr::AbstractArray{S,L},
-                                    sel::Function) where {S,T,L,M,N,
-                                                          V<:AbstractVector{T}}
+                                    sel::Function = isnonzero) where {
+                                        S,T,L,M,N,V<:AbstractVector{T}}
     # Get equivalent matrix dimensions.
     nrows, ncols, rowsiz, colsiz = get_equivalent_size(arr, Val(M), Val(N))
 
