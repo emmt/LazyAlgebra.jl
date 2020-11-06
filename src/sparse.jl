@@ -599,12 +599,12 @@ indices for the `i`-th row of `A`.
 @inline each_off(A::Adjoint{<:CompressedSparseOperator{:COO}}) =
     each_off(unveil(A))
 
-@propagate_inbounds @inline function each_off(A::AnyCSR, i::Int)
+@inline @propagate_inbounds function each_off(A::AnyCSR, i::Int)
     k1, k2 = get_offs(A, i)
     return k1:k2
 end
 
-@propagate_inbounds @inline function each_off(A::AnyCSC, j::Int)
+@inline @propagate_inbounds function each_off(A::AnyCSC, j::Int)
     k1, k2 = get_offs(A, j)
     return k1:k2
 end
@@ -635,19 +635,32 @@ each_col(A::Adjoint{<:CompressedSparseOperator{:CSR}}) = each_row(unveil(A))
     get_row(A, k) -> i
 
 yields the linear row index of the `k`-th entry of the sparse operator `A`
-stored in a *Compressed Sparse Column* (CSC) or *Coordinate* (COO) format.
+stored in a *Compressed Sparse Column* (CSC) or *Coordinate* (COO) formats
+(this includes adjoint of sparse operators in CSR format).
 
 """
-@propagate_inbounds @inline get_row(A, k::Integer) = get_rows(A)[k]
+@inline @propagate_inbounds function get_row(
+    A::Union{CompressedSparseOperator{:COO},
+             CompressedSparseOperator{:CSC},
+             Adjoint{<:CompressedSparseOperator{:CSR}}}, k::Integer)
+    get_rows(A)[k]
+end
 
 """
     get_col(A, k) -> j
 
 yields the linear column index of the `k`-th entry of the sparse operator `A`
-stored in a *Compressed Sparse Row* (CSR) or *Coordinate* (COO) format.
+stored in a *Compressed Sparse Row* (CSR) or *Coordinate* (COO) formats (this
+includes adjoint of sparse operators in CSC format).
 
 """
-@propagate_inbounds @inline get_col(A, k::Integer) = get_cols(A)[k]
+@inline @propagate_inbounds function get_col(
+    A::Union{
+    CompressedSparseOperator{:COO},
+        CompressedSparseOperator{:CSR},
+        Adjoint{<:CompressedSparseOperator{:CSC}}}, k::Integer)
+    get_cols(A)[k]
+end
 
 """
     get_val(A, k) -> v
@@ -661,8 +674,8 @@ Argument may also be the adjoint of a sparse operator:
     get_val(A', k) -> conj(get_val(A, k))
 
 """
-@propagate_inbounds @inline get_val(A, k::Integer) = get_vals(A)[k]
-@propagate_inbounds @inline get_val(A::Adjoint, k::Integer) =
+@inline @propagate_inbounds get_val(A, k::Integer) = get_vals(A)[k]
+@inline @propagate_inbounds get_val(A::Adjoint, k::Integer) =
     conj(get_vals(A)[k])
 
 """
@@ -673,8 +686,8 @@ in a *Compressed Sparse Row* (CSR), *Compressed Sparse Column* (CSC) or
 *Coordinate* (COO) format.
 
 """
-@propagate_inbounds @inline set_val!(A, k::Integer, v) = get_vals(A)[k] = v
-@propagate_inbounds @inline set_val!(A::Adjoint, k::Integer, v) = begin
+@inline @propagate_inbounds set_val!(A, k::Integer, v) = get_vals(A)[k] = v
+@inline @propagate_inbounds set_val!(A::Adjoint, k::Integer, v) = begin
     get_vals(A)[k] = conj(v)
     return v
 end
@@ -741,7 +754,7 @@ row_size(A::SparseMatrixCSC) = (nrows(A),)
 col_size(A::SparseMatrixCSC) = (ncols(A),)
 each_col(A::SparseMatrixCSC) = Base.OneTo(ncols(A))
 
-@propagate_inbounds @inline each_off(A::SparseMatrixCSC, j::Integer) =
+@inline @propagate_inbounds each_off(A::SparseMatrixCSC, j::Integer) =
     ((k1, k2) = get_offs(A, j); k1:k2)
 
 # Provide a specific version of `get_offs(A,j)` because offsets have a slightly
