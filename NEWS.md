@@ -8,6 +8,13 @@ Future:
 
 Done:
 
+* Large sub-package for sparse operators which are linear mappings with few
+  non-zero coefficients (see doc. for `SparseOperator` and
+  `CompressedSparseOperator`).  All common compressed sparse storage formats
+  (COO, CSC and CSR) are supported and easy conversion between them is
+  provided.  Generalized matrix-vector multiplication is implemented and is as
+  fast or significantly faster than with `SparseArrays.SparseMatrixCSC`.
+
 * Method `∇(A,x)` yields the Jacobian of the mapping `A` at the variables `x`.
   If `A` is a linear-mapping, then `∇(A,x)` yields `A` whatever `x`.  The new
   type `Jacobian` type is used to denote the Jacobian of a non-linear mapping.
@@ -23,7 +30,8 @@ Done:
   constructions).
 
 * Methods `has_oneto_axes`, `densearray`, `densevector` and `densematrix` have
-  been replaced by `has_standard_indexing` and `to_flat_array` from `ArrayTools`.
+  been replaced by `has_standard_indexing` and `to_flat_array` from
+  `ArrayTools`.
 
 * The exported constant `I = Identity()` has been renamed as `Id` to avoid
   conflicts with standard `LinearAlgebra` package.  `Id` is systematically
