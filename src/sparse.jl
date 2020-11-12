@@ -758,7 +758,7 @@ each_col(A::SparseMatrixCSC) = Base.OneTo(ncols(A))
     ((k1, k2) = get_offs(A, j); k1:k2)
 
 # Provide a specific version of `get_offs(A,j)` because offsets have a slightly
-# different difinition than out CSC format.
+# different definition than our CSC format.
 @inline function get_offs(A::SparseMatrixCSC, j::Integer)
     offs = get_offs(A)
     @boundscheck ((j < 1)|(j ≥ length(offs))) && out_of_range_column_index(A, j)
