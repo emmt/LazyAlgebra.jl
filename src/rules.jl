@@ -646,56 +646,47 @@ apply(P::Type{<:Operations}, A::Mapping, x, scratch::Bool=false) =
 \(A::Mapping, x) = apply(Inverse, A, x, false)
 
 """
-```julia
-apply!([α = 1,] [P = Direct,] A::Mapping, x, [scratch=false,] [β = 0,] y) -> y
-```
+    apply!([α=1,] [P=Direct,] A::Mapping, x, [scratch=false,] [β=0,] y) -> y
 
 overwrites `y` with `α*P(A)⋅x + β*y` where `P ∈ Operations` can be `Direct`,
 `Adjoint`, `Inverse` and/or `InverseAdjoint` to indicate which variant of the
 mapping `A` to apply.  The convention is that the prior contents of `y` is not
-used at all if `β = 0` so `y` does not need to be properly initialized in that
-case and can be directly used to store the result.  The `scratch` optional
-argument indicates whether the input `x` is no longer needed by the caller and
-can thus be used as a scratch array.  Having `scratch = true` or `β = 0` may be
-exploited by the specific implementation of the `apply!` method for the mapping
-type to avoid allocating temporary workspace(s).
+used at all if `β = 0` so `y` can be directly used to store the result even
+though it is not initialized.  The `scratch` optional argument indicates
+whether the input `x` is no longer needed by the caller and can thus be used as
+a scratch array.  Having `scratch = true` or `β = 0` may be exploited by the
+specific implementation of the `apply!` method for the mapping type to avoid
+allocating temporary workspace(s).
+
+The `apply!` method can be seen as a generalization of the `LinearAlgebra.mul!`
+method.
 
 The order of arguments can be changed and the same result as above is obtained
 with:
 
-```julia
-apply!([β = 0,] y, [α = 1,] [P = Direct,] A::Mapping, x, scratch=false) -> y
-```
+    apply!([β=0,] y, [α=1,] [P=Direct,] A::Mapping, x, scratch=false) -> y
 
 The result `y` may have been allocated by:
 
-```julia
-y = vcreate([Op,] A, x, scratch=false)
-```
+    y = vcreate([P=Direct,] A, x, scratch=false)
 
 Mapping sub-types only need to extend `vcreate` and `apply!` with the specific
 signatures:
 
-```julia
-vcreate(::Type{P}, A::M, x, scratch::Bool=false) -> y
-apply!(α::Number, ::Type{P}, A::M, x, scratch::Bool, β::Number, y) -> y
-```
+    vcreate(::Type{P}, A::M, x, scratch::Bool=false) -> y
+    apply!(α::Number, ::Type{P}, A::M, x, scratch::Bool, β::Number, y) -> y
 
 for any supported operation `P` and where `M` is the type of the mapping.  Of
 course, the types of arguments `x` and `y` may be specified as well.
 
 Optionally, the method with signature:
 
-```julia
-apply(::Type{P}, A::M, x, scratch::Bool=false) -> y
-```
+    apply(::Type{P}, A::M, x, scratch::Bool=false) -> y
 
 may also be extended to improve the default implementation which is:
 
-```julia
-apply(P::Type{<:Operations}, A::Mapping, x, scratch::Bool=false) =
-    apply!(1, P, A, x, scratch, 0, vcreate(P, A, x, scratch))
-```
+    apply(P::Type{<:Operations}, A::Mapping, x, scratch::Bool=false) =
+        apply!(1, P, A, x, scratch, 0, vcreate(P, A, x, scratch))
 
 See also: [`Mapping`](@ref), [`apply`](@ref), [`vcreate`](@ref).
 
@@ -759,8 +750,12 @@ apply!(β::Number, y, α::Number, A::Mapping, x, scratch::Bool=false) =
 apply!(β::Number, y, α::Number, P::Type{<:Operations}, A::Mapping, x, scratch::Bool=false) =
     apply!(α, P, A, x, scratch, β, y)
 
-# Extend `mul!` so that `A'*x`, `A*B*C*x`, etc. yield the expected result.
+# Extend `LinearAlgebra.mul!` so that `A'*x`, `A*B*C*x`, etc. yield the
+# expected result.  FIXME: This should be restricted to linear mappings but
+# this is not possible without overheads.
 mul!(y, A::Mapping, x) = apply!(1, Direct, A, x, false, 0, y)
+mul!(y, A::Mapping, x, α::Number, β::Number) =
+    apply!(α, Direct, A, x, false, β, y)
 
 # Implemention of the `apply!(α,P,A,x,scratch,β,y)` and
 # `vcreate(P,A,x,scratch)` methods for a scaled mapping.
