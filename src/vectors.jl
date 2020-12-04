@@ -23,8 +23,8 @@ can be imposed by optional argument `T`.  Also see [`vnorm1`](@ref) and
 [`vnorminf`](@ref).
 
 """
-function vnorm2(v::AbstractArray{<:Union{T,Complex{T}}}) where {T<:AbstractFloat}
-    s = zero(T)
+function vnorm2(v::AbstractArray{<:Floats})
+    s = zero(real(eltype(v)))
     @inbounds @simd for i in eachindex(v)
         s += abs2(v[i])
     end
@@ -43,17 +43,16 @@ absolute values of the real part and of the imaginary part of the elements
 See also [`vnorm2`](@ref) and [`vnorminf`](@ref).
 
 """
-function vnorm1(v::AbstractArray{T}) where {T<:AbstractFloat}
-    s = zero(T)
+function vnorm1(v::AbstractArray{<:Reals})
+    s = zero(real(eltype(v)))
     @inbounds @simd for i in eachindex(v)
         s += abs(v[i])
     end
     return s
 end
 
-function vnorm1(v::AbstractArray{Complex{T}}) where {T<:AbstractFloat}
-    sr = zero(T)
-    si = zero(T)
+function vnorm1(v::AbstractArray{<:Complexes})
+    si = sr = zero(real(eltype(v)))
     @inbounds @simd for i in eachindex(v)
         z = v[i]
         sr += abs(real(z))
@@ -70,16 +69,16 @@ elements.  The floating point type of the result can be imposed by optional
 argument `T`.  Also see [`vnorm1`](@ref) and [`vnorm2`](@ref).
 
 """
-function vnorminf(v::AbstractArray{T}) where {T<:AbstractFloat}
-    absmax = zero(T)
+function vnorminf(v::AbstractArray{<:Reals})
+    absmax = zero(real(eltype(v)))
     @inbounds @simd for i in eachindex(v)
         absmax = max(absmax, abs(v[i]))
     end
     return absmax
 end
 
-function vnorminf(v::AbstractArray{Complex{T}}) where {T<:AbstractFloat}
-    abs2max = zero(T)
+function vnorminf(v::AbstractArray{<:Complexes})
+    abs2max = zero(real(eltype(v)))
     @inbounds @simd for i in eachindex(v)
         abs2max = max(abs2max, abs2(v[i]))
     end
@@ -103,7 +102,7 @@ element type of the result is a floating-point type.
 Also see [`similar`](@ref).
 
 """
-vcreate(x::AbstractArray{T,N}) where {R<:Real,T<:Union{R,Complex{R}},N} =
+vcreate(x::AbstractArray{T}) where {R<:Real,T<:Union{R,Complex{R}}} =
     similar(x, float(T))
 
 #------------------------------------------------------------------------------
