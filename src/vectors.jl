@@ -385,21 +385,21 @@ times at this location.
 See also: [`vscale!`](@ref), [`vcombine!](@ref).
 
 """
-function vupdate!(y::AbstractArray{<:Floats,N},
+function vupdate!(y::AbstractArray{<:Number,N},
                   α::Number,
-                  x::AbstractArray{<:Floats,N}) where {N}
-    I = all_indices(x, y)
+                  x::AbstractArray{<:Number,N}) where {N}
+    axes(x) == axes(y) || arguments_have_incompatible_axes()
     if α == 1
-        @inbounds @simd for i in I
+        @inbounds @simd for i in eachindex(x, y)
             y[i] += x[i]
         end
     elseif α == -1
-        @inbounds @simd for i in I
+        @inbounds @simd for i in eachindex(x, y)
             y[i] -= x[i]
         end
     elseif α != 0
         alpha = promote_multiplier(α, x)
-        @inbounds @simd for i in I
+        @inbounds @simd for i in eachindex(x, y)
             y[i] += alpha*x[i]
         end
     end
@@ -441,6 +441,8 @@ end
 
 yields the linear combination `dst = α*x + β*y`.
 
+----
+
 To avoid allocating the result, the destination array `dst` can be specified
 with the in-place version of the method:
 
@@ -462,69 +464,68 @@ See also: [`vscale!`](@ref), [`vupdate!](@ref).
 vcombine(α::Number, x::V, β::Number, y::V) where {V} =
     vcombine!(vcreate(x), α, x, β, y)
 
-function vcombine!(dst::AbstractArray{<:Floats,N},
-                   α::Number,
-                   x::AbstractArray{<:Floats,N},
-                   β::Number,
-                   y::AbstractArray{<:Floats,N}) where {N}
+function vcombine!(dst::AbstractArray{<:Number,N},
+                   α::Number, x::AbstractArray{<:Number,N},
+                   β::Number, y::AbstractArray{<:Number,N}) where {N}
+    axes(dst) == axes(x) == axes(y) || arguments_have_incompatible_axes()
     if α == 0
-        axes(x) == axes(dst) || arguments_have_incompatible_axes()
-        vscale!(dst, β, y)
-    elseif β == 0
-        axes(y) == axes(dst) || arguments_have_incompatible_axes()
-        vscale!(dst, α, x)
-    else
-        I = all_indices(dst, x, y)
-        if α == 1
-            if β == 1
-                @inbounds @simd for i in I
-                    dst[i] = x[i] + y[i]
-                end
-            elseif β == -1
-                @inbounds @simd for i in I
-                    dst[i] = x[i] - y[i]
-                end
-            else
-                beta = promote_multiplier(β, y)
-                @inbounds @simd for i in I
-                    dst[i] = x[i] + beta*y[i]
-                end
-            end
-        elseif α == -1
-            if β == 1
-                @inbounds @simd for i in I
-                    dst[i] = y[i] - x[i]
-                end
-            elseif β == -1
-                @inbounds @simd for i in I
-                    dst[i] = -x[i] - y[i]
-                end
-            else
-                beta = promote_multiplier(β, y)
-                @inbounds @simd for i in I
-                    dst[i] = beta*y[i] - x[i]
-                end
-            end
+        if β == 0
+            vzero!(dst)
+        elseif β == 1
+            _vcombine!(dst, axpby_yields_y,     0,x, 1,y)
+        elseif β == -1
+            _vcombine!(dst, axpby_yields_my,    0,x,-1,y)
         else
-            alpha = promote_multiplier(α, x)
-            if β == 1
-                @inbounds @simd for i in I
-                    dst[i] = alpha*x[i] + y[i]
-                end
-            elseif β == -1
-                @inbounds @simd for i in I
-                    dst[i] = alpha*x[i] - y[i]
-                end
-            else
-                beta = promote_multiplier(β, y)
-                @inbounds @simd for i in I
-                    dst[i] = alpha*x[i] + beta*y[i]
-                end
-            end
+            b = promote_multiplier(β, y)
+            _vcombine!(dst, axpby_yields_by,    0,x, b,y)
+        end
+    elseif α == 1
+        if β == 0
+            _vcombine!(dst, axpby_yields_x,     1,x, 0,y)
+        elseif β == 1
+            _vcombine!(dst, axpby_yields_xpy,   1,x, 1,y)
+        elseif β == -1
+            _vcombine!(dst, axpby_yields_xmy,   1,x,-1,y)
+        else
+            b = promote_multiplier(β, y)
+            _vcombine!(dst, axpby_yields_xpby,  1,x, b,y)
+        end
+    elseif α == -1
+        if β == 0
+            _vcombine!(dst, axpby_yields_mx,   -1,x, 0,y)
+        elseif β == 1
+            _vcombine!(dst, axpby_yields_ymx,  -1,x, 1,y)
+        elseif β == -1
+            _vcombine!(dst, axpby_yields_mxmy, -1,x,-1,y)
+        else
+            b = promote_multiplier(β, y)
+            _vcombine!(dst, axpby_yields_bymx, -1,x, b,y)
+        end
+    else
+        a = promote_multiplier(α, x)
+        if β == 0
+            _vcombine!(dst, axpby_yields_ax,    a,x, 0,y)
+        elseif β == 1
+            _vcombine!(dst, axpby_yields_axpy,  a,x, 1,y)
+        elseif β == -1
+            _vcombine!(dst, axpby_yields_axmy,  a,x,-1,y)
+        else
+            b = promote_multiplier(β, y)
+            _vcombine!(dst, axpby_yields_axpby, a,x, b,y)
         end
     end
     return dst
 end
+
+function _vcombine!(dst::AbstractArray{<:Number,N},
+                    f::Function,
+                    α::Number, x::AbstractArray{<:Number,N},
+                    β::Number, y::AbstractArray{<:Number,N}) where {N}
+    @inbounds @simd for i in eachindex(dst, x, y)
+        dst[i] = f(α, x[i], β, y[i])
+    end
+end
+
 
 @doc @doc(vcombine) vcombine!
 
