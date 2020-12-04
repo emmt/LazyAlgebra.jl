@@ -88,7 +88,8 @@ end
 
 # Versions with forced type of output result.
 for func in (:vnorm2, :vnorm1, :vnorminf)
-    @eval $func(::Type{T}, v) where {T<:AbstractFloat} = T($func(v))
+    @eval $func(::Type{T}, v) where {T<:AbstractFloat} =
+        convert(T, $func(v))::T
 end
 
 #------------------------------------------------------------------------------
@@ -181,7 +182,7 @@ Also see [`vzero!`](@ref), [`fill!`](@ref).
 
 """
 vfill!(x, α) = fill!(x, α)
-vfill!(x::AbstractArray{T}, α) where {T} = vfill!(x, convert(T,α)::T)
+vfill!(x::AbstractArray{T}, α) where {T} = vfill!(x, convert(T, α)::T)
 vfill!(x::AbstractArray{T}, α::T) where {T} = begin
     @inbounds @simd for i in eachindex(x)
         x[i] = α
@@ -557,8 +558,8 @@ the result is:
         (x[2].re*y[2].re + x[2].im*y[2].im) + ...)
 
 """
-vdot(::Type{T}, x, y) where {T<:AbstractFloat} = T(vdot(x,y))
-vdot(::Type{T}, w, x, y) where {T<:AbstractFloat} = T(vdot(w,x,y))
+vdot(::Type{T}, x, y) where {T<:AbstractFloat} = convert(T,vdot(x,y))::T
+vdot(::Type{T}, w, x, y) where {T<:AbstractFloat} = convert(T,vdot(w,x,y))::T
 
 function vdot(x::AbstractArray{<:AbstractFloat,N},
               y::AbstractArray{<:AbstractFloat,N}) where {N}
@@ -589,13 +590,13 @@ function vdot(T::Type{<:AbstractFloat},
         yi = y[i]
         s += real(xi)*real(yi) + imag(xi)*imag(yi)
     end
-    return T(s)
+    return convert(T, s)::T
 end
 
 function vdot(T::Type{Complex{<:AbstractFloat}},
               x::AbstractArray{<:Complex{<:AbstractFloat},N},
               y::AbstractArray{<:Complex{<:AbstractFloat},N}) where {N}
-    return T(vdot(x, y))
+    return convert(T, vdot(x, y))::T
 end
 
 function vdot(w::AbstractArray{<:AbstractFloat,N},
@@ -612,7 +613,7 @@ function vdot(T::Type{<:AbstractFloat},
               w::AbstractArray{<:AbstractFloat,N},
               x::AbstractArray{<:AbstractFloat,N},
               y::AbstractArray{<:AbstractFloat,N}) where {N}
-    return T(vdot(w, x, y))
+    return convert(T, vdot(w, x, y))::T
 end
 
 function vdot(w::AbstractArray{<:AbstractFloat,N},
@@ -635,14 +636,14 @@ function vdot(T::Type{<:AbstractFloat},
         yi = y[i]
         s += (real(xi)*real(yi) + imag(xi)*imag(yi))*w[i]
     end
-    return T(s)
+    return convert(T, s)::T
 end
 
 function vdot(T::Type{Complex{<:AbstractFloat}},
               w::AbstractArray{<:AbstractFloat,N},
               x::AbstractArray{<:Complex{<:AbstractFloat},N},
               y::AbstractArray{<:Complex{<:AbstractFloat},N}) where {N}
-    return T(vdot(w, x, y))
+    return convert(T, vdot(w, x, y))::T
 end
 
 function vdot(sel::AbstractVector{Int},
@@ -662,7 +663,7 @@ function vdot(T::Type{<:AbstractFloat},
               sel::AbstractVector{Int},
               x::AbstractArray{<:AbstractFloat,N},
               y::AbstractArray{<:AbstractFloat,N}) where {N}
-    return T(vdot(sel, x, y))
+    return convert(T, vdot(sel, x, y))::T
 end
 
 function vdot(sel::AbstractVector{Int},
@@ -691,14 +692,14 @@ function vdot(T::Type{<:AbstractFloat},
             s += real(xi)*real(yi) + imag(xi)*imag(yi)
         end
     end
-    return T(s)
+    return convert(T, s)::T
 end
 
 function vdot(T::Type{Complex{<:AbstractFloat}},
               sel::AbstractVector{Int},
               x::AbstractArray{<:Complex{<:AbstractFloat},N},
               y::AbstractArray{<:Complex{<:AbstractFloat},N}) where {N}
-    return T(vdot(sel, x, y))
+    return convert(T, vdot(sel, x, y))::T
 end
 
 # Check compatibility os selected indices with other specifed array(s) and
