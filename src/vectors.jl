@@ -181,7 +181,7 @@ Also see [`vzero!`](@ref), [`fill!`](@ref).
 
 """
 vfill!(x, α) = fill!(x, α)
-vfill!(x::AbstractArray{T}, α) where {T} = vfill!(x, T(α))
+vfill!(x::AbstractArray{T}, α) where {T} = vfill!(x, convert(T,α)::T)
 vfill!(x::AbstractArray{T}, α::T) where {T} = begin
     @inbounds @simd for i in eachindex(x)
         x[i] = α
@@ -219,6 +219,7 @@ Also see [`vzeros`](@ref), [`vcreate`](@ref), [`vfill!`](@ref).
 
 """
 vones(x) = vfill!(vcreate(x), 1)
+vones(x::AbstractArray{T}) where {T} = vfill!(vcreate(x), one(T))
 
 #------------------------------------------------------------------------------
 
