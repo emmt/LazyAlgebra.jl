@@ -1,6 +1,6 @@
 name = "LazyAlgebra"
 uuid = "aeaa251e-9d76-11e9-311b-83636bf44738"
-authors = ["Éric Thiébaut <eric.thiebaut@univ-lyon1.fr>"]
+authors = ["Éric Thiébaut <https://github.com/emmt>"]
 version = "0.1.0"
 
 [deps]
