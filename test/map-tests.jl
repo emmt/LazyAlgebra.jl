@@ -7,6 +7,7 @@ module TestingLazyAlgebraMappings
 
 using Test
 using LazyAlgebra
+using LazyAlgebra.LazyAlgebraLowLevel
 using LinearAlgebra: ⋅, UniformScaling
 
 include("common.jl")

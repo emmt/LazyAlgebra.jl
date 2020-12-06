@@ -7,6 +7,7 @@ module TestingLazyAlgebraFFT
 
 using Test
 using LazyAlgebra
+using LazyAlgebra.LazyAlgebraLowLevel
 using AbstractFFTs, FFTW
 
 floats = (Float32, Float64)

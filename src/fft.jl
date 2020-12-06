@@ -26,14 +26,15 @@ export
     ifftshift,
     rfftdims
 
+using ..LazyAlgebraLowLevel
 using ..LazyAlgebra
+using ..LazyAlgebra:
+    @callable, bad_argument, bad_size
 import ..LazyAlgebra:
     adjoint, apply!, vcreate, MorphismType, mul!,
     input_size, input_ndims, input_eltype,
     output_size, output_ndims, output_eltype,
     identical
-using ..LazyAlgebra:
-    @callable, promote_multiplier, bad_argument, bad_size
 
 import ..Simplify
 

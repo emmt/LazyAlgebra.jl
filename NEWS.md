@@ -2,11 +2,17 @@
 
 Future:
 
-* Exported methods and types have been limited to the ones for the end-user.
-  Use `using LazyAlgebra.LowLevel` to get the others.
-
+* Simplifications that are automatically done by`LazyAlgebra` may change
+  multipliers but must not change the coefficients of the mappings.  Call
+  `simplify(A)` to apply further simplifications that may change the
+  coefficients of the mappings in `A`.  For instance, assuming `a` is an array,
+  `inv(Diag(a))` automatically yields `Inverse(Diag(a))` while
+  `simplify(inv(Diag(a)))` yields `Diag(1 ./ a)`.
 
 Done:
+
+* Exported methods and types have been limited to the ones for the end-user.
+  Use `using LazyAlgebra.LazyAlgebraLowLevel` to use low-level symbols.
 
 * Large sub-package for sparse operators which are linear mappings with few
   non-zero coefficients (see doc. for `SparseOperator` and

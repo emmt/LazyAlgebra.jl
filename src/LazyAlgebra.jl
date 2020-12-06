@@ -14,39 +14,21 @@
 module LazyAlgebra
 
 export
-    Adjoint,
-    AdjointInverse,
     CirculantConvolution,
     CompressedSparseOperator,
     CroppingOperator,
     Diag,
-    DiagonalMapping,
-    DiagonalType,
     Diff,
-    Direct,
-    Endomorphism,
     FFTOperator,
     GeneralMatrix,
     Gram,
     Id,
     Identity,
-    Inverse,
-    InverseAdjoint,
     Jacobian,
-    Linear,
     LinearMapping,
-    LinearType,
     Mapping,
-    Morphism,
-    MorphismType,
-    NonDiagonalMapping,
-    NonLinear,
-    NonSelfAdjoint,
     NonuniformScaling,
-    Operations,
     RankOneOperator,
-    SelfAdjoint,
-    SelfAdjointType,
     SimpleFiniteDifferences,
     SingularSystem,
     SparseOperator,
@@ -148,6 +130,58 @@ include("coder.jl")
 include("simplify.jl")
 include("rules.jl")
 include("mappings.jl")
+
+"""
+    using LazyAlgebra.LazyAlgebraLowLevel
+
+imports types and methods that may be useful to extend or implement
+`LazyAlgebra` mappings.
+
+"""
+module LazyAlgebraLowLevel
+using ..LazyAlgebra
+for sym in (:Adjoint,
+            :AdjointInverse,
+            :DiagonalMapping,
+            :DiagonalType,
+            :Direct,
+            :Endomorphism,
+            :Inverse,
+            :InverseAdjoint,
+            :Linear,
+            :LazyAlgebra,
+            :LinearType,
+            :Morphism,
+            :MorphismType,
+            :NonDiagonalMapping,
+            :NonLinear,
+            :NonSelfAdjoint,
+            :Operations,
+            :SelfAdjoint,
+            :SelfAdjointType,
+            :axpby_yields_zero,
+            :axpby_yields_y,
+            :axpby_yields_my,
+            :axpby_yields_by,
+            :axpby_yields_x,
+            :axpby_yields_xpy,
+            :axpby_yields_xmy,
+            :axpby_yields_xpby,
+            :axpby_yields_mx,
+            :axpby_yields_ymx,
+            :axpby_yields_mxmy,
+            :axpby_yields_bymx,
+            :axpby_yields_ax,
+            :axpby_yields_axpy,
+            :axpby_yields_axmy,
+            :axpby_yields_axpby,
+            :promote_multiplier)
+    @eval begin
+        import LazyAlgebra: $sym
+        export $sym
+    end
+end
+end # module LazyAlgebraLowLevel
 
 include("sparse.jl")
 using .SparseOperators

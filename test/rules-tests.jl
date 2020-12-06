@@ -6,6 +6,7 @@
 module TestingLazyAlgebraRules
 
 using LazyAlgebra
+using LazyAlgebra.LazyAlgebraLowLevel
 import LazyAlgebra: ⋅,
     Adjoint, Inverse, InverseAdjoint, Jacobian,
     Scaled, Sum, Composition

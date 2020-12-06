@@ -16,14 +16,13 @@ module FiniteDifferences
 export
     SimpleFiniteDifferences
 
-
 using ..Coder
-using  ...LazyAlgebra
-import ...LazyAlgebra:
+using ..LazyAlgebraLowLevel
+using ..LazyAlgebra
+using ..LazyAlgebra:
+    @callable, Floats, bad_argument, bad_size
+import ..LazyAlgebra:
     vcreate, apply!, identical
-using  ...LazyAlgebra:
-    @callable, promote_multiplier, Floats,
-    bad_argument, bad_size
 using ArrayTools
 import Base: show, *
 
