@@ -104,6 +104,8 @@ export
     vcreate,
     vdot,
     vfill!,
+    vmul!,
+    vmul,
     vnorm1,
     vnorm2,
     vnorminf,

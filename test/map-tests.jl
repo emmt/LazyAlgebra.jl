@@ -84,9 +84,9 @@ end # testset
 @testset "Rank 1 operators             ($T)" for T in (Float32, Float64)
     dims = (3,4,5)
     n = prod(dims)
-    w = randn(T, dims)
-    x = randn(T, dims)
-    y = randn(T, dims)
+    w = rand(T, dims)
+    x = rand(T, dims)
+    y = rand(T, dims)
     A = RankOneOperator(w, w)
     B = RankOneOperator(w, y)
     C = SymmetricRankOneOperator(w)
@@ -102,6 +102,9 @@ end # testset
     @test B'*x ≈ sum(w.*x)*y atol=atol rtol=rtol norm=vnorm2
     @test C*x  ≈ sum(w.*x)*w atol=atol rtol=rtol norm=vnorm2
     @test C'*x ≈ sum(w.*x)*w atol=atol rtol=rtol norm=vnorm2
+    z = vmul!(vcreate(y), B, x)
+    @test z == vmul(B, x)
+    @test z == B*x
     for α in ALPHAS,
         β in BETAS
         for P in (Direct, Adjoint)
