@@ -1,246 +1,15 @@
 #
 # rules.jl -
 #
-# Implement rules for basic operations involving mappings.
+# Implement rules for automatically simplifying expressions involving mappings.
 #
 #-------------------------------------------------------------------------------
 #
 # This file is part of LazyAlgebra (https://github.com/emmt/LazyAlgebra.jl)
 # released under the MIT "Expat" license.
 #
-# Copyright (c) 2017-2020 Éric Thiébaut.
+# Copyright (c) 2017-2021 Éric Thiébaut.
 #
-
-"""
-
-```julia
-LinearType(A)
-```
-
-yields the *linear* trait of mapping `A` indicating whether `A` is certainly
-linear.  The returned value is one of the singletons `Linear()` for linear maps
-or `NonLinear()` for other mappings.
-
-See also: [`Trait`](@ref), [`is_linear`](@ref).
-
-"""
-LinearType(::Mapping) = NonLinear() # any mapping assumed non-linear by default
-LinearType(::LinearMapping) = Linear()
-LinearType(::Inverse{<:LinearMapping}) = Linear()
-LinearType(::Scaled{<:LinearMapping}) = Linear()
-LinearType(A::Inverse) = LinearType(unveil(A))
-LinearType(A::Scaled) = LinearType(unscaled(A))
-LinearType(A::Union{Sum,Composition}) =
-    (allof(x -> LinearType(x) === Linear(), terms(A)...) ?
-     Linear() : NonLinear())
-LinearType(A::Scaled{T,S}) where {T,S} =
-    # If the multiplier λ of a scaled mapping A = (λ⋅M) is zero, then A behaves
-    # linearly even though M is not a linear mapping.  FIXME: But acknowledging
-    # this as a linear mapping may give rise to troubles later.
-    (multiplier(A) == zero(S) ? Linear() : LinearType(unscaled(A)))
-
-@doc @doc(LinearType) Linear
-@doc @doc(LinearType) NonLinear
-
-"""
-
-```julia
-SelfAdjointType(A)
-```
-
-yields the *self-adjoint* trait of mapping `A` indicating whether `A` is
-certainly a self-adjoint linear map.  The returned value is one of the
-singletons `SelfAdjoint()` for self-adjoint linear maps and `NonSelfAdjoint()`
-for other mappings.
-
-See also: [`Trait`](@ref), [`is_selfadjoint`](@ref).
-
-"""
-SelfAdjointType(::Mapping) = NonSelfAdjoint()
-SelfAdjointType(A::DecoratedMapping) = SelfAdjointType(unveil(A))
-SelfAdjointType(A::Scaled) = SelfAdjointType(unscaled(A))
-SelfAdjointType(A::Sum) =
-    (allof(x -> SelfAdjointType(x) === SelfAdjoint(), terms(A)...) ?
-     SelfAdjoint() : NonSelfAdjoint())
-SelfAdjointType(A::Gram) = SelfAdjoint()
-
-@doc @doc(SelfAdjointType) SelfAdjoint
-@doc @doc(SelfAdjointType) NonSelfAdjoint
-
-"""
-
-```julia
-MorphismType(A)
-```
-
-yields the *morphism* trait of mapping `A` indicating whether `A` is certainly
-an endomorphism (its input and output spaces are the same).  The returned value
-is one of the singletons `Endomorphism()` for mappings whose input and output
-spaces are the same or `Morphism()` for other mappings.
-
-See also: [`Trait`](@ref), [`is_endomorphism`](@ref).
-
-"""
-MorphismType(::Mapping) = Morphism()
-MorphismType(A::DecoratedMapping) = MorphismType(unveil(A))
-MorphismType(A::Gram) = Endomorphism()
-MorphismType(A::Scaled) = MorphismType(unscaled(A))
-MorphismType(A::Union{Sum,Composition}) =
-    (allof(x -> MorphismType(x) === Endomorphism(), terms(A)...) ?
-     Endomorphism() : Morphism())
-
-@doc @doc(MorphismType) Morphism
-@doc @doc(MorphismType) Endomorphism
-
-"""
-
-```julia
-DiagonalType(A)
-```
-
-yields the *diagonal* trait of mapping `A` indicating whether `A` is certainly
-a diagonal linear mapping.  The returned value is one of the singletons
-`DiagonalMapping()` for diagonal linear maps or `NonDiagonalMapping()` for other
-mappings.
-
-See also: [`Trait`](@ref), [`is_diagonal`](@ref).
-
-"""
-DiagonalType(::Mapping) = NonDiagonalMapping()
-DiagonalType(A::DecoratedMapping) = DiagonalType(unveil(A))
-DiagonalType(A::Scaled) = DiagonalType(unscaled(A))
-DiagonalType(A::Union{Sum,Composition}) =
-    (allof(x -> DiagonalType(x) === DiagonalMapping(), terms(A)...) ?
-     DiagonalMapping() : NonDiagonalMapping())
-
-@doc @doc(DiagonalType) NonDiagonalMapping
-@doc @doc(DiagonalType) DiagonalMapping
-
-"""
-```julia
-is_linear(A)
-```
-
-yields whether `A` is certainly a linear mapping.
-
-!!! note
-    This method is intended to perform certain automatic simplifications or
-    optimizations.  It is guaranted to return `true` when its argument is
-    certainly a linear mapping but it may return `false` even though its
-    argument behaves linearly because it is not always possible to figure out
-    that a complex mapping assemblage has this property.
-
-See also: [`LinearType`](@ref).
-
-"""
-is_linear(A::LinearMapping) = true
-is_linear(A::Mapping) = _is_linear(LinearType(A))
-_is_linear(::Linear) = true
-_is_linear(::NonLinear) = false
-
-"""
-```julia
-is_selfadjoint(A)
-```
-
-yields whether mapping `A` is certainly a self-adjoint linear mapping.
-
-!!! note
-    This method is intended to perform certain automatic simplifications or
-    optimizations.  It is guaranted to return `true` when its argument is
-    certainly a self-adjoint linear mapping but it may return `false` even
-    though its argument behaves like a self-adjoint linear map because it is
-    not always possible to figure out that a complex mapping assemblage has
-    this property.
-
-See also: [`SelfAdjointType`](@ref).
-
-"""
-is_selfadjoint(A::Mapping) = _is_selfadjoint(SelfAdjointType(A))
-_is_selfadjoint(::SelfAdjoint) = true
-_is_selfadjoint(::NonSelfAdjoint) = false
-
-"""
-```julia
-is_endomorphism(A)
-```
-
-yields whether mapping `A` is certainly an endomorphism.
-
-!!! note
-    This method is intended to perform certain automatic simplifications or
-    optimizations.  It is guaranted to return `true` when its argument is
-    certainly an endomorphism but it may return `false` even though its
-    argument behaves like an endomorphism because it is not always possible to
-    figure out that a complex mapping assemblage has this property.
-
-See also: [`MorphismType`](@ref).
-
-"""
-is_endomorphism(A::Mapping) = _is_endomorphism(MorphismType(A))
-_is_endomorphism(::Endomorphism) = true
-_is_endomorphism(::Morphism) = false
-
-"""
-```julia
-is_diagonal(A)
-```
-
-yields whether mapping `A` is certainly a diagonal linear map.
-
-!!! note
-    This method is intended to perform certain automatic simplifications or
-    optimizations.  It is guaranted to return `true` when its argument is
-    certainly a diagonal linear map but it may return `false` even though its
-    argument behaves like a diagonal linear map because it is not always
-    possible to figure out that a complex mapping assemblage has this property.
-
-See also: [`DiagonalType`](@ref).
-
-"""
-is_diagonal(A::Mapping) = _is_diagonal(DiagonalType(A))
-_is_diagonal(::DiagonalMapping) = true
-_is_diagonal(::NonDiagonalMapping) = false
-
-#------------------------------------------------------------------------------
-# General simplification rules:
-#
-#  - Factorize multipliers to the left.
-#
-#  - Adjoint of a sum (or a composition) of terms is rewritten as the sum
-#    (respectively composition) of the adjoint of the terms.
-#
-#  - Adjoint of a scaled mapping is rewritten as a scaled adjoint of the
-#    mapping.  Similarly, inverse of a scaled mapping is rewritten as a scaled
-#    inverse of the mapping, if the mapping is linear, or as the inverse of the
-#    mapping times a scaled identity otherwise.
-#
-#  - Adjoint of the inverse is rewritten as inverse of the adjoint.
-#
-#  - Inner constructors are fully qualified but check arguments.  Un-qualified
-#    outer constructors just call the inner constructors with the suitable
-#    parameters.
-#
-#  - To simplify a sum, the terms corresponding to identical mappings (possibly
-#    scaled) are first grouped to produce a single mapping (possibly scaled)
-#    per group, the resulting terms are sorted (so that all equivalent
-#    expressions yield the same result) and the "zeros" eliminated (if all
-#    terms are "zero", the sum simplifies to the first one).  For now, the
-#    sorting is not absolutely perfect as it is based on `objectid()` hashing
-#    method.  The odds of having the same identifier for two different things
-#    are however extremely low.
-#
-#  - To simplify a composition, a fusion algorithm is applied and "ones" are
-#    eliminated.  It is assumed that composition is non-commutative so the
-#    ordering of terms is left unchanged.  Thanks to this, simplification rules
-#    for simple compositions (made of two non-composition mappings) can be
-#    automatically performed by proper dispatching rules.  Calling the fusion
-#    algorithm is only needed for more complex compositions.
-#
-# The simplication algorithm is not perfect (LazyAlgebra is not intended to be
-# for symbolic computations) but do a reasonnable job.  In particular complex
-# mappings built using the same sequences should be simplified in the same way
-# and thus be correctly identified as being identical.
 
 #------------------------------------------------------------------------------
 # NEUTRAL ELEMENTS
@@ -364,30 +133,28 @@ brief(T::Type) = repr(T)
 # SCALED TYPE
 
 # Left-multiplication and left-division by a scalar.  The only way to
-# right-multiply or right-divide by a scalar is to right multiply or divide by
-# the scaled identity.
-*(α::S, A::T) where {S<:Number,T<:Mapping} =
-    (α == one(α) ? A : isfinite(α) ? Scaled{T,S}(α, A) :
-     bad_argument("non-finite multiplier"))
+# right-multiply or right-divide a mapping by a scalar is to right multiply or
+# divide it by the scaled identity.
+*(α::Number, A::Mapping) = (α == one(α) ? A : Scaled(α, A))
 *(α::Number, A::Scaled) = (α*multiplier(A))*unscaled(A)
 \(α::Number, A::Mapping) = inv(α)*A
 \(α::Number, A::Scaled) = (multiplier(A)/α)*unscaled(A)
+/(α::Number, A::Mapping) = α*inv(A)
 
 #------------------------------------------------------------------------------
 # ADJOINT TYPE
 
 # Adjoint for non-specific mappings.
 adjoint(A::Mapping) = _adjoint(LinearType(A), A)
-adjoint(A::LinearMapping) = _adjoint(Linear(), SelfAdjointType(A), A)
-_adjoint(::NonLinear, A::Mapping) =
-    throw_forbidden_adjoint_of_non_linear_mapping()
+
 _adjoint(::Linear, A::Mapping) = _adjoint(Linear(), SelfAdjointType(A), A)
 _adjoint(::Linear, ::SelfAdjoint, A::Mapping) = A
 _adjoint(::Linear, ::NonSelfAdjoint, A::Mapping) = Adjoint(A)
+_adjoint(::NonLinear, A::Mapping) =
+    throw_forbidden_adjoint_of_non_linear_mapping()
 
 # Adjoint for specific mapping types.
 adjoint(A::Identity) = Id
-adjoint(A::Scaled{Identity}) = conj(multiplier(A))*Id
 adjoint(A::Scaled) = conj(multiplier(A))*adjoint(unscaled(A))
 adjoint(A::Adjoint) = unveil(A)
 adjoint(A::Inverse) = inv(adjoint(unveil(A)))
@@ -446,13 +213,12 @@ inv(A::T) where {T<:Mapping} = Inverse{T}(A)
 
 # Inverse for specific mapping types.
 inv(A::Identity) = Id
-inv(A::Scaled{Identity}) = inv(multiplier(A))*Id
 inv(A::Scaled) = (is_linear(unscaled(A)) ?
                   inv(multiplier(A))*inv(unscaled(A)) :
                   inv(unscaled(A))*(inv(multiplier(A))*Id))
 inv(A::Inverse) = unveil(A)
-inv(A::AdjointInverse) = adjoint(unveil(A))
-inv(A::Adjoint{T}) where {T<:Mapping} = AdjointInverse{T}(unveil(A))
+inv(A::InverseAdjoint) = adjoint(unveil(A))
+inv(A::Adjoint) = InverseAdjoint(unveil(A))
 inv(A::Composition) =
     # Even though the composition has already been simplified, taking the
     # inverse may trigger other simplifications, so we must rebuild the
@@ -486,17 +252,115 @@ end
 # Subtraction.
 -(A::Mapping, B::Mapping) = A + (-B)
 
-# Rules for sums built by `A + B`.
-+(A::Mapping, B::Mapping) = Simplify.add(A, B)
+# Simplify the sum of two mappings.
++(A::Mapping, B::Mapping) = add(A, B)
+
+"""
+    add(A, B)
+
+performs the final stage of simplifying the sum `A + B` of mappings `A` and
+`B`.  This method assumes that any other simplifications than those involving
+sum of sums have been performed on `A + B` and that `A` and `B` have already
+been simplified (individually).
+
+Trivial simplifications of the composition `A + B` of mappings `A` and `B` must
+be done by specializing the operator `+` and `sum(A,B)` may eventually be
+called to simplify the sum of `A` and `B` when one of these may be a
+sum.  This method just returns `Sum(A,B)` when none of its
+arguments is a composition.
+
+
+yields a simplified sum `A + B` of the mappings `A` and `B`.  This helper
+function is intended to be called when at least one of `A` or `B` is a sum.
+
+The ability to perform simplifications relies on implemented specializations of
+`A + B` when neither `A` nor `B` are sums.  It is also assumed that `A` and `B`
+have already been simplified if they are sums.
+
+"""
+add(A::Sum,     B::Mapping) = _add(A, B)
+add(A::Mapping, B::Sum    ) = _add(A, B)
+add(A::Sum,     B::Sum    ) = _add(A, B)
+add(A::Mapping, B::Mapping) = begin
+    # Neither `A` nor `B` is a sum.
+    if identical(unscaled(A), unscaled(B))
+        return (multiplier(A) + multiplier(B))*unscaled(A)
+    elseif identifier(A) ≤ identifier(B)
+        return Sum(A, B)
+    else
+        return Sum(B, A)
+    end
+end
+
+_add(A::Mapping, B::Mapping) = begin
+    V = add!(as_vector(+, A), B)
+    length(V) == 1 ? V[1] : Sum(to_tuple(V))
+end
+
+# Add the terms of a sum one-by-one.  Since terms must be re-ordered, there are
+# no obvious better ways to recombine.
+function add!(A::Vector{Mapping}, B::Sum{N}) where {N}
+    @inbounds for i in 1:N
+        add!(A, B[i])
+    end
+    return A
+end
+
+function add!(A::Vector{Mapping}, B::Mapping)
+    # Nothing to do if B is zero times anything.
+    multiplier(B) == 0 && return A
+
+    # If exact match found, update A in-place and return.
+    n = length(A)
+    @inbounds for i in 1:n
+        if identical(unscaled(A[i]), unscaled(B))
+            λ = multiplier(A[i]) + multiplier(B)
+            if λ == 1
+                A[i] = unscaled(B)
+            elseif λ != 0
+                A[i] = λ*unscaled(B)
+            else
+                # Multiplier is zero. Drop term if there are other terms
+                # or keep the single term times zero.
+                if n > 1
+                    for j in i:n-1
+                        A[j] = A[j+1]
+                    end
+                    resize!(A, n - 1)
+                else
+                    A[1] = 0*unscaled(A[1])
+                end
+            end
+            return A
+        end
+    end
+
+    # If no exact match found, insert B in A in order.
+    id = identifier(B)
+    i = 1
+    while i ≤ n && @inbounds(identifier(A[i])) < id
+        i += 1
+    end
+    resize!(A, n + 1)
+    @inbounds for j in n:-1:i
+        A[j+1] = A[j]
+    end
+    A[i] = B
+    return A
+end
 
 #------------------------------------------------------------------------------
 # COMPOSITION OF MAPPINGS
 
+# Left and right divisions.
+\(A::Mapping, B::Mapping) = inv(A)*B
+/(A::Mapping, B::Mapping) = A*inv(B)
+
 # Dot operator (\cdot + tab) involving a mapping acts as the multiply or
 # compose operator.
 ⋅(A::Mapping, B::Mapping) = A*B
-⋅(A::Mapping, B) = A*B
-⋅(A, B::Mapping) = A*B
+⋅(A::Mapping, B::Any    ) = A*B
+⋅(A::Any,     B::Mapping) = A*B
 
 # Compose operator (\circ + tab) beween mappings.
 ∘(A::Mapping, B::Mapping) = A*B
@@ -504,36 +368,45 @@ end
 # Rules for the composition of 2 mappings.  Mappings that may behave
 # specifically in a composition have type `Identity`, `Scaled` and
 # `Composition`; all others have the same behavior.
-*(A::Identity,    B::Identity   ) = B
-*(A::Identity,    B::Scaled     ) = B
-*(A::Identity,    B::Composition) = B
-*(A::Identity,    B::Mapping    ) = B
-*(A::Scaled,      B::Identity   ) = A
-*(A::Scaled,      B::Mapping    ) = multiplier(A)*(unscaled(A)*B)
-*(A::Scaled,      B::Scaled     ) =
-    is_linear(A) ? (multiplier(A)*multiplier(B))*(unscaled(A)*unscaled(B)) :
-    multiplier(A)*(unscaled(A)*B)
-*(A::Composition, B::Identity   ) = A
-*(A::Composition, B::Composition) = Simplify.compose(A, B)
-*(A::Composition, B::Mapping    ) = Simplify.compose(A, B)
-*(A::Composition, B::Scaled     ) =
-    is_linear(A) ? multiplier(B)*(A*unscaled(B)) : Simplify.compose(A, B)
-*(A::Mapping,     B::Identity   ) = A
-*(A::Mapping,     B::Scaled     ) =
-    is_linear(A) ? multiplier(B)*(A*unscaled(B)) : Composition(A, B)
-*(A::Mapping,    B::Composition) = Simplify.compose(A, B)
-*(A::Mapping,    B::Mapping    ) = Composition(A, B)
 
+# Composition with identity.
+*(::Identity, ::Identity) = Id
+for T in (Scaled, Composition, Sum, Mapping)
+    @eval begin
+        *(::Identity, A::$T) = A
+        *(A::$T, ::Identity) = A
+    end
+end
+
+# Simplify the composition of two mappings (including compositions).
+*(A::Mapping, B::Mapping) = compose(A, B)
+
+# Simplify compositions involving a scaled mapping.
+*(A::Scaled, B::Mapping) = multiplier(A)*(unscaled(A)*B)
+*(A::Mapping, B::Scaled) =
+    if is_linear(A)
+        multiplier(B)*(A*unscaled(B))
+    else
+        compose(A, B)
+    end
+*(A::Scaled, B::Scaled) =
+    if is_linear(A)
+        (multiplier(A)*multiplier(B))*(unscaled(A)*unscaled(B))
+    else
+        multiplier(A)*(unscaled(A)*B)
+    end
+
+# Simplify compositions involving an inverse mapping.
 *(A::Inverse{T}, B::T) where {T<:Mapping} =
-    identical(unveil(A), B) ? Id : Composition(A, B)
+    identical(unveil(A), B) ? Id : compose(A, B)
 *(A::T, B::Inverse{T}) where {T<:Mapping} =
-    identical(A, unveil(B)) ? Id : Composition(A, B)
-*(A::Inverse, B::Inverse) = Composition(A, B)
+    identical(A, unveil(B)) ? Id : compose(A, B)
+*(A::Inverse, B::Inverse) = compose(A, B)
 *(A::InverseAdjoint{T}, B::Adjoint{T}) where {T<:Mapping} =
-    identical(unveil(A), unveil(B)) ? Id : Composition(A, B)
+    identical(unveil(A), unveil(B)) ? Id : compose(A, B)
 *(A::Adjoint{T}, B::InverseAdjoint{T}) where {T<:Mapping} =
-    identical(unveil(A), unveil(B)) ? Id : Composition(A, B)
-*(A::InverseAdjoint, B::InverseAdjoint) = Composition(A, B)
+    identical(unveil(A), unveil(B)) ? Id : compose(A, B)
+*(A::InverseAdjoint, B::InverseAdjoint) = compose(A, B)
 
 # Automatically build Gram operators, Gram(A) ≡ A'*A.  The following automatic
 # rules are implemented (for an "allowed" linear mapping A):
@@ -548,465 +421,166 @@ end
 #     Gram(inv(A))  -> inv(Gram(A'))
 #     Gram(inv(A')) -> inv(Gram(A))
 #
-# In principle, if forming the adjoint has been allowed, it not needed
-# to check whether operands are linear mappings.
+# In principle, if forming the adjoint has been allowed, it is not needed to
+# check whether operands are linear mappings.
 *(A::Adjoint{T}, B::T) where {T<:Mapping} =
-    identical(unveil(A), B) ? Gram(B) : Composition(A, B)
+    identical(unveil(A), B) ? Gram(B) : compose(A, B)
 *(A::T, B::Adjoint{T}) where {T<:Mapping} =
-    identical(A, unveil(B)) ? Gram(B) : Composition(A, B)
+    identical(A, unveil(B)) ? Gram(B) : compose(A, B)
 *(A::Inverse{T}, B::InverseAdjoint{T}) where {T<:Mapping} =
     identical(unveil(A), unveil(B)) ? Inverse(Gram(unveil(A))) :
-    Composition(A, B)
+    compose(A, B)
 *(A::InverseAdjoint{T}, B::Inverse{T}) where {T<:Mapping} =
     identical(unveil(A), unveil(B)) ?
-    Inverse(Gram(Adjoint(unveil(A)))) : Composition(A, B)
-
-# Left and right divisions.
-\(A::Mapping, B::Mapping) = inv(A)*B
-/(A::Mapping, B::Mapping) = A*inv(B)
-
-#------------------------------------------------------------------------------
-# VCREATE, APPLY AND APPLY!
+    Inverse(Gram(Adjoint(unveil(A)))) : compose(A, B)
 
 """
-```julia
-vcreate([P,] A, x, scratch=false) -> y
-```
+    compose(A,B)
 
-yields a new instance `y` suitable for storing the result of applying mapping
-`A` to the argument `x`.  Optional parameter `P ∈ Operations` is one of
-`Direct` (the default), `Adjoint`, `Inverse` and/or `InverseAdjoint` and can be
-used to specify how `A` is to be applied as explained in the documentation of
-the [`apply`](@ref) method.
+performs the final stage of simplifying the composition `A*B` of mappings `A`
+and `B`.  This method assumes that any other simplifications than those
+involving composition of compositions have been performed on `A*B` and that `A`
+and `B` have already been simplified (individually).
 
-Optional argument `scratch` indicates whether input argument `x` can be
-overwritten by the operation and thus used to store the result.  This may be
-exploited by some mappings (which are able to operate *in-place*) to avoid
-allocating a new object for the result `y`.
+Trivial simplifications of the composition `A*B` of mappings `A` and `B` must
+be done by specializing the operator `*` and `compose(A,B)` may eventually be
+called to simplify the composition of `A` and `B` when one of these may be a
+composition.  This method just returns `Composition(A,B)` when neither `A` nor
+`B` is a composition.
 
-The caller should set `scratch = true` if `x` is not needed after calling
-`apply`.  If `scratch = true`, then it is possible that `y` be the same object
-as `x`; otherwise, `y` is a new object unless applying the operation yields the
-same contents as `y` for the result `x` (this is always true for the identity
-for instance).  Thus, in general, it should not be assumed that the returned
-`y` is different from the input `x`.
+""" compose
 
-The method `vcreate(::Type{P}, A, x)` should be implemented by linear mappings
-for any supported operations `P` and argument type for `x`.  The result
-returned by `vcreate` should be of predictible type to ensure *type-stability*.
-Checking the validity (*e.g.* the size) of argument `x` in `vcreate` may be
-skipped because this argument will be eventually checked by the `apply!`
-method.
+# Compose two mappings when at least one is a composition or when none is a
+# composition.
+compose(A::Composition, B::Composition) = _compose(A, B)
+compose(A::Composition, B::Mapping    ) = _compose(A, B)
+compose(A::Mapping,     B::Composition) = _compose(A, B)
+compose(A::Mapping,     B::Mapping    ) = Composition(A, B)
 
-See also: [`Mapping`](@ref), [`apply`](@ref).
-
-"""
-vcreate(A::Mapping, x, scratch::Bool=false) = vcreate(Direct, A, x, scratch)
-vcreate(::Type{P}, A::Mapping, x) where {P<:Operations} =
-    vcreate(P, A, x, false)
-
-"""
-    vmul(A, x) -> y
-
-yields `y = A*x`.  The default behavior is to call `apply(Direct,A,x,false)`.
-Method [`vmul!`](@ref) is the in-place version.
-
-"""
-vmul(A, x) = apply(Direct, A, x, false)
-
-"""
-    vmul!(y, A, x) -> y
-
-overwrites `y` with the result of `A*x` and returns `y`.  The default behavior
-is to call `apply!(1,Direct,A,x,false,0,y)`.
-
-!!! note
-
-    This method is intended to be used by algorithms such as the conjugate
-    gradient to apply operators.  It may be specialized by the caller for its
-    needs which is much easier than specializing [`apply!`](@ref) which
-    requires to consider the specific values of the multipliers `α` and `β`.
-
-"""
-vmul!(y, A, x) = apply!(1, Direct, A, x, false, 0, y)
-
-"""
-```julia
-apply([P,] A, x, scratch=false) -> y
-```
-
-yields the result `y` of applying mapping `A` to the argument `x`.
-Optional parameter `P` can be used to specify how `A` is to be applied:
-
-* `Direct` (the default) to apply `A` and yield `y = A⋅x`;
-* `Adjoint` to apply the adjoint of `A` and yield `y = A'⋅x`;
-* `Inverse` to apply the inverse of `A` and yield `y = A\\x`;
-* `InverseAdjoint` or `AdjointInverse` to apply the inverse of `A'` and
-  yield `y = A'\\x`.
-
-Not all operations may be implemented by the different types of mappings and
-`Adjoint` and `InverseAdjoint` may only be applicable for linear mappings.
-
-Optional argument `scratch` indicates whether input argument `x` can be
-overwritten by the operation.  This may be exploited to avoid allocating
-temporary workspace(s).  The caller should set `scratch = true` if `x` is not
-needed after calling `apply`.  If `scratch = true`, then it is possible that
-`y` be the same object as `x`; otherwise, `y` is a new object unless applying
-the operation yields the same contents as `y` for the result `x` (this is
-always true for the identity for instance).  Thus, in general, it should not be
-assumed that the result of applying a mapping is different from the input.
-
-Julia methods are provided so that `apply(A', x)` automatically calls
-`apply(Adjoint, A, x)` so the shorter syntax may be used without impacting
-performances.
-
-See also: [`Mapping`](@ref), [`apply!`](@ref), [`vcreate`](@ref).
-
-"""
-apply(A::Mapping, x, scratch::Bool=false) = apply(Direct, A, x, scratch)
-apply(P::Type{<:Operations}, A::Mapping, x, scratch::Bool=false) =
-    apply!(1, P, A, x, scratch, 0, vcreate(P, A, x, scratch))
-
-*(A::Mapping, x) = apply(Direct, A, x, false)
-\(A::Mapping, x) = apply(Inverse, A, x, false)
-
-"""
-    apply!([α=1,] [P=Direct,] A::Mapping, x, [scratch=false,] [β=0,] y) -> y
-
-overwrites `y` with `α*P(A)⋅x + β*y` where `P ∈ Operations` can be `Direct`,
-`Adjoint`, `Inverse` and/or `InverseAdjoint` to indicate which variant of the
-mapping `A` to apply.  The convention is that the prior contents of `y` is not
-used at all if `β = 0` so `y` can be directly used to store the result even
-though it is not initialized.  The `scratch` optional argument indicates
-whether the input `x` is no longer needed by the caller and can thus be used as
-a scratch array.  Having `scratch = true` or `β = 0` may be exploited by the
-specific implementation of the `apply!` method for the mapping type to avoid
-allocating temporary workspace(s).
-
-The `apply!` method can be seen as a generalization of the `LinearAlgebra.mul!`
-method.
-
-The order of arguments can be changed and the same result as above is obtained
-with:
-
-    apply!([β=0,] y, [α=1,] [P=Direct,] A::Mapping, x, scratch=false) -> y
-
-The result `y` may have been allocated by:
-
-    y = vcreate([P=Direct,] A, x, scratch=false)
-
-Mapping sub-types only need to extend `vcreate` and `apply!` with the specific
-signatures:
-
-    vcreate(::Type{P}, A::M, x, scratch::Bool=false) -> y
-    apply!(α::Number, ::Type{P}, A::M, x, scratch::Bool, β::Number, y) -> y
-
-for any supported operation `P` and where `M` is the type of the mapping.  Of
-course, the types of arguments `x` and `y` may be specified as well.
-
-Optionally, the method with signature:
-
-    apply(::Type{P}, A::M, x, scratch::Bool=false) -> y
-
-may also be extended to improve the default implementation which is:
-
-    apply(P::Type{<:Operations}, A::Mapping, x, scratch::Bool=false) =
-        apply!(1, P, A, x, scratch, 0, vcreate(P, A, x, scratch))
-
-See also: [`Mapping`](@ref), [`apply`](@ref), [`vcreate`](@ref).
-
-""" apply!
-
-# Provide fallbacks so that `Direct` is the default operation and only the
-# method with signature:
-#
-#     apply!(α::Number, ::Type{P}, A::MappingType, x::X, scratch::Bool,
-#            β::Number, y::Y) where {P<:Operations,X,Y}
-#
-# has to be implemented (possibly with restrictions on X and Y) by subtypes of
-# Mapping so we provide the necessary mechanism to dispatch derived methods.
-apply!(A::Mapping, x, y) =
-    apply!(1, Direct, A, x, false, 0, y)
-apply!(α::Number, A::Mapping, x, y) =
-    apply!(α, Direct, A, x, false, 0, y)
-apply!(A::Mapping, x, β::Number, y) =
-    apply!(1, Direct, A, x, false, β, y)
-apply!(α::Number, A::Mapping, x, β::Number, y) =
-    apply!(α, Direct, A, x, false, β, y)
-
-apply!(P::Type{<:Operations}, A::Mapping, x, y) =
-    apply!(1, P, A, x, false, 0, y)
-apply!(α::Number, P::Type{<:Operations}, A::Mapping, x, y) =
-    apply!(α, P, A, x, false, 0, y)
-apply!(P::Type{<:Operations}, A::Mapping, x, β::Number, y) =
-    apply!(1, P, A, x, false, β, y)
-apply!(α::Number, P::Type{<:Operations}, A::Mapping, x, β::Number, y) =
-    apply!(α, P, A, x, false, β, y)
-
-apply!(A::Mapping, x, scratch::Bool, y) =
-    apply!(1, Direct, A, x, scratch, 0, y)
-apply!(α::Number, A::Mapping, x, scratch::Bool, y) =
-    apply!(α, Direct, A, x, scratch, 0, y)
-apply!(A::Mapping, x, scratch::Bool, β::Number, y) =
-    apply!(1, Direct, A, x, scratch, β, y)
-
-apply!(P::Type{<:Operations}, A::Mapping, x, scratch::Bool, y) =
-    apply!(1, P, A, x, scratch, 0, y)
-apply!(α::Number, P::Type{<:Operations}, A::Mapping, x, scratch::Bool, y) =
-    apply!(α, P, A, x, scratch, 0, y)
-apply!(P::Type{<:Operations}, A::Mapping, x, scratch::Bool, β::Number, y) =
-    apply!(1, P, A, x, scratch, β, y)
-
-# Change order of arguments.
-apply!(y, A::Mapping, x, scratch::Bool=false) =
-    apply!(1, Direct, A, x, scratch, 0, y)
-apply!(y, P::Type{<:Operations}, A::Mapping, x, scratch::Bool=false) =
-    apply!(1, P, A, x, scratch, 0, y)
-apply!(y, α::Number, A::Mapping, x, scratch::Bool=false) =
-    apply!(α, Direct, A, x, scratch, 0, y)
-apply!(y, α::Number, P::Type{<:Operations}, A::Mapping, x, scratch::Bool=false) =
-    apply!(α, P, A, x, scratch, 0, y)
-apply!(β::Number, y, A::Mapping, x, scratch::Bool=false) =
-    apply!(1, Direct, A, x, scratch, β, y)
-apply!(β::Number, y, P::Type{<:Operations}, A::Mapping, x, scratch::Bool=false) =
-    apply!(1, P, A, x, scratch, β, y)
-apply!(β::Number, y, α::Number, A::Mapping, x, scratch::Bool=false) =
-    apply!(α, Direct, A, x, scratch, β, y)
-apply!(β::Number, y, α::Number, P::Type{<:Operations}, A::Mapping, x, scratch::Bool=false) =
-    apply!(α, P, A, x, scratch, β, y)
-
-# Extend `LinearAlgebra.mul!` so that `A'*x`, `A*B*C*x`, etc. yield the
-# expected result.  FIXME: This should be restricted to linear mappings but
-# this is not possible without overheads.
-mul!(y, A::Mapping, x) = apply!(1, Direct, A, x, false, 0, y)
-mul!(y, A::Mapping, x, α::Number, β::Number) =
-    apply!(α, Direct, A, x, false, β, y)
-
-# Implemention of the `apply!(α,P,A,x,scratch,β,y)` and
-# `vcreate(P,A,x,scratch)` methods for a scaled mapping.
-for (P, expr) in ((:Direct, :(α*multiplier(A))),
-                  (:Adjoint, :(α*conj(multiplier(A)))),
-                  (:Inverse, :(α/multiplier(A))),
-                  (:InverseAdjoint, :(α/conj(multiplier(A)))))
-    @eval begin
-
-        apply!(α::Number, ::Type{$P}, A::Scaled, x, scratch::Bool, β::Number, y) =
-            apply!($expr, $P, unscaled(A), x, scratch, β, y)
-
-    end
+_compose(A::Mapping, B::Mapping) = begin
+    C = compose!(as_vector(*, A), B)
+    n = length(C)
+    return (n == 0 ? Id :
+            n == 1 ? C[1] :
+            Composition(to_tuple(C)))
 end
 
 """
-    overwritable(scratch, x, y) -> bool
+    compose!(A, B) -> A
 
-yields whether the result `y` of applying a mapping to `x` with scratch flag
-`scratch` can overwritten.  Arguments `x` and `y` can be reversed.
+overwrites `A` with a simplified composition of a left operand `A` and a right
+operand `B`.  The left operand is a composition of (zero or more) mappings
+whose terms are stored in the vector of mappings `A` (if `A` is empty, the left
+operand is assumed to be the identity).  On return, the vector `A` is modified
+to store the terms of the simplified composition of `A` and `B`.  The left
+operand `B` may be itself a composition (as an instance of
+`LazyAlgebra.Composition` or as a vector of mappings) or any other kind of
+mapping.
 
-"""
-overwritable(scratch::Bool, x, y) = (scratch || x !== y)
+""" compose!
 
-# Implement `apply` for scaled operators to avoid the needs of explicitly
-# calling `vcreate` as done by the default implementation of `apply`.  This is
-# needed for scaled compositions among others.
-function apply(::Type{Direct}, A::Scaled, x, scratch::Bool)
-    y = apply(Direct, unscaled(A), x, scratch)
-    vscale!((overwritable(scratch, x, y) ? y : vcopy(y)), multiplier(A))
-end
-
-function apply(::Type{Adjoint}, A::Scaled, x, scratch::Bool)
-    y = apply(Direct, unscaled(A), x, scratch)
-    vscale!((overwritable(scratch, x, y) ? y : vcopy(y)), conj(multiplier(A)))
-end
-
-function apply(::Type{Inverse}, A::Scaled, x, scratch::Bool)
-    y = apply(Direct, unscaled(A), x, scratch)
-    vscale!((overwritable(scratch, x, y) ? y : vcopy(y)), 1/multiplier(A))
-end
-
-function apply(::Type{InverseAdjoint}, A::Scaled, x, scratch::Bool)
-    y = apply(Direct, unscaled(A), x, scratch)
-    vscale!((overwritable(scratch, x, y) ? y : vcopy(y)), 1/conj(multiplier(A)))
-end
-
-vcreate(P::Type{<:Operations}, A::Scaled, x, scratch::Bool) =
-    vcreate(P, unscaled(A), x, scratch)
-
-# Implemention of the `vcreate(P,A,x,scratch)` and
-# `apply!(α,P,A,x,scratch,β,y)` methods for the various decorations of a
-# mapping so as to automatically unveil the embedded mapping.
-for (T1, T2, T3) in ((:Direct,         :Adjoint,        :Adjoint),
-                     (:Adjoint,        :Adjoint,        :Direct),
-                     (:Inverse,        :Adjoint,        :InverseAdjoint),
-                     (:InverseAdjoint, :Adjoint,        :Inverse),
-                     (:Direct,         :Inverse,        :Inverse),
-                     (:Adjoint,        :Inverse,        :InverseAdjoint),
-                     (:Inverse,        :Inverse,        :Direct),
-                     (:InverseAdjoint, :Inverse,        :Adjoint),
-                     (:Direct,         :InverseAdjoint, :InverseAdjoint),
-                     (:Adjoint,        :InverseAdjoint, :Inverse),
-                     (:Inverse,        :InverseAdjoint, :Adjoint),
-                     (:InverseAdjoint, :InverseAdjoint, :Direct))
-    @eval begin
-
-        vcreate(::Type{$T1}, A::$T2, x, scratch::Bool) =
-            vcreate($T3, unveil(A), x, scratch)
-
-        apply!(α::Number, ::Type{$T1}, A::$T2, x, scratch::Bool, β::Number, y) =
-            apply!(α, $T3, unveil(A), x, scratch, β, y)
-
-    end
-end
-
-# Implementation of the `vcreate(P,A,x,scratch)` and
-# `apply!(α,P,A,x,scratch,β,y)` and methods for a sum of mappings.  Note that
-# `Sum` instances are warranted to have at least 2 components.
-
-function vcreate(::Type{P}, A::Sum, x,
-                 scratch::Bool) where {P<:Union{Direct,Adjoint}}
-    # The sum only makes sense if all mappings yields the same kind of result.
-    # Hence we just call the vcreate method for the first mapping of the sum.
-    vcreate(P, A[1], x, scratch)
-end
-
-function apply!(α::Number, P::Type{<:Union{Direct,Adjoint}}, A::Sum{N},
-                x, scratch::Bool, β::Number, y) where {N}
-    if α == 0
-        # Just scale the destination.
-        vscale!(y, β)
-    else
-        # Apply first mapping with β and then other with β=1.  Scratch flag is
-        # always false until last mapping because we must preserve x as there
-        # is more than one term.
-        apply!(α, P, A[1], x, false, β, y)
-        for i in 2:N
-            apply!(α, P, A[i], x, (scratch && i == N), 1, y)
+function compose!(A::Vector{Mapping}, B::Composition{N}) where {N}
+    @inbounds for i in 1:N
+        # Build the simplified composition A*B[i].
+        compose!(A, B[i])
+        if identical(last(A), B[i])
+            # The last term of the simplified composition A*B[i] is still B[i],
+            # which indicates that composing A with B[i] did not yield any
+            # simplifications.  It is sufficient to append all the other terms
+            # of B to A as no further simplifications are expected.
+            return append_terms!(A, B, (i+1):N)
         end
     end
-    return y
+    return A
 end
 
-vcreate(::Type{<:Union{Inverse,InverseAdjoint}}, A::Sum, x, scratch::Bool) =
-    throw_unsupported_inverse_of_sum()
+function compose!(A::Vector{Mapping}, B::Mapping)
+    # Compute the simplified composition of the last term of A with B.  The
+    # result is either a simple mapping or a simplified composition.
+    m = length(A); @assert m > 0
+    C = A[m]*B
 
-apply(::Type{<:Union{Inverse,InverseAdjoint}}, A::Sum, x, scratch::Bool) =
-    throw_unsupported_inverse_of_sum()
-
-function apply!(α::Number, ::Type{<:Union{Inverse,InverseAdjoint}}, A::Sum,
-                x, scratch::Bool, β::Number, y)
-    throw_unsupported_inverse_of_sum()
-end
-
-throw_unsupported_inverse_of_sum() =
-    error("automatic dispatching of the inverse of a sum of mappings is not supported")
-
-# Implementation of the `apply!(α,P,A,x,scratch,β,y)` method for a composition
-# of mappings.  There is no possible `vcreate(P,A,x,scratch)` method for a
-# composition so we directly extend the `apply(P,A,x,scratch)` method.  Note
-# that `Composition` instances are warranted to have at least 2 components.
-#
-# The unrolled code (taking care of allowing as few temporaries as possible and
-# for the Direct or InverseAdjoint operation) writes:
-#
-#     w1 = apply(P, A[N], x, scratch)
-#     scratch = overwritable(scratch, x, w1)
-#     w2 = apply!(1, P, A[N-1], w1, scratch)
-#     scratch = overwritable(scratch, w1, w2)
-#     w3 = apply!(1, P, A[N-2], w2, scratch)
-#     scratch = overwritable(scratch, w2, w3)
-#     ...
-#     return apply!(α, P, A[1], wNm1, scratch, β, y)
-#
-# To break the type barrier, this is done by a recursion.  The recursion is
-# just done in the other direction for the Adjoint or Inverse operation.
-
-function vcreate(::Type{<:Operations},
-                 A::Composition{N}, x, scratch::Bool) where {N}
-    error("it is not possible to create the output of a composition of mappings")
-end
-
-function apply!(α::Number, ::Type{P}, A::Composition{N}, x, scratch::Bool,
-                β::Number, y) where {N,P<:Union{Direct,InverseAdjoint}}
-    if α == 0
-        # Just scale the destination.
-        vscale!(y, β)
+    # Replace the last term of A with C.
+    if C isa Composition && identical(C[1], A[m])
+        # Nothing has changed at the tail of the composition A.  No further
+        # simplifications are expected.  Push all terms of C to A, but the
+        # first term of C which is identical to the last term of A.
+        append_terms!(A, C, 2:length(C))
+    elseif m > 1
+        # Drop the last term of A and compose the remaining terms with C.  This
+        # may trigger further simplifications
+        compose!(resize!(A, m - 1), C)
+    elseif C isa Composition
+        # Replace the only term of A by all the terms of the composition C.
+        # This is the same as above but avoids calling `resize!` as a small
+        # optimization.
+        A[1] = C[1]
+        append_terms!(A, C, 2:length(C))
     else
-        ops = terms(A)
-        w = apply(P, *, ops[2:N], x, scratch)
-        scratch = overwritable(scratch, w, x)
-        apply!(α, P, ops[1], w, scratch, β, y)
+        # Replace the only term of A by the simple mapping C.
+        A[1] = C
     end
-    return y
+    return A
 end
 
-function apply(::Type{P}, A::Composition{N}, x,
-               scratch::Bool) where {N,P<:Union{Direct,InverseAdjoint}}
-    apply(P, *, terms(A), x, scratch)
+#------------------------------------------------------------------------------
+# UTILITIES FOR BUILDING SUMS AND COMPOSITIONS
+
+"""
+    as_vector(op, A)
+
+yields a vector of mappings with the terms of the mapping `A`.  Argument `op`
+is `+` or `*`.  If `op` is `+` (resp. `*`) and `A` is a sum (resp. a
+composition) of mappings, the terms of `A` are extracted in the returned
+vector; otherwise, the returned vector has just one element which is `A`.
+
+"""
+function as_vector(::Union{typeof(+),typeof(*)}, A::Mapping)
+    V = Vector{Mapping}(undef, 1)
+    V[1] = A
+    return V
 end
 
-function apply(::Type{P}, ::typeof(*), ops::NTuple{N,Mapping}, x,
-               scratch::Bool) where {N,P<:Union{Direct,InverseAdjoint}}
-    w = apply(P, ops[N], x, scratch)
-    N == 1 && return w
-    scratch = overwritable(scratch, w, x)
-    apply(P, *, ops[1:N-1], w, scratch)
-end
+as_vector(::typeof(+), A::Sum        ) = collect_terms(A)
+as_vector(::typeof(*), A::Composition) = collect_terms(A)
 
-function apply!(α::Number, ::Type{P}, A::Composition{N}, x, scratch::Bool,
-                β::Number, y) where {N,P<:Union{Adjoint,Inverse}}
-    if α == 0
-        # Just scale the destination.
-        vscale!(y, β)
-    else
-        ops = terms(A)
-        w = apply(P, *, ops[1:N-1], x, scratch)
-        scratch = overwritable(scratch, w, x)
-        apply!(α, P, ops[N], w, scratch, β, y)
+"""
+    collect_terms(A)
+
+collects the terms of the mapping `A` into a vector.  This is similar to
+`collect(A)` except that the element type of the result is forced to be
+`Mapping`.
+
+"""
+function collect_terms(A::Union{Sum{N},Composition{N}}) where {N}
+    V = Vector{Mapping}(undef, N)
+    @inbounds for i in 1:N
+        V[i] = A[i]
     end
-    return y
+    return V
 end
 
-function apply(::Type{P}, A::Composition{N}, x,
-               scratch::Bool) where {N,P<:Union{Adjoint,Inverse}}
-    apply(P, *, terms(A), x, scratch)
-end
+"""
+    append_terms!(A, B, I=1:length(B)) -> A
 
-function apply(::Type{P}, ::typeof(*), ops::NTuple{N,Mapping}, x,
-               scratch::Bool) where {N,P<:Union{Adjoint,Inverse}}
-    w = apply(P, ops[1], x, scratch)
-    N == 1 && return w
-    scratch = overwritable(scratch, w, x)
-    apply(P, *, ops[2:N], w, scratch)
-end
+pushes all terms `B[i]` for all `i ∈ I` to `A` and returns `A`.
 
-# Default rules to apply a Gram operator.  Gram matrices are Hermitian by
-# construction which left only 2 cases to deal with.
+"""
+function append_terms!(A::Vector{Mapping},
+                       B::Union{Vector{Mapping},Composition},
+                       I::AbstractUnitRange{<:Integer} = Base.OneTo(length(B)))
 
-apply!(α::Number, ::Type{Adjoint}, A::Gram, x, scratch::Bool, β::Number, y) =
-    apply!(α, Direct, A, x, scratch, β, y)
-
-apply!(α::Number, ::Type{InverseAdjoint}, A::Gram, x, scratch::Bool, β::Number, y) =
-    apply!(α, Inverse, A, x, scratch, β, y)
-
-function apply!(α::Number, ::Type{Direct}, A::Gram, x, scratch::Bool, β::Number, y)
-    if α == 0
-        vscale!(y, β)
-    else
-        B = unveil(A) # A ≡ B'*B
-        z = apply(Direct, B, x, scratch) # z <- B⋅x
-        apply!(α, Adjoint, B, z, (z !== x), β, y) # y <- α⋅B'⋅z + β⋅y
+    imin, imax = Int(first(I)), Int(last(I))
+    (1 ≤ imin && imax ≤ length(B)) ||
+        bad_argument("out of bounds indices in given range")
+    if imin ≤ imax
+        m = length(A)
+        n = imax - imin + 1
+        resize!(A, m + n)
+        k = m + 1 - imin
+        @inbounds for i in I
+            A[k+i] = B[i]
+        end
     end
-    return y
-end
-
-function apply!(α::Number, ::Type{Inverse}, A::Gram, x, scratch::Bool, β::Number, y)
-    if α == 0
-        vscale!(y, β)
-    else
-        B = unveil(A) # A ≡ B'⋅B
-        # Compute α⋅inv(A)⋅x + β⋅y = α⋅inv(B'⋅B)⋅x + β⋅y
-        #                          = α⋅inv(B)⋅inv(B')⋅x + β⋅y
-        z = apply(InverseAdjoint, B, x, scratch) # z <- inv(B')⋅x
-        apply!(α, Inverse, B, z, (z !== x), β, y) # y <- α⋅inv(B)⋅z + β⋅y
-    end
-    return y
+    return A
 end

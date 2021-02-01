@@ -572,7 +572,7 @@ end
                              A::AbstractMatrix,
                              x::AbstractVector,
                              y::AbstractVector)
-    nrows, ncols = size(A, 1), size(A, 2)
+    nrows, ncols = size(A)
     if trans == 'N'
         (length(x) == ncols && length(y) == nrows) || incompatible_dimensions()
     elseif trans == 'T' || trans == 'C'
@@ -627,10 +627,14 @@ end
 @inline function _lgemv_indices(trans::Char,
                                 A::AbstractMatrix,
                                 x::AbstractVector)
-    (trans == 'N' || trans == 'T' || trans == 'C') ||
+    rows, cols = axes(A)
+    if trans == 'N'
+        axes(x) == (cols,) || incompatible_dimensions()
+    elseif trans == 'T' || trans == 'C'
+        axes(x) == (rows,) || incompatible_dimensions()
+    else
         invalid_transpose_character()
-    rows, cols = axes(A, 1), axes(A, 2)
-    axes(x, 1) == (trans == 'N' ? cols : rows) || incompatible_dimensions()
+    end
     return rows, cols
 end
 #
@@ -668,11 +672,14 @@ end
                                 A::AbstractMatrix,
                                 x::AbstractVector,
                                 y::AbstractVector)
-    (trans == 'N' || trans == 'T' || trans == 'C') ||
+    rows, cols = axes(A)
+    if trans == 'N'
+        (axes(x) == (cols,) && axes(y) == (rows,)) || incompatible_dimensions()
+    elseif trans == 'T' || trans == 'C'
+        (axes(x) == (rows,) && axes(y) == (cols,)) || incompatible_dimensions()
+    else
         invalid_transpose_character()
-    rows, cols = axes(A, 1), axes(A, 2)
-    (axes(x, 1) == (trans == 'N' ? cols : rows) &&
-     axes(y, 1) == (trans == 'N' ? rows : cols)) || incompatible_dimensions()
+    end
     return rows, cols
 end
 #

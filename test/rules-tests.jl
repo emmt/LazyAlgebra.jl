@@ -181,6 +181,7 @@ end
     @test inv(2A) === (1/2)*inv(A)
     @test inv(A*B) === inv(B)*inv(A)
     @test A/3B === 3\A/B
+    @test 2/A === 2*inv(A)
     @test 4A/4B === A/B
     @test 4A\4B === A\B
     @test inv(A*M*B*Q) === inv(Q)*inv(B)*inv(M)*inv(A)

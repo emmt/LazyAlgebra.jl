@@ -8,14 +8,14 @@
 # This file is part of LazyAlgebra (https://github.com/emmt/LazyAlgebra.jl)
 # released under the MIT "Expat" license.
 #
-# Copyright (C) 2017-2020, Éric Thiébaut.
+# Copyright (C) 2017-2021, Éric Thiébaut.
 # Copyright (C) 2015-2016, Éric Thiébaut, Jonathan Léger & Matthew Ozon.
 #
 
 module FFTs
 
 # Be nice with the caller: re-export `fftshift` and `ifftshift` but not `fft`,
-# `ifft` etc. as the `FFTOperator` is meant to replace them.
+# `ifft`, etc. as the `FFTOperator` is meant to replace them.
 export
     CirculantConvolution,
     FFTOperator,
@@ -29,14 +29,12 @@ export
 using ..LazyAlgebraLowLevel
 using ..LazyAlgebra
 using ..LazyAlgebra:
-    @callable, bad_argument, bad_size
+    @callable, bad_argument, bad_size, compose
 import ..LazyAlgebra:
     adjoint, apply!, vcreate, MorphismType, mul!,
     input_size, input_ndims, input_eltype,
     output_size, output_ndims, output_eltype,
     identical
-
-import ..Simplify
 
 import Base: *, /, \, inv, show
 
@@ -455,15 +453,13 @@ show(io::IO, A::FFTOperator) = print(io, "FFT")
 #     ==> F⋅F' = F'⋅F = n⋅Id
 #     ==> inv(F⋅F') = inv(F'⋅F) = inv(F)⋅inv(F') = inv(F')⋅inv(F) = n\Id
 *(A::Adjoint{F}, B::F) where {F<:FFTOperator} =
-    (identical(unveil(A), B) ? ncols(A)*Id : Simplify.merge_mul(A, B))
+    (identical(unveil(A), B) ? ncols(A)*Id : compose(A, B))
 *(A::F, B::Adjoint{F}) where {F<:FFTOperator} =
-    (identical(A, unveil(B)) ? ncols(A)*Id : Simplify.merge_mul(A, B))
+    (identical(A, unveil(B)) ? ncols(A)*Id : compose(A, B))
 *(A::InverseAdjoint{F}, B::Inverse{F}) where {F<:FFTOperator} =
-    (identical(unveil(A), unveil(B)) ? (1//ncols(A))*Id :
-     Simplify.merge_mul(A, B))
+    (identical(unveil(A), unveil(B)) ? (1//ncols(A))*Id : compose(A, B))
 *(A::Inverse{F}, B::InverseAdjoint{F}) where {F<:FFTOperator} =
-    (identical(unveil(A), unveil(B)) ? (1//ncols(A))*Id :
-     Simplify.merge_mul(A, B))
+    (identical(unveil(A), unveil(B)) ? (1//ncols(A))*Id : compose(A, B))
 
 function vcreate(P::Type{<:Union{Direct,InverseAdjoint}},
                  A::FFTOperator{T,N,C},

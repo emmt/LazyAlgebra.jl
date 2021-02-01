@@ -13,6 +13,7 @@ Pages = [
     "vectors.md",
     "sparse.md",
     "mappings.md",
+    "simplifications.md",
     "refs.md"]
 ```
 

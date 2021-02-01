@@ -8,7 +8,7 @@
 # This file is part of LazyAlgebra (https://github.com/emmt/LazyAlgebra.jl)
 # released under the MIT "Expat" license.
 #
-# Copyright (c) 2017-2020 Éric Thiébaut.
+# Copyright (c) 2017-2021 Éric Thiébaut.
 #
 
 @noinline function unimplemented(::Type{P},
@@ -165,8 +165,8 @@ terms(A::Mapping) = (A,)
     unveil(A)
 
 unveils the mapping embedded in mapping `A` if it is a *decorated* mapping (see
-[`DecoratedMapping`](@ref)); otherwise, just returns `A` if it is not a
-*decorated* mapping.
+[`LazyAlgebra.DecoratedMapping`](@ref)); otherwise, just returns `A` if it is
+not a *decorated* mapping.
 
 As a special case, `A` may be an instance of `LinearAlgebra.UniformScaling` and
 the result is the LazyAlgebra mapping corresponding to `A`.
@@ -216,13 +216,12 @@ variables(J::Jacobian) = getfield(J, :x)
 """
     identifier(A)
 
-yields an (almost) unique identifier of the mapping `A` computed as
-`objectid(unscaled(A))`.  This identifier is used for sorting terms in a sum of
-mappings.
+yields a hash value identifying almost uniquely the unscaled mapping `A`.  This
+identifier is used for sorting terms in a sum of mappings.
 
 !!! warning
-    For now, the sorting is not perfect as it is based on `objectid()` which
-    is a hashing method.
+    For now, the identifier is computed as `objectid(unscaled(A))` and is
+    unique with a very high probability.
 
 """
 identifier(A::Mapping) = objectid(unscaled(A))
@@ -499,3 +498,449 @@ gram(A::Mapping) =
 @inline axpby_yields_axpy( α, x, β, y) = α*x + y         # any α, β = 1
 @inline axpby_yields_axmy( α, x, β, y) = α*x - y         # any α, β = -1
 @inline axpby_yields_axpby(α, x, β, y) = α*x + β*y       # any α, any β
+
+#------------------------------------------------------------------------------
+# VCREATE, APPLY AND APPLY!
+
+"""
+```julia
+vcreate([P,] A, x, scratch=false) -> y
+```
+
+yields a new instance `y` suitable for storing the result of applying mapping
+`A` to the argument `x`.  Optional parameter `P ∈ Operations` is one of
+`Direct` (the default), `Adjoint`, `Inverse` and/or `InverseAdjoint` and can be
+used to specify how `A` is to be applied as explained in the documentation of
+the [`apply`](@ref) method.
+
+Optional argument `scratch` indicates whether input argument `x` can be
+overwritten by the operation and thus used to store the result.  This may be
+exploited by some mappings (which are able to operate *in-place*) to avoid
+allocating a new object for the result `y`.
+
+The caller should set `scratch = true` if `x` is not needed after calling
+`apply`.  If `scratch = true`, then it is possible that `y` be the same object
+as `x`; otherwise, `y` is a new object unless applying the operation yields the
+same contents as `y` for the result `x` (this is always true for the identity
+for instance).  Thus, in general, it should not be assumed that the returned
+`y` is different from the input `x`.
+
+The method `vcreate(::Type{P}, A, x)` should be implemented by linear mappings
+for any supported operations `P` and argument type for `x`.  The result
+returned by `vcreate` should be of predictible type to ensure *type-stability*.
+Checking the validity (*e.g.* the size) of argument `x` in `vcreate` may be
+skipped because this argument will be eventually checked by the `apply!`
+method.
+
+See also: [`Mapping`](@ref), [`apply`](@ref).
+
+"""
+vcreate(A::Mapping, x, scratch::Bool=false) = vcreate(Direct, A, x, scratch)
+vcreate(::Type{P}, A::Mapping, x) where {P<:Operations} =
+    vcreate(P, A, x, false)
+
+"""
+    vmul(A, x) -> y
+
+yields `y = A*x`.  The default behavior is to call `apply(Direct,A,x,false)`.
+Method [`vmul!`](@ref) is the in-place version.
+
+"""
+vmul(A, x) = apply(Direct, A, x, false)
+
+"""
+    vmul!(y, A, x) -> y
+
+overwrites `y` with the result of `A*x` and returns `y`.  The default behavior
+is to call `apply!(1,Direct,A,x,false,0,y)`.
+
+!!! note
+
+    This method is intended to be used by algorithms such as the conjugate
+    gradient to apply operators.  It may be specialized by the caller for its
+    needs which is much easier than specializing [`apply!`](@ref) which
+    requires to consider the specific values of the multipliers `α` and `β`.
+
+"""
+vmul!(y, A, x) = apply!(1, Direct, A, x, false, 0, y)
+
+"""
+```julia
+apply([P,] A, x, scratch=false) -> y
+```
+
+yields the result `y` of applying mapping `A` to the argument `x`.
+Optional parameter `P` can be used to specify how `A` is to be applied:
+
+* `Direct` (the default) to apply `A` and yield `y = A⋅x`;
+* `Adjoint` to apply the adjoint of `A` and yield `y = A'⋅x`;
+* `Inverse` to apply the inverse of `A` and yield `y = A\\x`;
+* `InverseAdjoint` or `AdjointInverse` to apply the inverse of `A'` and
+  yield `y = A'\\x`.
+
+Not all operations may be implemented by the different types of mappings and
+`Adjoint` and `InverseAdjoint` may only be applicable for linear mappings.
+
+Optional argument `scratch` indicates whether input argument `x` can be
+overwritten by the operation.  This may be exploited to avoid allocating
+temporary workspace(s).  The caller should set `scratch = true` if `x` is not
+needed after calling `apply`.  If `scratch = true`, then it is possible that
+`y` be the same object as `x`; otherwise, `y` is a new object unless applying
+the operation yields the same contents as `y` for the result `x` (this is
+always true for the identity for instance).  Thus, in general, it should not be
+assumed that the result of applying a mapping is different from the input.
+
+Julia methods are provided so that `apply(A', x)` automatically calls
+`apply(Adjoint, A, x)` so the shorter syntax may be used without impacting
+performances.
+
+See also: [`Mapping`](@ref), [`apply!`](@ref), [`vcreate`](@ref).
+
+"""
+apply(A::Mapping, x, scratch::Bool=false) = apply(Direct, A, x, scratch)
+apply(P::Type{<:Operations}, A::Mapping, x, scratch::Bool=false) =
+    apply!(1, P, A, x, scratch, 0, vcreate(P, A, x, scratch))
+
+*(A::Mapping, x) = apply(Direct, A, x, false)
+\(A::Mapping, x) = apply(Inverse, A, x, false)
+
+"""
+    apply!([α=1,] [P=Direct,] A::Mapping, x, [scratch=false,] [β=0,] y) -> y
+
+overwrites `y` with `α*P(A)⋅x + β*y` where `P ∈ Operations` can be `Direct`,
+`Adjoint`, `Inverse` and/or `InverseAdjoint` to indicate which variant of the
+mapping `A` to apply.  The convention is that the prior contents of `y` is not
+used at all if `β = 0` so `y` can be directly used to store the result even
+though it is not initialized.  The `scratch` optional argument indicates
+whether the input `x` is no longer needed by the caller and can thus be used as
+a scratch array.  Having `scratch = true` or `β = 0` may be exploited by the
+specific implementation of the `apply!` method for the mapping type to avoid
+allocating temporary workspace(s).
+
+The `apply!` method can be seen as a generalization of the `LinearAlgebra.mul!`
+method.
+
+The order of arguments can be changed and the same result as above is obtained
+with:
+
+    apply!([β=0,] y, [α=1,] [P=Direct,] A::Mapping, x, scratch=false) -> y
+
+The result `y` may have been allocated by:
+
+    y = vcreate([P=Direct,] A, x, scratch=false)
+
+Mapping sub-types only need to extend `vcreate` and `apply!` with the specific
+signatures:
+
+    vcreate(::Type{P}, A::M, x, scratch::Bool=false) -> y
+    apply!(α::Number, ::Type{P}, A::M, x, scratch::Bool, β::Number, y) -> y
+
+for any supported operation `P` and where `M` is the type of the mapping.  Of
+course, the types of arguments `x` and `y` may be specified as well.
+
+Optionally, the method with signature:
+
+    apply(::Type{P}, A::M, x, scratch::Bool=false) -> y
+
+may also be extended to improve the default implementation which is:
+
+    apply(P::Type{<:Operations}, A::Mapping, x, scratch::Bool=false) =
+        apply!(1, P, A, x, scratch, 0, vcreate(P, A, x, scratch))
+
+See also: [`Mapping`](@ref), [`apply`](@ref), [`vcreate`](@ref).
+
+""" apply!
+
+# Provide fallbacks so that `Direct` is the default operation and only the
+# method with signature:
+#
+#     apply!(α::Number, ::Type{P}, A::MappingType, x::X, scratch::Bool,
+#            β::Number, y::Y) where {P<:Operations,X,Y}
+#
+# has to be implemented (possibly with restrictions on X and Y) by subtypes of
+# Mapping so we provide the necessary mechanism to dispatch derived methods.
+apply!(A::Mapping, x, y) =
+    apply!(1, Direct, A, x, false, 0, y)
+apply!(α::Number, A::Mapping, x, y) =
+    apply!(α, Direct, A, x, false, 0, y)
+apply!(A::Mapping, x, β::Number, y) =
+    apply!(1, Direct, A, x, false, β, y)
+apply!(α::Number, A::Mapping, x, β::Number, y) =
+    apply!(α, Direct, A, x, false, β, y)
+
+apply!(P::Type{<:Operations}, A::Mapping, x, y) =
+    apply!(1, P, A, x, false, 0, y)
+apply!(α::Number, P::Type{<:Operations}, A::Mapping, x, y) =
+    apply!(α, P, A, x, false, 0, y)
+apply!(P::Type{<:Operations}, A::Mapping, x, β::Number, y) =
+    apply!(1, P, A, x, false, β, y)
+apply!(α::Number, P::Type{<:Operations}, A::Mapping, x, β::Number, y) =
+    apply!(α, P, A, x, false, β, y)
+
+apply!(A::Mapping, x, scratch::Bool, y) =
+    apply!(1, Direct, A, x, scratch, 0, y)
+apply!(α::Number, A::Mapping, x, scratch::Bool, y) =
+    apply!(α, Direct, A, x, scratch, 0, y)
+apply!(A::Mapping, x, scratch::Bool, β::Number, y) =
+    apply!(1, Direct, A, x, scratch, β, y)
+
+apply!(P::Type{<:Operations}, A::Mapping, x, scratch::Bool, y) =
+    apply!(1, P, A, x, scratch, 0, y)
+apply!(α::Number, P::Type{<:Operations}, A::Mapping, x, scratch::Bool, y) =
+    apply!(α, P, A, x, scratch, 0, y)
+apply!(P::Type{<:Operations}, A::Mapping, x, scratch::Bool, β::Number, y) =
+    apply!(1, P, A, x, scratch, β, y)
+
+# Change order of arguments.
+apply!(y, A::Mapping, x, scratch::Bool=false) =
+    apply!(1, Direct, A, x, scratch, 0, y)
+apply!(y, P::Type{<:Operations}, A::Mapping, x, scratch::Bool=false) =
+    apply!(1, P, A, x, scratch, 0, y)
+apply!(y, α::Number, A::Mapping, x, scratch::Bool=false) =
+    apply!(α, Direct, A, x, scratch, 0, y)
+apply!(y, α::Number, P::Type{<:Operations}, A::Mapping, x, scratch::Bool=false) =
+    apply!(α, P, A, x, scratch, 0, y)
+apply!(β::Number, y, A::Mapping, x, scratch::Bool=false) =
+    apply!(1, Direct, A, x, scratch, β, y)
+apply!(β::Number, y, P::Type{<:Operations}, A::Mapping, x, scratch::Bool=false) =
+    apply!(1, P, A, x, scratch, β, y)
+apply!(β::Number, y, α::Number, A::Mapping, x, scratch::Bool=false) =
+    apply!(α, Direct, A, x, scratch, β, y)
+apply!(β::Number, y, α::Number, P::Type{<:Operations}, A::Mapping, x, scratch::Bool=false) =
+    apply!(α, P, A, x, scratch, β, y)
+
+# Extend `LinearAlgebra.mul!` so that `A'*x`, `A*B*C*x`, etc. yield the
+# expected result.  FIXME: This should be restricted to linear mappings but
+# this is not possible without overheads.
+mul!(y, A::Mapping, x) = apply!(1, Direct, A, x, false, 0, y)
+mul!(y, A::Mapping, x, α::Number, β::Number) =
+    apply!(α, Direct, A, x, false, β, y)
+
+# Implemention of the `apply!(α,P,A,x,scratch,β,y)` and
+# `vcreate(P,A,x,scratch)` methods for a scaled mapping.
+for (P, expr) in ((:Direct, :(α*multiplier(A))),
+                  (:Adjoint, :(α*conj(multiplier(A)))),
+                  (:Inverse, :(α/multiplier(A))),
+                  (:InverseAdjoint, :(α/conj(multiplier(A)))))
+    @eval begin
+
+        apply!(α::Number, ::Type{$P}, A::Scaled, x, scratch::Bool, β::Number, y) =
+            apply!($expr, $P, unscaled(A), x, scratch, β, y)
+
+    end
+end
+
+"""
+    overwritable(scratch, x, y) -> bool
+
+yields whether the result `y` of applying a mapping to `x` with scratch flag
+`scratch` can overwritten.  Arguments `x` and `y` can be reversed.
+
+"""
+overwritable(scratch::Bool, x, y) = (scratch || x !== y)
+
+# Implement `apply` for scaled operators to avoid the needs of explicitly
+# calling `vcreate` as done by the default implementation of `apply`.  This is
+# needed for scaled compositions among others.
+function apply(::Type{Direct}, A::Scaled, x, scratch::Bool)
+    y = apply(Direct, unscaled(A), x, scratch)
+    vscale!((overwritable(scratch, x, y) ? y : vcopy(y)), multiplier(A))
+end
+
+function apply(::Type{Adjoint}, A::Scaled, x, scratch::Bool)
+    y = apply(Direct, unscaled(A), x, scratch)
+    vscale!((overwritable(scratch, x, y) ? y : vcopy(y)), conj(multiplier(A)))
+end
+
+function apply(::Type{Inverse}, A::Scaled, x, scratch::Bool)
+    y = apply(Direct, unscaled(A), x, scratch)
+    vscale!((overwritable(scratch, x, y) ? y : vcopy(y)), 1/multiplier(A))
+end
+
+function apply(::Type{InverseAdjoint}, A::Scaled, x, scratch::Bool)
+    y = apply(Direct, unscaled(A), x, scratch)
+    vscale!((overwritable(scratch, x, y) ? y : vcopy(y)), 1/conj(multiplier(A)))
+end
+
+vcreate(P::Type{<:Operations}, A::Scaled, x, scratch::Bool) =
+    vcreate(P, unscaled(A), x, scratch)
+
+# Implemention of the `vcreate(P,A,x,scratch)` and
+# `apply!(α,P,A,x,scratch,β,y)` methods for the various decorations of a
+# mapping so as to automatically unveil the embedded mapping.
+for (T1, T2, T3) in ((:Direct,         :Adjoint,        :Adjoint),
+                     (:Adjoint,        :Adjoint,        :Direct),
+                     (:Inverse,        :Adjoint,        :InverseAdjoint),
+                     (:InverseAdjoint, :Adjoint,        :Inverse),
+                     (:Direct,         :Inverse,        :Inverse),
+                     (:Adjoint,        :Inverse,        :InverseAdjoint),
+                     (:Inverse,        :Inverse,        :Direct),
+                     (:InverseAdjoint, :Inverse,        :Adjoint),
+                     (:Direct,         :InverseAdjoint, :InverseAdjoint),
+                     (:Adjoint,        :InverseAdjoint, :Inverse),
+                     (:Inverse,        :InverseAdjoint, :Adjoint),
+                     (:InverseAdjoint, :InverseAdjoint, :Direct))
+    @eval begin
+
+        vcreate(::Type{$T1}, A::$T2, x, scratch::Bool) =
+            vcreate($T3, unveil(A), x, scratch)
+
+        apply!(α::Number, ::Type{$T1}, A::$T2, x, scratch::Bool, β::Number, y) =
+            apply!(α, $T3, unveil(A), x, scratch, β, y)
+
+    end
+end
+
+# Implementation of the `vcreate(P,A,x,scratch)` and
+# `apply!(α,P,A,x,scratch,β,y)` and methods for a sum of mappings.  Note that
+# `Sum` instances are warranted to have at least 2 components.
+
+function vcreate(::Type{P}, A::Sum, x,
+                 scratch::Bool) where {P<:Union{Direct,Adjoint}}
+    # The sum only makes sense if all mappings yields the same kind of result.
+    # Hence we just call the vcreate method for the first mapping of the sum.
+    vcreate(P, A[1], x, scratch)
+end
+
+function apply!(α::Number, P::Type{<:Union{Direct,Adjoint}}, A::Sum{N},
+                x, scratch::Bool, β::Number, y) where {N}
+    if α == 0
+        # Just scale the destination.
+        vscale!(y, β)
+    else
+        # Apply first mapping with β and then other with β=1.  Scratch flag is
+        # always false until last mapping because we must preserve x as there
+        # is more than one term.
+        apply!(α, P, A[1], x, false, β, y)
+        for i in 2:N
+            apply!(α, P, A[i], x, (scratch && i == N), 1, y)
+        end
+    end
+    return y
+end
+
+vcreate(::Type{<:Union{Inverse,InverseAdjoint}}, A::Sum, x, scratch::Bool) =
+    throw_unsupported_inverse_of_sum()
+
+apply(::Type{<:Union{Inverse,InverseAdjoint}}, A::Sum, x, scratch::Bool) =
+    throw_unsupported_inverse_of_sum()
+
+function apply!(α::Number, ::Type{<:Union{Inverse,InverseAdjoint}}, A::Sum,
+                x, scratch::Bool, β::Number, y)
+    throw_unsupported_inverse_of_sum()
+end
+
+throw_unsupported_inverse_of_sum() =
+    error("automatic dispatching of the inverse of a sum of mappings is not supported")
+
+# Implementation of the `apply!(α,P,A,x,scratch,β,y)` method for a composition
+# of mappings.  There is no possible `vcreate(P,A,x,scratch)` method for a
+# composition so we directly extend the `apply(P,A,x,scratch)` method.  Note
+# that `Composition` instances are warranted to have at least 2 components.
+#
+# The unrolled code (taking care of allowing as few temporaries as possible and
+# for the Direct or InverseAdjoint operation) writes:
+#
+#     w1 = apply(P, A[N], x, scratch)
+#     scratch = overwritable(scratch, x, w1)
+#     w2 = apply!(1, P, A[N-1], w1, scratch)
+#     scratch = overwritable(scratch, w1, w2)
+#     w3 = apply!(1, P, A[N-2], w2, scratch)
+#     scratch = overwritable(scratch, w2, w3)
+#     ...
+#     return apply!(α, P, A[1], wNm1, scratch, β, y)
+#
+# To break the type barrier, this is done by a recursion.  The recursion is
+# just done in the other direction for the Adjoint or Inverse operation.
+
+function vcreate(::Type{<:Operations},
+                 A::Composition{N}, x, scratch::Bool) where {N}
+    error("it is not possible to create the output of a composition of mappings")
+end
+
+function apply!(α::Number, ::Type{P}, A::Composition{N}, x, scratch::Bool,
+                β::Number, y) where {N,P<:Union{Direct,InverseAdjoint}}
+    if α == 0
+        # Just scale the destination.
+        vscale!(y, β)
+    else
+        ops = terms(A)
+        w = apply(P, *, ops[2:N], x, scratch)
+        scratch = overwritable(scratch, w, x)
+        apply!(α, P, ops[1], w, scratch, β, y)
+    end
+    return y
+end
+
+function apply(::Type{P}, A::Composition{N}, x,
+               scratch::Bool) where {N,P<:Union{Direct,InverseAdjoint}}
+    apply(P, *, terms(A), x, scratch)
+end
+
+function apply(::Type{P}, ::typeof(*), ops::NTuple{N,Mapping}, x,
+               scratch::Bool) where {N,P<:Union{Direct,InverseAdjoint}}
+    w = apply(P, ops[N], x, scratch)
+    N == 1 && return w
+    scratch = overwritable(scratch, w, x)
+    apply(P, *, ops[1:N-1], w, scratch)
+end
+
+function apply!(α::Number, ::Type{P}, A::Composition{N}, x, scratch::Bool,
+                β::Number, y) where {N,P<:Union{Adjoint,Inverse}}
+    if α == 0
+        # Just scale the destination.
+        vscale!(y, β)
+    else
+        ops = terms(A)
+        w = apply(P, *, ops[1:N-1], x, scratch)
+        scratch = overwritable(scratch, w, x)
+        apply!(α, P, ops[N], w, scratch, β, y)
+    end
+    return y
+end
+
+function apply(::Type{P}, A::Composition{N}, x,
+               scratch::Bool) where {N,P<:Union{Adjoint,Inverse}}
+    apply(P, *, terms(A), x, scratch)
+end
+
+function apply(::Type{P}, ::typeof(*), ops::NTuple{N,Mapping}, x,
+               scratch::Bool) where {N,P<:Union{Adjoint,Inverse}}
+    w = apply(P, ops[1], x, scratch)
+    N == 1 && return w
+    scratch = overwritable(scratch, w, x)
+    apply(P, *, ops[2:N], w, scratch)
+end
+
+# Default rules to apply a Gram operator.  Gram matrices are Hermitian by
+# construction which left only 2 cases to deal with.
+
+apply!(α::Number, ::Type{Adjoint}, A::Gram, x, scratch::Bool, β::Number, y) =
+    apply!(α, Direct, A, x, scratch, β, y)
+
+apply!(α::Number, ::Type{InverseAdjoint}, A::Gram, x, scratch::Bool, β::Number, y) =
+    apply!(α, Inverse, A, x, scratch, β, y)
+
+function apply!(α::Number, ::Type{Direct}, A::Gram, x, scratch::Bool, β::Number, y)
+    if α == 0
+        vscale!(y, β)
+    else
+        B = unveil(A) # A ≡ B'*B
+        z = apply(Direct, B, x, scratch) # z <- B⋅x
+        apply!(α, Adjoint, B, z, (z !== x), β, y) # y <- α⋅B'⋅z + β⋅y
+    end
+    return y
+end
+
+function apply!(α::Number, ::Type{Inverse}, A::Gram, x, scratch::Bool, β::Number, y)
+    if α == 0
+        vscale!(y, β)
+    else
+        B = unveil(A) # A ≡ B'⋅B
+        # Compute α⋅inv(A)⋅x + β⋅y = α⋅inv(B'⋅B)⋅x + β⋅y
+        #                          = α⋅inv(B)⋅inv(B')⋅x + β⋅y
+        z = apply(InverseAdjoint, B, x, scratch) # z <- inv(B')⋅x
+        apply!(α, Inverse, B, z, (z !== x), β, y) # y <- α⋅inv(B)⋅z + β⋅y
+    end
+    return y
+end

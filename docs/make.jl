@@ -12,7 +12,8 @@ makedocs(
     ),
     authors = "Éric Thiébaut and contributors",
     pages = ["index.md", "install.md", "introduction.md",
-             "vectors.md", "sparse.md", "mappings.md", "refs.md"]
+             "vectors.md", "sparse.md", "mappings.md",
+             "simplifications.md", "refs.md"]
 )
 
 if DEPLOYDOCS

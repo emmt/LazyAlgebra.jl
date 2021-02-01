@@ -120,6 +120,7 @@ using LinearAlgebra.BLAS: libblas, @blasfunc,
 using SparseArrays: sparse
 
 include("types.jl")
+include("traits.jl")
 include("utils.jl")
 include("methods.jl")
 include("vectors.jl")
@@ -127,7 +128,6 @@ include("genmult.jl")
 import .GenMult: lgemm!, lgemm, lgemv!, lgemv
 include("blas.jl")
 include("coder.jl")
-include("simplify.jl")
 include("rules.jl")
 include("mappings.jl")
 
@@ -149,7 +149,6 @@ for sym in (:Adjoint,
             :Inverse,
             :InverseAdjoint,
             :Linear,
-            :LazyAlgebra,
             :LinearType,
             :Morphism,
             :MorphismType,

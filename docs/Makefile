@@ -1,5 +1,12 @@
-SOURCES = Project.toml make.jl src/index.md src/introduction.md \
-    src/vectors.md src/mappings.md
+SOURCES = \
+    Project.toml \
+    make.jl \
+    src/index.md \
+    src/introduction.md \
+    src/mappings.md \
+    src/refs.md \
+    src/simplifications.md \
+    src/vectors.md
 
 default: build/index.html
 
