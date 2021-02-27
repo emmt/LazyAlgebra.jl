@@ -58,6 +58,7 @@ function test_api(::Type{P}, A::Mapping, x0::AbstractArray, y0::AbstractArray;
         end
     end
 end
+
 function test_api(::Type{P}, A::Mapping, x0::AbstractArray, y0::AbstractArray;
                   rtol::Real=sqrt(relativeprecision(x0,y0)),
                   atol::Real=0) where {P<:Union{Adjoint,Inverse}}

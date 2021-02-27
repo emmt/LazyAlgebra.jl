@@ -15,6 +15,19 @@ Future:
   `LazyAlgebra.LazyAlgebraLowLevel`) exports types and methods needed to extend
   or implement `LazyAlgebra` mappings.
 
+* The finite difference operator was too limited (finite differences were
+  forcibly computed along all dimensions and only 1st order derivatves were
+  implemented) and slow (because the leading dimension was used to store the
+  finite differences along each dimension).  The new family of operators can
+  compute 1st or 2nd derivatives along all or given dimensions.  The last
+  dimension of the result is used to store finite differences along each chosen
+  dimensions; the operators are much faster (at least 3 times faster for
+  200×200 arrays for instance).  Applying the Gram composition `D'*D` of a
+  finite difference operator `D` is optimized and is about 2 times faster than
+  applying `D` and then `D'`. Type `SimpleFiniteDifferences` is no longer
+  available, use `Diff` instead (`Diff` was available as a shortcut in previous
+  releases).
+
 
 ## Version 0.1.0
 

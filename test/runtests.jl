@@ -16,9 +16,6 @@ end
 @testset "Generalized matrix multiplication" begin
     include("genmult-tests.jl")
 end
-@testset "Codger                           " begin
-    include("coder-tests.jl")
-end
 @testset "Vectorized operations            " begin
     include("vect-tests.jl")
 end

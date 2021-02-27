@@ -29,7 +29,6 @@ export
     Mapping,
     NonuniformScaling,
     RankOneOperator,
-    SimpleFiniteDifferences,
     SingularSystem,
     SparseOperator,
     SparseOperatorCOO,
@@ -127,7 +126,6 @@ include("vectors.jl")
 include("genmult.jl")
 import .GenMult: lgemm!, lgemm, lgemv!, lgemv
 include("blas.jl")
-include("coder.jl")
 include("rules.jl")
 include("mappings.jl")
 include("foundations.jl")
@@ -138,8 +136,8 @@ using .SparseOperators
 
 include("cropping.jl")
 import .Cropping: CroppingOperator, ZeroPaddingOperator, defaultoffset
-include("finitedifferences.jl")
-import .FiniteDifferences: SimpleFiniteDifferences, Diff
+include("diff.jl")
+import .FiniteDifferences: Diff
 include("fft.jl")
 import .FFTs: CirculantConvolution, FFTOperator
 include("conjgrad.jl")
