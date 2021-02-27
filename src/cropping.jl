@@ -22,7 +22,7 @@ export
     defaultoffset
 
 using ArrayTools
-using ..LazyAlgebraLowLevel
+using ..Foundations
 using ..LazyAlgebra
 using ..LazyAlgebra: @callable, bad_argument, bad_size
 import ..LazyAlgebra: apply!, vcreate,

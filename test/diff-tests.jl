@@ -6,7 +6,7 @@
 module TestingLazyAlgebraDiff
 
 using LazyAlgebra
-using LazyAlgebra.LazyAlgebraLowLevel
+using LazyAlgebra.Foundations
 using Test
 
 

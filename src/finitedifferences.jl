@@ -17,7 +17,7 @@ export
     SimpleFiniteDifferences
 
 using ..Coder
-using ..LazyAlgebraLowLevel
+using ..Foundations
 using ..LazyAlgebra
 using ..LazyAlgebra:
     @callable, Floats, bad_argument, bad_size

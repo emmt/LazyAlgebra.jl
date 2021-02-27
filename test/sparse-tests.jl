@@ -9,7 +9,7 @@ using SparseArrays
 using StructuredArrays
 using LazyAlgebra
 using LazyAlgebra: identical
-using LazyAlgebra.LazyAlgebraLowLevel
+using LazyAlgebra.Foundations
 using LazyAlgebra.SparseMethods
 using LazyAlgebra.SparseOperators: check_structure, compute_offsets
 using Test

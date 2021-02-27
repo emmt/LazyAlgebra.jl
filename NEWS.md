@@ -9,7 +9,16 @@ Future:
   `inv(Diag(a))` automatically yields `Inverse(Diag(a))` while
   `simplify(inv(Diag(a)))` yields `Diag(1 ./ a)`.
 
-Done:
+## Version 0.2.0
+
+* Sub-module `LazyAlgebra.Foundations` (previously
+  `LazyAlgebra.LazyAlgebraLowLevel`) exports types and methods needed to extend
+  or implement `LazyAlgebra` mappings.
+
+
+## Version 0.1.0
+
+* New rules: `α/A -> α*inv(A)`.
 
 * Exported methods and types have been limited to the ones for the end-user.
   Use `using LazyAlgebra.LazyAlgebraLowLevel` to use low-level symbols.

@@ -7,7 +7,7 @@ module TestingLazyAlgebraCrop
 
 using Test
 using LazyAlgebra
-using LazyAlgebra.LazyAlgebraLowLevel
+using LazyAlgebra.Foundations
 
 @testset "Cropping and zero-padding" begin
     #
