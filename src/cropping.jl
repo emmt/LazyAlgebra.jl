@@ -8,7 +8,7 @@
 # This file is part of LazyAlgebra (https://github.com/emmt/LazyAlgebra.jl)
 # released under the MIT "Expat" license.
 #
-# Copyright (c) 2019-2020, Éric Thiébaut.
+# Copyright (c) 2019-2021, Éric Thiébaut.
 #
 
 module Cropping
@@ -24,14 +24,12 @@ export
 using ArrayTools
 using ..Foundations
 using ..LazyAlgebra
-using ..LazyAlgebra: @callable, bad_argument, bad_size
+using ..LazyAlgebra: bad_argument, bad_size
 import ..LazyAlgebra: apply!, vcreate,
     input_size, input_ndims, output_size, output_ndims
 
 """
-```julia
-CroppingOperator(outdims, inpdims, offset=defaultoffset(outdims,inpdims))
-```
+    CroppingOperator(outdims, inpdims, offset=defaultoffset(outdims,inpdims))
 
 yields a linear map which implements cropping of arrays of size `inpdims` to
 produce arrays of size `outdims`.  By default, the output array is centered
@@ -245,9 +243,7 @@ function apply!(α::Number,
 end
 
 """
-```julia
-ZeroPaddingOperator(outdims, inpdims, offset=defaultoffset(outdims,inpdims))
-```
+    ZeroPaddingOperator(outdims, inpdims, offset=defaultoffset(outdims,inpdims))
 
 yields a linear map which implements zero-padding of arrays of size `inpdims`
 to produce arrays of size `outdims`.  By default, the input array is centered
@@ -267,11 +263,12 @@ ZeroPaddingOperator(outdims, inpdims, offset) =
     Adjoint(CroppingOperator(inpdims, outdims, offset))
 
 """
+    defaultoffset(dim1,dim2)
 
-`defaultoffset(dim1,dim2)` yields the index offset such that the centers (in
-the same sense as assumed by `fftshift`) of dimensions of lengths `dim1` and
-`dim2` are coincident.   If `off = defaultoffset(dim1,dim2)` and `i2` is the
-index along `dim2`, then the index along `dim1` is `i1 = i2 + off`.
+yields the index offset such that the centers (in the same sense as assumed by
+`fftshift`) of dimensions of lengths `dim1` and `dim2` are coincident.  If `off
+= defaultoffset(dim1,dim2)` and `i2` is the index along `dim2`, then the index
+along `dim1` is `i1 = i2 + off`.
 
 """
 defaultoffset(dim1::Integer, dim2::Integer) =

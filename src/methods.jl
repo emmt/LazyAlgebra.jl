@@ -24,8 +24,8 @@ end
 """
     @callable T
 
-makes concrete type `T` callable as a regular mapping, that is `A(x)` yields
-`apply(A,x)` for any `A` of type `T`.
+makes instances of concrete type `T` callable as a regular `LazyAlgebra`
+mapping, that is `A(x)` yields `apply(A,x)` for any `A` of type `T`.
 
 """
 macro callable(T)

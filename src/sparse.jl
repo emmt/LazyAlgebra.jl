@@ -37,23 +37,7 @@ using ZippedArrays
 import LinearAlgebra
 
 using ..LazyAlgebra
-using .LazyAlgebra:
-    Adjoint,
-    Direct,
-    Inverse,
-    InverseAdjoint,
-    Endomorphism,
-    Morphism,
-    promote_multiplier,
-    axpby_yields_x,
-    axpby_yields_xpy,
-    axpby_yields_xmy,
-    axpby_yields_xpby,
-    axpby_yields_ax,
-    axpby_yields_axpy,
-    axpby_yields_axmy,
-    axpby_yields_axpby,
-    @callable
+using ..Foundations
 
 import .LazyAlgebra:
     MorphismType,

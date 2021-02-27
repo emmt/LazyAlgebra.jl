@@ -29,7 +29,7 @@ export
 using ..Foundations
 using ..LazyAlgebra
 using ..LazyAlgebra:
-    @callable, bad_argument, bad_size, compose
+    bad_argument, bad_size, compose
 import ..LazyAlgebra:
     adjoint, apply!, vcreate, MorphismType, mul!,
     input_size, input_ndims, input_eltype,
