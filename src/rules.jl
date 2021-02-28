@@ -135,7 +135,7 @@ brief(T::Type) = repr(T)
 # Left-multiplication and left-division by a scalar.  The only way to
 # right-multiply or right-divide a mapping by a scalar is to right multiply or
 # divide it by the scaled identity.
-*(α::Number, A::Mapping) = (α == one(α) ? A : Scaled(α, A))
+*(α::Number, A::Mapping) = (α == 1 ? A : Scaled(α, A))
 *(α::Number, A::Scaled) = (α*multiplier(A))*unscaled(A)
 \(α::Number, A::Mapping) = inv(α)*A
 \(α::Number, A::Scaled) = (multiplier(A)/α)*unscaled(A)

@@ -128,9 +128,9 @@ output_size(A::NonuniformScaling{<:AbstractArray}, i) =
     size(coefficients(A), i)
 
 # Simplify left multiplication (and division) by a scalar.
-# FIXME: α = zero(α) should be treated specifically
+# FIXME: α = 0 should be treated specifically
 *(α::Number, A::NonuniformScaling)::NonuniformScaling =
-    (α == one(α) ? A : NonuniformScaling(vscale(α, coefficients(A))))
+    (α == 1 ? A : NonuniformScaling(vscale(α, coefficients(A))))
 
 # Extend composition of diagonal operators.
 *(A::NonuniformScaling, B::NonuniformScaling) =

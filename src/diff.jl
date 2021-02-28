@@ -457,10 +457,10 @@ function unsafe_apply!(alpha::Number,
                        J::ArrayAxis,
                        K::ArrayAxes,
                        l::CartesianIndex) where {L,Opt}
-    if alpha == one(alpha)
-        if beta == zero(beta)
+    if alpha == 1
+        if beta == 0
             unsafe_apply!(axpby_yields_x,     1, P, A, x, 0, y, I, J, K, l)
-        elseif beta == one(beta)
+        elseif beta == 1
             unsafe_apply!(axpby_yields_xpy,   1, P, A, x, 1, y, I, J, K, l)
         else
             β = promote_multiplier(beta, y)
@@ -468,9 +468,9 @@ function unsafe_apply!(alpha::Number,
         end
     else
         α = promote_multiplier(alpha, y)
-        if beta == zero(beta)
+        if beta == 0
             unsafe_apply!(axpby_yields_ax,    α, P, A, x, 0, y, I, J, K, l)
-        elseif beta == one(beta)
+        elseif beta == 1
             unsafe_apply!(axpby_yields_axpy,  α, P, A, x, 1, y, I, J, K, l)
         else
             β = promote_multiplier(beta, y)
@@ -491,10 +491,10 @@ function unsafe_apply!(alpha::Number,
                        I::ArrayAxes,
                        J::ArrayAxis,
                        K::ArrayAxes)
-    if alpha == one(alpha)
-        if beta == zero(beta)
+    if alpha == 1
+        if beta == 0
             unsafe_apply!(axpby_yields_x,     1, P, A, x, 0, y, I, J, K)
-        elseif beta == one(beta)
+        elseif beta == 1
             unsafe_apply!(axpby_yields_xpy,   1, P, A, x, 1, y, I, J, K)
         else
             β = promote_multiplier(beta, y)
@@ -502,9 +502,9 @@ function unsafe_apply!(alpha::Number,
         end
     else
         α = promote_multiplier(alpha, y)
-        if beta == zero(beta)
+        if beta == 0
             unsafe_apply!(axpby_yields_ax,    α, P, A, x, 0, y, I, J, K)
-        elseif beta == one(beta)
+        elseif beta == 1
             unsafe_apply!(axpby_yields_axpy,  α, P, A, x, 1, y, I, J, K)
         else
             β = promote_multiplier(beta, y)

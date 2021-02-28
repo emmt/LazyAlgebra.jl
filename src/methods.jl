@@ -48,9 +48,9 @@ show(io::IO, A::Identity) = print(io, "Id")
 
 function show(io::IO, A::Scaled)
     λ, M = multiplier(A), unscaled(A)
-    if λ == -one(λ)
+    if λ == -1
         print(io, "-")
-    elseif λ != one(λ)
+    elseif λ != 1
         print(io, λ, "⋅")
     end
     show(io, M)
@@ -58,13 +58,13 @@ end
 
 function show(io::IO, A::Scaled{<:Sum})
     λ, M = multiplier(A), unscaled(A)
-    if λ == -one(λ)
+    if λ == -1
         print(io, "-(")
-    elseif λ != one(λ)
+    elseif λ != 1
         print(io, λ, "⋅(")
     end
     show(io, M)
-    if λ != one(λ)
+    if λ != 1
         print(io, ")")
     end
 end
