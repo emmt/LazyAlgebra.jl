@@ -8,6 +8,8 @@ work/
 
 # Backup files
 *~
+*.orig
+*[.-]bak
 
 # Automatically generated files:
 deps/deps.jl
