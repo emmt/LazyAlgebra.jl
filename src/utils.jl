@@ -108,7 +108,7 @@ promote_multiplier(λ::Number, args::Type...) =
     to_tuple(arg)
 
 converts `arg` into an `N`-tuple where `N` is the number of elements of `arg`.
-This is equivallent to `Tuple(arg)` or `(arg...,)` for a vector but it is much
+This is equivalent to `Tuple(arg)` or `(arg...,)` for a vector but it is much
 faster for small vectors.
 
 """ to_tuple
