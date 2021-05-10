@@ -132,7 +132,7 @@ include("foundations.jl")
 
 include("sparse.jl")
 using .SparseOperators
-#import .SparseOperators: SparseOperator, sparse, unpack!
+import .SparseOperators: unpack!
 
 include("cropping.jl")
 import .Cropping: CroppingOperator, ZeroPaddingOperator, defaultoffset
