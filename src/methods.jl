@@ -944,3 +944,7 @@ function apply!(α::Number, ::Type{Inverse}, A::Gram, x, scratch::Bool, β::Numb
     end
     return y
 end
+
+# A Gram operator is self-adjoint by construction and yields result of same
+# kind as input.
+vcreate(::Type{<:Operations}, ::Gram, x, scratch::Bool) = vcreate(x)

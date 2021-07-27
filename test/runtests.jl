@@ -34,6 +34,9 @@ end
 @testset "FFT methods                      " begin
     include("fft-tests.jl")
 end
+#@testset "Gram operators                   " begin
+    include("gram-tests.jl")
+#end
 @testset "Conjugate gradient               " begin
     include("cg-tests.jl")
 end

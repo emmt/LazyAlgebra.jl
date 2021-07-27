@@ -239,15 +239,6 @@ function vcreate(::Type{Adjoint},
     end
 end
 
-# A Gram operator is Hermitian by construction and yields result of same size
-# as input.
-function vcreate(::Type{<:Operations},
-                 A::Gram{<:Diff},
-                 x::AbstractArray{T,N},
-                 scratch::Bool) where {T,N}
-    return similar(x)
-end
-
 #------------------------------------------------------------------------------
 # CHECKING OF ARGUMENTS
 
