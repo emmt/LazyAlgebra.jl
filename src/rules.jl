@@ -497,7 +497,7 @@ end
 function compose!(A::Vector{Mapping}, B::Mapping)
     # Compute the simplified composition of the last term of A with B.  The
     # result is either a simple mapping or a simplified composition.
-    m = length(A); @assert m > 0
+    m = length(A); @certify m > 0
     C = A[m]*B
 
     # Replace the last term of A with C.

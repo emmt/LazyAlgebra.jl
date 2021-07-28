@@ -137,3 +137,26 @@ function to_tuple(x::AbstractVector)
         (x[1], x[2], x[3], x[4], x[5], x[6], x[7], x[8], x[9], x[10])
     end
 end
+
+"""
+    @certify expr [mesg]
+
+asserts that expression `expr` is true; otherwise, throws an `AssertionError`
+exception with message `mesg`.  If unspecified, `mesg` is `expr` converted into
+a string.  Compared to `@assert`, the assertion made by `@certify` may never be
+disabled whatever the optimization level.
+
+"""
+macro certify(expr)
+    _certify(expr, string(expr))
+end
+macro certify(expr, mesg::Union{Expr,Symbol})
+    _certify(expr, :(string($(esc(mesg)))))
+end
+macro certify(expr, mesg::AbstractString)
+    _certify(expr, mesg)
+end
+macro certify(expr, mesg)
+    _certify(expr, string(mesg))
+end
+_certify(expr, mesg) = :($(esc(expr)) ? nothing : throw(AssertionError($mesg)))

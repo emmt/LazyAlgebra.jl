@@ -705,8 +705,8 @@ end
 # return whether the selection is non-empty.
 @inline function checkselection(sel::AbstractVector{Int},
                                 A::AbstractArray{<:Any,N}) where {N}
-    @assert IndexStyle(sel) === IndexLinear()
-    @assert IndexStyle(A) === IndexLinear()
+    @certify IndexStyle(sel) === IndexLinear()
+    @certify IndexStyle(A) === IndexLinear()
     flag = !isempty(sel)
     if flag
         imin, imax = extrema(sel)
@@ -719,7 +719,7 @@ end
 @inline function checkselection(sel::AbstractVector{Int},
                                 A::AbstractArray{<:Any,N},
                                 B::AbstractArray{<:Any,N}) where {N}
-    @assert IndexStyle(B) === IndexLinear()
+    @certify IndexStyle(B) === IndexLinear()
     axes(A) == axes(B) || arguments_have_incompatible_axes()
     checkselection(sel, A)
 end
@@ -728,8 +728,8 @@ end
                                 A::AbstractArray{<:Any,N},
                                 B::AbstractArray{<:Any,N},
                                 C::AbstractArray{<:Any,N}) where {N}
-    @assert IndexStyle(B) === IndexLinear()
-    @assert IndexStyle(C) === IndexLinear()
+    @certify IndexStyle(B) === IndexLinear()
+    @certify IndexStyle(C) === IndexLinear()
     axes(A) == axes(B) == axes(C) || arguments_have_incompatible_axes()
     checkselection(sel, A)
 end

@@ -38,6 +38,7 @@ import LinearAlgebra
 
 using ..LazyAlgebra
 using ..Foundations
+using ..LazyAlgebra: @certify
 
 import .LazyAlgebra:
     MorphismType,
@@ -98,8 +99,10 @@ to_size(siz::Tuple{Vararg{Int}}) = siz
 to_size(siz::Tuple{Vararg{Integer}}) = map(to_int, siz)
 to_size(siz::Integer) = (to_int(siz),)
 
-as_matrix(A::AbstractMatrix, nrows::Int, ncols::Int) =
-    (@assert nrows*ncols == length(A); A)
+as_matrix(A::AbstractMatrix, nrows::Int, ncols::Int) = begin
+    @certify size(A) == (nrows, ncols)
+    return A
+end
 as_matrix(A::AbstractArray, nrows::Int, ncols::Int) =
     reshape(A, (nrows, ncols))
 
@@ -1114,7 +1117,8 @@ for CS in (:SparseOperatorCSR,
         $CS{Any,M,N,V}(A::AbstractArray{T}, args...; kwds...) where {T,M,N,V} =
             $CS{T,M,N,V}(A, args...; kwds...)
         function $CS{T,M}(A::AbstractArray{S,L}, args...; kwds...) where {S,T,L,M}
-            @assert 1 ≤ M < L
+            1 ≤ M < L ||
+                error("parameters M=$M and L=$L are not such that 1 ≤ M < L")
             $CS{T,M,L-M}(A, args...; kwds...)
         end
         $CS{T,M,N}(A::AbstractArray, args...; kwds...) where {T,M,N} =
@@ -1145,8 +1149,8 @@ function SparseOperatorCSR{T,M,N}(vals::AbstractVector,
                                   offs::AbstractVector{<:Integer},
                                   rowsiz::ArraySize,
                                   colsiz::ArraySize) where {T,M,N}
-    @assert length(rowsiz) == M
-    @assert length(colsiz) == N
+    check_row_ndims(rowsiz, M)
+    check_column_ndims(colsiz, N)
     SparseOperatorCSR{T}(vals, cols, offs, rowsiz, colsiz)
 end
 
@@ -1155,7 +1159,7 @@ function SparseOperatorCSR{T,M}(vals::AbstractVector,
                                 offs::AbstractVector{<:Integer},
                                 rowsiz::ArraySize,
                                 colsiz::ArraySize) where {T,M}
-    @assert length(rowsiz) == M
+    check_row_ndims(rowsiz, M)
     SparseOperatorCSR{T}(vals, cols, offs, rowsiz, colsiz)
 end
 
@@ -1174,8 +1178,8 @@ function SparseOperatorCSC{T,M,N}(vals::AbstractVector,
                                   offs::AbstractVector{<:Integer},
                                   rowsiz::ArraySize,
                                   colsiz::ArraySize) where {T,M,N}
-    @assert length(rowsiz) == M
-    @assert length(colsiz) == N
+    check_row_ndims(rowsiz, M)
+    check_column_ndims(colsiz, N)
     SparseOperatorCSC{T}(vals, rows, offs, rowsiz, colsiz)
 end
 
@@ -1184,7 +1188,7 @@ function SparseOperatorCSC{T,M}(vals::AbstractVector,
                                 offs::AbstractVector{<:Integer},
                                 rowsiz::ArraySize,
                                 colsiz::ArraySize) where {T,M}
-    @assert length(rowsiz) == M
+    check_row_ndims(rowsiz, M)
     SparseOperatorCSC{T}(vals, rows, offs, rowsiz, colsiz)
 end
 
@@ -1203,8 +1207,8 @@ function SparseOperatorCOO{T,M,N}(vals::AbstractVector,
                                   cols::AbstractVector{<:Integer},
                                   rowsiz::ArraySize,
                                   colsiz::ArraySize) where {T,M,N}
-    @assert length(rowsiz) == M
-    @assert length(colsiz) == N
+    check_row_ndims(rowsiz, M)
+    check_column_ndims(colsiz, N)
     SparseOperatorCOO{T}(vals, rows, cols, rowsiz, colsiz)
 end
 
@@ -1213,7 +1217,7 @@ function SparseOperatorCOO{T,M}(vals::AbstractVector,
                                 cols::AbstractVector{<:Integer},
                                 rowsiz::ArraySize,
                                 colsiz::ArraySize) where {T,M}
-    @assert length(rowsiz) == M
+    check_row_ndims(rowsiz, M)
     SparseOperatorCOO{T}(vals, rows, cols, rowsiz, colsiz)
 end
 
@@ -1225,10 +1229,17 @@ function SparseOperatorCOO{T}(vals::AbstractVector,
     SparseOperatorCOO(to_values(T, vals), rows, cols, rowsiz, colsiz)
 end
 
+check_row_ndims(rowsiz::ArraySize, M::Integer) =
+    length(rowsiz) == M ||
+        throw_dimension_mismatch("number of row dimensions is not M=$M")
+
+check_column_ndims(colsiz::ArraySize, N::Integer) =
+    length(colsiz) == N ||
+        throw_dimension_mismatch("number of columns dimensions is not N=$N")
 
 # Constructors of a sparse operator in various format given a regular Julia
 # array and a selector function.  Julia arrays are usually in column-major
-# order but this is not always the vase, to handle various storage orders when
+# order but this is not always the case, to handle various storage orders when
 # extracting selected entries, we convert the input array into a equivalent
 # "matrix", that is a 2-dimensional array.
 
@@ -1682,7 +1693,7 @@ Indices must be in non-increasing order an all in the range `1:n`.
 function compute_offsets(n::Int,
                          inds::AbstractVector{Int},
                          len::Int = length(inds))
-    @assert len ≤ length(inds)
+    @certify len ≤ length(inds)
     @inbounds begin
         offs = Vector{Int}(undef, n + 1)
         i = 0
@@ -1733,9 +1744,9 @@ dimensions.
 """
 function get_equivalent_size(A::AbstractArray{T,L},
                              ::Val{M}, ::Val{N}) where {T,L,M,N}
-   @assert L == M + N
-    @assert M ≥ 1
-    @assert N ≥ 1
+    @certify L == M + N
+    @certify M ≥ 1
+    @certify N ≥ 1
     eachindex(A) == 1:length(A) ||
         throw_argument_error("array must have standard linear indexing")
     siz = size(A)
@@ -1751,7 +1762,7 @@ end
 
 yields the number of selected entries in matrix `A` such that `sel(A[i,j],i,j)`
 is `true` and with `i` and `j` the row and column indices.  if optinal argument
-`rowmajor` is true, the array is walked in row-major order; otherwsie (the
+`rowmajor` is true, the array is walked in row-major order; otherwise (the
 default), the array is walked in column-major order.
 
 """
@@ -2092,6 +2103,15 @@ throw_argument_error(mesg::AbstractString) = throw(ArgumentError(mesg))
 
 @noinline throw_non_standard_indexing(id) =
     throw_argument_error(id, " has non-standard indexing")
+
+"""
+    throw_assertion_error(args...)
+
+throws an `AssertionError` exception with a textual message made of `args...`.
+
+"""
+throw_assertion_error(mesg::AbstractString) = throw(AssertionError(mesg))
+@noinline throw_assertion_error(args...) = throw_assertion_error(string(args...))
 
 """
     throw_dimension_mismatch(args...)

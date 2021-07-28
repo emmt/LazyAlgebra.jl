@@ -29,7 +29,7 @@ export
 using ..Foundations
 using ..LazyAlgebra
 using ..LazyAlgebra:
-    bad_argument, bad_size, compose
+    @certify, bad_argument, bad_size, compose
 import ..LazyAlgebra:
     adjoint, apply!, vcreate, MorphismType, mul!,
     input_size, input_ndims, input_eltype,
@@ -669,7 +669,7 @@ function CirculantConvolution(psf::DenseArray{T,N};
                               shift::Bool = false,
                               kwds...) where {T<:fftwComplex,N}
     # Check arguments and get dimensions.
-    @assert normalize == false "normalizing a complex PSF has no sense"
+    @certify normalize == false "normalizing a complex PSF has no sense"
     planning = check_flags(flags)
     n = length(psf)
     dims = size(psf)
@@ -724,9 +724,9 @@ function apply!(α::Number,
                 scratch::Bool,
                 β::Number,
                 y::AbstractArray{Complex{T},N}) where {T<:fftwReal,N}
-    @assert !Base.has_offset_axes(x, y)
+    @certify !Base.has_offset_axes(x, y)
     if α == 0
-        @assert size(y) == H.dims
+        @certify size(y) == H.dims
         vscale!(y, β)
     else
         n = length(x)
@@ -754,9 +754,9 @@ function apply!(α::Number,
                 scratch::Bool,
                 β::Number,
                 y::AbstractArray{T,N}) where {T<:fftwReal,N}
-    @assert !Base.has_offset_axes(x, y)
+    @certify !Base.has_offset_axes(x, y)
     if α == 0
-        @assert size(y) == H.dims
+        @certify size(y) == H.dims
         vscale!(y, β)
     else
         n = length(x)
@@ -787,7 +787,7 @@ arrays do not have the same dimensions.  It is assumed that `α ≠ 0`.
 function _apply!(arr::AbstractArray{Complex{T},N},
                  α::Number, ::Type{Direct},
                  mtf::AbstractArray{Complex{T},N}) where {T,N}
-    @assert axes(arr) == axes(mtf)
+    @certify axes(arr) == axes(mtf)
     if α == 1
         @inbounds @simd for i in eachindex(arr, mtf)
             arr[i] *= mtf[i]
@@ -803,7 +803,7 @@ end
 function _apply!(arr::AbstractArray{Complex{T},N},
                  α::Number, ::Type{Adjoint},
                  mtf::AbstractArray{Complex{T},N}) where {T,N}
-    @assert axes(arr) == axes(mtf)
+    @certify axes(arr) == axes(mtf)
     if α == 1
         @inbounds @simd for i in eachindex(arr, mtf)
             arr[i] *= conj(mtf[i])
