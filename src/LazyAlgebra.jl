@@ -141,5 +141,6 @@ import .FiniteDifferences: Diff
 include("fft.jl")
 import .FFTs: CirculantConvolution, FFTOperator
 include("conjgrad.jl")
+include("init.jl")
 
 end

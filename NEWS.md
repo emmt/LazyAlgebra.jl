@@ -1,6 +1,6 @@
 # Visible changes in LazyAlgebra
 
-Future:
+## Wish list for future developments
 
 * Simplifications that are automatically done by`LazyAlgebra` may change
   multipliers but must not change the coefficients of the mappings.  Call
@@ -8,6 +8,37 @@ Future:
   coefficients of the mappings in `A`.  For instance, assuming `a` is an array,
   `inv(Diag(a))` automatically yields `Inverse(Diag(a))` while
   `simplify(inv(Diag(a)))` yields `Diag(1 ./ a)`.
+
+* Calling BLAS should be avoided in some cases, either because BLAS is slower
+  than optimized Julia code, or because BLAS may use more than one thread in
+  inappropriate places (e.g., Julia multi-threaded code).
+
+* As far as possible, make the code more agnostic of the element type of the
+  arguments.  This would be useful to deal with arrays whose elements have
+  non-standard numerical types as physical quantities in the `Unitful` package.
+
+
+## Version 0.2.x
+
+* Automatically specialize `multiplier_type` for `Unitful.AbstractQuantity`.
+
+## Version 0.2.2
+
+* Improve `promote_multiplier` and make it easy to extend.  The work done by
+  `promote_multiplier` is break in sevral functions: `multiplier_type(x)`
+  yields the *element type* corresponding to `x` (which can be a number, an
+  array of numbers, or a number type), `multiplier_floatingpoint_type(args...)`
+  combines the types given by `multiplier_type` for all `args...` to yield a
+  concrete floating-point type.  The method `multiplier_type` is intended to be
+  extended by other packages.
+
+## Version 0.2.1
+
+* Replace `@assert` by `@certify`.  Compared to `@assert`, the assertion made
+  by `@certify` may never be disabled whatever the optimization level.
+
+* Provide default `vcreate` method for Gram operators.
+
 
 ## Version 0.2.0
 
