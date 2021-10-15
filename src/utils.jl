@@ -58,7 +58,9 @@ warn(io::IO, args...) = message(io, "Warning:", args...; color=:yellow)
     promote_multiplier(λ, T)
 
 yields multiplier `λ` converted to a suitable floating-point type for
-multiplying values or expressions of type `T`.
+multiplying values or expressions of type `T`.  This method is *type stable*.
+The result has the same floating-point precision as `T` and is a real if `λ` is
+real or a complex if `λ` is complex.
 
 Multiple arguments can be specified after the multiplier `λ`:
 
@@ -67,42 +69,64 @@ Multiple arguments can be specified after the multiplier `λ`:
 to have `T` the promoted type of all types in `args...` or all element types of
 arrays in `args...`.
 
-This method is *type stable*.  The result has the same floating-point precision
-as `T` and is a real if `λ` is real or a complex if `λ` is complex.
+See methods [`LazyAlgebra.multiplier_type`](@ref) and
+[`LazyAlgebra.multiplier_floatingpoint_type`](@ref).
+
+""" promote_multiplier
+
+# Note taht the only direct sub-types of `Number` are abstract types `Real` and
+# `Complex`.  Also see discussion here
+# (https://github.com/emmt/LinearInterpolators.jl/issues/7) for details about
+# the following implementation.
+
+@inline function promote_multiplier(λ::Real, args...)
+    T = multiplier_floatingpoint_type(args...)
+    return convert(T, λ)::T
+end
+
+@inline function promote_multiplier(λ::Complex{<:Real}, args...)
+    T = multiplier_floatingpoint_type(args...)
+    return convert(Complex{T}, λ)::Complex{T}
+end
 
 """
-promote_multiplier(λ::Real, ::Type{T}) where {T<:Floats} = begin
-    # If λ ∈ ℝ, the returned multiplier is real with the same floating-point
-    # precision as `T`.
-    isconcretetype(T) || operand_type_not_concrete(T)
-    convert(real(T), λ)
+    multiplier_floatingpoint_type(args...) -> T::AbstractFloat
+
+yields the multiplier floating-point type for the arguments `args...` of the
+multiplier.  Each argument may be anything acceptable for
+[`LazyAlgebra.multiplier_type`](@ref).  The result is guaranteed to be a
+concrete floating-point type.
+
+See methods [`LazyAlgebra.promote_multiplier`](@ref) and
+[`LazyAlgebra.multiplier_type`](@ref).
+
+""" multiplier_floatingpoint_type
+
+multiplier_floatingpoint_type(::Tuple{}) =
+    throw(ArgumentError("at least one other argument must be specified"))
+
+@inline function multiplier_floatingpoint_type(args...)
+    T = promote_type(map(multiplier_type, args)...)
+    (T <: Number && isconcretetype(T)) || error(
+        "resulting multiplier type ", T, " is not a concrete real type")
+    return float(real(T))
 end
 
-promote_multiplier(λ::Complex, ::Type{T}) where {T<:Floats} = begin
-    # If λ ∈ ℂ, the returned multiplier is complex with the same floating-point
-    # precision as `T`.
-    isconcretetype(T) || operand_type_not_concrete(T)
-    convert(Complex{real(T)}, λ)
-end
+"""
+    multiplier_type(x) -> T::Number
 
-@noinline promote_multiplier(λ::L, ::Type{T}) where {L<:Number,T} = begin
-    # Other possible cases throw errors.
-    isconcretetype(T) || operand_type_not_concrete(T)
-    error(string("unsupported conversion of multiplier with type ", L,
-                 " for operand with element type ",T))
-end
+yields the *element* type to be imposed to multipliers of `x`.  The result must
+be a concrete number type.  Argument `x` may be an array, a number, or a data
+type.  Other packages are however encouraged to specialize this method for
+their needs.
 
-promote_multiplier(λ::Number, ::AbstractArray{T}) where {T} =
-    promote_multiplier(λ, T)
-promote_multiplier(λ::Number, args::AbstractArray...) =
-    promote_multiplier(λ, map(eltype, args)...)
-promote_multiplier(λ::Number, args::Type...) =
-    promote_multiplier(λ, promote_type(args...))
+See methods [`LazyAlgebra.promote_multiplier`](@ref) and
+[`LazyAlgebra.multiplier_floatingpoint_type`](@ref).
 
-# Note: the only direct sub-types of `Number` are abstract types `Real` and
-# `Complex`.
-@noinline operand_type_not_concrete(::Type{T}) where {T} =
-    error("operand type ", T, " is not a concrete type")
+"""
+multiplier_type(::Type{T}) where  {T<:Number} = T
+multiplier_type(::AbstractArray{T}) where {T<:Number} = T
+multiplier_type(::T) where  {T<:Number} = T
 
 """
     to_tuple(arg)

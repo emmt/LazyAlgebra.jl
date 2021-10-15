@@ -68,7 +68,7 @@ using LazyAlgebra
                                         real(promote_type(T1,T2,T3,T4)), λ))
             end
         end
-        for T in (AbstractFloat, Complex, Number)[randperm(3)]
+        for T in (AbstractFloat, Real, Complex, Integer, Number, Unsigned)[randperm(6)]
             @test_throws ErrorException promote_multiplier(1, T)
         end
     end

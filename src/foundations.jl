@@ -58,6 +58,8 @@ for sym in (Symbol("@callable"),
             :axpby_yields_axpy,
             :axpby_yields_axmy,
             :axpby_yields_axpby,
+            :multiplier_type,
+            :multiplier_floatingpoint_type,
             :promote_multiplier)
     @eval begin
         import ..LazyAlgebra: $sym
