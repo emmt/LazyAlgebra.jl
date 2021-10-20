@@ -18,7 +18,10 @@
   non-standard numerical types as physical quantities in the `Unitful` package.
 
 
-## Version 0.2.x
+## Version 0.2.3
+
+* Simplify and generalize `vfill!` and `vzero!` to be able to work with
+  `Unitful` elements.
 
 * Automatically specialize `multiplier_type` for `Unitful.AbstractQuantity`.
 
