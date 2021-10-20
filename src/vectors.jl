@@ -175,30 +175,26 @@ _swap!(x::AbstractArray{T,N}, y::AbstractArray{T,N}) where {T,N} =
 """
     vfill!(x, α) -> x
 
-sets all elements of `x` with the scalar value `α` and return `x`.
+sets all elements of `x` with the scalar value `α` and return `x`.  The default
+implementation just calls `fill!(x,α)` but this method may be specialized for
+specific types of variables `x`.
 
 Also see [`vzero!`](@ref), [`fill!`](@ref).
 
 """
 vfill!(x, α) = fill!(x, α)
-vfill!(x::AbstractArray{T}, α) where {T} = vfill!(x, convert(T, α)::T)
-vfill!(x::AbstractArray{T}, α::T) where {T} = begin
-    @inbounds @simd for i in eachindex(x)
-        x[i] = α
-    end
-    return x
-end
 
 """
     vzero!(x) -> x
 
-fills `x` with zeros and returns it.
+fills `x` with zeros and returns it.  The default implementation just calls
+`fill!(x,zero(eltype(x)))` but this method may be specialized for specific
+types of variables `x`.
 
 Also see [`vfill!`](@ref).
 
 """
-vzero!(x) = vfill!(x, 0)
-vzero!(x::AbstractArray{T}) where {T} = vfill!(x, zero(T))
+vzero!(x) = vfill!(x, zero(eltype(x)))
 
 """
     vzeros(x)
