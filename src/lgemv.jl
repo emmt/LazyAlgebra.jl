@@ -388,19 +388,19 @@ function _linear_lgemv!(nrows::Int, ncols::Int,
                         y::AbstractArray{Ty}) where {Ta<:Floats,
                                                      Tx<:Floats,
                                                      Ty<:Floats}
-    if α == 0 || trans == 'N'
+    if iszero(α) || trans == 'N'
         # Form: y := β⋅y
-        if β == 0
+        if iszero(β)
             @inbounds @simd for k in eachindex(y)
                 y[k] = zero(Ty)
             end
-        elseif β != 1
+        elseif !isone(β)
             @inbounds @simd for k in eachindex(y)
                 y[k] *= β
             end
         end
     end
-    if α != 0
+    if !iszero(α)
         if trans == 'N'
             @inbounds for j in 1:ncols
                 temp = α*x[j]
@@ -420,7 +420,7 @@ function _linear_lgemv!(nrows::Int, ncols::Int,
                     @simd for i in 1:nrows
                         temp += A[off + i]*x[i]
                     end
-                    y[j] = (β == 0 ? α*temp : α*temp + β*y[j])
+                    y[j] = (iszero(β) ? α*temp : α*temp + β*y[j])
                 end
             else
                 @inbounds for j in 1:ncols
@@ -429,7 +429,7 @@ function _linear_lgemv!(nrows::Int, ncols::Int,
                     @simd for i in 1:nrows
                         temp += conj(A[off + i])*x[i]
                     end
-                    y[j] = (β == 0 ? α*temp : α*temp + β*y[j])
+                    y[j] = (iszero(β) ? α*temp : α*temp + β*y[j])
                 end
             end
         end
@@ -453,19 +453,19 @@ function _generic_lgemv!(I, J,
                          y::AbstractArray{Ty}) where {Ta<:Floats,
                                                       Tx<:Floats,
                                                       Ty<:Floats}
-    if α == 0 || trans == 'N'
+    if iszero(α) || trans == 'N'
         # Form: y := β⋅y
-        if β == 0
+        if iszero(β)
             @inbounds @simd for k in eachindex(y)
                 y[k] = zero(Ty)
             end
-        elseif β != 1
+        elseif !isone(β)
             @inbounds @simd for k in eachindex(y)
                 y[k] *= β
             end
         end
     end
-    if α != 0
+    if !iszero(α)
         if trans == 'N'
             #
             # Form  y := α*A*x + y.
@@ -489,7 +489,7 @@ function _generic_lgemv!(I, J,
                     @simd for i in I
                         temp += A[i,j]*x[i]
                     end
-                    y[j] = (β == 0 ? α*temp : α*temp + β*y[j])
+                    y[j] = (iszero(β) ? α*temp : α*temp + β*y[j])
                 end
             else
                 #
@@ -500,7 +500,7 @@ function _generic_lgemv!(I, J,
                     @simd for i in I
                         temp += conj(A[i,j])*x[i]
                     end
-                    y[j] = (β == 0 ? α*temp : α*temp + β*y[j])
+                    y[j] = (iszero(β) ? α*temp : α*temp + β*y[j])
                 end
             end
         end

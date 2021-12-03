@@ -130,7 +130,7 @@ output_size(A::NonuniformScaling{<:AbstractArray}, i) =
 # Simplify left multiplication (and division) by a scalar.
 # FIXME: α = 0 should be treated specifically
 *(α::Number, A::NonuniformScaling)::NonuniformScaling =
-    (α == 1 ? A : NonuniformScaling(vscale(α, coefficients(A))))
+    (isone(α) ? A : NonuniformScaling(vscale(α, coefficients(A))))
 
 # Extend composition of diagonal operators.
 *(A::NonuniformScaling, B::NonuniformScaling) =
@@ -148,17 +148,17 @@ function apply!(α::Number,
                                                Ty<:Floats,N}
     w = coefficients(W)
     I = all_indices(w, x, y)
-    if α == 0
+    if iszero(α)
         vscale!(y, β)
-    elseif β == 0
-        if α == 1
+    elseif iszero(β)
+        if isone(α)
             _apply_diagonal!(P, axpby_yields_x, I, 1, w, x, 0, y)
         else
             a = promote_multiplier(α, Tw, Tx)
             _apply_diagonal!(P, axpby_yields_ax, I, a, w, x, 0, y)
         end
-    elseif β == 1
-        if α == 1
+    elseif isone(β)
+        if isone(α)
             _apply_diagonal!(P, axpby_yields_xpy, I, 1, w, x, 1, y)
         else
             a = promote_multiplier(α, Tw, Tx)
@@ -166,7 +166,7 @@ function apply!(α::Number,
         end
     else
         b = promote_multiplier(β, Ty)
-        if α == 1
+        if isone(α)
             _apply_diagonal!(P, axpby_yields_xpby, I, 1, w, x, b, y)
         else
             a = promote_multiplier(α, Tw, Tx)
@@ -247,7 +247,7 @@ function apply!(α::Number, ::Type{Adjoint}, A::RankOneOperator,
 end
 
 function _apply_rank_one!(α::Number, u, v, x, β::Number, y)
-    if α == 0
+    if iszero(α)
         # Lazily assume that y has correct type, dimensions, etc.
         vscale!(y, β)
     else

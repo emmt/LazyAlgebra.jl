@@ -18,15 +18,15 @@ function vupdate!(y::AbstractArray{<:Floats,N},
                   α::Number,
                   x::AbstractArray{<:Floats,N}) where {N}
     I = all_indices(x, y)
-    if α == 1
+    if isone(α)
         @inbounds @simd for i in I
             y[i] += x[i]
         end
-    elseif α == -1
+    elseif isone(-α)
         @inbounds @simd for i in I
             y[i] -= x[i]
         end
-    elseif α != 0
+    elseif !iszero(α)
         alpha = promote_multiplier(α, x)
         @inbounds @simd for i in I
             y[i] += alpha*x[i]
@@ -40,20 +40,20 @@ function vcombine!(dst::AbstractArray{<:Floats,N},
                    x::AbstractArray{<:Floats,N},
                    β::Number,
                    y::AbstractArray{<:Floats,N}) where {N}
-    if α == 0
+    if iszero(α)
         axes(x) == axes(dst) || arguments_have_incompatible_axes()
         vscale!(dst, β, y)
-    elseif β == 0
+    elseif iszero(β)
         axes(y) == axes(dst) || arguments_have_incompatible_axes()
         vscale!(dst, α, x)
     else
         I = all_indices(dst, x, y)
-        if α == 1
-            if β == 1
+        if isone(α)
+            if isone(β)
                 @inbounds @simd for i in I
                     dst[i] = x[i] + y[i]
                 end
-            elseif β == -1
+            elseif isone(-β)
                 @inbounds @simd for i in I
                     dst[i] = x[i] - y[i]
                 end
@@ -63,12 +63,12 @@ function vcombine!(dst::AbstractArray{<:Floats,N},
                     dst[i] = x[i] + beta*y[i]
                 end
             end
-        elseif α == -1
-            if β == 1
+        elseif isone(-α)
+            if isone(β)
                 @inbounds @simd for i in I
                     dst[i] = y[i] - x[i]
                 end
-            elseif β == -1
+            elseif isone(-β)
                 @inbounds @simd for i in I
                     dst[i] = -x[i] - y[i]
                 end
@@ -80,11 +80,11 @@ function vcombine!(dst::AbstractArray{<:Floats,N},
             end
         else
             alpha = promote_multiplier(α, x)
-            if β == 1
+            if isone(β)
                 @inbounds @simd for i in I
                     dst[i] = alpha*x[i] + y[i]
                 end
-            elseif β == -1
+            elseif isone(-β)
                 @inbounds @simd for i in I
                     dst[i] = alpha*x[i] - y[i]
                 end

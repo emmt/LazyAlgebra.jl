@@ -48,9 +48,9 @@ show(io::IO, A::Identity) = print(io, "Id")
 
 function show(io::IO, A::Scaled)
     λ, M = multiplier(A), unscaled(A)
-    if λ == -1
+    if λ == -one(λ)
         print(io, "-")
-    elseif λ != 1
+    elseif !isone(λ)
         print(io, λ, "⋅")
     end
     show(io, M)
@@ -58,13 +58,13 @@ end
 
 function show(io::IO, A::Scaled{<:Sum})
     λ, M = multiplier(A), unscaled(A)
-    if λ == -1
+    if λ == -one(λ)
         print(io, "-(")
-    elseif λ != 1
+    elseif !isone(λ)
         print(io, λ, "⋅(")
     end
     show(io, M)
-    if λ != 1
+    if !isone(λ)
         print(io, ")")
     end
 end
@@ -116,7 +116,7 @@ function show(io::IO, A::Sum{N}) where {N}
                 elseif i > 1
                     print(io, " + ")
                 end
-                if λ != 1
+                if !isone(λ)
                     print(io, λ, "⋅")
                 end
                 show_term(io, M)
@@ -804,7 +804,7 @@ end
 
 function apply!(α::Number, P::Type{<:Union{Direct,Adjoint}}, A::Sum{N},
                 x, scratch::Bool, β::Number, y) where {N}
-    if α == 0
+    if iszero(α)
         # Just scale the destination.
         vscale!(y, β)
     else
@@ -860,7 +860,7 @@ end
 
 function apply!(α::Number, ::Type{P}, A::Composition{N}, x, scratch::Bool,
                 β::Number, y) where {N,P<:Union{Direct,InverseAdjoint}}
-    if α == 0
+    if iszero(α)
         # Just scale the destination.
         vscale!(y, β)
     else
@@ -887,7 +887,7 @@ end
 
 function apply!(α::Number, ::Type{P}, A::Composition{N}, x, scratch::Bool,
                 β::Number, y) where {N,P<:Union{Adjoint,Inverse}}
-    if α == 0
+    if iszero(α)
         # Just scale the destination.
         vscale!(y, β)
     else
@@ -922,7 +922,7 @@ apply!(α::Number, ::Type{InverseAdjoint}, A::Gram, x, scratch::Bool, β::Number
     apply!(α, Inverse, A, x, scratch, β, y)
 
 function apply!(α::Number, ::Type{Direct}, A::Gram, x, scratch::Bool, β::Number, y)
-    if α == 0
+    if iszero(α)
         vscale!(y, β)
     else
         B = unveil(A) # A ≡ B'*B
@@ -933,7 +933,7 @@ function apply!(α::Number, ::Type{Direct}, A::Gram, x, scratch::Bool, β::Numbe
 end
 
 function apply!(α::Number, ::Type{Inverse}, A::Gram, x, scratch::Bool, β::Number, y)
-    if α == 0
+    if iszero(α)
         vscale!(y, β)
     else
         B = unveil(A) # A ≡ B'⋅B

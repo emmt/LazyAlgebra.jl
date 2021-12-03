@@ -201,7 +201,7 @@ function test_lgemv(reduced::Bool=false)
             y = _randn(Ty, transA == 'N' ? m : n)
             Tw = worst_type(Ta, Tx)
             ref = ref_lgemv(α, transA, A, x) + β*y
-            if β == 0
+            if iszero(β)
                 @test similar_values(Tw, ref,   generic_lgemv(α, transA, A, x))
                 @test similar_values(Tw, ref,    linear_lgemv(α, transA, A, x))
                 @test similar_values(Tw, ref,           lgemv(α, transA, A, x))
@@ -261,7 +261,7 @@ function test_lgemm(reduced::Bool=false)
             Tw = worst_type(Ta, Tb)
             ref = ref_lgemm(α, transA, A, transB, B, Nc) + β*C
             #ref = generic_lgemm(α, transA, A, transB, B) + β*C
-            if β == 0
+            if iszero(β)
                 @test similar_values(Tw, ref,   generic_lgemm(α, transA, A, transB, B, Nc))
                 @test similar_values(Tw, ref,    linear_lgemm(α, transA, A, transB, B, Nc))
                 @test similar_values(Tw, ref,           lgemm(α, transA, A, transB, B, Nc))

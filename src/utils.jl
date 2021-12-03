@@ -74,7 +74,7 @@ See methods [`LazyAlgebra.multiplier_type`](@ref) and
 
 """ promote_multiplier
 
-# Note taht the only direct sub-types of `Number` are abstract types `Real` and
+# Note that the only direct sub-types of `Number` are abstract types `Real` and
 # `Complex`.  Also see discussion here
 # (https://github.com/emmt/LinearInterpolators.jl/issues/7) for details about
 # the following implementation.

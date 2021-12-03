@@ -69,8 +69,9 @@ apply!(α::Number, ::Type{P}, A::Ta, x::Tx, scratch::Bool, β::Number, y::Ty) ->
 This method shall overwrites the contents of output variables `y` with the
 result of `α*P(A)⋅x + β*y` where `P` is one of `Direct`, `Adjoint`, `Inverse`
 and/or `InverseAdjoint` (or equivalently `AdjointInverse`) and shall return
-`y`.  The convention is that the prior contents of `y` is not used at all if `β
-= 0` so the contents of `y` does not need to be initialized in that case.
+`y`.  The convention is that the prior contents of `y` is not used at all if
+`iszero(β)` is true so the contents of `y` does not need to be initialized in
+that case.
 
 Not all operations `P` must be implemented, only the supported ones.  For
 iterative resolution of (inverse) problems, it is generally needed to implement
@@ -149,8 +150,8 @@ function apply!(α::Real,
                 y::DenseArray{Ty,M}) where {Ts<:Real,Tx<:Real,Ty<:Real,M,N}
     @assert size(x) == input_size(S)
     @assert size(y) == output_size(S)
-    β == 1 || vscale!(y, β)
-    if α != 0
+    isone(β) || vscale!(y, β)
+    if !iszero(α)
         A, I, J = S.A, S.I, S.J
         alpha = convert(promote_type(Ts,Tx,Ty), α)
         @assert length(I) == length(J) == length(A)
@@ -171,8 +172,8 @@ function apply!(α::Real,
                 y::DenseArray{Ty,N}) where {Ts<:Real,Tx<:Real,Ty<:Real,M,N}
     @assert size(x) == output_size(S)
     @assert size(y) == input_size(S)
-    β == 1 || vscale!(y, β)
-    if α != 0
+    isone(β) || vscale!(y, β)
+    if !iszero(α)
         A, I, J = S.A, S.I, S.J
         alpha = convert(promote_type(Ts,Tx,Ty), α)
         @assert length(I) == length(J) == length(A)
@@ -195,21 +196,21 @@ Remarks:
   is efficient.  For the sake of clarity, the above code is intended to be
   correct although there are many possible optimizations.
 
-- If `α = 0` there is nothing to do except scale `y` by `β`.
+- If `iszero(α)` is true there is nothing to do except scale `y` by `β`.
 
 - The call to `vscale!(β, y)` is to properly initialize `y`.  Remember the
-  convention that the contents of `y` is not used at all if `β = 0` so `y`
-  does not need to be properly initialized in that case, it will simply be
-  zero-filled by the call to `vscale!`.  The statements
+  convention that the contents of `y` is not used at all if `iszero(β)` is true
+  so `y` does not need to be properly initialized in that case, it will simply
+  be zero-filled by the call to `vscale!`.  The statements
 
   ```julia
-  β == 1 || vscale!(y, β)
+  isone(β) || vscale!(y, β)
   ```
 
   are equivalent to:
 
   ```julia
-  if β != 1
+  if !isone(β)
       vscale!(y, β)
   end
   ```
@@ -220,7 +221,7 @@ Remarks:
   vscale!(y, β)
   ```
 
-  as `vscale!(y, β)` does nothing if `β = 1`.
+  as `vscale!(y, β)` does nothing if `isone(β)` is true.
 
 - `@inbounds` could be used for the loops but this would require checking that
   all indices are whithin the bounds.  In this example, only `k` is guaranteed

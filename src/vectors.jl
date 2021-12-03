@@ -23,8 +23,8 @@ can be imposed by optional argument `T`.  Also see [`vnorm1`](@ref) and
 [`vnorminf`](@ref).
 
 """
-function vnorm2(v::AbstractArray{<:Floats})
-    s = zero(real(eltype(v)))
+function vnorm2(v::AbstractArray)
+    s = abs2(zero(eltype(v))) # NOTE: must be squared to have the correct units
     @inbounds @simd for i in eachindex(v)
         s += abs2(v[i])
     end
@@ -35,7 +35,9 @@ end
     vnorm1([T,] v)
 
 yields the L1 norm of `v`, that is the sum of the absolute values of its
-elements.  The floating point type of the result can be imposed by optional
+elements.
+
+FIXME: The floating point type of the result can be imposed by optional
 argument `T`.  For a complex valued argument, the result is the sum of the
 absolute values of the real part and of the imaginary part of the elements
 (like BLAS `asum`).
@@ -43,7 +45,7 @@ absolute values of the real part and of the imaginary part of the elements
 See also [`vnorm2`](@ref) and [`vnorminf`](@ref).
 
 """
-function vnorm1(v::AbstractArray{<:Reals})
+function vnorm1(v::AbstractArray)
     s = zero(real(eltype(v)))
     @inbounds @simd for i in eachindex(v)
         s += abs(v[i])
@@ -51,38 +53,22 @@ function vnorm1(v::AbstractArray{<:Reals})
     return s
 end
 
-function vnorm1(v::AbstractArray{<:Complexes})
-    si = sr = zero(real(eltype(v)))
-    @inbounds @simd for i in eachindex(v)
-        z = v[i]
-        sr += abs(real(z))
-        si += abs(imag(z))
-    end
-    return sr + si
-end
-
 """
     vnorminf([T,] v)
 
 yields the infinite norm of `v`, that is the maximum absolute value of its
-elements.  The floating point type of the result can be imposed by optional
+elements.
+
+FIXME:  The floating point type of the result can be imposed by optional
 argument `T`.  Also see [`vnorm1`](@ref) and [`vnorm2`](@ref).
 
 """
-function vnorminf(v::AbstractArray{<:Reals})
+function vnorminf(v::AbstractArray)
     absmax = zero(real(eltype(v)))
     @inbounds @simd for i in eachindex(v)
         absmax = max(absmax, abs(v[i]))
     end
     return absmax
-end
-
-function vnorminf(v::AbstractArray{<:Complexes})
-    abs2max = zero(real(eltype(v)))
-    @inbounds @simd for i in eachindex(v)
-        abs2max = max(abs2max, abs2(v[i]))
-    end
-    return sqrt(abs2max)
 end
 
 # Versions with forced type of output result.
@@ -102,8 +88,7 @@ element type of the result is a floating-point type.
 Also see [`similar`](@ref).
 
 """
-vcreate(x::AbstractArray{T}) where {R<:Real,T<:Union{R,Complex{R}}} =
-    similar(x, float(T))
+vcreate(x::AbstractArray) = similar(x, float(eltype(x)))
 
 #------------------------------------------------------------------------------
 
@@ -118,17 +103,8 @@ same dimensions).
 Also see [`copyto!`](@ref), [`vcopy`](@ref), [`vswap!`](@ref).
 
 """
-function vcopy!(dst::AbstractArray{<:Real,N},
-                src::AbstractArray{<:Real,N}) where {N}
-    if dst !== src
-        axes(dst) == axes(src) || arguments_have_incompatible_axes()
-        copyto!(dst, src)
-    end
-    return dst
-end
-
-function vcopy!(dst::AbstractArray{<:Complex{<:Real},N},
-                src::AbstractArray{<:Complex{<:Real},N}) where {N}
+function vcopy!(dst::AbstractArray{Td,N},
+                src::AbstractArray{Ts,N}) where {Ts,Td,N}
     if dst !== src
         axes(dst) == axes(src) || arguments_have_incompatible_axes()
         copyto!(dst, src)
@@ -214,8 +190,7 @@ yields a *vector* like `x` filled with ones.
 Also see [`vzeros`](@ref), [`vcreate`](@ref), [`vfill!`](@ref).
 
 """
-vones(x) = vfill!(vcreate(x), 1)
-vones(x::AbstractArray{T}) where {T} = vfill!(vcreate(x), one(T))
+vones(x::AbstractArray) = vfill!(vcreate(x), oneunit(eltype(x)))
 
 #------------------------------------------------------------------------------
 
@@ -243,12 +218,12 @@ Also see [`vscale`](@ref), [`LinearAlgebra.rmul!](@ref).
 function vscale!(dst::AbstractArray{<:Floats,N},
                  α::Number,
                  src::AbstractArray{<:Floats,N}) where {N}
-    if α == 1
+    if isone(α)
         vcopy!(dst, src)
-    elseif α == 0
+    elseif iszero(α)
         axes(dst) == axes(src) || arguments_have_incompatible_axes()
         vzero!(dst)
-    elseif α == -1
+    elseif α == -one(α)
         @inbounds @simd for i in all_indices(dst, src)
             dst[i] = -src[i]
         end
@@ -263,13 +238,13 @@ end
 
 # In-place scaling.
 function vscale!(x::AbstractArray{<:Floats}, α::Number)
-    if α == 0
+    if iszero(α)
         vzero!(x)
-    elseif α == -1
+    elseif α == -one(α)
         @inbounds @simd for i in eachindex(x)
             x[i] = -x[i]
         end
-    elseif α != 1
+    elseif !isone(α)
         alpha = promote_multiplier(α, x)
         @inbounds @simd for i in eachindex(x)
             x[i] *= alpha
@@ -385,15 +360,15 @@ function vupdate!(y::AbstractArray{<:Number,N},
                   α::Number,
                   x::AbstractArray{<:Number,N}) where {N}
     axes(x) == axes(y) || arguments_have_incompatible_axes()
-    if α == 1
+    if isone(α)
         @inbounds @simd for i in eachindex(x, y)
             y[i] += x[i]
         end
-    elseif α == -1
+    elseif α == -one(α)
         @inbounds @simd for i in eachindex(x, y)
             y[i] -= x[i]
         end
-    elseif α != 0
+    elseif !iszero(α)
         alpha = promote_multiplier(α, x)
         @inbounds @simd for i in eachindex(x, y)
             y[i] += alpha*x[i]
@@ -407,17 +382,17 @@ function vupdate!(y::AbstractArray{<:Floats,N},
                   α::Number,
                   x::AbstractArray{<:Floats,N}) where {N}
     if checkselection(sel, x, y)
-        if α == 1
+        if isone(α)
             @inbounds @simd for j in eachindex(sel)
                 i = sel[j]
                 y[i] += x[i]
             end
-        elseif α == -1
+        elseif α == -one(α)
             @inbounds @simd for j in eachindex(sel)
                 i = sel[j]
                 y[i] -= x[i]
             end
-        elseif α != 0
+        elseif !iszero(α)
             alpha = promote_multiplier(α, x)
             @inbounds @simd for j in eachindex(sel)
                 i = sel[j]
@@ -464,34 +439,34 @@ function vcombine!(dst::AbstractArray{<:Number,N},
                    α::Number, x::AbstractArray{<:Number,N},
                    β::Number, y::AbstractArray{<:Number,N}) where {N}
     axes(dst) == axes(x) == axes(y) || arguments_have_incompatible_axes()
-    if α == 0
-        if β == 0
+    if iszero(α)
+        if iszero(β)
             vzero!(dst)
-        elseif β == 1
+        elseif isone(β)
             _vcombine!(dst, axpby_yields_y,     0,x, 1,y)
-        elseif β == -1
+        elseif β == -one(β)
             _vcombine!(dst, axpby_yields_my,    0,x,-1,y)
         else
             b = promote_multiplier(β, y)
             _vcombine!(dst, axpby_yields_by,    0,x, b,y)
         end
-    elseif α == 1
-        if β == 0
+    elseif isone(α)
+        if iszero(β)
             _vcombine!(dst, axpby_yields_x,     1,x, 0,y)
-        elseif β == 1
+        elseif isone(β)
             _vcombine!(dst, axpby_yields_xpy,   1,x, 1,y)
-        elseif β == -1
+        elseif β == -one(β)
             _vcombine!(dst, axpby_yields_xmy,   1,x,-1,y)
         else
             b = promote_multiplier(β, y)
             _vcombine!(dst, axpby_yields_xpby,  1,x, b,y)
         end
-    elseif α == -1
-        if β == 0
+    elseif α == -one(α)
+        if iszero(β)
             _vcombine!(dst, axpby_yields_mx,   -1,x, 0,y)
-        elseif β == 1
+        elseif isone(β)
             _vcombine!(dst, axpby_yields_ymx,  -1,x, 1,y)
-        elseif β == -1
+        elseif β == -one(β)
             _vcombine!(dst, axpby_yields_mxmy, -1,x,-1,y)
         else
             b = promote_multiplier(β, y)
@@ -499,11 +474,11 @@ function vcombine!(dst::AbstractArray{<:Number,N},
         end
     else
         a = promote_multiplier(α, x)
-        if β == 0
+        if iszero(β)
             _vcombine!(dst, axpby_yields_ax,    a,x, 0,y)
-        elseif β == 1
+        elseif isone(β)
             _vcombine!(dst, axpby_yields_axpy,  a,x, 1,y)
-        elseif β == -1
+        elseif β == -one(β)
             _vcombine!(dst, axpby_yields_axmy,  a,x,-1,y)
         else
             b = promote_multiplier(β, y)

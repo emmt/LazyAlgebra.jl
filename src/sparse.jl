@@ -2178,12 +2178,12 @@ usually depends on `f`.
 """
 @inline function dispatch_multipliers!(α::Number, f::Function, A, x,
                                        β::Number, y)
-    if α == 0
+    if iszero(α)
         vscale!(y, β)
-    elseif α == 1
-        if β == 0
+    elseif isone(α)
+        if iszero(β)
             f(1, A, x, 0, y, axpby_yields_x)
-        elseif β == 1
+        elseif isone(β)
             f(1, A, x, 1, y, axpby_yields_xpy)
         else
             b = promote_multiplier(β, eltype(y))
@@ -2191,9 +2191,9 @@ usually depends on `f`.
         end
     else
         a = promote_multiplier(α, eltype(A), eltype(x))
-        if β == 0
+        if iszero(β)
             f(a, A, x, 0, y, axpby_yields_ax)
-        elseif β == 1
+        elseif isone(β)
             f(a, A, x, 1, y, axpby_yields_axpy)
         else
             b = promote_multiplier(β, eltype(y))
@@ -2268,28 +2268,26 @@ function apply!(α::Number,
     check_argument(x, row_size(A))
     check_argument(y, col_size(A))
     Tm = promote_type(Ta, Tx) # to promote multipliers
-    β == 1 || vscale!(y, β)
-    if α == 1
+    isone(β) || vscale!(y, β)
+    if isone(α)
         @inbounds for i in each_row(A)
             q = promote_multiplier(x[i], Tm)
-            if q != 0
-                for k in each_off(A, i)
-                    j = get_col(A, k)
-                    v = get_val(A, k)
-                    y[j] += q*conj(v)
-                end
+            iszero(q) && continue
+            for k in each_off(A, i)
+                j = get_col(A, k)
+                v = get_val(A, k)
+                y[j] += q*conj(v)
             end
         end
-    elseif α != 0
+    elseif !iszero(α)
         a = promote_multiplier(α, Tm)
         @inbounds for i in each_row(A)
             q = a*promote_multiplier(x[i], Tm)
-            if q != 0
-                for k in each_off(A, i)
-                    j = get_col(A, k)
-                    v = get_val(A, k)
-                    y[j] += q*conj(v)
-                end
+            iszero(q) && continue
+            for k in each_off(A, i)
+                j = get_col(A, k)
+                v = get_val(A, k)
+                y[j] += q*conj(v)
             end
         end
     end
@@ -2309,28 +2307,26 @@ function apply!(α::Number,
     check_argument(x, col_size(A))
     check_argument(y, row_size(A))
     Tm = promote_type(Ta, Tx) # to promote multipliers
-    β == 1 || vscale!(y, β)
-    if α == 1
+    isone(β) || vscale!(y, β)
+    if isone(α)
         @inbounds for j in each_col(A)
             q = promote_multiplier(x[j], Tm)
-            if q != 0
-                for k in each_off(A, j)
-                    i = get_row(A, k)
-                    v = get_val(A, k)
-                    y[i] += q*v
-                end
+            iszero(q) && continue
+            for k in each_off(A, j)
+                i = get_row(A, k)
+                v = get_val(A, k)
+                y[i] += q*v
             end
         end
-    elseif α != 0
+    elseif !iszero(α)
         a = promote_multiplier(α, Tm)
         @inbounds for j in each_col(A)
             q = a*promote_multiplier(x[j], Tm)
-            if q != 0
-                for k in each_off(A, j)
-                    i = get_row(A, k)
-                    v = get_val(A, k)
-                    y[i] += q*v
-                end
+            iszero(q) && continue
+            for k in each_off(A, j)
+                i = get_row(A, k)
+                v = get_val(A, k)
+                y[i] += q*v
             end
         end
     end
@@ -2379,15 +2375,15 @@ function apply!(α::Number,
                 y::AbstractArray{Ty,M}) where {Ta,Tx,Ty,M,N}
     check_argument(x, col_size(A))
     check_argument(y, row_size(A))
-    β == 1 || vscale!(y, β)
-    if α != 0
+    isone(β) || vscale!(y, β)
+    if !iszero(α)
         V, I, J = get_vals(A), get_rows(A), get_cols(A)
-        if α == 1
+        if isone(α)
             @inbounds for k in eachindex(V, I, J)
                 v, i, j = V[k], I[k], J[k]
                 y[i] += x[j]*v
             end
-        elseif α == -1
+        elseif α == -one(α)
             @inbounds for k in eachindex(V, I, J)
                 v, i, j = V[k], I[k], J[k]
                 y[i] -= x[j]*v
@@ -2414,15 +2410,15 @@ function apply!(α::Number,
                 y::AbstractArray{Ty,N}) where {Ta,Tx,Ty,M,N}
     check_argument(x, row_size(A))
     check_argument(y, col_size(A))
-    β == 1 || vscale!(y, β)
-    if α != 0
+    isone(β) || vscale!(y, β)
+    if !iszero(α)
         V, I, J = get_vals(A), get_rows(A), get_cols(A)
-        if α == 1
+        if isone(α)
             @inbounds for k in eachindex(V, I, J)
                 v, i, j = V[k], I[k], J[k]
                 y[j] += x[i]*conj(v)
             end
-        elseif α == -1
+        elseif α == -one(α)
             @inbounds for k in eachindex(V, I, J)
                 v, i, j = V[k], I[k], J[k]
                 y[j] -= x[i]*conj(v)

@@ -138,9 +138,9 @@ function apply!(α::Number,
                 y::StridedArray{Complex{T},N}) where {T<:fftwReal,N,K}
     @checksize "argument" x  input_size(A)
     @checksize "result"   y output_size(A)
-    if α == 0
+    if iszero(α)
         vscale!(y, β)
-    elseif β == 0
+    elseif iszero(β)
         mul!(y, A, vscale!(y, α, x))
     elseif scratch
         vcombine!(y, α, mul!(x, A, x), β, y)
@@ -161,11 +161,11 @@ function apply!(α::Number,
                 y::StridedArray{Complex{T},N}) where {T<:fftwReal,N,K}
     @checksize "argument" x  input_size(A)
     @checksize "result"   y output_size(A)
-    if α == 0
+    if iszero(α)
         vscale!(y, β)
-    elseif β == 0
+    elseif iszero(β)
         safe_mul!(y, A, x, scratch && x !== y)
-        α == 1 || vscale!(y, α)
+        isone(α) || vscale!(y, α)
     else
         vcombine!(y, α, safe_mul(A, x, scratch), β, y)
     end
@@ -183,11 +183,11 @@ function apply!(α::Number,
                 y::StridedArray{Complex{T},N}) where {T<:fftwReal,K,N}
     @checksize "argument" x  input_size(A)
     @checksize "result"   y output_size(A)
-    if α == 0
+    if iszero(α)
         vscale!(y, β)
-    elseif β == 0
+    elseif iszero(β)
         safe_mul!(y, A, x, scratch)
-        α == 1 || vscale!(y, α)
+        isone(α) || vscale!(y, α)
     else
         vcombine!(y, α, safe_mul(A, x, scratch), β, y)
     end
@@ -206,11 +206,11 @@ function apply!(α::Number,
                 y::StridedArray{T,N}) where {T<:fftwReal,K,N}
     @checksize "argument" x  input_size(A)
     @checksize "result"   y output_size(A)
-    if α == 0
+    if iszero(α)
         vscale!(y, β)
-    elseif β == 0
+    elseif iszero(β)
         safe_mul!(y, A, x, scratch)
-        α == 1 || vscale!(y, α)
+        isone(α) || vscale!(y, α)
     else
         vcombine!(y, α, safe_mul(A, x, scratch), β, y)
     end
@@ -651,8 +651,8 @@ function CirculantConvolution(psf::DenseArray{T,N};
     mul!(mtf, forward, (shift ? ifftshift(psf) : psf))
     if normalize
         sum = mtf[1]
-        sum <= 0 && bad_argument("cannot normalize: sum(PSF) ≤ 0")
-        sum != 1 && vscale!(mtf, 1/sum)
+        sum <= zero(sum) && bad_argument("cannot normalize: sum(PSF) ≤ 0")
+        sum != oneunit(sum) && vscale!(mtf, oneunit(sum)/sum)
     end
 
     # Build operator.
@@ -725,12 +725,12 @@ function apply!(α::Number,
                 β::Number,
                 y::AbstractArray{Complex{T},N}) where {T<:fftwReal,N}
     @certify !Base.has_offset_axes(x, y)
-    if α == 0
+    if iszero(α)
         @certify size(y) == H.dims
         vscale!(y, β)
     else
         n = length(x)
-        if β == 0
+        if iszero(β)
             # Use y as a workspace.
             mul!(y, H.forward, x) # out-of-place forward FFT of x in y
             _apply!(y, α/n, P, H.mtf) # in-place multiply y by mtf/n
@@ -755,7 +755,7 @@ function apply!(α::Number,
                 β::Number,
                 y::AbstractArray{T,N}) where {T<:fftwReal,N}
     @certify !Base.has_offset_axes(x, y)
-    if α == 0
+    if iszero(α)
         @certify size(y) == H.dims
         vscale!(y, β)
     else
@@ -763,7 +763,7 @@ function apply!(α::Number,
         z = Array{Complex{T}}(undef, H.zdims) # allocate temporary
         mul!(z, H.forward, x) # out-of-place forward FFT of x in z
         _apply!(z, α/n, P, H.mtf) # in-place multiply z by mtf/n
-        if β == 0
+        if iszero(β)
             mul!(y, H.backward, z) # out-of-place backward FFT of z in y
         else
             w = Array{T}(undef, H.dims) # allocate another temporary
@@ -788,7 +788,7 @@ function _apply!(arr::AbstractArray{Complex{T},N},
                  α::Number, ::Type{Direct},
                  mtf::AbstractArray{Complex{T},N}) where {T,N}
     @certify axes(arr) == axes(mtf)
-    if α == 1
+    if isone(α)
         @inbounds @simd for i in eachindex(arr, mtf)
             arr[i] *= mtf[i]
         end
@@ -804,7 +804,7 @@ function _apply!(arr::AbstractArray{Complex{T},N},
                  α::Number, ::Type{Adjoint},
                  mtf::AbstractArray{Complex{T},N}) where {T,N}
     @certify axes(arr) == axes(mtf)
-    if α == 1
+    if isone(α)
         @inbounds @simd for i in eachindex(arr, mtf)
             arr[i] *= conj(mtf[i])
         end

@@ -177,7 +177,7 @@ for (P,A) in ((:Direct,  :Diff),
                           β::Number,
                           y::AbstractArray)
         inds, ndims = check_arguments(P, A, x, y)
-        if α == 0 || ndims < 1
+        if iszero(α) || ndims < 1
             # Get rid of this stupid case!
             vscale!(y, β)
         else
@@ -448,10 +448,10 @@ function unsafe_apply!(alpha::Number,
                        J::ArrayAxis,
                        K::ArrayAxes,
                        l::CartesianIndex) where {L,Opt}
-    if alpha == 1
-        if beta == 0
+    if isone(alpha)
+        if iszero(beta)
             unsafe_apply!(axpby_yields_x,     1, P, A, x, 0, y, I, J, K, l)
-        elseif beta == 1
+        elseif isone(beta)
             unsafe_apply!(axpby_yields_xpy,   1, P, A, x, 1, y, I, J, K, l)
         else
             β = promote_multiplier(beta, y)
@@ -459,9 +459,9 @@ function unsafe_apply!(alpha::Number,
         end
     else
         α = promote_multiplier(alpha, y)
-        if beta == 0
+        if iszero(beta)
             unsafe_apply!(axpby_yields_ax,    α, P, A, x, 0, y, I, J, K, l)
-        elseif beta == 1
+        elseif isone(beta)
             unsafe_apply!(axpby_yields_axpy,  α, P, A, x, 1, y, I, J, K, l)
         else
             β = promote_multiplier(beta, y)
@@ -482,10 +482,10 @@ function unsafe_apply!(alpha::Number,
                        I::ArrayAxes,
                        J::ArrayAxis,
                        K::ArrayAxes)
-    if alpha == 1
-        if beta == 0
+    if isone(alpha)
+        if iszero(beta)
             unsafe_apply!(axpby_yields_x,     1, P, A, x, 0, y, I, J, K)
-        elseif beta == 1
+        elseif isone(beta)
             unsafe_apply!(axpby_yields_xpy,   1, P, A, x, 1, y, I, J, K)
         else
             β = promote_multiplier(beta, y)
@@ -493,9 +493,9 @@ function unsafe_apply!(alpha::Number,
         end
     else
         α = promote_multiplier(alpha, y)
-        if beta == 0
+        if iszero(beta)
             unsafe_apply!(axpby_yields_ax,    α, P, A, x, 0, y, I, J, K)
-        elseif beta == 1
+        elseif isone(beta)
             unsafe_apply!(axpby_yields_axpy,  α, P, A, x, 1, y, I, J, K)
         else
             β = promote_multiplier(beta, y)
@@ -616,7 +616,7 @@ function unsafe_apply!(f::Function,
                 y[j,k] = f(α, z, β, y[j,k])
             end
         end
-    elseif jmin == jmax && β != 1
+    elseif jmin == jmax && !isone(β)
         let j = jmin, z = zero(T)
             @maybe_vectorized Opt for k in CartesianIndices(K)
                 y[j,k] = f(α, z, β, y[j,k])
@@ -663,7 +663,7 @@ function unsafe_apply!(f::Function,
                 end
             end
         end
-    elseif jmin == jmax && β != 1
+    elseif jmin == jmax && !isone(β)
         let j = jmin, z = zero(T)
             @maybe_inbounds Opt for k in CartesianIndices(K)
                 @maybe_vectorized Opt for i in CartesianIndices(I)
@@ -713,7 +713,7 @@ function unsafe_apply!(f::Function,
                 y[j,k] = f(α, z, β, y[j,k])
             end
         end
-    elseif jmin == jmax && β != 1
+    elseif jmin == jmax && !isone(β)
         let j = jmin, z = zero(T)
             @maybe_vectorized Opt for k in CartesianIndices(K)
                 y[j,k] = f(α, z, β, y[j,k])
@@ -758,7 +758,7 @@ function unsafe_apply!(f::Function,
                 end
             end
         end
-    elseif jmin == jmax && β != 1
+    elseif jmin == jmax && !isone(β)
         let j = jmin, z = zero(T)
             @maybe_inbounds Opt for k in CartesianIndices(K)
                 @maybe_vectorized Opt for i in CartesianIndices(I)
@@ -818,7 +818,7 @@ function unsafe_apply!(f::Function,
                 y[j,k,l] = f(α, z, β, y[j,k,l])
             end
         end
-    elseif jmin == jmax && β != 1
+    elseif jmin == jmax && !isone(β)
         let j = jmin, z = zero(T)
             @maybe_vectorized Opt for k in CartesianIndices(K)
                 y[j,k,l] = f(α, z, β, y[j,k,l])
@@ -866,7 +866,7 @@ function unsafe_apply!(f::Function,
                 end
             end
         end
-    elseif jmin == jmax && β != 1
+    elseif jmin == jmax && !isone(β)
         let j = jmin, z = zero(T)
             @maybe_inbounds Opt for k in CartesianIndices(K)
                 @maybe_vectorized Opt for i in CartesianIndices(I)
@@ -910,7 +910,7 @@ function unsafe_apply!(f::Function,
                 y[j,k] = f(α, z, β, y[j,k])
             end
         end
-    elseif jmin == jmax && β != 1
+    elseif jmin == jmax && !isone(β)
         let j = jmin, z = zero(T)
             @maybe_vectorized Opt for k in CartesianIndices(K)
                 y[j,k] = f(α, z, β, y[j,k])
@@ -956,7 +956,7 @@ function unsafe_apply!(f::Function,
                 end
             end
         end
-    elseif jmin == jmax && β != 1
+    elseif jmin == jmax && !isone(β)
         let j = jmin, z = zero(T)
             @maybe_inbounds Opt for k in CartesianIndices(K)
                 @maybe_vectorized Opt for i in CartesianIndices(I)
@@ -1151,7 +1151,7 @@ function unsafe_apply!(f::Function,
                 y[j,k] = f(α, D2tD2_8(x,j,k), β, y[j,k])
             end
         end
-    elseif len == 1 && β != 1
+    elseif len == 1 && !isone(β)
         let j = jmin, z = zero(T)
             @maybe_vectorized Opt for k in CartesianIndices(K)
                 y[j,k] = f(α, z, β, y[j,k])
@@ -1259,7 +1259,7 @@ function unsafe_apply!(f::Function,
                 end
             end
         end
-    elseif len == 1 && β != 1
+    elseif len == 1 && !isone(β)
         let j = jmin, z = zero(T)
             @maybe_inbounds Opt for k in CartesianIndices(K)
                 @maybe_vectorized Opt for i in CartesianIndices(I)

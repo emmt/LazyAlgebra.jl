@@ -149,17 +149,17 @@ function apply!(α::Number,
         bad_argument("output array has non-standard indexing")
     size(y) == output_size(C) ||
         bad_size("bad output array dimensions")
-    if α == 0
-        β == 1 || vscale!(y, β)
+    if iszero(α)
+        isone(β) || vscale!(y, β)
     else
         k = offset(C)
         I = commonpart(C)
-        if α == 1
-            if β == 0
+        if isone(α)
+            if iszero(β)
                 @inbounds @simd for i in I
                     y[i] = x[i + k]
                 end
-            elseif β == 1
+            elseif isone(β)
                 @inbounds @simd for i in I
                     y[i] += x[i + k]
                 end
@@ -171,11 +171,11 @@ function apply!(α::Number,
             end
         else
             alpha = convert(T, α)
-            if β == 0
+            if iszero(β)
                 @inbounds @simd for i in I
                     y[i] = alpha*x[i + k]
                 end
-            elseif β == 1
+            elseif isone(β)
                 @inbounds @simd for i in I
                     y[i] += alpha*x[i + k]
                 end
@@ -212,12 +212,12 @@ function apply!(α::Number,
         bad_argument("output array has non-standard indexing")
     size(y) == input_size(C) ||
         bad_size("bad output array dimensions")
-    β == 1 || vscale!(y, β)
-    if α != 0
+    isone(β) || vscale!(y, β)
+    if !iszero(α)
         k = offset(C)
         I = commonpart(C)
-        if α == 1
-            if β == 0
+        if isone(α)
+            if iszero(β)
                 @inbounds @simd for i in I
                     y[i + k] = x[i]
                 end
@@ -228,7 +228,7 @@ function apply!(α::Number,
             end
         else
             alpha = convert(T, α)
-            if β == 0
+            if iszero(β)
                 @inbounds @simd for i in I
                     y[i + k] = alpha*x[i]
                 end

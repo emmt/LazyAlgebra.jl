@@ -462,17 +462,17 @@ function _linear_lgemm!(m::Int,
     #
     # Quick return if possible.
     #
-    if m > 0 && n > 0 && (β != 1 || (p > 0 && α != 0))
+    if m > 0 && n > 0 && (!isone(β) || (p > 0 && !iszero(α)))
         T = promote_type(Ta, Tb)
-        if α == 0
+        if iszero(α)
             #
             # Quick computations when α = 0.
             #
-            if β == 0
+            if iszero(β)
                 @inbounds @simd for k in eachindex(C)
                     C[k] = zero(Tc)
                 end
-            elseif β != 1
+            elseif !isone(β)
                 @inbounds @simd for k in eachindex(C)
                     C[k] *= β
                 end
@@ -483,11 +483,11 @@ function _linear_lgemm!(m::Int,
                 # Form  C := α*A*B + β*C.
                 #
                 @inbounds for j in 1:n
-                    if β == 0
+                    if iszero(β)
                         @simd for i in 1:m
                             C[m*(j - 1) + i] = zero(Tc)
                         end
-                    elseif β != 1
+                    elseif !isone(β)
                         @simd for i in 1:m
                             C[m*(j - 1) + i] *= β
                         end
@@ -511,7 +511,7 @@ function _linear_lgemm!(m::Int,
                         @simd for k in 1:p
                             temp += A[p*(i - 1) + k]*B[p*(j - 1) + k]
                         end
-                        C[m*(j - 1) + i] = (β == 0 ? α*temp : α*temp + β*C[m*(j - 1) + i])
+                        C[m*(j - 1) + i] = (iszero(β) ? α*temp : α*temp + β*C[m*(j - 1) + i])
                     end
                 end
             else
@@ -524,7 +524,7 @@ function _linear_lgemm!(m::Int,
                         @simd for k in 1:p
                             temp += conj(A[p*(i - 1) + k])*B[p*(j - 1) + k]
                         end
-                        C[m*(j - 1) + i] = (β == 0 ? α*temp : α*temp + β*C[m*(j - 1) + i])
+                        C[m*(j - 1) + i] = (iszero(β) ? α*temp : α*temp + β*C[m*(j - 1) + i])
                     end
                 end
             end
@@ -534,11 +534,11 @@ function _linear_lgemm!(m::Int,
                 # Form  C := α*A*B^T + β*C
                 #
                 @inbounds for j in 1:n
-                    if β == 0
+                    if iszero(β)
                         @simd for i in 1:m
                             C[m*(j - 1) + i] = zero(Tc)
                         end
-                    elseif β != one
+                    elseif !isone(β)
                         @simd for i in 1:m
                             C[m*(j - 1) + i] *= β
                         end
@@ -557,11 +557,11 @@ function _linear_lgemm!(m::Int,
                 # Form  C := α*A*B^H + β*C.
                 #
                 @inbounds for j in 1:n
-                    if β == 0
+                    if iszero(β)
                         @simd for i in 1:m
                             C[m*(j - 1) + i] = zero(Tc)
                         end
-                    elseif β != one
+                    elseif !isone(β)
                         @simd for i in 1:m
                             C[m*(j - 1) + i] *= β
                         end
@@ -587,7 +587,7 @@ function _linear_lgemm!(m::Int,
                         @simd for k in 1:p
                             temp += A[p*(i - 1) + k]*B[n*(k - 1) + j]
                         end
-                        C[m*(j - 1) + i] = (β == 0 ? α*temp : α*temp + β*C[m*(j - 1) + i])
+                        C[m*(j - 1) + i] = (iszero(β) ? α*temp : α*temp + β*C[m*(j - 1) + i])
                     end
                 end
             else
@@ -600,7 +600,7 @@ function _linear_lgemm!(m::Int,
                         @simd for k in 1:p
                             temp += A[p*(i - 1) + k]*conj(B[n*(k - 1) + j])
                         end
-                        C[m*(j - 1) + i] = (β == 0 ? α*temp : α*temp + β*C[m*(j - 1) + i])
+                        C[m*(j - 1) + i] = (iszero(β) ? α*temp : α*temp + β*C[m*(j - 1) + i])
                     end
                 end
             end
@@ -615,7 +615,7 @@ function _linear_lgemm!(m::Int,
                         @simd for k in 1:p
                             temp += conj(A[p*(i - 1) + k])*B[n*(k - 1) + j]
                         end
-                        C[m*(j - 1) + i] = (β == 0 ? α*temp : α*temp + β*C[m*(j - 1) + i])
+                        C[m*(j - 1) + i] = (iszero(β) ? α*temp : α*temp + β*C[m*(j - 1) + i])
                     end
                 end
             else
@@ -628,7 +628,7 @@ function _linear_lgemm!(m::Int,
                         @simd for k in 1:p
                             temp += conj(A[p*(i - 1) + k])*conj(B[n*(k - 1) + j])
                         end
-                        C[m*(j - 1) + i] = (β == 0 ? α*temp : α*temp + β*C[m*(j - 1) + i])
+                        C[m*(j - 1) + i] = (iszero(β) ? α*temp : α*temp + β*C[m*(j - 1) + i])
                     end
                 end
             end
@@ -655,17 +655,17 @@ function _generic_lgemm!(I, J, K,
     #
     # Quick return if possible.
     #
-    if length(I) > 0 && length(J) > 0 && (β != 1 || (length(K) > 0 && α != 0))
+    if length(I) > 0 && length(J) > 0 && (!isone(β) || (length(K) > 0 && !iszero(α)))
         T = promote_type(Ta, Tb)
-        if α == 0
+        if iszero(α)
             #
             # Quick computations when  α = 0.
             #
-            if β == 0
+            if iszero(β)
                 @inbounds @simd for k in eachindex(C)
                     C[k] = zero(Tc)
                 end
-            elseif β != 1
+            elseif !isone(β)
                 @inbounds @simd for k in eachindex(C)
                     C[k] *= β
                 end
@@ -676,11 +676,11 @@ function _generic_lgemm!(I, J, K,
                 # Form  C := α*A*B + β*C.
                 #
                 @inbounds for j in J
-                    if β == 0
+                    if iszero(β)
                         @simd for i in I
                             C[i,j] = zero(Tc)
                         end
-                    elseif β != 1
+                    elseif !isone(β)
                         @simd for i in I
                             C[i,j] *= β
                         end
@@ -704,7 +704,7 @@ function _generic_lgemm!(I, J, K,
                         @simd for k in K
                             temp += A[k,i]*B[k,j]
                         end
-                        C[i,j] = (β == 0 ? α*temp : α*temp + β*C[i,j])
+                        C[i,j] = (iszero(β) ? α*temp : α*temp + β*C[i,j])
                     end
                 end
             else
@@ -717,7 +717,7 @@ function _generic_lgemm!(I, J, K,
                         @simd for k in K
                             temp += conj(A[k,i])*B[k,j]
                         end
-                        C[i,j] = (β == 0 ? α*temp : α*temp + β*C[i,j])
+                        C[i,j] = (iszero(β) ? α*temp : α*temp + β*C[i,j])
                     end
                 end
             end
@@ -727,11 +727,11 @@ function _generic_lgemm!(I, J, K,
                 # Form  C := α*A*B^T + β*C
                 #
                 @inbounds for j in J
-                    if β == 0
+                    if iszero(β)
                         @simd for i in I
                             C[i,j] = zero(Tc)
                         end
-                    elseif β != one
+                    elseif !isone(β)
                         @simd for i in I
                             C[i,j] *= β
                         end
@@ -750,11 +750,11 @@ function _generic_lgemm!(I, J, K,
                 # Form  C := α*A*B^H + β*C.
                 #
                 @inbounds for j in J
-                    if β == 0
+                    if iszero(β)
                         @simd for i in I
                             C[i,j] = zero(Tc)
                         end
-                    elseif β != one
+                    elseif !isone(β)
                         @simd for i in I
                             C[i,j] *= β
                         end
@@ -780,7 +780,7 @@ function _generic_lgemm!(I, J, K,
                         @simd for k in K
                             temp += A[k,i]*B[j,k]
                         end
-                        C[i,j] = (β == 0 ? α*temp : α*temp + β*C[i,j])
+                        C[i,j] = (iszero(β) ? α*temp : α*temp + β*C[i,j])
                     end
                 end
             else
@@ -793,7 +793,7 @@ function _generic_lgemm!(I, J, K,
                         @simd for k in K
                             temp += A[k,i]*conj(B[j,k])
                         end
-                        C[i,j] = (β == 0 ? α*temp : α*temp + β*C[i,j])
+                        C[i,j] = (iszero(β) ? α*temp : α*temp + β*C[i,j])
                     end
                 end
             end
@@ -808,7 +808,7 @@ function _generic_lgemm!(I, J, K,
                         @simd for k in K
                             temp += conj(A[k,i])*B[j,k]
                         end
-                        C[i,j] = (β == 0 ? α*temp : α*temp + β*C[i,j])
+                        C[i,j] = (iszero(β) ? α*temp : α*temp + β*C[i,j])
                     end
                 end
             else
@@ -821,7 +821,7 @@ function _generic_lgemm!(I, J, K,
                         @simd for k in K
                             temp += conj(A[k,i])*conj(B[j,k])
                         end
-                        C[i,j] = (β == 0 ? α*temp : α*temp + β*C[i,j])
+                        C[i,j] = (iszero(β) ? α*temp : α*temp + β*C[i,j])
                     end
                 end
             end
