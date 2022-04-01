@@ -42,6 +42,7 @@ using ..LazyAlgebra: @certify
 
 import .LazyAlgebra:
     MorphismType,
+    multiplier_type,
     apply!,
     vcreate,
     identical,
@@ -109,14 +110,15 @@ as_matrix(A::AbstractArray, nrows::Int, ncols::Int) =
 #------------------------------------------------------------------------------
 
 """
+    SparseOperator{T,M,N}
 
-`SparseOperator{T,M,N}` is the abstract type inherited by the sparse operator
-types. Parameter `T` is the type of the elements.  Parameters `M` and `N` are
-the number of dimensions of the *rows* and of the *columns* respectively.
-Sparse operators are a generalization of sparse matrices in the sense that they
-implement linear mappings which can be applied to `N`-dimensonal arguments to
-produce `M`-dimensional results (as explained below).  See
-[`GeneralMatrix`](@ref) for a similar generalization but for *dense* matrices.
+is the abstract type inherited by sparse operator types.  Parameter `T` is the
+type of the elements.  Parameters `M` and `N` are the number of dimensions of
+the *rows* and of the *columns* respectively.  Sparse operators are a
+generalization of sparse matrices in the sense that they implement linear
+mappings which can be applied to `N`-dimensonal arguments to produce
+`M`-dimensional results (as explained below).  See [`GeneralMatrix`](@ref) for
+a similar generalization but for *dense* matrices.
 
 See [`CompressedSparseOperator`](@ref) for usage of sparse operators
 implementing compressed storage formats.
@@ -125,10 +127,11 @@ implementing compressed storage formats.
 abstract type SparseOperator{T,M,N} <: LinearMapping end
 
 """
+    CompressedSparseOperator{F,T,M,N}
 
-`CompressedSparseOperator{F,T,M,N}` is an abstract sub-type of
-`SparseOperator{T,M,N}` and is inherited by the concrete types implementing
-sparse operators with compressed storage in format `F`.
+is an abstract sub-type of `SparseOperator{T,M,N}` and is inherited by the
+concrete types implementing sparse operators with compressed storage in format
+`F`.
 
 Format `F` is specificed as a symbol and can be:
 
@@ -760,9 +763,9 @@ end
 
 Sparse operators in *Compressed Sparse Coordinate* (COO) format store the
 significant entries in no particular order, as a vector of values, a vector of
-linear row indices and a vector of linear column indices. It is even possible
-to have repeated entries. This format is very useful to build a sparse linear
-operator. It can be converted to a more efficient format like *Compressed
+linear row indices and a vector of linear column indices.  It is even possible
+to have repeated entries.  This format is very useful to build a sparse linear
+operator.  It can be converted to a more efficient format like *Compressed
 Sparse Column* (CSC) or *Compressed Sparse Row* (CSR) for fast application of
 the sparse linear mapping or of its adjoint.
 
@@ -2161,6 +2164,9 @@ end
 #------------------------------------------------------------------------------
 # Apply operators.
 
+# Extend multiplier_type for sparse operators.
+multiplier_type(::SparseOperator{T}) where {T} = T
+
 """
     dispatch_multipliers!(α, f, A, x, β, y) -> y
 
@@ -2186,17 +2192,17 @@ usually depends on `f`.
         elseif β == 1
             f(1, A, x, 1, y, axpby_yields_xpy)
         else
-            b = promote_multiplier(β, eltype(y))
+            b = promote_multiplier(β, y)
             f(1, A, x, b, y, axpby_yields_xpby)
         end
     else
-        a = promote_multiplier(α, eltype(A), eltype(x))
+        a = promote_multiplier(α, A, x)
         if β == 0
             f(a, A, x, 0, y, axpby_yields_ax)
         elseif β == 1
             f(a, A, x, 1, y, axpby_yields_axpy)
         else
-            b = promote_multiplier(β, eltype(y))
+            b = promote_multiplier(β, y)
             f(a, A, x, b, y, axpby_yields_axpby)
         end
     end
@@ -2304,7 +2310,7 @@ function apply!(α::Number,
                 A::CompressedSparseOperator{:CSC,Ta,M,N},
                 x::AbstractArray{Tx,N},
                 scratch::Bool,
-                β::Real,
+                β::Number,
                 y::AbstractArray{Ty,M}) where {Ta,Tx,Ty,M,N}
     check_argument(x, col_size(A))
     check_argument(y, row_size(A))
@@ -2337,12 +2343,12 @@ function apply!(α::Number,
     return y
 end
 
-function apply!(α::Real,
+function apply!(α::Number,
                 ::Type{Adjoint},
                 A::CompressedSparseOperator{:CSC,Ta,M,N},
                 x::AbstractArray{Tx,M},
                 scratch::Bool,
-                β::Real,
+                β::Number,
                 y::AbstractArray{Ty,N}) where {Ta,Tx,Ty,M,N}
     check_argument(x, row_size(A))
     check_argument(y, col_size(A))
