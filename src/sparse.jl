@@ -664,24 +664,27 @@ Argument may also be the adjoint of a sparse operator:
     get_val(A', k) -> conj(get_val(A, k))
 
 """
-@inline @propagate_inbounds get_val(A, k::Integer) = get_vals(A)[k]
+@inline @propagate_inbounds get_val(A, k::Int) = get_vals(A)[k]
+@inline @propagate_inbounds get_val(A, k::Integer) = get_val(A, Int(k)::Int)
 @inline @propagate_inbounds get_val(A::Adjoint, k::Integer) =
-    conj(get_vals(A)[k])
+    conj(get_val(A, k))
 
 """
-    set_val!(A, k, v) -> v
+    set_val!(A, k, v) -> A
 
 assigns `v` to the value of the `k`-th entry of the sparse operator `A` stored
 in a *Compressed Sparse Row* (CSR), *Compressed Sparse Column* (CSC) or
 *Coordinate* (COO) format.
 
 """
-@inline @propagate_inbounds set_val!(A, k::Integer, v) = get_vals(A)[k] = v
-@inline @propagate_inbounds set_val!(A::Adjoint, k::Integer, v) = begin
-    get_vals(A)[k] = conj(v)
-    return v
+@inline function set_val!(A, k::Int, v)
+    get_vals(A)[k] = v
+    return A
 end
-
+@inline @propagate_inbounds set_val!(A, k::Integer, v) =
+    set_val!(A, Int(k)::Int, v)
+@inline @propagate_inbounds set_val!(A::Adjoint, k::Integer, v) =
+    set_val!(A, k, conj(v))
 
 # Iterators to deliver (v,i,j).
 
