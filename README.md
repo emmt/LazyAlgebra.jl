@@ -3,6 +3,7 @@
 [![Stable Doc.][doc-stable-img]][doc-stable-url]
 [![Dev. Doc.][doc-dev-img]][doc-dev-url]
 [![License][license-img]][license-url]
+[![Build Status][github-ci-img]][github-ci-url]
 [![Build Status][appveyor-img]][appveyor-url]
 [![Coverage][codecov-img]][codecov-url]
 
@@ -29,6 +30,9 @@ Similar Julia packages:
 
 [license-url]: ./LICENSE.md
 [license-img]: http://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat
+
+[github-ci-img]: https://github.com/emmt/LazyAlgebra.jl/actions/workflows/CI.yml/badge.svg?branch=master
+[github-ci-url]: https://github.com/emmt/LazyAlgebra.jl/actions/workflows/CI.yml?query=branch%3Amaster
 
 [appveyor-img]: https://ci.appveyor.com/api/projects/status/github/emmt/LazyAlgebra.jl?branch=master
 [appveyor-url]: https://ci.appveyor.com/project/emmt/LazyAlgebra-jl/branch/master
