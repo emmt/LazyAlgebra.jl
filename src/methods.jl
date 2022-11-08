@@ -180,43 +180,51 @@ Mapping(A::UniformScaling) = unveil(A)
 """
     unscaled(A)
 
-and
-
-    multiplier(A)
-
-respectively yield the mapping `M` and the multiplier `λ` if `A = λ*M` is a
-scaled mapping (see [`Scaled`](@ref)); `A` and `1` otherwise.  Note that these
-methods also work for intances of `LinearAlgebra.UniformScaling`.
+yields the mapping `M` of the scaled mapping `A = λ*M` (see [`Scaled`](@ref));
+otherwise yields `A`. This method also works for intances of
+`LinearAlgebra.UniformScaling`. Call [`multiplier`](@ref) to get the multiplier
+`λ`.
 
 """
 unscaled(A::Mapping) = A
 unscaled(A::Scaled) = getfield(A, :M)
 unscaled(A::UniformScaling) = Id
+
+"""
+    multiplier(A)
+
+yields the multiplier `λ` of the scaled mapping `A = λ*M` (see
+[`Scaled`](@ref)); otherwise yields `1`. Note that this method also works for
+intances of `LinearAlgebra.UniformScaling`. Call [`unscaled`](@ref) to get the
+mapping `M`. `λ`.
+
+"""
 multiplier(A::Scaled) = getfield(A, :λ)
 multiplier(A::Mapping) = 1
 multiplier(A::UniformScaling) = getfield(A, :λ)
 
-@doc @doc(unscaled) multiplier
-
 """
     primitive(J)
 
-and
-
-    variables(J)
-
-respectively yield the mapping `A` and the variables `x` embedded in Jacobian
-`J = ∇(A,x)`.
+yields the mapping `A` embedded in the Jacobian `J = ∇(A,x)`. Call
+[`variables`](@ref) to get `x` instead.
 
 """
 primitive(J::Jacobian) = getfield(J, :A)
+
+"""
+    variables(J)
+
+yields the variables `x` embedded in the Jacobian `J = ∇(A,x)`. Call
+[`primitive`](@ref) to get `A` instead.
+
+"""
 variables(J::Jacobian) = getfield(J, :x)
-@doc @doc(primitive) variables
 
 """
     identifier(A)
 
-yields a hash value identifying almost uniquely the unscaled mapping `A`.  This
+yields a hash value identifying almost uniquely the unscaled mapping `A`. This
 identifier is used for sorting terms in a sum of mappings.
 
 !!! warning
@@ -320,7 +328,7 @@ end
 """
     nrows(A)
 
-yields the *equivalent* number of rows of the linear operator `A`.  Not all
+yields the *equivalent* number of rows of the linear operator `A`. Not all
 operators extend this method.
 
 In the implemented generalization of linear operators, the equivalent number of
@@ -335,7 +343,7 @@ nrows(A::LinearMapping) = prod(row_size(A))
 """
     ncols(A)
 
-yields the *equivalent* number of columns of the linear operator `A`.  Not all
+yields the *equivalent* number of columns of the linear operator `A`. Not all
 operators extend this method.
 
 In the implemented generalization of linear operators, the equivalent number of
@@ -351,7 +359,7 @@ ncols(A::LinearMapping) = prod(col_size(A))
     row_size(A)
 
 yields the dimensions of the result of applying the linear operator `A`, this
-is equivalent to `output_size(A)`.  Not all operators extend this method.
+is equivalent to `output_size(A)`. Not all operators extend this method.
 
 """
 row_size(A::LinearMapping) = output_size(A)
@@ -361,9 +369,8 @@ row_size(A::LinearMapping) = output_size(A)
 """
     col_size(A)
 
-yields the dimensions of the argument of the linear operator `A`, this
-is equivalent to `input_size(A)`.  Not all
-operators extend this method.
+yields the dimensions of the argument of the linear operator `A`, this is
+equivalent to `input_size(A)`. Not all operators extend this method.
 
 """
 col_size(A::LinearMapping) = input_size(A)
@@ -374,7 +381,7 @@ col_size(A::LinearMapping) = input_size(A)
     coefficients(A)
 
 yields the object backing the storage of the coefficients of the linear mapping
-`A`.  Not all linear mappings extend this method.
+`A`. Not all linear mappings extend this method.
 
 """ coefficients
 
@@ -391,7 +398,7 @@ check(A::Mapping) = A
 
 yields `v1 = vdot(y, A*x)`, `v2 = vdot(A'*y, x)` and their difference for `A` a
 linear mapping, `y` a *vector* of the output space of `A` and `x` a *vector* of
-the input space of `A`.  In principle, the two inner products should be equal
+the input space of `A`. In principle, the two inner products should be equal
 whatever `x` and `y`; otherwise the mapping has a bug.
 
 Simple linear mappings operating on Julia arrays can be tested on random
@@ -400,7 +407,7 @@ Simple linear mappings operating on Julia arrays can be tested on random
     checkmapping([T=Float64,] outdims, A, inpdims) -> (v1, v2, v1 - v2)
 
 with `outdims` and `outdims` the dimensions of the output and input *vectors*
-for `A`.  Optional argument `T` is the element type.
+for `A`. Optional argument `T` is the element type.
 
 If `A` operates on Julia arrays and methods `input_eltype`, `input_size`,
 `output_eltype` and `output_size` have been specialized for `A`, then:
@@ -441,20 +448,20 @@ checkmapping(A::LinearMapping) =
     identical(A, B)
 
 yields whether `A` is the same mapping as `B` in the sense that their effects
-will always be the same.  This method is used to perform some simplifications
+will always be the same. This method is used to perform some simplifications
 and optimizations and may have to be specialized for specific mapping types.
 The default implementation is to return `A === B`.
 
 !!! note
     The returned result may be true although `A` and `B` are not necessarily
-    the same objects.  For instance, if `A` and `B` are two sparse matrices
+    the same objects. For instance, if `A` and `B` are two sparse matrices
     whose coefficients and indices are stored in the same arrays (as can be
     tested with the `===` or `≡` operators, `identical(A,B)` should return
     `true` because the two operators will always behave identically (any
-    changes in the coefficients or indices of `A` will be reflected in `B`).
-    If any of the arrays storing the coefficients or the indices are not the
-    same objects, then `identical(A,B)` must return `false` even though the
-    stored values may be the same because it is possible, later, to change one
+    changes in the coefficients or indices of `A` will be reflected in `B`). If
+    any of the arrays storing the coefficients or the indices are not the same
+    objects, then `identical(A,B)` must return `false` even though the stored
+    values may be the same because it is possible, later, to change one
     operator without affecting identically the other.
 
 """
@@ -464,7 +471,7 @@ The default implementation is to return `A === B`.
 """
     gram(A) -> A'*A
 
-yields the Gram operator built out of the linear mapping `A`.  The result is
+yields the Gram operator built out of the linear mapping `A`. The result is
 equivalent to `A'*A` but its type depends on simplifications that may occur.
 
 See also [`Gram`](@ref).
@@ -503,34 +510,31 @@ gram(A::Mapping) =
 # VCREATE, APPLY AND APPLY!
 
 """
-```julia
-vcreate([P,] A, x, scratch=false) -> y
-```
+    vcreate([P,] A, x, scratch=false) -> y
 
 yields a new instance `y` suitable for storing the result of applying mapping
-`A` to the argument `x`.  Optional parameter `P ∈ Operations` is one of
-`Direct` (the default), `Adjoint`, `Inverse` and/or `InverseAdjoint` and can be
-used to specify how `A` is to be applied as explained in the documentation of
-the [`apply`](@ref) method.
+`A` to the argument `x`. Optional parameter `P ∈ Operations` is one of `Direct`
+(the default), `Adjoint`, `Inverse` and/or `InverseAdjoint` and can be used to
+specify how `A` is to be applied as explained in the documentation of the
+[`apply`](@ref) method.
 
 Optional argument `scratch` indicates whether input argument `x` can be
-overwritten by the operation and thus used to store the result.  This may be
+overwritten by the operation and thus used to store the result. This may be
 exploited by some mappings (which are able to operate *in-place*) to avoid
 allocating a new object for the result `y`.
 
 The caller should set `scratch = true` if `x` is not needed after calling
-`apply`.  If `scratch = true`, then it is possible that `y` be the same object
+`apply`. If `scratch = true`, then it is possible that `y` be the same object
 as `x`; otherwise, `y` is a new object unless applying the operation yields the
 same contents as `y` for the result `x` (this is always true for the identity
-for instance).  Thus, in general, it should not be assumed that the returned
-`y` is different from the input `x`.
+for instance). Thus, in general, it should not be assumed that the returned `y`
+is different from the input `x`.
 
 The method `vcreate(::Type{P}, A, x)` should be implemented by linear mappings
-for any supported operations `P` and argument type for `x`.  The result
-returned by `vcreate` should be of predictible type to ensure *type-stability*.
-Checking the validity (*e.g.* the size) of argument `x` in `vcreate` may be
-skipped because this argument will be eventually checked by the `apply!`
-method.
+for any supported operations `P` and argument type for `x`. The result returned
+by `vcreate` should be of predictible type to ensure *type-stability*. Checking
+the validity (*e.g.* the size) of argument `x` in `vcreate` may be skipped
+because this argument will be eventually checked by the `apply!` method.
 
 See also: [`Mapping`](@ref), [`apply`](@ref).
 
@@ -542,7 +546,7 @@ vcreate(::Type{P}, A::Mapping, x) where {P<:Operations} =
 """
     vmul(A, x) -> y
 
-yields `y = A*x`.  The default behavior is to call `apply(Direct,A,x,false)`.
+yields `y = A*x`. The default behavior is to call `apply(Direct,A,x,false)`.
 Method [`vmul!`](@ref) is the in-place version.
 
 """
@@ -551,13 +555,12 @@ vmul(A, x) = apply(Direct, A, x, false)
 """
     vmul!(y, A, x) -> y
 
-overwrites `y` with the result of `A*x` and returns `y`.  The default behavior
+overwrites `y` with the result of `A*x` and returns `y`. The default behavior
 is to call `apply!(1,Direct,A,x,false,0,y)`.
 
 !!! note
-
     This method is intended to be used by algorithms such as the conjugate
-    gradient to apply operators.  It may be specialized by the caller for its
+    gradient to apply operators. It may be specialized by the caller for its
     needs which is much easier than specializing [`apply!`](@ref) which
     requires to consider the specific values of the multipliers `α` and `β`.
 
@@ -565,12 +568,10 @@ is to call `apply!(1,Direct,A,x,false,0,y)`.
 vmul!(y, A, x) = apply!(1, Direct, A, x, false, 0, y)
 
 """
-```julia
-apply([P,] A, x, scratch=false) -> y
-```
+    apply([P=Direct,] A, x, scratch=false) -> y
 
-yields the result `y` of applying mapping `A` to the argument `x`.
-Optional parameter `P` can be used to specify how `A` is to be applied:
+yields the result `y` of applying mapping `A` to the argument `x`. Optional
+parameter `P` can be used to specify how `A` is to be applied:
 
 * `Direct` (the default) to apply `A` and yield `y = A⋅x`;
 * `Adjoint` to apply the adjoint of `A` and yield `y = A'⋅x`;
@@ -582,13 +583,13 @@ Not all operations may be implemented by the different types of mappings and
 `Adjoint` and `InverseAdjoint` may only be applicable for linear mappings.
 
 Optional argument `scratch` indicates whether input argument `x` can be
-overwritten by the operation.  This may be exploited to avoid allocating
-temporary workspace(s).  The caller should set `scratch = true` if `x` is not
-needed after calling `apply`.  If `scratch = true`, then it is possible that
-`y` be the same object as `x`; otherwise, `y` is a new object unless applying
-the operation yields the same contents as `y` for the result `x` (this is
-always true for the identity for instance).  Thus, in general, it should not be
-assumed that the result of applying a mapping is different from the input.
+overwritten by the operation. This may be exploited to avoid allocating
+temporary workspace(s). The caller should set `scratch = true` if `x` is not
+needed after calling `apply`. If `scratch = true`, then it is possible that `y`
+be the same object as `x`; otherwise, `y` is a new object unless applying the
+operation yields the same contents as `y` for the result `x` (this is always
+true for the identity for instance). Thus, in general, it should not be assumed
+that the result of applying a mapping is different from the input.
 
 Julia methods are provided so that `apply(A', x)` automatically calls
 `apply(Adjoint, A, x)` so the shorter syntax may be used without impacting
@@ -598,7 +599,7 @@ See also: [`Mapping`](@ref), [`apply!`](@ref), [`vcreate`](@ref).
 
 """
 apply(A::Mapping, x, scratch::Bool=false) = apply(Direct, A, x, scratch)
-apply(P::Type{<:Operations}, A::Mapping, x, scratch::Bool=false) =
+apply(::Type{P}, A::Mapping, x, scratch::Bool=false) where {P<:Operations} =
     apply!(1, P, A, x, scratch, 0, vcreate(P, A, x, scratch))
 
 *(A::Mapping, x) = apply(Direct, A, x, false)
@@ -609,11 +610,11 @@ apply(P::Type{<:Operations}, A::Mapping, x, scratch::Bool=false) =
 
 overwrites `y` with `α*P(A)⋅x + β*y` where `P ∈ Operations` can be `Direct`,
 `Adjoint`, `Inverse` and/or `InverseAdjoint` to indicate which variant of the
-mapping `A` to apply.  The convention is that the prior contents of `y` is not
+mapping `A` to apply. The convention is that the prior contents of `y` is not
 used at all if `β = 0` so `y` can be directly used to store the result even
-though it is not initialized.  The `scratch` optional argument indicates
-whether the input `x` is no longer needed by the caller and can thus be used as
-a scratch array.  Having `scratch = true` or `β = 0` may be exploited by the
+though it is not initialized. The `scratch` optional argument indicates whether
+the input `x` is no longer needed by the caller and can thus be used as a
+scratch array. Having `scratch = true` or `β = 0` may be exploited by the
 specific implementation of the `apply!` method for the mapping type to avoid
 allocating temporary workspace(s).
 
@@ -627,7 +628,13 @@ with:
 
 The result `y` may have been allocated by:
 
-    y = vcreate([P=Direct,] A, x, scratch=false)
+    y = vcreate(P, A, x, scratch=false)
+
+or by:
+
+    y = vcreate(A, x, scratch=false)
+
+if `P` is not specified.
 
 Mapping sub-types only need to extend `vcreate` and `apply!` with the specific
 signatures:
@@ -635,7 +642,7 @@ signatures:
     vcreate(::Type{P}, A::M, x, scratch::Bool=false) -> y
     apply!(α::Number, ::Type{P}, A::M, x, scratch::Bool, β::Number, y) -> y
 
-for any supported operation `P` and where `M` is the type of the mapping.  Of
+for any supported operation `P` and where `M` is the type of the mapping. Of
 course, the types of arguments `x` and `y` may be specified as well.
 
 Optionally, the method with signature:
@@ -734,7 +741,7 @@ end
     overwritable(scratch, x, y) -> bool
 
 yields whether the result `y` of applying a mapping to `x` with scratch flag
-`scratch` can overwritten.  Arguments `x` and `y` can be reversed.
+`scratch` can overwritten. Arguments `x` and `y` can be reversed.
 
 """
 overwritable(scratch::Bool, x, y) = (scratch || x !== y)

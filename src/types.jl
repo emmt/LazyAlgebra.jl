@@ -36,9 +36,10 @@ showerror(io::IO, err::UnimplementedMethod) =
     print(io, err.msg)
 
 """
+    Reals
 
-Type `Reals` is the set of the floating point types.  It is the numerical
-approximation of reals in the mathematical sense.
+is the set of the floating point types. It is the numerical approximation of
+reals in the mathematical sense.
 
 This definition closely follows the semantic used in the BLAS module that
 `BlasReal` are all the real types supported by the BLAS library.
@@ -47,10 +48,10 @@ This definition closely follows the semantic used in the BLAS module that
 const Reals = AbstractFloat
 
 """
+    Complexes
 
-Type `Complexes` is the set of the complexes whose real and imaginary parts are
-floating point.  It is the numerical approximation of complexes in the
-mathematical sense.
+is the set of the complexes whose real and imaginary parts are floating point.
+It is the numerical approximation of complexes in the mathematical sense.
 
 This definition closely follows the semantic used in the BLAS module that
 `BlasComplex` are all the complex types supported by the BLAS library.
@@ -59,8 +60,9 @@ This definition closely follows the semantic used in the BLAS module that
 const Complexes = Complex{<:Reals}
 
 """
+    Floats
 
-Type `Floats` is the union of all floating-point types (reals and complexes).
+is the union of all floating-point types (reals and complexes).
 
 This definition closely follows the semantic used in the BLAS module that
 `BlasFloat` are all floating-point types supported by the BLAS library.
@@ -70,7 +72,7 @@ const Floats = Union{Reals,Complexes}
 
 """
 
-A `Mapping` is any function between two variables spaces.  Assuming upper case
+A `Mapping` is any function between two variables spaces. Assuming upper case
 Latin letters denote mappings, lower case Latin letters denote variables, and
 Greek letters denote scalars, then:
 
@@ -79,7 +81,7 @@ Greek letters denote scalars, then:
 * `A\\x` yields the result of applying the inverse of `A` to `x`;
 
 Simple constructions are allowed for any kind of mappings and can be used to
-create new instances of mappings which behave correctly.  For instance:
+create new instances of mappings which behave correctly. For instance:
 
 * `B = α*A` (where `α` is a real) is a mapping which behaves as `A` times `α`;
   that is `B⋅x` yields the same result as `α*(A⋅x)`.
@@ -88,7 +90,7 @@ create new instances of mappings which behave correctly.  For instance:
   `B`, ...; that is `C⋅x` yields the same result as `A⋅x + B⋅x + ...`.
 
 * `C = A*B` or `C = A⋅B` is a mapping which behaves as the composition of the
-  mappings `A` and `B`; that is `C⋅x` yields the same result as `A⋅(B.x)`.  As
+  mappings `A` and `B`; that is `C⋅x` yields the same result as `A⋅(B.x)`. As
   for the sum of mappings, there may be an arbitrary number of mappings in a
   composition; for example, if `D = A*B*C` then `D⋅x` yields the same result as
   `A⋅(B⋅(C⋅x))`.
@@ -97,15 +99,15 @@ create new instances of mappings which behave correctly.  For instance:
 
 * `C = A/B` is a mapping such that `C⋅x` yields the same result as `A⋅(B\\x)`.
 
-These constructions can be combined to build up more complex mappings.  For
+These constructions can be combined to build up more complex mappings. For
 example:
 
 * `D = A*(B + C)` is a mapping such that `C⋅x` yields the same result as
   `A⋅(B⋅x + C⋅x)`.
 
-A `LinearMapping` is any linear mapping between two spaces.  This abstract
+A `LinearMapping` is any linear mapping between two spaces. This abstract
 subtype of `Mapping` is introduced to extend the notion of *matrices* and
-*vectors*.  Assuming the type of `A` inherits from `LinearMapping`, then:
+*vectors*. Assuming the type of `A` inherits from `LinearMapping`, then:
 
 * `A'⋅x` and `A'*x` yields the result of applying the adjoint of the mapping
   `A` to `x`;
@@ -124,9 +126,9 @@ apply!(α::Number, ::Type{P}, A::M, x, , scratch::Bool, β::Number, y) -> y
 ```
 
 for any supported operation `P ∈ Operations` (`Direct`, `Adjoint`, `Inverse`
-and/or `InverseAdjoint`).  See the documentation of these methods for
-explanations.  Optionally, methods `P(A)` may be extended, *e.g.* to throw
-exceptions if operation `P` is forbidden (or not implemented).  By default, all
+and/or `InverseAdjoint`). See the documentation of these methods for
+explanations. Optionally, methods `P(A)` may be extended, *e.g.* to throw
+exceptions if operation `P` is forbidden (or not implemented). By default, all
 these operations are assumed possible (except `Adjoint` and `InverseAdjoint`
 for a nonlinear mapping).
 
@@ -141,10 +143,9 @@ abstract type LinearMapping <: Mapping end
 @doc @doc(Mapping) LinearMapping
 
 """
-
     Identity()
 
-yields the identity linear mapping.  The purpose of this mapping is to be as
+yields the identity linear mapping. The purpose of this mapping is to be as
 efficient as possible, hence the result of applying this mapping may be the
 same as the input argument.
 
@@ -153,17 +154,18 @@ The identity is a singleton and is also available as:
     Id
 
 The `LinearAlgebra` module of the standard library exports a constant `I` which
-also corresponds to the identity (but in the sense of a matrix).  When `I` is
-combined with any LazyAlgebra mapping, it is recognized as an alias of `Id`.
-So that, for instance, `I/A`, `A\\I`, `Id/A` and `A\\Id` all yield `inv(A)` for
+also corresponds to the identity (but in the sense of a matrix). When `I` is
+combined with any LazyAlgebra mapping, it is recognized as an alias of `Id`. So
+that, for instance, `I/A`, `A\\I`, `Id/A` and `A\\Id` all yield `inv(A)` for
 any LazyAlgebra mappings `A`.
 
 """
 struct Identity <: LinearMapping; end
 
 """
+    Trait
 
-The abstract type `Trait` is inherited by types indicating specific traits.
+is the abstract type inherited by types indicating specific traits.
 
 See also: [`LinearType`](@ref), [`SelfAdjointType`](@ref),
           [`DiagonalType`](@ref), [`MorphismType`](@ref).
@@ -202,7 +204,6 @@ See also: [`LinearMapping`](@ref), [`apply`](@ref), [`Operations`](@ref).
 struct Direct; end
 
 """
-
     Adjoint(A) -> obj
 
 yields an object instance `obj` representing `A'`, the adjoint of the linear
@@ -281,7 +282,6 @@ const AdjointInverse{T} = InverseAdjoint{T}
 @doc @doc(InverseAdjoint) AdjointInverse
 
 """
-
     Gram(A) -> obj
 
 yields an object instance `obj` representing the composition `A'*A` for the
@@ -307,10 +307,10 @@ struct Gram{T<:Mapping} <: LinearMapping
 end
 
 """
+    DecoratedMapping
 
-`DecoratedMapping` is the union of the *decorated* mapping types:
-[`Adjoint`](@ref), [`Inverse`](@ref), [`InverseAdjoint`](@ref), and
-[`Gram`](@ref).
+is the union of the *decorated* mapping types: [`Adjoint`](@ref),
+[`Inverse`](@ref), [`InverseAdjoint`](@ref), and [`Gram`](@ref).
 
 The method [`unveil(A)`](@ref) can be called to reveal the mapping embedded in
 a decorated mapping `A`.
@@ -319,14 +319,13 @@ a decorated mapping `A`.
 const DecoratedMapping = Union{Adjoint,Inverse,InverseAdjoint,Gram}
 
 """
-
     Jacobian(A,x) -> obj
 
-yields an object instance `obj` representing the Jacobian `∇(A,x)` of the non-linear
-mapping `A` for the variables `x`.
+yields an object instance `obj` representing the Jacobian `∇(A,x)` of the
+non-linear mapping `A` for the variables `x`.
 
-Directly calling this constructor is discouraged, call [`jacobian(A,x)`](@ref) or
-[`∇(A,x)`](@ref) instead and benefit from automatic simplification rules.
+Directly calling this constructor is discouraged, call [`jacobian(A,x)`](@ref)
+or [`∇(A,x)`](@ref) instead and benefit from automatic simplification rules.
 
 """
 struct Jacobian{M<:Mapping,T} <: Mapping
@@ -344,10 +343,11 @@ struct Jacobian{M<:Mapping,T} <: Mapping
 end
 
 """
+    Operations
 
-`Operations` is the union of the possible variants to apply a mapping:
-[`Direct`](@ref), [`Adjoint`](@ref), [`Inverse`](@ref) and
-[`InverseAdjoint`](@ref) (or its alias [`AdjointInverse`](@ref)).
+is the union of the possible variants to apply a mapping: [`Direct`](@ref),
+[`Adjoint`](@ref), [`Inverse`](@ref) and [`InverseAdjoint`](@ref) (or its alias
+[`AdjointInverse`](@ref)).
 
 See also: [`apply`](@ref) and [`apply!`](@ref).
 
@@ -355,7 +355,6 @@ See also: [`apply`](@ref) and [`apply!`](@ref).
 const Operations = Union{Direct,Adjoint,Inverse,InverseAdjoint}
 
 """
-
     Scaled(λ, M) -> obj
 
 yields an object instance `obj` representing `λ*M`, the mapping `M` multiplied
@@ -376,7 +375,6 @@ struct Scaled{T<:Mapping,S<:Number} <: Mapping
 end
 
 """
-
     Sum(A, B, ...) -> obj
 
 yields an object instance `obj` representing the sum `A + B + ...` of the
@@ -401,7 +399,6 @@ struct Sum{N,T<:NTuple{N,Mapping}} <: Mapping
 end
 
 """
-
     Composition(A, B, ...) -> obj
 
 yields an object instance `obj` representing the composition `A*B*...` of the
