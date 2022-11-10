@@ -2,9 +2,6 @@
 
 ## Wish list for future developments
 
-* Traits must be type-stable. That is deciding the value of a specific trait
-  should be done on the sole basis of the the type of the argument(s).
-
 * Optimizations and simplifications of expressions involving mappings belong to
   two categories:
   * Automatic simplifications performed by`LazyAlgebra`. These can change the
@@ -33,6 +30,13 @@
 * Abstract type `Mapping{L}` has a built-in parameter indicating whether the
   mapping is linbear of not. This breaks compatibility but simplifies a lot
   many parts of the code and makes the linear trait decidable at compile time.
+
+* **Traits** must be type-stable. That is deciding the value of a specific
+  mapping trait must be done on the sole basis of the type of the mapping. The
+  linear trait is useful and trivial to propagate ub constructions (this is
+  part of the decision to add it as a parameter to the abstract mapping type
+  `Mapping`). Other traits, such as the morphism type, may not be so useful or
+  can be tricky to determine, they may be eliminated in a near future.
 
 ### Other changes
 

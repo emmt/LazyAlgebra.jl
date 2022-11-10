@@ -31,21 +31,23 @@ LinearType(::Type{<:NonLinearMapping}) = NonLinear()
 """
     SelfAdjointType(A)
 
-yields the *self-adjoint* trait of mapping `A` indicating whether `A` is
-certainly a self-adjoint linear map. The returned value is one of the
-singletons `SelfAdjoint()` for self-adjoint linear maps and `NonSelfAdjoint()`
-for other mappings.
+yields the *self-adjoint* trait of mapping (instance or type) `A` indicating
+whether `A` is certainly a self-adjoint linear map (instance or type). The
+returned value is one of the singletons `SelfAdjoint()` for self-adjoint linear
+maps and `NonSelfAdjoint()` for other mappings.
 
 See also: [`Trait`](@ref), [`is_selfadjoint`](@ref).
 
 """
-SelfAdjointType(::Mapping) = NonSelfAdjoint()
-SelfAdjointType(A::DecoratedMapping) = SelfAdjointType(unveil(A))
-SelfAdjointType(A::Scaled) = SelfAdjointType(unscaled(A))
-SelfAdjointType(A::Sum) =
-    (allof(x -> SelfAdjointType(x) === SelfAdjoint(), terms(A)...) ?
-     SelfAdjoint() : NonSelfAdjoint())
-SelfAdjointType(A::Gram) = SelfAdjoint()
+SelfAdjointType(A::Mapping) = SelfAdjointType(typeof(A))
+SelfAdjointType(::Type{<:Mapping}) = NonSelfAdjoint()
+SelfAdjointType(::Type{<:Adjoint{M}}) where {M} = SelfAdjointType(M)
+SelfAdjointType(::Type{<:InverseAdjoint{M}}) where {M} = SelfAdjointType(M)
+SelfAdjointType(::Type{<:Inverse{true,M}}) where {M} = SelfAdjointType(M)
+SelfAdjointType(::Type{<:Scaled{true,M}}) where {M} = SelfAdjointType(M)
+SelfAdjointType(::Type{<:Gram}) = SelfAdjoint()
+SelfAdjointType(::Type{T}) where {T<:Sum} =
+    (all_terms(is_selfadjoint, T) ? SelfAdjoint() : NonSelfAdjoint())
 
 @doc @doc(SelfAdjointType) SelfAdjoint
 @doc @doc(SelfAdjointType) NonSelfAdjoint
@@ -53,21 +55,24 @@ SelfAdjointType(A::Gram) = SelfAdjoint()
 """
     MorphismType(A)
 
-yields the *morphism* trait of mapping `A` indicating whether `A` is certainly
-an endomorphism (its input and output spaces are the same). The returned value
-is one of the singletons `Endomorphism()` for mappings whose input and output
-spaces are the same or `Morphism()` for other mappings.
+yields the *morphism* trait of mapping (instance or type) `A` indicating
+whether `A` is certainly an endomorphism (instance or type), that is its input
+and output spaces are the same. The returned value is one of the singletons
+`Endomorphism()` for mappings whose input and output spaces are the same or
+`Morphism()` for other mappings.
 
 See also: [`Trait`](@ref), [`is_endomorphism`](@ref).
 
 """
-MorphismType(::Mapping) = Morphism()
-MorphismType(A::DecoratedMapping) = MorphismType(unveil(A))
-MorphismType(A::Gram) = Endomorphism()
-MorphismType(A::Scaled) = MorphismType(unscaled(A))
-MorphismType(A::Union{Sum,Composition}) =
-    (allof(x -> MorphismType(x) === Endomorphism(), terms(A)...) ?
-     Endomorphism() : Morphism())
+MorphismType(A::Mapping) = MorphismType(typeof(A))
+MorphismType(::Type{<:Mapping}) = Morphism()
+MorphismType(::Type{<:Adjoint{M}}) where {M} = MorphismType(M)
+MorphismType(::Type{<:InverseAdjoint{M}}) where {M} = MorphismType(M)
+MorphismType(::Type{<:Inverse{<:Any,M}}) where {M} = MorphismType(M)
+MorphismType(::Type{<:Scaled{<:Any,M}}) where {M} = MorphismType(M)
+MorphismType(::Type{<:Gram}) = Endomorphism()
+MorphismType(::Type{T}) where {T<:Union{Sum,Composition}} =
+    (all_terms(is_endomorphism, T) ? Endomorphism() : Morphism())
 
 @doc @doc(MorphismType) Morphism
 @doc @doc(MorphismType) Endomorphism
@@ -75,23 +80,33 @@ MorphismType(A::Union{Sum,Composition}) =
 """
     DiagonalType(A)
 
-yields the *diagonal* trait of mapping `A` indicating whether `A` is certainly
-a diagonal linear mapping. The returned value is one of the singletons
-`DiagonalMapping()` for diagonal linear maps or `NonDiagonalMapping()` for
-other mappings.
+yields the *diagonal* trait of mapping (instance or type) `A` indicating
+whether `A` is certainly a diagonal linear mapping (instance or type). The
+returned value is one of the singletons `DiagonalMapping()` for diagonal linear
+maps or `NonDiagonalMapping()` for other mappings.
 
 See also: [`Trait`](@ref), [`is_diagonal`](@ref).
 
 """
-DiagonalType(::Mapping) = NonDiagonalMapping()
-DiagonalType(A::DecoratedMapping) = DiagonalType(unveil(A))
-DiagonalType(A::Scaled) = DiagonalType(unscaled(A))
-DiagonalType(A::Union{Sum,Composition}) =
-    (allof(x -> DiagonalType(x) === DiagonalMapping(), terms(A)...) ?
-     DiagonalMapping() : NonDiagonalMapping())
+DiagonalType(A::Mapping) = DiagonalType(typeof(A))
+DiagonalType(::Type{<:Mapping}) = NonDiagonalMapping()
+DiagonalType(::Type{<:Adjoint{M}}) where {M} = DiagonalType(M)
+DiagonalType(::Type{<:InverseAdjoint{M}}) where {M} = DiagonalType(M)
+DiagonalType(::Type{<:Inverse{true,M}}) where {M} = DiagonalType(M)
+DiagonalType(::Type{<:Scaled{true,M}}) where {M} = DiagonalType(M)
+DiagonalType(::Type{<:Gram{M}}) where {M} = DiagonalType(M)
+DiagonalType(::Type{T}) where {T<:Union{Sum,Composition}} =
+    (all_terms(is_diagonal, T) ? DiagonalMapping() : NonDiagonalMapping())
 
 @doc @doc(DiagonalType) NonDiagonalMapping
 @doc @doc(DiagonalType) DiagonalMapping
+
+function all_terms(f::Function, ::Type{<:Union{Sum{L,N,T},Composition{L,N,T}}}) where {L,N,T}
+    for x in T.types
+        f(x) || return false
+        end
+    return true
+end
 
 """
     is_linear(A)

@@ -422,7 +422,7 @@ FFTOperator(A::DenseArray{T,N}; kwds...) where {T<:fftwNumber,N} =
     FFTOperator(T, size(A); kwds...)
 
 # Traits:
-MorphismType(::FFTOperator{<:Complex}) = Endomorphism()
+MorphismType(::Type{<:FFTOperator{<:Complex}}) = Endomorphism()
 
 ncols(A::FFTOperator) = A.ncols
 ncols(A::Adjoint{<:FFTOperator}) = ncols(unveil(A))
@@ -538,7 +538,7 @@ end
 @callable CirculantConvolution
 
 # Traits:
-MorphismType(::CirculantConvolution) = Endomorphism()
+MorphismType(::Type{<:CirculantConvolution}) = Endomorphism()
 
 # Basic methods for a linear operator on Julia's arrays.
 input_size(H::CirculantConvolution) = H.dims

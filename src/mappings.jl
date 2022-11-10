@@ -19,9 +19,9 @@ identical(::Identity, ::Identity) = true
 @callable Identity
 
 # Traits:
-SelfAdjointType(::Identity) = SelfAdjoint()
-MorphismType(::Identity) = Endomorphism()
-DiagonalType(::Identity) = DiagonalMapping()
+SelfAdjointType(::Type{<:Identity}) = SelfAdjoint()
+MorphismType(::Type{<:Identity}) = Endomorphism()
+DiagonalType(::Type{<:Identity}) = DiagonalMapping()
 
 apply(::Type{<:Operations}, ::Identity, x, scratch::Bool=false) = x
 
@@ -91,14 +91,10 @@ const Diag{T} = NonuniformScaling{T}
 @callable NonuniformScaling
 
 # Traits:
-MorphismType(::NonuniformScaling) = Endomorphism()
-DiagonalType(::NonuniformScaling) = DiagonalMapping()
-SelfAdjointType(A::NonuniformScaling) =
-    _selfadjointtype(eltype(coefficients(A)), A)
-_selfadjointtype(::Type{<:Real}, ::NonuniformScaling) =
-    SelfAdjoint()
-_selfadjointtype(::Type{<:Complex}, ::NonuniformScaling) =
-    NonSelfAdjoint()
+MorphismType(::Type{<:NonuniformScaling}) = Endomorphism() # FIXME: only if unitless coefficients
+DiagonalType(::Type{<:NonuniformScaling}) = DiagonalMapping()
+SelfAdjointType(::Type{<:NonuniformScaling{<:AbstractArray{<:Real}}}) =
+    SelfAdjoint() # FIXME: check this...
 
 coefficients(A::NonuniformScaling) = A.diag
 LinearAlgebra.diag(A::NonuniformScaling) = coefficients(A)
@@ -106,8 +102,8 @@ LinearAlgebra.diag(A::NonuniformScaling) = coefficients(A)
 identical(A::T, B::T) where {T<:NonuniformScaling} =
     coefficients(A) === coefficients(B)
 
-function inv(A::NonuniformScaling{<:AbstractArray{T,N}}
-             ) where {T<:AbstractFloat, N}
+# FIXME: This should only be done by `optimize`.
+function inv(A::NonuniformScaling{<:AbstractArray{T,N}}) where {T<:AbstractFloat, N}
     q = coefficients(A)
     r = similar(q)
     @inbounds @simd for i in eachindex(q, r)
@@ -116,6 +112,7 @@ function inv(A::NonuniformScaling{<:AbstractArray{T,N}}
     return NonuniformScaling(r)
 end
 
+# FIXME: is this really useful?
 eltype(::Type{<:NonuniformScaling{<:AbstractArray{T,N}}}) where {T, N} = T
 
 input_ndims(::NonuniformScaling{<:AbstractArray{T,N}}) where {T, N} = N
@@ -130,10 +127,12 @@ output_size(A::NonuniformScaling{<:AbstractArray}, i) =
 
 # Simplify left multiplication (and division) by a scalar.
 # FIXME: α = 0 should be treated specifically
+# FIXME: This should only be done by `optimize`.
 *(α::Number, A::NonuniformScaling)::NonuniformScaling =
     (α == 1 ? A : NonuniformScaling(vscale(α, coefficients(A))))
 
 # Extend composition of diagonal operators.
+# FIXME: This should only be done by `optimize`.
 *(A::NonuniformScaling, B::NonuniformScaling) =
     NonuniformScaling(vproduct(coefficients(A), coefficients(B)))
 
@@ -297,8 +296,8 @@ end
 @callable SymmetricRankOneOperator
 
 # Traits:
-MorphismType(::SymmetricRankOneOperator) = Endomorphism()
-SelfAdjointType(::SymmetricRankOneOperator) = SelfAdjoint()
+MorphismType(::Type{<:SymmetricRankOneOperator}) = Endomorphism() # FIXME: not true with units
+SelfAdjointType(::Type{<:SymmetricRankOneOperator}) = SelfAdjoint()
 
 function apply!(α::Number, ::Type{<:Union{Direct,Adjoint}},
                 A::SymmetricRankOneOperator, x, scratch::Bool, β::Number, y)

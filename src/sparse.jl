@@ -339,11 +339,6 @@ Base.size(A::SparseOperator) = (row_size(A)..., col_size(A)...)
 Base.convert(::Type{T}, A::T) where {T<:SparseOperator} = A
 Base.convert(::Type{T}, A) where {T<:SparseOperator} = T(A)
 
-# FIXME: This cannot be considered as a *pure* trait as it does not only
-#        depend on the type of the object.
-MorphismType(A::SparseOperator) =
-    (row_size(A) == col_size(A) ? Endomorphism() : Morphism())
-
 coefficients(A::SparseOperator) = get_vals(A)
 
 identical(A::T, B::T) where {T<:CompressedSparseOperator{:CSR}} =
