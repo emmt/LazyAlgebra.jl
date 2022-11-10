@@ -71,10 +71,15 @@ This definition closely follows the semantic used in the BLAS module that
 const Floats = Union{Reals,Complexes}
 
 """
+    Mapping{L}
 
-A `Mapping` is any function between two variables spaces. Assuming upper case
-Latin letters denote mappings, lower case Latin letters denote variables, and
-Greek letters denote scalars, then:
+is the abstract super-type of mappings in `LazyAlgebra`. Type parameter `L` is
+a boolean indicating whether the mapping is linear. A mapping is any function
+between two variables spaces. Assuming upper case Latin letters denote
+mappings, lower case Latin letters denote variables, and Greek letters denote
+scalars, then:
+
+* `A(x)` yields the result of applying the mapping `A` to `x`;
 
 * `A*x` or `A⋅x` yields the result of applying the mapping `A` to `x`;
 
@@ -137,10 +142,23 @@ See also: [`apply`](@ref), [`apply!`](@ref), [`vcreate`](@ref),
           [`Adjoint`](@ref), [`Inverse`](@ref), [`InverseAdjoint`](@ref).
 
 """
-abstract type Mapping <: Function end
+abstract type Mapping{L} <: Function end
 
-abstract type LinearMapping <: Mapping end
-@doc @doc(Mapping) LinearMapping
+"""
+    LinearMapping
+
+is the abstract super-type of linear mappings in `LazyAlgebra`.
+
+"""
+const LinearMapping = Mapping{true}
+
+"""
+    NonLinearMapping
+
+is the abstract super-type of non-linear mappings in `LazyAlgebra`.
+
+"""
+const NonLinearMapping = Mapping{false}
 
 """
     Identity()
@@ -217,15 +235,9 @@ Call [`unveil(obj)`](@ref) to reveal the linear mapping `A` embedded in `obj`.
 See also [`DecoratedMapping`](@ref).
 
 """
-struct Adjoint{T<:Mapping} <: LinearMapping
-    op::T
-
-    # The outer constructors prevent most illegal calls to `Adjoint(A)` we
-    # just have to check that the argument is a simple linear mapping.
-    function Adjoint{T}(A::T) where {T<:Mapping}
-        is_linear(A) || throw_forbidden_adjoint_of_non_linear_mapping()
-        return new{T}(A)
-    end
+struct Adjoint{M<:LinearMapping} <: LinearMapping
+    parent::M
+    Adjoint(A::M) where {M<:LinearMapping} = new{M}(A)
 end
 
 """
@@ -241,12 +253,9 @@ Call [`unveil(obj)`](@ref) to reveal the mapping `A` embedded in `obj`.
 See also [`DecoratedMapping`](@ref).
 
 """
-struct Inverse{T<:Mapping} <: Mapping
-    op::T
-
-    # The outer constructors prevent all illegal calls to `Inverse(A)` so there
-    # is nothing more to check.
-    Inverse{T}(A::T) where {T<:Mapping} = new{T}(A)
+struct Inverse{L,M<:Mapping{L}} <: Mapping{L}
+    parent::M
+    Inverse(A::M) where {L,M<:Mapping{L}} = new{L,M}(A)
 end
 
 """
@@ -266,44 +275,31 @@ Call [`unveil(obj)`](@ref) to reveal the mapping `A` embedded in `obj`.
 See also [`DecoratedMapping`](@ref).
 
 """
-struct InverseAdjoint{T<:Mapping} <: LinearMapping
-    op::T
-
-    # The outer constructors prevent most illegal calls to `InverseAdjoint(A)`
-    # we just have to check that the argument is a simple linear mapping.
-    function InverseAdjoint{T}(A::T) where {T<:Mapping}
-        is_linear(A) ||
-            bad_argument("taking the inverse adjoint of non-linear mappings is not allowed")
-        return new{T}(A)
-    end
+struct InverseAdjoint{M<:LinearMapping} <: LinearMapping
+    parent::M
+    InverseAdjoint(A::M) where {M<:LinearMapping} = new{M}(A)
 end
 
-const AdjointInverse{T} = InverseAdjoint{T}
+const AdjointInverse{M} = InverseAdjoint{M}
 @doc @doc(InverseAdjoint) AdjointInverse
 
 """
-    Gram(A) -> obj
+    Gram(A) -> B
 
-yields an object instance `obj` representing the composition `A'*A` for the
-linear mapping `A`.
+yields an object `B` representing the composition `A'*A` for the linear mapping
+`A`.
 
 Directly calling this constructor is discouraged, call [`gram(A)`](@ref) or use
 expression `A'*A` instead and benefit from automatic simplification rules.
 
-Call [`unveil(obj)`](@ref) to reveal the linear mapping `A` embedded in `obj`.
+Call [`unveil(B)`](@ref) to reveal the linear mapping `A` embedded in `B`.
 
 See also [`gram`](@ref), [`unveil`](@ref) and [`DecoratedMapping`](@ref).
 
 """
-struct Gram{T<:Mapping} <: LinearMapping
-    op::T
-
-    # The outer constructors prevent most illegal calls to `Gram(A)` we
-    # just have to check that the argument is a simple linear mapping.
-    function Gram{T}(A::T) where {T<:Mapping}
-        is_linear(A) || throw_forbidden_Gram_of_non_linear_mapping()
-        return new{T}(A)
-    end
+struct Gram{M<:LinearMapping} <: LinearMapping
+    parent::M
+    Gram(A::M) where {M<:LinearMapping} = new{M}(A)
 end
 
 """
@@ -328,18 +324,10 @@ Directly calling this constructor is discouraged, call [`jacobian(A,x)`](@ref)
 or [`∇(A,x)`](@ref) instead and benefit from automatic simplification rules.
 
 """
-struct Jacobian{M<:Mapping,T} <: Mapping
-    A::M
-    x::T
-
-    # The outer constructors prevent most illegal calls to `Jacobian(A)` we
-    # just have to check that the argument is not a simple linear mapping.
-    function Jacobian{M,T}(A::M, x::T) where {M<:Mapping,T}
-        is_linear(A) &&
-            bad_argument("the Jacobian of a linear mapping of type `",
-                         M, "` should be the mapping itself")
-        return new{M,T}(A, x)
-    end
+struct Jacobian{M<:NonLinearMapping,V} <: NonLinearMapping
+    primitive::M
+    variables::V
+    Jacobian(A::M, x::V) where {M<:NonLinearMapping,V} = new{M,V}(A, x)
 end
 
 """
@@ -355,70 +343,63 @@ See also: [`apply`](@ref) and [`apply!`](@ref).
 const Operations = Union{Direct,Adjoint,Inverse,InverseAdjoint}
 
 """
-    Scaled(λ, M) -> obj
+    Scaled(λ, A) -> B
 
-yields an object instance `obj` representing `λ*M`, the mapping `M` multiplied
-by a scalar `λ`.
+yields an object `B` representing `λ*A`, that is the mapping `A` multiplied by
+a scalar `λ`.
 
-Directly calling this constructor is discouraged, use expressions like `λ*M`
+Directly calling this constructor is discouraged, use expressions like `λ*A`
 instead and benefit from automatic simplification rules.
 
-Call [`multiplier(obj)`](@ref) and [`unscaled(obj)`](@ref) with a scaled
-mapping `obj = λ*M` to retrieve `λ` and `M` respectively.
+Call [`multiplier(B)`](@ref) and [`unscaled(B)`](@ref) with a scaled
+mapping `B = λ*A` to retrieve `λ` and `A` respectively.
 
 """
-struct Scaled{T<:Mapping,S<:Number} <: Mapping
-    λ::S
-    M::T
-    Scaled{T,S}(λ::S, M::Mapping) where {S<:Number,T<:Mapping} =
-        new{T,S}(λ, M)
+struct Scaled{L,M<:Mapping{L},S<:Number} <: Mapping{L}
+    multiplier::S
+    mapping::M
+    Scaled(λ::S, A::M) where {S<:Number,L,M<:Mapping{L}} = new{L,M,S}(λ, A)
 end
 
 """
-    Sum(A, B, ...) -> obj
+    Sum(A, B...) -> S
 
-yields an object instance `obj` representing the sum `A + B + ...` of the
-mappings `A`, `B`, ...
+yields an object `S` representing the sum `A + B + ...` of the mappings `A`,
+`B...`. The constructor also accepts as argument a tuple of mappings.
 
 Directly calling this constructor is discouraged, use expressions like `A + B +
 ...` instead and benefit from automatic simplification rules.
 
-Call [`terms(obj)`](@ref) retrieve the tuple `(A,B,...)` of the terms of the
-sum stored in `obj`.
+Call [`terms(S)`](@ref) retrieve the tuple `(A,B...)` of the terms of the sum
+stored in `S`.
 
 """
-struct Sum{N,T<:NTuple{N,Mapping}} <: Mapping
-    ops::T
-
-    # The inner constructor ensures that the number of arguments is at least 2.
-    function Sum{N,T}(ops::T) where {N,T<:NTuple{N,Mapping}}
-        N ≥ 2 ||
-            throw(ArgumentError("a sum of mappings has at least 2 components"))
-        new{N,T}(ops)
+struct Sum{L,N,T<:NTuple{N,Mapping}} <: Mapping{L}
+    terms::T
+    function Sum(terms::T) where {N,T<:NTuple{N,Mapping}}
+        N ≥ 2 || throw(ArgumentError("a sum of mappings has at least 2 terms"))
+        return new{T <: NTuple{N,Mapping{true}},N,T}(terms)
     end
 end
 
 """
-    Composition(A, B, ...) -> obj
+    Composition(A, B...) -> C
 
-yields an object instance `obj` representing the composition `A*B*...` of the
-mappings `A`, `B`, ...
+yields an object `C` representing the composition `A*B*...` of the mappings
+`A`, `B...`. The constructor also accepts as argument a tuple of mappings.
 
 Directly calling this constructor is discouraged, use expressions like
 `A*B*...` `A∘B∘...` or `A⋅B⋅...` instead and benefit from automatic
 simplification rules.
 
-Call [`terms(obj)`](@ref) retrieve the tuple `(A,B,...)` of the terms of the
-composition stored in `obj`.
+Call [`terms(C)`](@ref) to retrieve the tuple `(A,B...)` of the terms of the
+composition stored in `C`.
 
 """
-struct Composition{N,T<:NTuple{N,Mapping}} <: Mapping
-    ops::T
-
-    # The inner constructor ensures that the number of arguments is at least 2.
-    function Composition{N,T}(ops::T) where {N,T<:NTuple{N,Mapping}}
-        N ≥ 2 ||
-            throw(ArgumentError("a composition of mappings has at least 2 components"))
-        new{N,T}(ops)
+struct Composition{L,N,T<:NTuple{N,Mapping}} <: Mapping{L}
+    terms::T
+    function Composition(terms::T) where {N,T<:NTuple{N,Mapping}}
+        N ≥ 2 || throw(ArgumentError("a composition of mappings has at least 2 terms"))
+        return new{T <: NTuple{N,Mapping{true}},N,T}(terms)
     end
 end

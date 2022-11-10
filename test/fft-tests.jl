@@ -70,7 +70,7 @@ end # testset
         show(io, F)
         @test String(take!(io)) == "FFT"
         @test typeof(F') === Adjoint{typeof(F)}
-        @test typeof(inv(F)) === Inverse{typeof(F)}
+        @test typeof(inv(F)) === Inverse{true,typeof(F)}
         @test typeof(inv(F)') === InverseAdjoint{typeof(F)}
         @test typeof(inv(F')) === InverseAdjoint{typeof(F)}
         @test F'*F == length(x)*Identity()

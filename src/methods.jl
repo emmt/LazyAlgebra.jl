@@ -56,7 +56,7 @@ function show(io::IO, A::Scaled)
     show(io, M)
 end
 
-function show(io::IO, A::Scaled{<:Sum})
+function show(io::IO, A::Scaled{<:Any,<:Sum})
     λ, M = multiplier(A), unscaled(A)
     if λ == -1
         print(io, "-(")
@@ -69,36 +69,36 @@ function show(io::IO, A::Scaled{<:Sum})
     end
 end
 
-function show(io::IO, A::Adjoint{<:Mapping})
+function show(io::IO, A::Adjoint)
     show(io, unveil(A))
     print(io, "'")
 end
 
-function show(io::IO, A::Adjoint{T}) where {T<:Union{Scaled,Composition,Sum}}
+function show(io::IO, A::Adjoint{<:Union{Scaled,Composition,Sum}})
     print(io, "(")
     show(io, unveil(A))
     print(io, ")'")
 end
 
-function show(io::IO, A::Inverse{<:Mapping})
+function show(io::IO, A::Inverse)
     print(io, "inv(")
     show(io, unveil(A))
     print(io, ")")
 end
 
-function show(io::IO, A::InverseAdjoint{<:Mapping})
+function show(io::IO, A::InverseAdjoint)
     print(io, "inv(")
     show(io, unveil(A))
     print(io, ")'")
 end
 
-function show(io::IO, A::Jacobian{<:Mapping})
+function show(io::IO, A::Jacobian)
     print(io, "∇(")
     show(io, primitive(A))
     print(io, ",x)")
 end
 
-function show(io::IO, A::Sum{N}) where {N}
+function show(io::IO, A::Sum)
     function show_term(io::IO, A::Sum)
         print(io, "(")
         show(io, A)
@@ -106,7 +106,7 @@ function show(io::IO, A::Sum{N}) where {N}
     end
     show_term(io::IO, A::Mapping) = show(io, A)
 
-    for i in 1:N
+    for i in eachindex(A)
         let B = A[i]
             if isa(B, Scaled)
                 λ, M = multiplier(B), unscaled(B)
@@ -130,8 +130,8 @@ function show(io::IO, A::Sum{N}) where {N}
     end
 end
 
-function show(io::IO, A::Composition{N}) where {N}
-    for i in 1:N
+function show(io::IO, A::Composition)
+    for i in eachindex(A)
         let B = A[i]
             if i > 1
                 print(io, "⋅")
@@ -158,8 +158,20 @@ If `A` is sum or a composition of mappings, `Tuple(A)` yields the same result
 as `terms(A)`.
 
 """
-terms(A::Union{Sum,Composition}) = getfield(A, :ops)
+terms(A::Union{Sum,Composition}) = getfield(A, :terms)
 terms(A::Mapping) = (A,)
+
+"""
+    nterms(A)
+
+yields the number of terms in a sum or composition of mappings `A`. The
+returned value is a *trait*, argument can be a mapping instance or type. If `A`
+is a mapping, `nterms(A)` yields the same result as `length(A)`.
+
+"""
+nterms(x::Union{Sum,Composition}) = nterms(typeof(x))
+nterms(::Type{<:Sum{L,N}}) where {L,N} = N
+nterms(::Type{<:Composition{L,N}}) where {L,N} = N
 
 """
     unveil(A)
@@ -172,10 +184,8 @@ As a special case, `A` may be an instance of `LinearAlgebra.UniformScaling` and
 the result is the LazyAlgebra mapping corresponding to `A`.
 
 """
-unveil(A::DecoratedMapping) = getfield(A, :op)
+unveil(A::DecoratedMapping) = getfield(A, :parent)
 unveil(A::Mapping) = A
-unveil(A::UniformScaling) = multiplier(A)*Id
-Mapping(A::UniformScaling) = unveil(A)
 
 """
     unscaled(A)
@@ -185,10 +195,14 @@ otherwise yields `A`. This method also works for intances of
 `LinearAlgebra.UniformScaling`. Call [`multiplier`](@ref) to get the multiplier
 `λ`.
 
+If `A` is a mapping type, yields the corresponding unscaled mapping type.
+
 """
 unscaled(A::Mapping) = A
-unscaled(A::Scaled) = getfield(A, :M)
-unscaled(A::UniformScaling) = Id
+unscaled(A::Scaled) = getfield(A, :mapping)
+
+unscaled(::Type{M}) where {M<:Mapping} = M
+unscaled(::Type{<:Scaled{L,M,S}}) where {L,M,S} = M
 
 """
     multiplier(A)
@@ -198,10 +212,23 @@ yields the multiplier `λ` of the scaled mapping `A = λ*M` (see
 intances of `LinearAlgebra.UniformScaling`. Call [`unscaled`](@ref) to get the
 mapping `M`. `λ`.
 
+If `A` is a mapping type, yields the corresponding multiplier type.
+
 """
-multiplier(A::Scaled) = getfield(A, :λ)
+multiplier(A::Scaled) = getfield(A, :multiplier)
 multiplier(A::Mapping) = 1
+
+multiplier(::Type{M}) where {M<:Mapping} = Int
+multiplier(::Type{<:Scaled{L,M,S}}) where {L,M,S} = S
+
+# Extend a few methods for `LinearAlgebra.UniformScaling` (NOTE: see code in
+# `LinearAlgebra/src/uniformscaling.jl`)
+unveil(A::UniformScaling) = multiplier(A)*Id
+Mapping(A::UniformScaling) = unveil(A)
+unscaled(A::UniformScaling) = Id
+unscaled(::Type{<:UniformScaling}) = typeof(Id)
 multiplier(A::UniformScaling) = getfield(A, :λ)
+multiplier(::Type{<:UniformScaling{T}}) where {T} = T
 
 """
     primitive(J)
@@ -210,7 +237,7 @@ yields the mapping `A` embedded in the Jacobian `J = ∇(A,x)`. Call
 [`variables`](@ref) to get `x` instead.
 
 """
-primitive(J::Jacobian) = getfield(J, :A)
+primitive(J::Jacobian) = getfield(J, :primitive)
 
 """
     variables(J)
@@ -219,7 +246,7 @@ yields the variables `x` embedded in the Jacobian `J = ∇(A,x)`. Call
 [`primitive`](@ref) to get `A` instead.
 
 """
-variables(J::Jacobian) = getfield(J, :x)
+variables(J::Jacobian) = getfield(J, :variables)
 
 """
     identifier(A)
@@ -237,19 +264,19 @@ identifier(A::Mapping) = objectid(unscaled(A))
 Base.isless(A::Mapping, B::Mapping) = isless(identifier(A), identifier(B))
 
 # Extend base methods to simplify the code for reducing expressions.
-first(A::Mapping) = A
-last(A::Mapping) = A
-first(A::Union{Sum,Composition}) = @inbounds A[1]
-last(A::Union{Sum{N},Composition{N}}) where {N} = @inbounds A[N]
-firstindex(A::Union{Sum,Composition}) = 1
-lastindex(A::Union{Sum{N},Composition{N}}) where {N} = N
-length(A::Union{Sum{N},Composition{N}}) where {N} = N
-eltype(::Type{<:Sum{N,T}}) where {N,T} = eltype(T)
-eltype(::Type{<:Composition{N,T}}) where {N,T} = eltype(T)
+# FIXME: Base.first(A::Mapping) = A
+# FIXME: Base.last(A::Mapping) = A
+Base.first(A::Union{Sum,Composition}) = first(terms(A))
+Base.last(A::Union{Sum,Composition}) = last(terms(A))
+Base.firstindex(A::Union{Sum,Composition}) = firstindex(terms(A))
+Base.lastindex(A::Union{Sum,Composition}) = lastindex(terms(A))
+Base.length(A::Union{Sum,Composition}) = length(terms(A))
+Base.keys(A::Union{Sum,Composition}) = keys(terms(A))
+# FIXME: Base.eltype(::Type{<:Sum{L,N,T}}) where {L,N,T} = eltype(T)
+# FIXME: Base.eltype(::Type{<:Composition{L,N,T}}) where {L,N,T} = eltype(T)
 Tuple(A::Union{Sum,Composition}) = terms(A)
 
-@inline @propagate_inbounds getindex(A::Union{Sum,Composition}, i) =
-    getindex(terms(A), i)
+@inline @propagate_inbounds getindex(A::Union{Sum,Composition}, i) = terms(A)[i]
 
 """
     input_type([P=Direct,] A)
@@ -809,8 +836,8 @@ function vcreate(::Type{P}, A::Sum, x,
     vcreate(P, A[1], x, scratch)
 end
 
-function apply!(α::Number, P::Type{<:Union{Direct,Adjoint}}, A::Sum{N},
-                x, scratch::Bool, β::Number, y) where {N}
+function apply!(α::Number, P::Type{<:Union{Direct,Adjoint}}, A::Sum{L,N},
+                x, scratch::Bool, β::Number, y) where {L,N}
     if α == 0
         # Just scale the destination.
         vscale!(y, β)
@@ -860,13 +887,12 @@ throw_unsupported_inverse_of_sum() =
 # To break the type barrier, this is done by a recursion.  The recursion is
 # just done in the other direction for the Adjoint or Inverse operation.
 
-function vcreate(::Type{<:Operations},
-                 A::Composition{N}, x, scratch::Bool) where {N}
-    error("it is not possible to create the output of a composition of mappings")
-end
+vcreate(::Type{<:Operations}, A::Composition, x, scratch::Bool) =
+    error("it is not possible to automatically create the output of a composition of mappings")
 
-function apply!(α::Number, ::Type{P}, A::Composition{N}, x, scratch::Bool,
-                β::Number, y) where {N,P<:Union{Direct,InverseAdjoint}}
+# FIXME: replace `N` by `end` in following methods.
+function apply!(α::Number, ::Type{P}, A::Composition{L,N}, x, scratch::Bool,
+                β::Number, y) where {L,N,P<:Union{Direct,InverseAdjoint}}
     if α == 0
         # Just scale the destination.
         vscale!(y, β)
@@ -879,8 +905,8 @@ function apply!(α::Number, ::Type{P}, A::Composition{N}, x, scratch::Bool,
     return y
 end
 
-function apply(::Type{P}, A::Composition{N}, x,
-               scratch::Bool) where {N,P<:Union{Direct,InverseAdjoint}}
+function apply(::Type{P}, A::Composition, x,
+               scratch::Bool) where {P<:Union{Direct,InverseAdjoint}}
     apply(P, *, terms(A), x, scratch)
 end
 
@@ -892,8 +918,8 @@ function apply(::Type{P}, ::typeof(*), ops::NTuple{N,Mapping}, x,
     apply(P, *, ops[1:N-1], w, scratch)
 end
 
-function apply!(α::Number, ::Type{P}, A::Composition{N}, x, scratch::Bool,
-                β::Number, y) where {N,P<:Union{Adjoint,Inverse}}
+function apply!(α::Number, ::Type{P}, A::Composition{L,N}, x, scratch::Bool,
+                β::Number, y) where {L,N,P<:Union{Adjoint,Inverse}}
     if α == 0
         # Just scale the destination.
         vscale!(y, β)
@@ -906,17 +932,17 @@ function apply!(α::Number, ::Type{P}, A::Composition{N}, x, scratch::Bool,
     return y
 end
 
-function apply(::Type{P}, A::Composition{N}, x,
-               scratch::Bool) where {N,P<:Union{Adjoint,Inverse}}
-    apply(P, *, terms(A), x, scratch)
+function apply(::Type{P}, A::Composition, x,
+               scratch::Bool) where {P<:Union{Adjoint,Inverse}}
+    return apply(P, *, terms(A), x, scratch)
 end
 
 function apply(::Type{P}, ::typeof(*), ops::NTuple{N,Mapping}, x,
-               scratch::Bool) where {N,P<:Union{Adjoint,Inverse}}
+                scratch::Bool) where {N,P<:Union{Adjoint,Inverse}}
     w = apply(P, ops[1], x, scratch)
     N == 1 && return w
     scratch = overwritable(scratch, w, x)
-    apply(P, *, ops[2:N], w, scratch)
+    return apply(P, *, ops[2:N], w, scratch)
 end
 
 # Default rules to apply a Gram operator.  Gram matrices are Hermitian by

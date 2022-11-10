@@ -2,12 +2,21 @@
 
 ## Wish list for future developments
 
-* Simplifications that are automatically done by`LazyAlgebra` may change
-  multipliers but must not change the coefficients of the mappings.  Call
-  `simplify(A)` to apply further simplifications that may change the
-  coefficients of the mappings in `A`.  For instance, assuming `a` is an array,
-  `inv(Diag(a))` automatically yields `Inverse(Diag(a))` while
-  `simplify(inv(Diag(a)))` yields `Diag(1 ./ a)`.
+* Traits must be type-stable. That is deciding the value of a specific trait
+  should be done on the sole basis of the the type of the argument(s).
+
+* Optimizations and simplifications of expressions involving mappings belong to
+  two categories:
+  * Automatic simplifications performed by`LazyAlgebra`. These can change the
+    values of multipliers but must not change the coefficients of the mappings.
+    Sadly, it is not possible to have every possible automatic simplifications
+    be type-stable.
+  * The user may explicitly call `simplify(A)` to apply further simplifications
+    that may change the coefficients of the mappings in `A`. For example,
+    assuming `a` is an array, `inv(Diag(a))` automatically yields
+    `Inverse(Diag(a))` while `simplify(inv(Diag(a)))` yields `Diag(1 ./ a)`.
+    These simplifications may not be type-stable. For example the multiplier of
+    a scaled mapping becoming equal to one can be eliminated.
 
 * Calling BLAS should be avoided in some cases, either because BLAS is slower
   than optimized Julia code, or because BLAS may use more than one thread in
@@ -17,8 +26,19 @@
   arguments.  This would be useful to deal with arrays whose elements have
   non-standard numerical types as physical quantities in the `Unitful` package.
 
+## Branch 0.3
 
-## Version 0.2.3
+### Breaking changes
+
+* Abstract type `Mapping{L}` has a built-in parameter indicating whether the
+  mapping is linbear of not. This breaks compatibility but simplifies a lot
+  many parts of the code and makes the linear trait decidable at compile time.
+
+### Other changes
+
+* Methods `multipler`, `unscaled` can be applied to a mapping type to yield the
+  corresponding type.
+
 ## Branch 0.2
 
 ### Version 0.2.5

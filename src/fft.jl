@@ -426,7 +426,7 @@ MorphismType(::FFTOperator{<:Complex}) = Endomorphism()
 
 ncols(A::FFTOperator) = A.ncols
 ncols(A::Adjoint{<:FFTOperator}) = ncols(unveil(A))
-ncols(A::Inverse{<:FFTOperator}) = ncols(unveil(A))
+ncols(A::Inverse{true,<:FFTOperator}) = ncols(unveil(A))
 ncols(A::InverseAdjoint{<:FFTOperator}) = ncols(unveil(A))
 
 input_size(A::FFTOperator) = A.inpdims # FIXME: input_size(A.forward)
@@ -456,9 +456,9 @@ show(io::IO, A::FFTOperator) = print(io, "FFT")
     (identical(unveil(A), B) ? ncols(A)*Id : compose(A, B))
 *(A::F, B::Adjoint{F}) where {F<:FFTOperator} =
     (identical(A, unveil(B)) ? ncols(A)*Id : compose(A, B))
-*(A::InverseAdjoint{F}, B::Inverse{F}) where {F<:FFTOperator} =
+*(A::InverseAdjoint{F}, B::Inverse{true,F}) where {F<:FFTOperator} =
     (identical(unveil(A), unveil(B)) ? (1//ncols(A))*Id : compose(A, B))
-*(A::Inverse{F}, B::InverseAdjoint{F}) where {F<:FFTOperator} =
+*(A::Inverse{true,F}, B::InverseAdjoint{F}) where {F<:FFTOperator} =
     (identical(unveil(A), unveil(B)) ? (1//ncols(A))*Id : compose(A, B))
 
 function vcreate(P::Type{<:Union{Direct,InverseAdjoint}},

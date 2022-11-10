@@ -46,18 +46,19 @@ end
 #------------------------------------------------------------------------------
 # SYMBOLIC MAPPINGS (FOR TESTS)
 
-struct SymbolicMapping{T} <: Mapping end
-struct SymbolicLinearMapping{T} <: LinearMapping end
-SymbolicMapping(id::AbstractString) = SymbolicMapping(Symbol(id))
-SymbolicMapping(id::Symbol) = SymbolicMapping{Val{id}}()
-SymbolicLinearMapping(id::AbstractString) = SymbolicLinearMapping(Symbol(id))
-SymbolicLinearMapping(x::Symbol) = SymbolicLinearMapping{Val{x}}()
+struct SymbolicMapping{L,S} <: Mapping{L} end
+const SymbolicLinearMapping{S} = SymbolicMapping{true,S}
+SymbolicMapping(id) = SymbolicMapping{false}(id)
+SymbolicMapping{L}(id::AbstractString) where {L} = SymbolicMapping{L}(Symbol(id))
+SymbolicMapping{L}(id::Symbol) where {L} = SymbolicMapping{L,Val{id}}()
+# FIXME: SymbolicLinearMapping(id::AbstractString) = SymbolicLinearMapping(Symbol(id))
+# FIXME: SymbolicLinearMapping(id::Symbol) = SymbolicLinearMapping{Val{id}}()
 
-show(io::IO, A::SymbolicMapping{Val{T}}) where {T} = print(io, T)
-show(io::IO, A::SymbolicLinearMapping{Val{T}}) where {T} = print(io, T)
+show(io::IO, A::SymbolicMapping{L,Val{S}}) where {L,S} = print(io, S)
+# FIXME: show(io::IO, A::SymbolicLinearMapping{L,Val{S}}) where {L,S} = print(io, S)
 
 identical(::T, ::T) where {T<:SymbolicMapping} = true
-identical(::T, ::T) where {T<:SymbolicLinearMapping} = true
+# FIXME: identical(::T, ::T) where {T<:SymbolicLinearMapping} = true
 
 #------------------------------------------------------------------------------
 # NON-UNIFORM SCALING

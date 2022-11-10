@@ -8,48 +8,31 @@
 # This file is part of LazyAlgebra (https://github.com/emmt/LazyAlgebra.jl)
 # released under the MIT "Expat" license.
 #
-# Copyright (c) 2017-2021 Éric Thiébaut.
+# Copyright (c) 2017-2022 Éric Thiébaut.
 #
 
 """
-
-```julia
-LinearType(A)
-```
+    LinearType(A)
 
 yields the *linear* trait of mapping `A` indicating whether `A` is certainly
-linear.  The returned value is one of the singletons `Linear()` for linear maps
-or `NonLinear()` for other mappings.
+linear. The returned value is one of the singletons `Linear()` for linear
+mappings or `NonLinear()` for other mappings.
 
 See also: [`Trait`](@ref), [`is_linear`](@ref).
 
 """
-LinearType(::Mapping) = NonLinear() # any mapping assumed non-linear by default
-LinearType(::LinearMapping) = Linear()
-LinearType(::Inverse{<:LinearMapping}) = Linear()
-LinearType(::Scaled{<:LinearMapping}) = Linear()
-LinearType(A::Inverse) = LinearType(unveil(A))
-LinearType(A::Scaled) = LinearType(unscaled(A))
-LinearType(A::Union{Sum,Composition}) =
-    (allof(x -> LinearType(x) === Linear(), terms(A)...) ?
-     Linear() : NonLinear())
-LinearType(A::Scaled{T,S}) where {T,S} =
-    # If the multiplier λ of a scaled mapping A = (λ⋅M) is zero, then A behaves
-    # linearly even though M is not a linear mapping.  FIXME: But acknowledging
-    # this as a linear mapping may give rise to troubles later.
-    (multiplier(A) == zero(S) ? Linear() : LinearType(unscaled(A)))
+LinearType(A::Mapping) = LinearType(typeof(A))
+LinearType(::Type{<:LinearMapping}) = Linear()
+LinearType(::Type{<:NonLinearMapping}) = NonLinear()
 
 @doc @doc(LinearType) Linear
 @doc @doc(LinearType) NonLinear
 
 """
-
-```julia
-SelfAdjointType(A)
-```
+    SelfAdjointType(A)
 
 yields the *self-adjoint* trait of mapping `A` indicating whether `A` is
-certainly a self-adjoint linear map.  The returned value is one of the
+certainly a self-adjoint linear map. The returned value is one of the
 singletons `SelfAdjoint()` for self-adjoint linear maps and `NonSelfAdjoint()`
 for other mappings.
 
@@ -68,13 +51,10 @@ SelfAdjointType(A::Gram) = SelfAdjoint()
 @doc @doc(SelfAdjointType) NonSelfAdjoint
 
 """
-
-```julia
-MorphismType(A)
-```
+    MorphismType(A)
 
 yields the *morphism* trait of mapping `A` indicating whether `A` is certainly
-an endomorphism (its input and output spaces are the same).  The returned value
+an endomorphism (its input and output spaces are the same). The returned value
 is one of the singletons `Endomorphism()` for mappings whose input and output
 spaces are the same or `Morphism()` for other mappings.
 
@@ -93,15 +73,12 @@ MorphismType(A::Union{Sum,Composition}) =
 @doc @doc(MorphismType) Endomorphism
 
 """
-
-```julia
-DiagonalType(A)
-```
+    DiagonalType(A)
 
 yields the *diagonal* trait of mapping `A` indicating whether `A` is certainly
-a diagonal linear mapping.  The returned value is one of the singletons
-`DiagonalMapping()` for diagonal linear maps or `NonDiagonalMapping()` for other
-mappings.
+a diagonal linear mapping. The returned value is one of the singletons
+`DiagonalMapping()` for diagonal linear maps or `NonDiagonalMapping()` for
+other mappings.
 
 See also: [`Trait`](@ref), [`is_diagonal`](@ref).
 
@@ -117,37 +94,23 @@ DiagonalType(A::Union{Sum,Composition}) =
 @doc @doc(DiagonalType) DiagonalMapping
 
 """
-```julia
-is_linear(A)
-```
+    is_linear(A)
 
-yields whether `A` is certainly a linear mapping.
-
-!!! note
-    This method is intended to perform certain automatic simplifications or
-    optimizations.  It is guaranted to return `true` when its argument is
-    certainly a linear mapping but it may return `false` even though its
-    argument behaves linearly because it is not always possible to figure out
-    that a complex mapping assemblage has this property.
+yields whether `A` is a linear mapping.
 
 See also: [`LinearType`](@ref).
 
 """
-is_linear(A::LinearMapping) = true
-is_linear(A::Mapping) = _is_linear(LinearType(A))
-_is_linear(::Linear) = true
-_is_linear(::NonLinear) = false
+is_linear(x) = (LinearType(x) === Linear())
 
 """
-```julia
-is_selfadjoint(A)
-```
+    is_selfadjoint(A)
 
 yields whether mapping `A` is certainly a self-adjoint linear mapping.
 
 !!! note
-    This method is intended to perform certain automatic simplifications or
-    optimizations.  It is guaranted to return `true` when its argument is
+    This method is called to perform certain automatic simplifications or
+    optimizations. It is guaranted to return `true` when its argument is
     certainly a self-adjoint linear mapping but it may return `false` even
     though its argument behaves like a self-adjoint linear map because it is
     not always possible to figure out that a complex mapping construction has
@@ -157,20 +120,16 @@ yields whether mapping `A` is certainly a self-adjoint linear mapping.
 See also: [`SelfAdjointType`](@ref).
 
 """
-is_selfadjoint(A::Mapping) = _is_selfadjoint(SelfAdjointType(A))
-_is_selfadjoint(::SelfAdjoint) = true
-_is_selfadjoint(::NonSelfAdjoint) = false
+is_selfadjoint(x) = (SelfAdjointType(x) === SelfAdjoint())
 
 """
-```julia
-is_endomorphism(A)
-```
+    is_endomorphism(A)
 
-yields whether mapping `A` is certainly an endomorphism.
+yields whether `A` is certainly an endomorphism.
 
 !!! note
-    This method is intended to perform certain automatic simplifications or
-    optimizations.  It is guaranted to return `true` when its argument is
+    This method is called to perform certain automatic simplifications or
+    optimizations. It is guaranted to return `true` when its argument is
     certainly an endomorphism but it may return `false` even though its
     argument behaves like an endomorphism because it is not always possible to
     figure out that a complex mapping assemblage has this property.
@@ -178,20 +137,16 @@ yields whether mapping `A` is certainly an endomorphism.
 See also: [`MorphismType`](@ref).
 
 """
-is_endomorphism(A::Mapping) = _is_endomorphism(MorphismType(A))
-_is_endomorphism(::Endomorphism) = true
-_is_endomorphism(::Morphism) = false
+is_endomorphism(x) = (MorphismType(x) === Endomorphism())
 
 """
-```julia
-is_diagonal(A)
-```
+    is_diagonal(A)
 
 yields whether mapping `A` is certainly a diagonal linear map.
 
 !!! note
-    This method is intended to perform certain automatic simplifications or
-    optimizations.  It is guaranted to return `true` when its argument is
+    This method is called to perform certain automatic simplifications or
+    optimizations. It is guaranted to return `true` when its argument is
     certainly a diagonal linear map but it may return `false` even though its
     argument behaves like a diagonal linear map because it is not always
     possible to figure out that a complex mapping assemblage has this property.
@@ -199,6 +154,4 @@ yields whether mapping `A` is certainly a diagonal linear map.
 See also: [`DiagonalType`](@ref).
 
 """
-is_diagonal(A::Mapping) = _is_diagonal(DiagonalType(A))
-_is_diagonal(::DiagonalMapping) = true
-_is_diagonal(::NonDiagonalMapping) = false
+is_diagonal(x) = (DiagonalType(x) === DiagonalMapping())

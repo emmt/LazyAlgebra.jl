@@ -8,7 +8,7 @@
 # This file is part of LazyAlgebra (https://github.com/emmt/LazyAlgebra.jl)
 # released under the MIT "Expat" license.
 #
-# Copyright (c) 2017-2021 Éric Thiébaut.
+# Copyright (c) 2017-2022 Éric Thiébaut.
 #
 
 #------------------------------------------------------------------------------
@@ -37,16 +37,8 @@ isone(::Mapping) = false
 # must hold is that T(A), with T an unqualified type constructor, always yields
 # an instance of T.
 Direct(A::Mapping) = A # provided for completeness
-Adjoint(A::T) where {T<:Mapping} = Adjoint{T}(A)
-Inverse(A::T) where {T<:Mapping} = Inverse{T}(A)
-InverseAdjoint(A::T) where {T<:Mapping} = InverseAdjoint{T}(A)
-Gram(A::T) where {T<:Mapping} = Gram{T}(A)
-Jacobian(A::M, x::T) where {M<:Mapping,T} = Jacobian{M,T}(A, x)
-Scaled(α::S, A::T) where {S<:Number,T<:Mapping} = Scaled{T,S}(α, A)
-Sum(ops::Mapping...) = Sum(ops)
-Sum(ops::T) where {N,T<:NTuple{N,Mapping}} = Sum{N,T}(ops)
-Composition(ops::Mapping...) = Composition(ops)
-Composition(ops::T) where {N,T<:NTuple{N,Mapping}} = Composition{N,T}(ops)
+@inline Sum(terms::Mapping...) = Sum(terms)
+@inline Composition(terms::Mapping...) = Composition(terms)
 
 # Qualified outer constructors to forbid decoration of mappings of specific
 # types when, according to the simplification rules, another more simple
@@ -81,15 +73,13 @@ for (func, blacklist) in ((:Adjoint,        (:Identity,
                                              :Scaled,)),
                           (:Jacobian,       (:Scaled,)),
                           (:Scaled,         (:Scaled,)))
-    for T in blacklist
+    for M in blacklist
         if func === :Scaled
-            @eval $func{T,S}(α::S, A::T) where {S<:Number,T<:$T} =
-                illegal_call_to($func, T)
+            @eval $func(λ::Number, A::$M) = illegal_call_to($func, typeof(A))
         elseif func === :Jacobian
-            @eval $func{M,T}(A::M, x::T) where {M<:$T,T} =
-                illegal_call_to($func, M)
+            @eval $func(A::$M, x) = illegal_call_to($func, typeof(A))
         else
-            @eval $func{T}(A::T) where {T<:$T} = illegal_call_to($func, T)
+            @eval $func(A::$M) = illegal_call_to($func, typeof(A))
         end
     end
 end
@@ -112,7 +102,7 @@ end
 
 @noinline illegal_call_to(::Type{Jacobian}, T::Type) =
     bad_argument("the `Jacobian` constructor cannot be applied to an instance of `",
-                 brief(T), "`, use an expression like `∇(A,x)`")
+                 brief(T), "`, use expressions like `∇(A,x)` or `jacobian(A,x)`")
 
 @noinline illegal_call_to(::Type{Scaled}, T::Type) =
     bad_argument("the `Scaled` constructor cannot be applied to an instance of `",
@@ -127,7 +117,7 @@ brief(::Type{<:Scaled}        ) = "Scaled"
 brief(::Type{<:Sum}           ) = "Sum"
 brief(::Type{<:Composition}   ) = "Composition"
 brief(::Type{<:Identity}      ) = "Identity"
-brief(T::Type) = repr(T)
+brief(::Type{T}) where {T} = repr(T)
 
 #------------------------------------------------------------------------------
 # SCALED TYPE
@@ -144,14 +134,10 @@ brief(T::Type) = repr(T)
 #------------------------------------------------------------------------------
 # ADJOINT TYPE
 
-# Adjoint for non-specific mappings.
-adjoint(A::Mapping) = _adjoint(LinearType(A), A)
-
-_adjoint(::Linear, A::Mapping) = _adjoint(Linear(), SelfAdjointType(A), A)
-_adjoint(::Linear, ::SelfAdjoint, A::Mapping) = A
-_adjoint(::Linear, ::NonSelfAdjoint, A::Mapping) = Adjoint(A)
-_adjoint(::NonLinear, A::Mapping) =
-    throw_forbidden_adjoint_of_non_linear_mapping()
+# Adjoint for non-specific mappings. This method is called to implement he
+# syntax A'. NOTE: Self-Adjoint linear mappings such as `Gram` shall extend
+# this method to behave like the identity.
+adjoint(A::LinearMapping) = Adjoint(A)
 
 # Adjoint for specific mapping types.
 adjoint(A::Identity) = Id
@@ -159,19 +145,20 @@ adjoint(A::Scaled) = conj(multiplier(A))*adjoint(unscaled(A))
 adjoint(A::Adjoint) = unveil(A)
 adjoint(A::Inverse) = inv(adjoint(unveil(A)))
 adjoint(A::InverseAdjoint) = inv(unveil(A))
-adjoint(A::Jacobian) = Jacobian(A)
+adjoint(A::Jacobian) = Jacobian(A,variables(A)) # take the next derivative for the same variables
 adjoint(A::Gram) = A
 adjoint(A::Composition) =
     # It is assumed that the composition has already been simplified, so we
     # just apply the mathematical formula for the adjoint of a composition.
     Composition(reversemap(adjoint, terms(A)))
 
-function adjoint(A::Sum{N}) where {N}
+# FIXME: Not type-stable!
+function adjoint(A::Sum)
     # It is assumed that the sum has already been simplified, so we just apply
     # the mathematical formula for the adjoint of a sum and sort the resulting
     # terms.
-    B = Vector{Mapping}(undef, N)
-    @inbounds for i in 1:N
+    B = Vector{Mapping}(undef, length(A))
+    @inbounds for i in eachindex(A)
         B[i] = adjoint(A[i])
     end
     return Sum(to_tuple(sort!(B)))
@@ -187,8 +174,8 @@ end
     ∇(A, x)
 
 yields a result corresponding to the Jacobian (first partial derivatives) of
-the linear mapping `A` for the variables `x`.  If `A` is a linear mapping,
-`A` is returned whatever `x`.
+the mapping `A` for the variables `x`. If `A` is a linear mapping, `A` is
+returned whatever `x`.
 
 The call
 
@@ -198,9 +185,8 @@ is an alias for `∇(A,x)`.
 
 """
 ∇(A::Mapping, x) = jacobian(A, x)
-jacobian(A::Mapping, x) = _jacobian(LinearType(A), A, x)
-_jacobian(::Linear, A::Mapping, x) = A
-_jacobian(::NonLinear, A::Mapping, x) = Jacobian(A, x)
+jacobian(A::NonLinearMapping, x) = Jacobian(A, x)
+jacobian(A::LinearMapping, x) = A
 jacobian(A::Scaled, x) = multiplier(A)*jacobian(unscaled(A), x)
 
 @doc @doc(∇) jacobian
@@ -209,13 +195,12 @@ jacobian(A::Scaled, x) = multiplier(A)*jacobian(unscaled(A), x)
 # INVERSE TYPE
 
 # Inverse for non-specific mappings (a simple mapping or a sum or mappings).
-inv(A::T) where {T<:Mapping} = Inverse{T}(A)
+inv(A::Mapping) = Inverse(A)
 
 # Inverse for specific mapping types.
 inv(A::Identity) = Id
-inv(A::Scaled) = (is_linear(unscaled(A)) ?
-                  inv(multiplier(A))*inv(unscaled(A)) :
-                  inv(unscaled(A))*(inv(multiplier(A))*Id))
+inv(A::Scaled{true}) = inv(multiplier(A))*inv(unscaled(A))
+inv(A::Scaled) = inv(unscaled(A))*(inv(multiplier(A))*Id)
 inv(A::Inverse) = unveil(A)
 inv(A::InverseAdjoint) = adjoint(unveil(A))
 inv(A::Adjoint) = InverseAdjoint(unveil(A))
@@ -259,15 +244,14 @@ end
     add(A, B)
 
 performs the final stage of simplifying the sum `A + B` of mappings `A` and
-`B`.  This method assumes that any other simplifications than those involving
+`B`. This method assumes that any other simplifications than those involving
 sum of sums have been performed on `A + B` and that `A` and `B` have already
 been simplified (individually).
 
 Trivial simplifications of the composition `A + B` of mappings `A` and `B` must
 be done by specializing the operator `+` and `sum(A,B)` may eventually be
-called to simplify the sum of `A` and `B` when one of these may be a
-sum.  This method just returns `Sum(A,B)` when none of its
-arguments is a composition.
+called to simplify the sum of `A` and `B` when one of these may be a sum. This
+method just returns `Sum(A,B)` when none of its arguments is a composition.
 
 
 yields a simplified sum `A + B` of the mappings `A` and `B`.  This helper
@@ -299,8 +283,8 @@ end
 
 # Add the terms of a sum one-by-one.  Since terms must be re-ordered, there are
 # no obvious better ways to recombine.
-function add!(A::Vector{Mapping}, B::Sum{N}) where {N}
-    @inbounds for i in 1:N
+function add!(A::Vector{Mapping}, B::Sum)
+    @inbounds for i in eachindex(B)
         add!(A, B[i])
     end
     return A
@@ -390,21 +374,21 @@ end
         compose(A, B)
     end
 *(A::Scaled, B::Scaled) =
-    if is_linear(A)
+    if A isa LinearMapping
         (multiplier(A)*multiplier(B))*(unscaled(A)*unscaled(B))
     else
         multiplier(A)*(unscaled(A)*B)
     end
 
 # Simplify compositions involving an inverse mapping.
-*(A::Inverse{T}, B::T) where {T<:Mapping} =
+*(A::Inverse{L,M}, B::M) where {L,M<:Mapping{L}} =
     identical(unveil(A), B) ? Id : compose(A, B)
-*(A::T, B::Inverse{T}) where {T<:Mapping} =
+*(A::M, B::Inverse{L,M}) where {L,M<:Mapping{L}} =
     identical(A, unveil(B)) ? Id : compose(A, B)
 *(A::Inverse, B::Inverse) = compose(A, B)
-*(A::InverseAdjoint{T}, B::Adjoint{T}) where {T<:Mapping} =
+*(A::InverseAdjoint{M}, B::Adjoint{M}) where {M<:LinearMapping} =
     identical(unveil(A), unveil(B)) ? Id : compose(A, B)
-*(A::Adjoint{T}, B::InverseAdjoint{T}) where {T<:Mapping} =
+*(A::Adjoint{M}, B::InverseAdjoint{M}) where {M<:LinearMapping} =
     identical(unveil(A), unveil(B)) ? Id : compose(A, B)
 *(A::InverseAdjoint, B::InverseAdjoint) = compose(A, B)
 
@@ -423,16 +407,14 @@ end
 #
 # In principle, if forming the adjoint has been allowed, it is not needed to
 # check whether operands are linear mappings.
-*(A::Adjoint{T}, B::T) where {T<:Mapping} =
+*(A::Adjoint{M}, B::M) where {M<:LinearMapping} =
     identical(unveil(A), B) ? Gram(B) : compose(A, B)
-*(A::T, B::Adjoint{T}) where {T<:Mapping} =
+*(A::M, B::Adjoint{M}) where {M<:LinearMapping} =
     identical(A, unveil(B)) ? Gram(B) : compose(A, B)
-*(A::Inverse{T}, B::InverseAdjoint{T}) where {T<:Mapping} =
-    identical(unveil(A), unveil(B)) ? Inverse(Gram(unveil(A))) :
-    compose(A, B)
-*(A::InverseAdjoint{T}, B::Inverse{T}) where {T<:Mapping} =
-    identical(unveil(A), unveil(B)) ?
-    Inverse(Gram(Adjoint(unveil(A)))) : compose(A, B)
+*(A::Inverse{true,M}, B::InverseAdjoint{M}) where {M<:LinearMapping} =
+    identical(unveil(A), unveil(B)) ? Inverse(Gram(unveil(A))) : compose(A, B)
+*(A::InverseAdjoint{M}, B::Inverse{true,M}) where {M<:LinearMapping} =
+    identical(unveil(A), unveil(B)) ? Inverse(Gram(Adjoint(unveil(A)))) : compose(A, B)
 
 """
     compose(A,B)
@@ -479,16 +461,16 @@ mapping.
 
 """ compose!
 
-function compose!(A::Vector{Mapping}, B::Composition{N}) where {N}
-    @inbounds for i in 1:N
+function compose!(A::Vector{Mapping}, B::Composition)
+    @inbounds for i in eachindex(B)
         # Build the simplified composition A*B[i].
         compose!(A, B[i])
         if identical(last(A), B[i])
             # The last term of the simplified composition A*B[i] is still B[i],
             # which indicates that composing A with B[i] did not yield any
-            # simplifications.  It is sufficient to append all the other terms
+            # simplifications. It is sufficient to append all the other terms
             # of B to A as no further simplifications are expected.
-            return append_terms!(A, B, (i+1):N)
+            return append_terms!(A, B, (i+1):lastindex(B))
         end
     end
     return A
@@ -497,28 +479,28 @@ end
 function compose!(A::Vector{Mapping}, B::Mapping)
     # Compute the simplified composition of the last term of A with B.  The
     # result is either a simple mapping or a simplified composition.
-    m = length(A); @certify m > 0
-    C = A[m]*B
+    @certify length(A) > 0
+    C = last(A)*B
 
     # Replace the last term of A with C.
-    if C isa Composition && identical(C[1], A[m])
-        # Nothing has changed at the tail of the composition A.  No further
-        # simplifications are expected.  Push all terms of C to A, but the
-        # first term of C which is identical to the last term of A.
-        append_terms!(A, C, 2:length(C))
-    elseif m > 1
-        # Drop the last term of A and compose the remaining terms with C.  This
+    if C isa Composition && identical(last(A), first(C))
+        # Nothing has changed at the tail of the composition A. No further
+        # simplifications are expected. Push all terms of C to A, but the first
+        # term of C which is identical to the last term of A.
+        append_terms!(A, C, firstindex(C)+1:lastindex(C))
+    elseif length(A) > 1
+        # Drop the last term of A and compose the remaining terms with C. This
         # may trigger further simplifications
-        compose!(resize!(A, m - 1), C)
+        compose!(resize!(A, length(A) - 1), C)
     elseif C isa Composition
         # Replace the only term of A by all the terms of the composition C.
-        # This is the same as above but avoids calling `resize!` as a small
+        # This is the same as above but avoids one call to `resize!` as a small
         # optimization.
-        A[1] = C[1]
-        append_terms!(A, C, 2:length(C))
+        A[firstindex(A)] = C[firstindex(C)]
+        append_terms!(A, C, firstindex(C)+1:lastindex(C))
     else
         # Replace the only term of A by the simple mapping C.
-        A[1] = C
+        A[firstindex(A)] = C
     end
     return A
 end
@@ -529,10 +511,10 @@ end
 """
     as_vector(op, A)
 
-yields a vector of mappings with the terms of the mapping `A`.  Argument `op`
-is `+` or `*`.  If `op` is `+` (resp. `*`) and `A` is a sum (resp. a
-composition) of mappings, the terms of `A` are extracted in the returned
-vector; otherwise, the returned vector has just one element which is `A`.
+yields a vector of mappings with the terms of the mapping `A`. Argument `op` is
+`+` or `*`. If `op` is `+` (resp. `*`) and `A` is a sum (resp. a composition)
+of mappings, the terms of `A` are extracted in the returned vector; otherwise,
+the returned vector has just one element which is `A`.
 
 """
 function as_vector(::Union{typeof(+),typeof(*)}, A::Mapping)
@@ -547,14 +529,14 @@ as_vector(::typeof(*), A::Composition) = collect_terms(A)
 """
     collect_terms(A)
 
-collects the terms of the mapping `A` into a vector.  This is similar to
+collects the terms of the mapping `A` into a vector. This is similar to
 `collect(A)` except that the element type of the result is forced to be
 `Mapping`.
 
 """
-function collect_terms(A::Union{Sum{N},Composition{N}}) where {N}
-    V = Vector{Mapping}(undef, N)
-    @inbounds for i in 1:N
+function collect_terms(A::Union{Sum,Composition})
+    V = Vector{Mapping}(undef, length(A))
+    @inbounds for i in eachindex(A)
         V[i] = A[i]
     end
     return V

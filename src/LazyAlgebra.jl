@@ -27,6 +27,7 @@ export
     Jacobian,
     LinearMapping,
     Mapping,
+    NonLinearMapping,
     NonuniformScaling,
     RankOneOperator,
     SingularSystem,
@@ -111,7 +112,8 @@ import Base: Tuple, adjoint, inv, axes,
 
 # Import/using from LinearAlgebra, BLAS and SparseArrays.
 using LinearAlgebra
-import LinearAlgebra: UniformScaling, diag, ⋅, mul!, rmul!
+using LinearAlgebra: UniformScaling
+import LinearAlgebra: diag, ⋅, mul!, rmul!
 using LinearAlgebra.BLAS
 using LinearAlgebra.BLAS: libblas, @blasfunc,
     BlasInt, BlasReal, BlasFloat, BlasComplex
