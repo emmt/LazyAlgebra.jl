@@ -8,7 +8,7 @@
 # This file is part of LazyAlgebra (https://github.com/emmt/LazyAlgebra.jl)
 # released under the MIT "Expat" license.
 #
-# Copyright (c) 2017-2021 Éric Thiébaut.
+# Copyright (c) 2017-2022 Éric Thiébaut.
 #
 
 module LazyAlgebra
@@ -69,6 +69,7 @@ export
     nnz,
     nonzeros,
     nrows,
+    nterms,
     output_eltype,
     output_ndims,
     output_size,
