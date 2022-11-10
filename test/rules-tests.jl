@@ -111,12 +111,16 @@ end
 
     # Basic methods for sums and compositions of mappings.
     let A1 = A + B + M, A2 = C*B*M*Q
-        # FIXME: @test eltype(A1) <: Mapping
-        # FIXME: @test eltype(A2) <: Mapping
         @test Tuple(A1) === terms(A1)
         @test Tuple(A2) === terms(A2)
         @test length(A1) == 3
         @test length(A2) == 4
+        @test nterms(A1) == 3
+        @test nterms(A2) == 4
+        @test nterms(typeof(A1)) == 3
+        @test nterms(typeof(A2)) == 4
+        @test terms(typeof(A1)) === typeof(terms(A1))
+        @test terms(typeof(A2)) === typeof(terms(A2))
         @test firstindex(A1) == 1
         @test firstindex(A2) == 1
         @test lastindex(A1) == length(A1)
@@ -144,6 +148,20 @@ end
     @test A*2M === 2*(A*M)
     @test 3A*2M === 6A*M
     @test 3R*2M !== 6R*M
+
+    # unscaled and multiplier method on scaled mappings and their types
+    @test unscaled(π*A) === A
+    @test unscaled(typeof(π*A)) === typeof(A)
+    @test multiplier(π*A) === π
+    @test multiplier(typeof(π*A)) === typeof(π)
+
+    # unveil method on decorated mappings and their types
+    @test unveil(A') === A
+    @test unveil(typeof(A')) === typeof(A)
+    @test unveil(inv(A)) === A
+    @test unveil(typeof(inv(A))) === typeof(A)
+    @test unveil(inv(A)') === A
+    @test unveil(typeof(inv(A)')) === typeof(A)
 
     # Test adjoint and Jacobian.
     x = nothing

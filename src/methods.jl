@@ -8,7 +8,7 @@
 # This file is part of LazyAlgebra (https://github.com/emmt/LazyAlgebra.jl)
 # released under the MIT "Expat" license.
 #
-# Copyright (c) 2017-2021 Éric Thiébaut.
+# Copyright (c) 2017-2022 Éric Thiébaut.
 #
 
 @noinline function unimplemented(::Type{P},
@@ -157,9 +157,13 @@ sum or a composition of mappings, the list of terms is returned; otherwise, the
 If `A` is sum or a composition of mappings, `Tuple(A)` yields the same result
 as `terms(A)`.
 
+If `A` is a sum or composition type, the tuple type of the terms is returned.
+
 """
 terms(A::Union{Sum,Composition}) = getfield(A, :terms)
 terms(A::Mapping) = (A,)
+terms(::Type{<:Sum{L,N,T}}) where {L,N,T} = T
+terms(::Type{<:Composition{L,N,T}}) where {L,N,T} = T
 
 """
     nterms(A)
@@ -183,9 +187,13 @@ not a *decorated* mapping.
 As a special case, `A` may be an instance of `LinearAlgebra.UniformScaling` and
 the result is the LazyAlgebra mapping corresponding to `A`.
 
+If `A` is the type of a decorated mapping, the type of the embedded mapping is
+returned.
+
 """
 unveil(A::DecoratedMapping) = getfield(A, :parent)
 unveil(A::Mapping) = A
+unveil(::Type{<:DecoratedMapping{M}}) where {M} = M
 
 """
     unscaled(A)
@@ -200,7 +208,6 @@ If `A` is a mapping type, yields the corresponding unscaled mapping type.
 """
 unscaled(A::Mapping) = A
 unscaled(A::Scaled) = getfield(A, :mapping)
-
 unscaled(::Type{M}) where {M<:Mapping} = M
 unscaled(::Type{<:Scaled{L,M,S}}) where {L,M,S} = M
 

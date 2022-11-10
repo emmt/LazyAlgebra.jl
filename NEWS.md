@@ -40,8 +40,8 @@
 
 ### Other changes
 
-* Methods `multipler`, `unscaled` can be applied to a mapping type to yield the
-  corresponding type.
+* Methods `multipler`, `unscaled`, `terms`, `nterms`, and `unveil` can be
+  applied to a mapping type to yield the corresponding type.
 
 ## Branch 0.2
 
