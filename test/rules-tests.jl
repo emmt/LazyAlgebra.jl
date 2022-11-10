@@ -167,6 +167,7 @@ end
     @test ∇(M,x) === jacobian(M,x)
     @test ∇(3M,x) === 3*∇(M,x)
     @test ∇(M,x) + ∇(2M,x) === 3∇(M,x)
+    @test_throws ErrorException ∇(M,x)'
 
     # Inverse.
     @test inv(M) === Id/M

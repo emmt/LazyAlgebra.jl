@@ -145,12 +145,19 @@ adjoint(A::Scaled) = conj(multiplier(A))*adjoint(unscaled(A))
 adjoint(A::Adjoint) = unveil(A)
 adjoint(A::Inverse) = inv(adjoint(unveil(A)))
 adjoint(A::InverseAdjoint) = inv(unveil(A))
-adjoint(A::Jacobian) = Jacobian(A,variables(A)) # take the next derivative for the same variables
 adjoint(A::Gram) = A
 adjoint(A::Composition) =
     # It is assumed that the composition has already been simplified, so we
     # just apply the mathematical formula for the adjoint of a composition.
     Composition(reversemap(adjoint, terms(A)))
+
+# NOTE: Mathematically, the derivative of a Jacobian `A` can be represented by
+# taking the next derivative of the mapping for the same variables which would
+# yield `Jacobian(A,variables(A))` but this cannot be automatically done as the
+# result may well be linear.
+adjoint(A::Jacobian{M,V}) where {M,V} =
+    error("building the Jacobian of a Jacobian automatically is not allowed, ",
+          "you may consider specializing this for mappings of type `$M`")
 
 # FIXME: Not type-stable!
 function adjoint(A::Sum)

@@ -324,6 +324,10 @@ non-linear mapping `A` for the variables `x`.
 Directly calling this constructor is discouraged, call [`jacobian(A,x)`](@ref)
 or [`∇(A,x)`](@ref) instead and benefit from automatic simplification rules.
 
+!!! warning
+    An instance of `Jacobian` is non-linear but the Jacobian of a Jacobian may
+    well be linear. This must be checked before building such a structure.
+
 """
 struct Jacobian{M<:NonLinearMapping,V} <: NonLinearMapping
     primitive::M
