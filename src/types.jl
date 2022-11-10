@@ -303,16 +303,17 @@ struct Gram{M<:LinearMapping} <: LinearMapping
 end
 
 """
-    DecoratedMapping
+    DecoratedMapping{M}
 
-is the union of the *decorated* mapping types: [`Adjoint`](@ref),
-[`Inverse`](@ref), [`InverseAdjoint`](@ref), and [`Gram`](@ref).
+is the union of the *decorated* mapping types [`Adjoint`](@ref),
+[`Inverse`](@ref), [`InverseAdjoint`](@ref), and [`Gram`](@ref) whose embedded
+mapping is of type `M`.
 
 The method [`unveil(A)`](@ref) can be called to reveal the mapping embedded in
 a decorated mapping `A`.
 
 """
-const DecoratedMapping = Union{Adjoint,Inverse,InverseAdjoint,Gram}
+const DecoratedMapping{M} = Union{Adjoint{M},Inverse{<:Any,M},InverseAdjoint{M},Gram{M}}
 
 """
     Jacobian(A,x) -> obj
