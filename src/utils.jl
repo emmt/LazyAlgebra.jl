@@ -8,14 +8,14 @@
 # This file is part of LazyAlgebra (https://github.com/emmt/LazyAlgebra.jl)
 # released under the MIT "Expat" license.
 #
-# Copyright (c) 2017-2020 Éric Thiébaut.
+# Copyright (c) 2017-2022 Éric Thiébaut.
 #
 
 @noinline bad_argument(args...) = bad_argument(string(args...))
-bad_argument(mesg::String) = throw(ArgumentError(mesg))
+bad_argument(mesg::ArgumentError.types[1]) = throw(ArgumentError(mesg))
 
 @noinline bad_size(args...) = bad_size(string(args...))
-bad_size(mesg::String) = throw(DimensionMismatch(mesg))
+bad_size(mesg::DimensionMismatch.types[1]) = throw(DimensionMismatch(mesg))
 
 arguments_have_incompatible_axes() =
     bad_size("arguments have incompatible dimensions/indices")
@@ -103,7 +103,7 @@ See methods [`LazyAlgebra.promote_multiplier`](@ref) and
 """ multiplier_floatingpoint_type
 
 multiplier_floatingpoint_type(::Tuple{}) =
-    throw(ArgumentError("at least one other argument must be specified"))
+    bad_argument("at least one other argument must be specified")
 
 @inline function multiplier_floatingpoint_type(args...)
     T = promote_type(map(multiplier_type, args)...)
