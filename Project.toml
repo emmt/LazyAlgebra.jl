@@ -13,6 +13,7 @@ Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 Requires = "ae029012-a4dd-5104-9daa-d747884805df"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 StructuredArrays = "2e8cd123-6858-488d-b42d-068777248635"
+Unitless = "c904d999-9673-4878-a3dd-e3ef1851788a"
 ZippedArrays = "8051824b-fc5e-4603-89c4-0e6ea551cb88"
 
 [compat]
@@ -22,6 +23,7 @@ FFTW = "0.3, 1"
 MayOptimize = "0.2, 0.3"
 Requires = "1.1"
 StructuredArrays = "0.2"
+Unitless = "2.1"
 ZippedArrays = "0.1"
 julia = "1.3"
 
