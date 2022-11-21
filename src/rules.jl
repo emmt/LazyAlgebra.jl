@@ -12,21 +12,9 @@
 #
 
 #------------------------------------------------------------------------------
-# NEUTRAL ELEMENTS
+# Identity and neutral elements for the addition and composition of mappings.
 
-# The neutral element ("zero") for the addition is zero times a mapping of the
-# proper type.
-zero(A::Mapping) = 0*A
-
-iszero(A::Scaled) = iszero(multiplier(A))
-iszero(::Mapping) = false
-
-# The neutral element ("one") for the composition is the identity.
 const Id = Identity()
-one(::Mapping) = Id
-
-isone(::Identity) = true
-isone(::Mapping) = false
 
 #------------------------------------------------------------------------------
 # UNQUALIFIED OUTER CONSTRUCTORS
@@ -95,18 +83,30 @@ end
 @noinline illegal_call_to(::Type{InverseAdjoint}, T::Type) =
     bad_argument("the `InverseAdjoint` constructor cannot be applied to an instance of `",
                  brief(T), "`, use expressions like `A'\\B`, `A/(B')`, `inv(A')` or `inv(A)'`")
+# The neutral element ("zero") for the addition is unitless zero times a
+# mapping of the proper type. NOTE: In the `apply` and `apply!` methods,
+# applying such a scaled mapping should be optimized (although this depends on
+# the specialization of the `apply!` method).
+Base.zero(A::Mapping) = 0*A
 
 @noinline illegal_call_to(::Type{Gram}, T::Type) =
     bad_argument("the `Gram` constructor cannot be applied to an instance of `",
                  brief(T), "`, use expressions like `A'*A` or `gram(A)`")
+Base.iszero(A::Scaled) = iszero(multiplier(A))
+Base.iszero(::Mapping) = false
 
 @noinline illegal_call_to(::Type{Jacobian}, T::Type) =
     bad_argument("the `Jacobian` constructor cannot be applied to an instance of `",
                  brief(T), "`, use expressions like `∇(A,x)` or `jacobian(A,x)`")
+# The neutral element ("one") for the composition is the identity.
+Base.one(A::Mapping) = one(typeof(A))
+Base.one(::Type{<:Mapping}) = Id
 
 @noinline illegal_call_to(::Type{Scaled}, T::Type) =
     bad_argument("the `Scaled` constructor cannot be applied to an instance of `",
                  brief(T), "`, use expressions like `α*A`")
+Base.isone(::Identity) = true
+Base.isone(::Mapping) = false
 
 brief(::Type{<:Adjoint}       ) = "Adjoint"
 brief(::Type{<:Inverse}       ) = "Inverse"
@@ -118,6 +118,8 @@ brief(::Type{<:Sum}           ) = "Sum"
 brief(::Type{<:Composition}   ) = "Composition"
 brief(::Type{<:Identity}      ) = "Identity"
 brief(::Type{T}) where {T} = repr(T)
+Base.oneunit(A::LinearMapping) = oneunit(typeof(A))
+Base.oneunit(::Type{T}) where {T<:LinearMapping) = oneunit(eltype(T))*Id
 
 #------------------------------------------------------------------------------
 # SCALED TYPE
