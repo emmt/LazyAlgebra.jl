@@ -1,7 +1,7 @@
 name = "LazyAlgebra"
 uuid = "aeaa251e-9d76-11e9-311b-83636bf44738"
 authors = ["Éric Thiébaut <https://github.com/emmt>"]
-version = "0.2.5"
+version = "0.2.6"
 
 [deps]
 AbstractFFTs = "621f4979-c628-5d54-868e-fcf4e3e8185c"
