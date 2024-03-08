@@ -28,20 +28,29 @@
 ### Breaking changes
 
 * Abstract type `Mapping{L}` has a built-in parameter indicating whether the
-  mapping is linbear of not. This breaks compatibility but simplifies a lot
+  mapping is linear of not. This breaks compatibility but simplifies a lot
   many parts of the code and makes the linear trait decidable at compile time.
 
 * **Traits** must be type-stable. That is deciding the value of a specific
   mapping trait must be done on the sole basis of the type of the mapping. The
-  linear trait is useful and trivial to propagate ub constructions (this is
+  linear trait is useful and trivial to propagate in constructions (this is
   part of the decision to add it as a parameter to the abstract mapping type
   `Mapping`). Other traits, such as the morphism type, may not be so useful or
   can be tricky to determine, they may be eliminated in a near future.
 
+* The exported `unveil`  method has been replaced by `parent`.
+
+* Inverse-adjoint is no longer a single decoration level, it is simply the
+  inverse of the adjoint of a mapping and is always built in that order thanks
+  to automatic simplification rules. To unveil the embedded bare mapping of an
+  inverse-adjoint, the `parent` method must be called twice (once for each
+  *decoration* level).
+
 ### Other changes
 
-* Methods `multipler`, `unscaled`, `terms`, `nterms`, and `unveil` can be
-  applied to a mapping type to yield the corresponding type.
+* Methods `inv`, `adjoint`, `multipler`, `unscaled`, `terms`, `nterms`, and
+  `parent` can be applied to a mapping type to yield the corresponding type.
+
 
 ## Branch 0.2
 
@@ -59,7 +68,7 @@
 ### Version 0.2.2
 
 * Improve `promote_multiplier` and make it easy to extend.  The work done by
-  `promote_multiplier` is break in sevral functions: `multiplier_type(x)`
+  `promote_multiplier` is break in several functions: `multiplier_type(x)`
   yields the *element type* corresponding to `x` (which can be a number, an
   array of numbers, or a number type), `multiplier_floatingpoint_type(args...)`
   combines the types given by `multiplier_type` for all `args...` to yield a
@@ -80,7 +89,7 @@
   or implement `LazyAlgebra` mappings.
 
 * The finite difference operator was too limited (finite differences were
-  forcibly computed along all dimensions and only 1st order derivatves were
+  forcibly computed along all dimensions and only 1st order derivatives were
   implemented) and slow (because the leading dimension was used to store the
   finite differences along each dimension).  The new family of operators can
   compute 1st or 2nd derivatives along all or given dimensions.  The last
@@ -117,7 +126,7 @@
 
 * Method `gram(A)` yields `A'*A` for the linear mapping `A`.  An associated
   *decorated type* `Gram` is used to denote this specific expression and some
-  constructions are automaticaly recognized as valid Gram operators.  Making
+  constructions are automatically recognized as valid Gram operators.  Making
   this work for more complex constructions (like sums and compositions) would
   require to change the simplification rules (notably for the adjoint of such
   constructions).
@@ -186,18 +195,18 @@
 
 * Skip bound checking when applying a `SparseOperator` (unless the operator
   structure has been corrupted, checking the dimensions of the arguments is
-  sufficient to insure that inidices are correct).
+  sufficient to insure that indices are correct).
 
 * Provide `lgemv` and `lgemv!` for *Lazily Generalized Matrix-Vector
-  mutiplication* and `lgemm` and `lgemm!` for *Lazily Generalized Matrix-Matrix
-  mutiplication*.  The names of these methods are reminiscent of `xGEMV` and
-  `xGEMM` BLAS subroutines in LAPACK (with `x` the prefix corresponding to the
-  type of the arguments).
+  multiplication* and `lgemm` and `lgemm!` for *Lazily Generalized
+  Matrix-Matrix multiplication*. The names of these methods are reminiscent of
+  `xGEMV` and `xGEMM` BLAS subroutines in LAPACK (with `x` the prefix
+  corresponding to the type of the arguments).
 
 * Deprecated `fastrange` is replaced by `allindices` which is extended to
   scalar dimension and index intervals.
 
-* Complete rewrite of the rules for simplying complex constructions involving
+* Complete rewrite of the rules for simplifying complex constructions involving
   compositions and linear combination of mappings.
 
 * Add rule for left-division by a scalar.
@@ -207,7 +216,7 @@
 * `show` has been extend for mapping constructions.
 
 * `contents`, too vague, has been suppressed and replaced by `operands` or
-  `operand`.  Getter `multiplier` is provided to query the multiplier of a
+  `operand`.  Accessor `multiplier` is provided to query the multiplier of a
   scaled mapping.  Methods `getindex`, `first` and `last` are extended.  In
   principle, direct reference to a field of any base mapping structures is no
   longer needed.
@@ -218,7 +227,7 @@
 * Add `fftfreq`, `rfftdims`, `goodfftdim` and `goodfftdims` in `LazyAlgebra.FFT`
   and re-export `fftshift` and `ifftshift` when `using LazyAlgebra.FFT`.
 
-* Add `is_same_mapping` to allow for automatic simplications when building-up
+* Add `is_same_mapping` to allow for automatic simplifications when building-up
   sums and compositions.
 
 * Optimal, an more general, management of temporaries is now done via the
@@ -241,7 +250,7 @@
 * Provide (partial) support for complex-valued arrays.
 
 * Traits replace abstract types such as `Endomorphism`, `SelfAdjointOperator`,
-  etc.  Some operator may be endomorphisms or not.  For instance the
+  etc.  Some operators may be endomorphisms or not.  For instance the
   complex-to-complex `FFTOperator` is an endomorphism while the real-to-complex
   FFT is not.  Another example: `NonuniformScaling` is self-adjoint if
   its coefficients are reals, not if they are complexes. This also overcomes
