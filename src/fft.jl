@@ -130,7 +130,6 @@ end
 
 # Apply in-place complex-complex forward/backward FFT transform.
 function apply!(α::Number,
-                ::Type{Direct},
                 A::cFFTWPlan{Complex{T},K,true,N},
                 x::StridedArray{Complex{T},N},
                 scratch::Bool,
@@ -138,14 +137,14 @@ function apply!(α::Number,
                 y::StridedArray{Complex{T},N}) where {T<:fftwReal,N,K}
     @checksize "argument" x  input_size(A)
     @checksize "result"   y output_size(A)
-    if α == 0
+    if iszero(α)
         vscale!(y, β)
-    elseif β == 0
+    elseif iszero(β)
         mul!(y, A, vscale!(y, α, x))
     elseif scratch
         vcombine!(y, α, mul!(x, A, x), β, y)
     else
-        z = copy(x)
+        z = copy(x) # FIXME: vcopy?
         vcombine!(y, α, mul!(z, A, z), β, y)
     end
     return y
@@ -153,7 +152,6 @@ end
 
 # Apply out-of-place complex-complex forward/backward FFT transform.
 function apply!(α::Number,
-                ::Type{Direct},
                 A::cFFTWPlan{Complex{T},K,false,N},
                 x::StridedArray{Complex{T},N},
                 scratch::Bool,
@@ -161,13 +159,13 @@ function apply!(α::Number,
                 y::StridedArray{Complex{T},N}) where {T<:fftwReal,N,K}
     @checksize "argument" x  input_size(A)
     @checksize "result"   y output_size(A)
-    if α == 0
+    if iszero(α)
         vscale!(y, β)
-    elseif β == 0
-        safe_mul!(y, A, x, scratch && x !== y)
-        α == 1 || vscale!(y, α)
+    elseif iszero(β)
+        safe_mul!(y, A, x, scratch && x !== y) # FIXME: unsafe_mul!?
+        isone(α) || vscale!(y, α)
     else
-        vcombine!(y, α, safe_mul(A, x, scratch), β, y)
+        vcombine!(y, α, safe_mul(A, x, scratch), β, y) # FIXME: unsafe_mul!?
     end
     return y
 end
@@ -175,7 +173,6 @@ end
 # Apply real-to-complex forward transform.  The transform is necessarily
 # out-of-place.
 function apply!(α::Number,
-                ::Type{Direct},
                 A::rFFTWPlan{T,K,false,N},
                 x::StridedArray{T,N},
                 scratch::Bool,
@@ -183,11 +180,11 @@ function apply!(α::Number,
                 y::StridedArray{Complex{T},N}) where {T<:fftwReal,K,N}
     @checksize "argument" x  input_size(A)
     @checksize "result"   y output_size(A)
-    if α == 0
+    if iszero(α)
         vscale!(y, β)
-    elseif β == 0
+    elseif iszero(β)
         safe_mul!(y, A, x, scratch)
-        α == 1 || vscale!(y, α)
+        isone(α) || vscale!(y, α)
     else
         vcombine!(y, α, safe_mul(A, x, scratch), β, y)
     end
@@ -198,7 +195,6 @@ end
 # possible for multi-dimensional c2r transforms so we must copy the input
 # argument x.
 function apply!(α::Number,
-                ::Type{Direct},
                 A::rFFTWPlan{Complex{T},K,false,N},
                 x::StridedArray{Complex{T},N},
                 scratch::Bool,
@@ -206,11 +202,11 @@ function apply!(α::Number,
                 y::StridedArray{T,N}) where {T<:fftwReal,K,N}
     @checksize "argument" x  input_size(A)
     @checksize "result"   y output_size(A)
-    if α == 0
+    if iszero(α)
         vscale!(y, β)
-    elseif β == 0
+    elseif iszero(β) == 0
         safe_mul!(y, A, x, scratch)
-        α == 1 || vscale!(y, α)
+        isone(α) || vscale!(y, α)
     else
         vcombine!(y, α, safe_mul(A, x, scratch), β, y)
     end
@@ -425,9 +421,8 @@ FFTOperator(A::DenseArray{T,N}; kwds...) where {T<:fftwNumber,N} =
 MorphismType(::Type{<:FFTOperator{<:Complex}}) = Endomorphism()
 
 ncols(A::FFTOperator) = A.ncols
-ncols(A::Adjoint{<:FFTOperator}) = ncols(unveil(A))
-ncols(A::Inverse{true,<:FFTOperator}) = ncols(unveil(A))
-ncols(A::InverseAdjoint{<:FFTOperator}) = ncols(unveil(A))
+ncols(A::Adjoint{<:FFTOperator}) = ncols(parent(A))
+ncols(A::Inverse{true,<:FFTOperator}) = ncols(parent(A))
 
 input_size(A::FFTOperator) = A.inpdims # FIXME: input_size(A.forward)
 input_size(A::FFTOperator, i::Integer) = get_dimension(input_size(A), i)
@@ -452,14 +447,14 @@ show(io::IO, A::FFTOperator) = print(io, "FFT")
 #     inv(F) = n\F'
 #     ==> F⋅F' = F'⋅F = n⋅Id
 #     ==> inv(F⋅F') = inv(F'⋅F) = inv(F)⋅inv(F') = inv(F')⋅inv(F) = n\Id
-*(A::Adjoint{F}, B::F) where {F<:FFTOperator} =
-    (identical(unveil(A), B) ? ncols(A)*Id : compose(A, B))
+*(A::Adjoint{F}, B::F) where {F<:FFTOperator} = # FIXME: not type-stable
+    (identical(parent(A), B) ? ncols(A)*Id : compose(A, B))
 *(A::F, B::Adjoint{F}) where {F<:FFTOperator} =
-    (identical(A, unveil(B)) ? ncols(A)*Id : compose(A, B))
-*(A::InverseAdjoint{F}, B::Inverse{true,F}) where {F<:FFTOperator} =
-    (identical(unveil(A), unveil(B)) ? (1//ncols(A))*Id : compose(A, B))
-*(A::Inverse{true,F}, B::InverseAdjoint{F}) where {F<:FFTOperator} =
-    (identical(unveil(A), unveil(B)) ? (1//ncols(A))*Id : compose(A, B))
+    (identical(A, parent(B)) ? ncols(A)*Id : compose(A, B))
+*(A::Inverse{true,Adjoint{F}}, B::Inverse{true,F}) where {F<:FFTOperator} =
+    (identical(parent(parent(A)), parent(B)) ? (1//ncols(A))*Id : compose(A, B))
+*(A::Inverse{true,F}, B::Inverse{true,Adjoint{F}}) where {F<:FFTOperator} =
+    (identical(parent(A), parent(parent(B))) ? (1//ncols(A))*Id : compose(A, B))
 
 function vcreate(P::Type{<:Union{Direct,InverseAdjoint}},
                  A::FFTOperator{T,N,C},
@@ -725,12 +720,12 @@ function apply!(α::Number,
                 β::Number,
                 y::AbstractArray{Complex{T},N}) where {T<:fftwReal,N}
     @certify !Base.has_offset_axes(x, y)
-    if α == 0
+    if iszero(α)
         @certify size(y) == H.dims
         vscale!(y, β)
     else
         n = length(x)
-        if β == 0
+        if iszero(β)
             # Use y as a workspace.
             mul!(y, H.forward, x) # out-of-place forward FFT of x in y
             _apply!(y, α/n, P, H.mtf) # in-place multiply y by mtf/n
@@ -755,7 +750,7 @@ function apply!(α::Number,
                 β::Number,
                 y::AbstractArray{T,N}) where {T<:fftwReal,N}
     @certify !Base.has_offset_axes(x, y)
-    if α == 0
+    if iszero(α)
         @certify size(y) == H.dims
         vscale!(y, β)
     else
@@ -763,7 +758,7 @@ function apply!(α::Number,
         z = Array{Complex{T}}(undef, H.zdims) # allocate temporary
         mul!(z, H.forward, x) # out-of-place forward FFT of x in z
         _apply!(z, α/n, P, H.mtf) # in-place multiply z by mtf/n
-        if β == 0
+        if iszero(β)
             mul!(y, H.backward, z) # out-of-place backward FFT of z in y
         else
             w = Array{T}(undef, H.dims) # allocate another temporary
@@ -820,24 +815,25 @@ end
 # Utilities.
 
 """
+    check_flags(flags)
 
-`check_flags(flags)` checks whether `flags` is an allowed bitwise-or
-combination of FFTW planner flags (see
-http://www.fftw.org/doc/Planner-Flags.html) and returns the filtered flags.
+checks whether `flags` is an allowed bitwise-or combination of FFTW planner
+flags (see http://www.fftw.org/doc/Planner-Flags.html) and returns the filtered
+flags.
 
 """
 function check_flags(flags::Integer)
-    planning = flags & PLANNING
-    flags == planning ||
-        bad_argument("only FFTW planning flags can be specified")
+    planning = (flags & PLANNING)
+    flags == planning || bad_argument("only FFTW planning flags can be specified")
     return UInt32(planning)
 end
 
 """
+    get_dimension(dims, i)
 
-`get_dimension(dims, i)` yields the `i`-th dimension in tuple of integers
-`dims`.  Like for broadcasting rules, it is assumed that the length of
-all dimensions after the last one are equal to 1.
+yields the `i`-th dimension in tuple of integers `dims`. Like for broadcasting
+rules, it is assumed that the length of all dimensions after the last one are
+equal to 1.
 
 """
 get_dimension(dims::NTuple{N,Int}, i::Integer) where {N} =
@@ -847,12 +843,10 @@ bad_dimension_index() = error("invalid dimension index")
 
 
 """
-```julia
-goodfftdim(len)
-```
+    goodfftdim(len)
 
 yields the smallest integer which is greater or equal `len` and which is a
-multiple of powers of 2, 3 and/or 5.  If argument is an array dimesion list
+multiple of powers of 2, 3 and/or 5. If argument is an array dimesion list
 (i.e. a tuple of integers), a tuple of good FFT dimensions is returned.
 
 Also see: [`goodfftdims`](@ref), [`rfftdims`](@ref), [`FFTOperator`](@ref).
@@ -862,9 +856,7 @@ goodfftdim(len::Integer) = goodfftdim(Int(len))
 goodfftdim(len::Int) = nextprod([2,3,5], len)
 
 """
-```julia
-goodfftdims(dims)
-```
+    goodfftdims(dims)
 
 yields a list of dimensions suitable for computing the FFT of arrays whose
 dimensions are `dims` (a tuple or a vector of integers).
@@ -877,9 +869,7 @@ goodfftdims(dims::Union{AbstractVector{<:Integer},Tuple{Vararg{Integer}}}) =
     map(goodfftdim, dims)
 
 """
-```julia
-rfftdims(dims)
-```
+    rfftdims(dims)
 
 yields the dimensions of the complex array produced by a real-complex FFT of a
 real array of size `dims`.
@@ -890,46 +880,24 @@ Also see: [`goodfftdim`](@ref), [`FFTOperator`](@ref).
 rfftdims(dims::Integer...) = rfftdims(dims)
 rfftdims(dims::NTuple{N,Integer}) where {N} =
     ntuple(d -> (d == 1 ? (Int(dims[d]) >>> 1) + 1 : Int(dims[d])), Val(N))
-# Note: The above version is equivalent but much faster than
+# NOTE: The above version is equivalent but much faster than
 #     ((dims[1] >>> 1) + 1, dims[2:end]...)
 # which is not optimized out by the compiler.
 
 """
-### Generate Discrete Fourier Transform frequency indexes or frequencies
+    k = fftfreq(dim)
 
-Syntax:
+yields a vector of `dim` Discrete Fourier Transform (DFT) frequency indices:
 
-```julia
-k = fftfreq(dim)
-f = fftfreq(dim, step)
-```
+    k = [0, 1, 2, ..., n-1, -n, ..., -2, -1]   if dim = 2*n
+    k = [0, 1, 2, ..., n,   -n, ..., -2, -1]   if dim = 2*n + 1
 
-With a single argument, the function returns a vector of `dim` values set with
-the frequency indexes:
+depending whether `dim` is even or odd. These rules are compatible to the
+assumptions made by `fftshift` (which to see) in the sense that:
 
-```
-k = [0, 1, 2, ..., n-1, -n, ..., -2, -1]   if dim = 2*n
-k = [0, 1, 2, ..., n,   -n, ..., -2, -1]   if dim = 2*n + 1
-```
+    fftshift(fftfreq(dim)) = [-n, ..., -2, -1, 0, 1, 2, ...]
 
-depending whether `dim` is even or odd.  These rules are compatible to what is
-assumed by `fftshift` (which to see) in the sense that:
-
-```
-fftshift(fftfreq(dim)) = [-n, ..., -2, -1, 0, 1, 2, ...]
-```
-
-With two arguments, `step` is the sample spacing in the direct space and the
-result is a floating point vector with `dim` elements set with the frequency
-bin centers in cycles per unit of the sample spacing (with zero at the start).
-For instance, if the sample spacing is in seconds, then the frequency unit is
-cycles/second.  This is equivalent to:
-
-```
-fftfreq(dim)/(dim*step)
-```
-
-See also: [`FFTOperator`](@ref), [`fftshift`](@ref).
+See also: [`FFTOperator`](@ref).
 
 """
 function fftfreq(_dim::Integer)
@@ -947,11 +915,21 @@ function fftfreq(_dim::Integer)
     return f
 end
 
-function fftfreq(_dim::Integer, step::Real)
+"""
+    f = fftfreq(dim, step) -> fftfreq(dim)./(dim*step)
+
+yields a vector of `dim` Discrete Fourier Transform (DFT) frequencies with
+`step` the sample spacing in the direct space. The result is a floating-point
+vector with `dim` elements set with the frequency bin centers in cycles per
+unit of the sample spacing (with zero at the start). For instance, if the
+sample spacing is in seconds, then the frequency unit is cycles/second.
+
+"""
+function fftfreq(_dim::Integer, step::Number)
     dim = Int(_dim)
-    scl = Cdouble(1/(dim*step))
     n = div(dim, 2)
-    f = Array{Cdouble}(undef, dim)
+    scl = Cdouble(1/(dim*step))
+    f = Array{typeof(scl)}(undef, dim)
     @inbounds begin
         for k in 1:dim-n
             f[k] = (k - 1)*scl

@@ -9,26 +9,25 @@
 # This file is part of LazyAlgebra (https://github.com/emmt/LazyAlgebra.jl)
 # released under the MIT "Expat" license.
 #
-# Copyright (c) 2017-2021 Éric Thiébaut.
+# Copyright (c) 2017-2022 Éric Thiébaut.
 #
 
 """
     using LazyAlgebra.Foundations
 
-imports types and methods that may be useful to extend or implement
-`LazyAlgebra` mappings.
+makes directly available types and methods that may be useful to extend or
+implement `LazyAlgebra` mappings.
 
 """
 module Foundations
 
 using ..LazyAlgebra
 
-for sym in (Symbol("@callable"),
+for sym in [Symbol("@callable"),
             :Adjoint,
             :AdjointInverse,
             :DiagonalMapping,
             :DiagonalType,
-            :Direct,
             :Endomorphism,
             :Inverse,
             :InverseAdjoint,
@@ -39,7 +38,6 @@ for sym in (Symbol("@callable"),
             :NonDiagonalMapping,
             :NonLinear,
             :NonSelfAdjoint,
-            :Operations,
             :SelfAdjoint,
             :SelfAdjointType,
             :axpby_yields_zero,
@@ -60,7 +58,8 @@ for sym in (Symbol("@callable"),
             :axpby_yields_axpby,
             :multiplier_type,
             :multiplier_floatingpoint_type,
-            :promote_multiplier)
+            :promote_multiplier,
+            :types_of_terms]
     @eval begin
         import ..LazyAlgebra: $sym
         export $sym

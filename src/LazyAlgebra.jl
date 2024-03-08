@@ -79,7 +79,6 @@ export
     terms,
     unpack!,
     unscaled,
-    unveil,
     vcombine!,
     vcombine,
     vcopy!,
@@ -128,11 +127,15 @@ include("traits.jl")
 include("utils.jl")
 include("methods.jl")
 include("vectors.jl")
+#=
 include("genmult.jl")
 import .GenMult: lgemm!, lgemm, lgemv!, lgemv
 include("blas.jl")
+=#
 include("rules.jl")
+include("simplify.jl")
 include("mappings.jl")
+#=
 include("foundations.jl")
 
 include("sparse.jl")
@@ -140,12 +143,13 @@ using .SparseOperators
 import .SparseOperators: unpack!
 
 include("cropping.jl")
-import .Cropping: CroppingOperator, ZeroPaddingOperator, defaultoffset
+import .Cropping: CroppingOperator, ZeroPaddingOperator, default_offset
 include("diff.jl")
 import .FiniteDifferences: Diff
 include("fft.jl")
 import .FFTs: CirculantConvolution, FFTOperator
 include("conjgrad.jl")
+=#
 include("init.jl")
 
 end

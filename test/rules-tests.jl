@@ -155,13 +155,15 @@ end
     @test multiplier(π*A) === π
     @test multiplier(typeof(π*A)) === typeof(π)
 
-    # unveil method on decorated mappings and their types
-    @test unveil(A') === A
-    @test unveil(typeof(A')) === typeof(A)
-    @test unveil(inv(A)) === A
-    @test unveil(typeof(inv(A))) === typeof(A)
-    @test unveil(inv(A)') === A
-    @test unveil(typeof(inv(A)')) === typeof(A)
+    # Unveil decorated mappings and their types.
+    @test parent(A') === A
+    @test parent(typeof(A')) === typeof(A)
+    @test parent(inv(A)) === A
+    @test parent(typeof(inv(A))) === typeof(A)
+    @test parent(inv(A')) === A'
+    @test parent(typeof(inv(A'))) === typeof(A')
+    @test parent(inv(A)') === A'
+    @test parent(typeof(inv(A)')) === typeof(A')
 
     # Test adjoint and Jacobian.
     x = nothing

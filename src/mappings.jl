@@ -23,13 +23,23 @@ SelfAdjointType(::Type{<:Identity}) = SelfAdjoint()
 MorphismType(::Type{<:Identity}) = Endomorphism()
 DiagonalType(::Type{<:Identity}) = DiagonalMapping()
 
-apply(::Type{<:Operations}, ::Identity, x, scratch::Bool=false) = x
+const Identities = Union{Identity,
+                         Adjoint{Identity},
+                         Inverse{true,Identity},
+                         InverseAdjoint{Identity}}
 
-# vcreate for identity always return x (see doc. of vcreate).
-vcreate(::Type{<:Operations}, ::Identity, x, scratch::Bool) = x
+output_eltype(::Type{A}, ::Type{x}) where {A<:Identities,x} = float(eltype(x))
 
-apply!(α::Number, ::Type{<:Operations}, ::Identity, x, ::Bool, β::Number, y) =
+function vcreate(α::Number, ::Identities, x, scratch::Bool)
+    T = output_eltype(α, Id, x)
+    return (scratch && x isa Array{T}) ? x : vcreate(x, T)
+end
+
+apply!(α::Number, ::Identities, x, scratch::Bool, β::Number, y) =
     vcombine!(y, α, x, β, y)
+
+simplify(::Identities) = Id
+simplify(A::UniformScaling) = Mapping(A)
 
 # Rules to automatically convert UniformScaling from standard library module
 # LinearAlgebra into λ*Id.  For other operators, there is no needs to extend ⋅
@@ -47,18 +57,18 @@ end
 # SYMBOLIC MAPPINGS (FOR TESTS)
 
 struct SymbolicMapping{L,S} <: Mapping{L} end
+
+# Alias for symbolic linear mapping.
 const SymbolicLinearMapping{S} = SymbolicMapping{true,S}
+
+# Constructors.
 SymbolicMapping(id) = SymbolicMapping{false}(id)
 SymbolicMapping{L}(id::AbstractString) where {L} = SymbolicMapping{L}(Symbol(id))
 SymbolicMapping{L}(id::Symbol) where {L} = SymbolicMapping{L,Val{id}}()
-# FIXME: SymbolicLinearMapping(id::AbstractString) = SymbolicLinearMapping(Symbol(id))
-# FIXME: SymbolicLinearMapping(id::Symbol) = SymbolicLinearMapping{Val{id}}()
 
 show(io::IO, A::SymbolicMapping{L,Val{S}}) where {L,S} = print(io, S)
-# FIXME: show(io::IO, A::SymbolicLinearMapping{L,Val{S}}) where {L,S} = print(io, S)
 
 identical(::T, ::T) where {T<:SymbolicMapping} = true
-# FIXME: identical(::T, ::T) where {T<:SymbolicLinearMapping} = true
 
 #------------------------------------------------------------------------------
 # NON-UNIFORM SCALING
@@ -96,24 +106,13 @@ DiagonalType(::Type{<:NonuniformScaling}) = DiagonalMapping()
 SelfAdjointType(::Type{<:NonuniformScaling{<:AbstractArray{<:Real}}}) =
     SelfAdjoint() # FIXME: check this...
 
-coefficients(A::NonuniformScaling) = A.diag
+coefficients(A::NonuniformScaling) = getfield(A, :diag)
 LinearAlgebra.diag(A::NonuniformScaling) = coefficients(A)
 
 identical(A::T, B::T) where {T<:NonuniformScaling} =
     coefficients(A) === coefficients(B)
 
-# FIXME: This should only be done by `optimize`.
-function inv(A::NonuniformScaling{<:AbstractArray{T,N}}) where {T<:AbstractFloat, N}
-    q = coefficients(A)
-    r = similar(q)
-    @inbounds @simd for i in eachindex(q, r)
-        r[i] = one(T)/q[i]
-    end
-    return NonuniformScaling(r)
-end
-
-# FIXME: is this really useful?
-eltype(::Type{<:NonuniformScaling{<:AbstractArray{T,N}}}) where {T, N} = T
+Base.eltype(::Type{NonuniformScaling{T}}) where {T} = eltype(T)
 
 input_ndims(::NonuniformScaling{<:AbstractArray{T,N}}) where {T, N} = N
 input_size(A::NonuniformScaling{<:AbstractArray}) = size(coefficients(A))
@@ -136,21 +135,47 @@ output_size(A::NonuniformScaling{<:AbstractArray}, i) =
 *(A::NonuniformScaling, B::NonuniformScaling) =
     NonuniformScaling(vproduct(coefficients(A), coefficients(B)))
 
+function simplify(A::inv(NonuniformScaling{<:AbstractArray}))
+    q = coefficients(A)
+    r = similar(q, typeof(inv(oneunits(eltype(q)))))
+    @inbounds @simd for i in eachindex(q, r)
+        r[i] = inv(q[i])
+    end
+    return NonuniformScaling(r)
+end
+
+function simplify(A::NonuniformScaling{<:AbstractArray{Ta,N}}, *,
+                  B::NonuniformScaling{<:AbstractArray{Tb,N}}) where {Ta,Tb,N}
+    A_diag = diag(A)
+    B_diag = diag(B)
+    axes(A_diag) == axes(B_diag) || error("FIXME:")
+    return NonuniformScaling(A_diag .* B_diag)
+end
+
+operation(::Mapping) = identity
+operation(::Adjoint) = adjoint
+operation(::Inverse) = inv
+operation(::Inverse{true,<:Adjoint}) = inv∘adjoint
+operation(::Adjoint{<:Inverse{true}}) = inv∘adjoint
+
+const NonuniformScalings{T} = Union{NonuniformScaling{T},
+                                    Adjoint{<:NonuniformScaling{T}},
+                                    Inverse{true,<:NonuniformScaling{T}},
+                                    Inverse{true,Adjoint{<:NonuniformScaling{T}}},
+                                    Adjoint{Inverse{true,<:NonuniformScaling{T}}}}
+
 function apply!(α::Number,
-                ::Type{P},
-                W::NonuniformScaling{<:AbstractArray{Tw,N}},
+                W::NonuniformScalings{<:AbstractArray{Tw,N}},
                 x::AbstractArray{Tx,N},
                 scratch::Bool,
                 β::Number,
-                y::AbstractArray{Ty,N}) where {P<:Operations,
-                                               Tw<:Floats,
-                                               Tx<:Floats,
-                                               Ty<:Floats,N}
+                y::AbstractArray{Ty,N}) where {Tw,Tx,Ty,N}
     w = coefficients(W)
     I = all_indices(w, x, y)
-    if α == 0
+    P = operation(W)
+    if iszero(α)
         vscale!(y, β)
-    elseif β == 0
+    elseif iszero(β)
         if α == 1
             _apply_diagonal!(P, axpby_yields_x, I, 1, w, x, 0, y)
         else
@@ -176,28 +201,28 @@ function apply!(α::Number,
     return y
 end
 
-function _apply_diagonal!(::Type{Direct}, axpby::Function, I,
+function _apply_diagonal!(::typeof(identity), axpby::Function, I,
                           α, w, x, β, y)
     @inbounds @simd for i in I
         y[i] = axpby(α, w[i]*x[i], β, y[i])
     end
 end
 
-function _apply_diagonal!(::Type{Adjoint}, axpby::Function, I,
+function _apply_diagonal!(::typeof(adjoint), axpby::Function, I,
                           α, w, x, β, y)
     @inbounds @simd for i in I
         y[i] = axpby(α, conj(w[i])*x[i], β, y[i])
     end
 end
 
-function _apply_diagonal!(::Type{Inverse}, axpby::Function, I,
+function _apply_diagonal!(::typeof(inv), axpby::Function, I,
                           α, w, x, β, y)
     @inbounds @simd for i in I
         y[i] = axpby(α, x[i]/w[i], β, y[i])
     end
 end
 
-function _apply_diagonal!(::Type{InverseAdjoint}, axpby::Function, I,
+function _apply_diagonal!(::typeof(inv∘adjoint), axpby::Function, I,
                           α, w, x, β, y)
     @inbounds @simd for i in I
         y[i] = axpby(α, x[i]/conj(w[i]), β, y[i])
@@ -236,18 +261,23 @@ end
 
 @callable RankOneOperator
 
-function apply!(α::Number, ::Type{Direct}, A::RankOneOperator,
-                x, scratch::Bool, β::Number, y)
-    return _apply_rank_one!(α, A.u, A.v, x, β, y)
-end
+@generated Base.eltype(::Type{<:RankOneOperator{U,V}}) where {U,V} =
+    :($(typeof(zero(eltype(U))*zero(eltype(V)))))
 
-function apply!(α::Number, ::Type{Adjoint}, A::RankOneOperator,
-                x, scratch::Bool, β::Number, y)
-    return _apply_rank_one!(α, A.v, A.u, x, β, y)
-end
+# Lazily assume that x has correct type, dimensions, etc.
+# FIXME: optimize when scratch=true
+
+vcreate(α::Number, A::RankOneOperator, x, scratch::Bool) = similar(A.v, output_eltype(α, A, x))
+vcreate(α::Number, A::Adjoint{<:RankOneOperator}, x, scratch::Bool) = similar(A.u, output_eltype(α, A, x))
+
+apply!(α::Number, A::RankOneOperator, x, scratch::Bool, β::Number, y) =
+    _apply_rank_one!(α, A.u, A.v, x, β, y)
+
+apply!(α::Number, A::Adjoint{<:RankOneOperator}, x, scratch::Bool, β::Number, y) =
+    _apply_rank_one!(α, A.v, A.u, x, β, y)
 
 function _apply_rank_one!(α::Number, u, v, x, β::Number, y)
-    if α == 0
+    if iszero(α)
         # Lazily assume that y has correct type, dimensions, etc.
         vscale!(y, β)
     else
@@ -256,25 +286,19 @@ function _apply_rank_one!(α::Number, u, v, x, β::Number, y)
     return y
 end
 
-# Lazily assume that x has correct type, dimensions, etc.
-# FIXME: optimize when scratch=true
-vcreate(::Type{Direct}, A::RankOneOperator, x, scratch::Bool) = vcreate(A.v)
-vcreate(::Type{Adjoint}, A::RankOneOperator, x, scratch::Bool) = vcreate(A.u)
-
-input_type(A::RankOneOperator{U,V}) where {U,V} = V
-input_ndims(A::RankOneOperator) = ndims(A.v)
+# FIXME: input_type(A::RankOneOperator{U,V}) where {U,V} = V
+input_ndims(::Type{<:RankOneOperator{U,V}}) where {U,V} = ndims(V)
 input_size(A::RankOneOperator) = size(A.v)
 input_size(A::RankOneOperator, d...) = size(A.v, d...)
-input_eltype(A::RankOneOperator) = eltype(A.v)
+# FIXME: input_eltype(A::RankOneOperator) = eltype(A.v)
 
-output_type(A::RankOneOperator{U,V}) where {U,V} = U
-output_ndims(A::RankOneOperator) = ndims(A.u)
+# FIXME: output_type(A::RankOneOperator{U,V}) where {U,V} = U
+output_ndims(::Type{<:RankOneOperator{U,V}}) where {U,V} = ndims(U)
 output_size(A::RankOneOperator) = size(A.u)
 output_size(A::RankOneOperator, d...) = size(A.u, d...)
-output_eltype(A::RankOneOperator) = eltype(A.u)
+# FIXME: output_eltype(A::RankOneOperator) = eltype(A.u)
 
-identical(A::T, B::T) where {T<:RankOneOperator} =
-    ((A.u === B.u)&(A.v === B.v))
+identical(A::T, B::T) where {T<:RankOneOperator} = ((A.u === B.u)&(A.v === B.v))
 
 """
     SymmetricRankOneOperator(u) -> A
@@ -299,16 +323,24 @@ end
 MorphismType(::Type{<:SymmetricRankOneOperator}) = Endomorphism() # FIXME: not true with units
 SelfAdjointType(::Type{<:SymmetricRankOneOperator}) = SelfAdjoint()
 
-function apply!(α::Number, ::Type{<:Union{Direct,Adjoint}},
-                A::SymmetricRankOneOperator, x, scratch::Bool, β::Number, y)
-    return _apply_rank_one!(α, A.u, A.u, x, β, y)
-end
+@generated Base.eltype(::Type{<:SymmetricRankOneOperator{U}}) where {U} =
+    :($(typeof(zero(eltype(U))^2)))
 
-function vcreate(::Type{<:Union{Direct,Adjoint}},
-                 A::SymmetricRankOneOperator, x, scratch::Bool)
-    # Lazily assume that x has correct type, dimensions, etc.
-    return (scratch ? x : vcreate(x))
+# Automatic simplifications rules.
+adjoint(A::SymmetricRankOneOperator) = A
+
+apply!(α::Number, A::SymmetricRankOneOperator, x, scratch::Bool, β::Number, y) =
+    _apply_rank_one!(α, A.u, A.u, x, β, y)
+apply!(α::Number, A::Adjoint{<:SymmetricRankOneOperator}, x, scratch::Bool, β::Number, y) =
+    apply!(α, parent(A), x, scratch, β, y)
+
+# Lazily assume that x has correct dimensions.
+function vcreate(α::Number, A::SymmetricRankOneOperator, x, scratch::Bool)
+    T = output_eltype(α, A, x)
+    return (scratch && x isa Array{T,ndims(A.u)}) ? x : similar(A.u, T)
 end
+vcreate(α::Number, A::Adjoint{<:SymmetricRankOneOperator}, x, scratch::Bool) =
+    vcreate(α, parent(A), x)
 
 input_type(A::SymmetricRankOneOperator{U}) where {U} = U
 input_ndims(A::SymmetricRankOneOperator) = ndims(A.u)

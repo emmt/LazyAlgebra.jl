@@ -45,7 +45,7 @@ This definition closely follows the semantic used in the BLAS module that
 `BlasReal` are all the real types supported by the BLAS library.
 
 """
-const Reals = AbstractFloat
+const Reals = AbstractFloat # FIXME: discard
 
 """
     Complexes
@@ -57,7 +57,7 @@ This definition closely follows the semantic used in the BLAS module that
 `BlasComplex` are all the complex types supported by the BLAS library.
 
 """
-const Complexes = Complex{<:Reals}
+const Complexes = Complex{<:Reals} # FIXME: discard
 
 """
     Floats
@@ -68,7 +68,7 @@ This definition closely follows the semantic used in the BLAS module that
 `BlasFloat` are all floating-point types supported by the BLAS library.
 
 """
-const Floats = Union{Reals,Complexes}
+const Floats = Union{Reals,Complexes} # FIXME: discard
 
 """
     Mapping{L}
@@ -126,20 +126,19 @@ The following methods should be implemented for a mapping `A` of specific type
 `M <: Mapping`:
 
 ```julia
-vcreate(::Type{P}, A::M, x, scratch::Bool) -> y
-apply!(α::Number, ::Type{P}, A::M, x, , scratch::Bool, β::Number, y) -> y
+vcreate(α::Number, A::op(M), x, scratch::Bool) -> y
+apply!(α::Number, A::op(M), x, , scratch::Bool, β::Number, y) -> y
 ```
 
-for any supported operation `P ∈ Operations` (`Direct`, `Adjoint`, `Inverse`
-and/or `InverseAdjoint`). See the documentation of these methods for
-explanations. Optionally, methods `P(A)` may be extended, *e.g.* to throw
-exceptions if operation `P` is forbidden (or not implemented). By default, all
-these operations are assumed possible (except `Adjoint` and `InverseAdjoint`
-for a nonlinear mapping).
+for any supported operation `op ∈ (identity,adjoint,inv,inv∘adjoint)`. See the
+documentation of [`LazyAgebra.Adjoint`](@ref), [`LazyAgebra.Inverse`](@ref),
+and [`LazyAgebra.InverseAdjoint`](@ref) for explanations. Optionally, methods
+`op(A::M)` may be extended, *e.g.* to throw exceptions if operation `op` is
+forbidden (or not implemented). By default, all these operations are assumed
+possible (except `adjoint` and `inv∘adjoint` for a nonlinear mapping).
 
-See also: [`apply`](@ref), [`apply!`](@ref), [`vcreate`](@ref),
-          [`LinearType`](@ref), [`Scalar`](@ref), [`Direct`](@ref),
-          [`Adjoint`](@ref), [`Inverse`](@ref), [`InverseAdjoint`](@ref).
+See also: [`apply`](@ref), [`apply!`](@ref)(@ref), [`vcreate`](@ref),
+          [`LinearType`](@ref).
 
 """
 abstract type Mapping{L} <: Function end
@@ -202,9 +201,9 @@ struct NonSelfAdjoint <: SelfAdjointType end
 struct SelfAdjoint <: SelfAdjointType end
 
 # Trait indicating whether a mapping is certainly an endomorphism.
-abstract type MorphismType <: Trait end
-struct Morphism <: MorphismType end
-struct Endomorphism <: MorphismType end
+abstract type MorphismType <: Trait end # FIXME: discard
+struct Morphism <: MorphismType end # FIXME: discard
+struct Endomorphism <: MorphismType end # FIXME: discard
 
 # Trait indicating whether a mapping is certainly a diagonal linear mapping.
 abstract type DiagonalType <: Trait end
@@ -212,25 +211,17 @@ struct NonDiagonalMapping <: DiagonalType end
 struct DiagonalMapping <: DiagonalType end
 
 """
+    Adjoint(A) -> B
 
-Type `Direct` is a singleton type to indicate that a linear mapping should
-be directly applied.  This type is part of the union `Operations`.
-
-See also: [`LinearMapping`](@ref), [`apply`](@ref), [`Operations`](@ref).
-
-"""
-struct Direct; end
-
-"""
-    Adjoint(A) -> obj
-
-yields an object instance `obj` representing `A'`, the adjoint of the linear
+yields a linear mapping `B` representing `A'`, the adjoint of the linear
 mapping `A`.
 
-Directly calling this constructor is discouraged, use an expression like `A'`
-instead and benefit from automatic simplification rules.
+Directly calling this constructor is discouraged, use an expressions like `A'`
+or `adjoint(A)` instead and benefit from automatic simplification rules. The
+`adjoint` method can also be applied to a linear mapping to yield the
+corresponding type.
 
-Call [`unveil(obj)`](@ref) to reveal the linear mapping `A` embedded in `obj`.
+Call `parent(B)` to reveal the linear mapping `A` embedded in `B`.
 
 See also [`DecoratedMapping`](@ref).
 
@@ -241,14 +232,16 @@ struct Adjoint{M<:LinearMapping} <: LinearMapping
 end
 
 """
-    Inverse(A) -> obj
+    Inverse(A) -> B
 
-yields an object instance `obj` representing the inverse of the mapping `A`.
+yields a mapping `B` representing the inverse of the mapping `A`.
 
 Directly calling this constructor is discouraged, call `inv(A)` or use an
 expression like `Id/A` instead and benefit from automatic simplification rules.
+The `inv` method can also be applied to a linear mapping to yield the
+corresponding type.
 
-Call [`unveil(obj)`](@ref) to reveal the mapping `A` embedded in `obj`.
+Call `parent(B)` to reveal the mapping `A` embedded in `B`.
 
 See also [`DecoratedMapping`](@ref).
 
@@ -259,16 +252,33 @@ struct Inverse{L,M<:Mapping{L}} <: Mapping{L}
 end
 
 """
-    InverseAdjoint(A) -> obj
+    InverseAdjoint{M}
 
-yields an object instance `obj` representing the inverse of the adjoint of the
+alias for the inverse-adjoint of mapping type `M`.
+
+"""
+const InverseAdjoint{M} = Inverse{true,Adjoint{M}}
+
+"""
+    AdjointInverse{M}
+
+alias for `[InverseAdjoint](@ref){M}`.
+
+"""
+const AdjointInverse{M} = InverseAdjoint{M}
+
+#=
+"""
+    InverseAdjoint(A) -> B
+
+yields a linear mapping `B` representing the inverse of the adjoint of the
 linear mapping `A`.
 
 Directly calling this constructor is discouraged, use expressions like
 `inv(A')`, `inv(A')` or `Id/A'` instead and benefit from automatic
 simplification rules.
 
-Call [`unveil(obj)`](@ref) to reveal the mapping `A` embedded in `obj`.
+Call `parent(B)` to reveal the mapping `A` embedded in `B`.
 
 `AdjointInverse` is an alias for `InverseAdjoint`.
 
@@ -282,19 +292,20 @@ end
 
 const AdjointInverse{M} = InverseAdjoint{M}
 @doc @doc(InverseAdjoint) AdjointInverse
+=#
 
 """
     Gram(A) -> B
 
-yields an object `B` representing the composition `A'*A` for the linear mapping
-`A`.
+yields a linear mapping `B` representing the composition `A'*A` for the linear
+mapping `A`.
 
 Directly calling this constructor is discouraged, call [`gram(A)`](@ref) or use
 expression `A'*A` instead and benefit from automatic simplification rules.
 
-Call [`unveil(B)`](@ref) to reveal the linear mapping `A` embedded in `B`.
+Call `parent(B)` to reveal the linear mapping `A` embedded in `B`.
 
-See also [`gram`](@ref), [`unveil`](@ref) and [`DecoratedMapping`](@ref).
+See also [`gram`](@ref) and [`DecoratedMapping`](@ref).
 
 """
 struct Gram{M<:LinearMapping} <: LinearMapping
@@ -306,20 +317,21 @@ end
     DecoratedMapping{M}
 
 is the union of the *decorated* mapping types [`Adjoint`](@ref),
-[`Inverse`](@ref), [`InverseAdjoint`](@ref), and [`Gram`](@ref) whose embedded
-mapping is of type `M`.
+[`Inverse`](@ref), and [`Gram`](@ref) whose embedded mapping is of type `M`.
 
-The method [`unveil(A)`](@ref) can be called to reveal the mapping embedded in
-a decorated mapping `A`.
-
-"""
-const DecoratedMapping{M} = Union{Adjoint{M},Inverse{<:Any,M},InverseAdjoint{M},Gram{M}}
+The method `parent(A)` can be called to reveal the mapping embedded in a
+decorated mapping `A`.
 
 """
-    Jacobian(A,x) -> obj
+const DecoratedMapping{M} = Union{Adjoint{M},Inverse{<:Any,M},
+                                  InverseAdjoint{M}, # FIXME: remove
+                                  Gram{M}}
 
-yields an object instance `obj` representing the Jacobian `∇(A,x)` of the
-non-linear mapping `A` for the variables `x`.
+"""
+    Jacobian(A,x) -> B
+
+yields a mapping `B` representing the Jacobian `∇(A,x)` of the non-linear
+mapping `A` for the variables `x`.
 
 Directly calling this constructor is discouraged, call [`jacobian(A,x)`](@ref)
 or [`∇(A,x)`](@ref) instead and benefit from automatic simplification rules.
@@ -350,7 +362,7 @@ const Operations = Union{Direct,Adjoint,Inverse,InverseAdjoint}
 """
     Scaled(λ, A) -> B
 
-yields an object `B` representing `λ*A`, that is the mapping `A` multiplied by
+yields a mapping `B` representing `λ*A`, that is the mapping `A` multiplied by
 a scalar `λ`.
 
 Directly calling this constructor is discouraged, use expressions like `λ*A`
@@ -369,7 +381,7 @@ end
 """
     Sum(A, B...) -> S
 
-yields an object `S` representing the sum `A + B + ...` of the mappings `A`,
+yields a mapping `S` representing the sum `A + B + ...` of the mappings `A`,
 `B...`. The constructor also accepts as argument a tuple of mappings.
 
 Directly calling this constructor is discouraged, use expressions like `A + B +
@@ -390,7 +402,7 @@ end
 """
     Composition(A, B...) -> C
 
-yields an object `C` representing the composition `A*B*...` of the mappings
+yields a mapping `C` representing the composition `A*B*...` of the mappings
 `A`, `B...`. The constructor also accepts as argument a tuple of mappings.
 
 Directly calling this constructor is discouraged, use expressions like

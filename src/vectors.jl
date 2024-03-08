@@ -12,19 +12,18 @@
 # This file is part of LazyAlgebra (https://github.com/emmt/LazyAlgebra.jl)
 # released under the MIT "Expat" license.
 #
-# Copyright (c) 2017-2020 Éric Thiébaut.
+# Copyright (c) 2017-2022 Éric Thiébaut.
 #
 
 """
     vnorm2([T,] v)
 
-yields the Euclidean (L2) norm of `v`.  The floating point type of the result
-can be imposed by optional argument `T`.  Also see [`vnorm1`](@ref) and
-[`vnorminf`](@ref).
+yields the Euclidean (L2) norm of `v`. The type of the result can be imposed by
+optional argument `T`. Also see [`vnorm1`](@ref) and [`vnorminf`](@ref).
 
 """
-function vnorm2(v::AbstractArray{<:Floats})
-    s = zero(real(eltype(v)))
+function vnorm2(v::AbstractArray)
+    s = abs2(zero(eltype(v)))
     @inbounds @simd for i in eachindex(v)
         s += abs2(v[i])
     end
@@ -35,23 +34,22 @@ end
     vnorm1([T,] v)
 
 yields the L1 norm of `v`, that is the sum of the absolute values of its
-elements.  The floating point type of the result can be imposed by optional
-argument `T`.  For a complex valued argument, the result is the sum of the
-absolute values of the real part and of the imaginary part of the elements
-(like BLAS `asum`).
+elements. The type of the result can be imposed by optional argument `T`. For a
+complex valued argument, the result is the sum of the absolute values of the
+real part and of the imaginary part of the elements (like BLAS `asum`).
 
 See also [`vnorm2`](@ref) and [`vnorminf`](@ref).
 
 """
-function vnorm1(v::AbstractArray{<:Reals})
-    s = zero(real(eltype(v)))
+function vnorm1(v::AbstractArray)
+    s = abs(zero(eltype(v)))
     @inbounds @simd for i in eachindex(v)
         s += abs(v[i])
     end
     return s
 end
 
-function vnorm1(v::AbstractArray{<:Complexes})
+function vnorm1(v::AbstractArray{<:Complexes}) # FIXME:
     si = sr = zero(real(eltype(v)))
     @inbounds @simd for i in eachindex(v)
         z = v[i]
@@ -65,19 +63,19 @@ end
     vnorminf([T,] v)
 
 yields the infinite norm of `v`, that is the maximum absolute value of its
-elements.  The floating point type of the result can be imposed by optional
-argument `T`.  Also see [`vnorm1`](@ref) and [`vnorm2`](@ref).
+elements. The type of the result can be imposed by optional argument `T`. Also
+see [`vnorm1`](@ref) and [`vnorm2`](@ref).
 
 """
-function vnorminf(v::AbstractArray{<:Reals})
-    absmax = zero(real(eltype(v)))
+function vnorminf(v::AbstractArray)
+    absmax = abs(zero(eltype(v)))
     @inbounds @simd for i in eachindex(v)
         absmax = max(absmax, abs(v[i]))
     end
     return absmax
 end
 
-function vnorminf(v::AbstractArray{<:Complexes})
+function vnorminf(v::AbstractArray{<:Complexes}) # FIXME:
     abs2max = zero(real(eltype(v)))
     @inbounds @simd for i in eachindex(v)
         abs2max = max(abs2max, abs2(v[i]))
@@ -87,23 +85,25 @@ end
 
 # Versions with forced type of output result.
 for func in (:vnorm2, :vnorm1, :vnorminf)
-    @eval $func(::Type{T}, v) where {T<:AbstractFloat} =
+    @eval $func(::Type{T}, v) where {T} =
         convert(T, $func(v))::T
 end
 
 #------------------------------------------------------------------------------
 
 """
-    vcreate(x)
+    vcreate(x, T = float(eltype(x)))
 
-yields a new variable instance similar to `x`.  If `x` is an array, the
-element type of the result is a floating-point type.
+yields a new variable instance similar to `x` but with element type `T`. If `x`
+is an array, the element type of the result is a floating-point type.
 
-Also see [`similar`](@ref).
+If `x` is an abstract array, the default implementation yields `similar(x,T)`.
 
 """
-vcreate(x::AbstractArray{T}) where {R<:Real,T<:Union{R,Complex{R}}} =
-    similar(x, float(T))
+function vcreate(x::AbstractArray, T::Type{<:Number} = float(eltype(x)))
+    T === float(T) || argument_error("element type must be floating-point")
+    return similar(x, float(T))
+end
 
 #------------------------------------------------------------------------------
 
@@ -113,22 +113,13 @@ vcreate(x::AbstractArray{T}) where {R<:Real,T<:Union{R,Complex{R}}} =
 copies the contents of `src` into `dst` and returns `dst`.  This function
 checks that the copy makes sense (for instance, for array arguments, the
 `copyto!` operation does not check that the source and destination have the
-same dimensions).
+same indices, just compatible sizes).
 
-Also see [`copyto!`](@ref), [`vcopy`](@ref), [`vswap!`](@ref).
+Also see [`vcopy`](@ref), [`vswap!`](@ref).
 
 """
-function vcopy!(dst::AbstractArray{<:Real,N},
-                src::AbstractArray{<:Real,N}) where {N}
-    if dst !== src
-        axes(dst) == axes(src) || arguments_have_incompatible_axes()
-        copyto!(dst, src)
-    end
-    return dst
-end
-
-function vcopy!(dst::AbstractArray{<:Complex{<:Real},N},
-                src::AbstractArray{<:Complex{<:Real},N}) where {N}
+function vcopy!(dst::AbstractArray{<:Number,N},
+                src::AbstractArray{<:Number,N}) where {N}
     if dst !== src
         axes(dst) == axes(src) || arguments_have_incompatible_axes()
         copyto!(dst, src)
@@ -142,7 +133,7 @@ end
 yields a fresh copy of the *vector* `x`.  If `x` is is an array, the element
 type of the result is a floating-point type.
 
-Also see [`copy`](@ref), [`vcopy!`](@ref), [`vcreate!`](@ref).
+Also see [`vcopy!`](@ref), [`vcreate!`](@ref).
 
 """
 vcopy(x) = vcopy!(vcreate(x), x)
@@ -156,14 +147,18 @@ and axes if they are arrays).
 Also see [`vcopy!`](@ref).
 
 """
-vswap!(x::T, y::T) where {T<:AbstractArray} =
+function vswap!(x::T, y::T) where {T<:AbstractArray}
     x === y || _swap!(x, y)
+    return nothing
+end
 
-vswap!(x::AbstractArray{T,N}, y::AbstractArray{T,N}) where {T,N} =
+function vswap!(x::AbstractArray{<:Any,N}, y::AbstractArray{<:Any,N}) where {N}
     _swap!(x, y)
+    return nothing
+end
 
 # Forced swapping.
-_swap!(x::AbstractArray{T,N}, y::AbstractArray{T,N}) where {T,N} =
+_swap!(x::AbstractArray{<:Any,N}, y::AbstractArray{<:Any,N}) where {N} =
     @inbounds @simd for i in all_indices(x, y)
         temp = x[i]
         x[i] = y[i]
@@ -179,10 +174,10 @@ sets all elements of `x` with the scalar value `α` and return `x`.  The default
 implementation just calls `fill!(x,α)` but this method may be specialized for
 specific types of variables `x`.
 
-Also see [`vzero!`](@ref), [`fill!`](@ref).
+Also see [`vzero!`](@ref).
 
 """
-vfill!(x, α) = fill!(x, α)
+vfill!(x, α::Number) = fill!(x, α)
 
 """
     vzero!(x) -> x
@@ -214,8 +209,7 @@ yields a *vector* like `x` filled with ones.
 Also see [`vzeros`](@ref), [`vcreate`](@ref), [`vfill!`](@ref).
 
 """
-vones(x) = vfill!(vcreate(x), 1)
-vones(x::AbstractArray{T}) where {T} = vfill!(vcreate(x), one(T))
+vones(x) = vfill!(vcreate(x), oneunits(eltype(x))) # FIXME: remove this function
 
 #------------------------------------------------------------------------------
 
@@ -240,21 +234,21 @@ source vector may be reversed:
 Also see [`vscale`](@ref), [`LinearAlgebra.rmul!](@ref).
 
 """
-function vscale!(dst::AbstractArray{<:Floats,N},
+function vscale!(dst::AbstractArray{<:Any,N},
                  α::Number,
-                 src::AbstractArray{<:Floats,N}) where {N}
-    if α == 1
-        vcopy!(dst, src)
-    elseif α == 0
-        axes(dst) == axes(src) || arguments_have_incompatible_axes()
+                 src::AbstractArray{<:Any,N}) where {N}
+    axes(dst) == axes(src) || arguments_have_incompatible_axes()
+    if isone(α)
+        copyto!(dst, src)
+    elseif iszero(α)
         vzero!(dst)
-    elseif α == -1
-        @inbounds @simd for i in all_indices(dst, src)
+    elseif isminusone(α)
+        @inbounds @simd for i in eachindex(dst, src)
             dst[i] = -src[i]
         end
     else
         alpha = promote_multiplier(α, src)
-        @inbounds @simd for i in all_indices(dst, src)
+        @inbounds @simd for i in eachindex(dst, src)
             dst[i] = alpha*src[i]
         end
     end
@@ -262,10 +256,10 @@ function vscale!(dst::AbstractArray{<:Floats,N},
 end
 
 # In-place scaling.
-function vscale!(x::AbstractArray{<:Floats}, α::Number)
-    if α == 0
+function vscale!(x::AbstractArray, α::Number)
+    if iszero(α)
         vzero!(x)
-    elseif α == -1
+    elseif isminusone(α)
         @inbounds @simd for i in eachindex(x)
             x[i] = -x[i]
         end
@@ -305,7 +299,7 @@ yield a new *vector* whose elements are those of `x` multiplied by the scalar
 Also see [`vscale!`](@ref), [`vcreate`](@ref).
 
 """
-vscale(α::Number, x) = vscale!(vcreate(x), α, x)
+vscale(α::Number, x) = vscale!(vcreate(x, output_eltype(α, Id, x)), x)
 vscale(x, α::Number) = vscale(α, x)
 
 #------------------------------------------------------------------------------
@@ -314,54 +308,41 @@ vscale(x, α::Number) = vscale(α, x)
 """
     vproduct(x, y) -> z
 
-yields the element-wise multiplication of `x` by `y`.  To avoid allocating the
-result, the destination array `dst` can be specified with the in-place version
-of the method:
-
-    vproduct!(dst, [sel,] x, y) -> dst
-
-which overwrites `dst` with the elementwise multiplication of `x` by `y`.
-Optional argument `sel` is a selection of indices to which apply the operation.
+yields the element-wise multiplication of `x` by `y`. See [`vproduct!`](@ref)
+for the in-place version of the method.
 
 """
-vproduct(x::V, y::V) where {V} = vproduct!(vcreate(x), x, y)
+vproduct(x::AbstractArray{Tx,N}, y::AbstractArray{Ty,N}) where {Tx,Ty,N} =
+    vproduct!(vcreate(x, float(zero(Tx)*zero(Ty))), x, y)
 
-vproduct(x::AbstractArray{<:Any,N}, y::AbstractArray{<:Any,N}) where {N} =
-    vproduct!(similar(x, promote_eltype(x,y)), x, y)
+"""
+    vproduct!(dst, [sel,] x, y) -> dst
 
-for Td in (AbstractFloat, Complex{<:AbstractFloat}),
-    Tx in (AbstractFloat, Complex{<:AbstractFloat}),
-    Ty in (AbstractFloat, Complex{<:AbstractFloat})
+overwrites `dst` with the elementwise multiplication of `x` by `y`. Optional
+argument `sel` is a selection of indices to which apply the operation.
 
-    if Td <: Complex || (Tx <: Real && Ty <: Real)
-
-        @eval function vproduct!(dst::AbstractArray{<:$Td,N},
-                                 x::AbstractArray{<:$Tx,N},
-                                 y::AbstractArray{<:$Ty,N}) where {N}
-            @inbounds @simd for i in all_indices(dst, x, y)
-                dst[i] = x[i]*y[i]
-            end
-            return dst
-        end
-
-        @eval function vproduct!(dst::AbstractArray{<:$Td,N},
-                                 sel::AbstractVector{Int},
-                                 x::AbstractArray{<:$Tx,N},
-                                 y::AbstractArray{<:$Ty,N}) where {N}
-            if checkselection(sel, dst, x, y)
-                @inbounds @simd for j in eachindex(sel)
-                    i = sel[j]
-                    dst[i] = x[i]*y[i]
-                end
-            end
-            return dst
-        end
-
+"""
+function vproduct!(dst::AbstractArray{<:Any,N},
+                   x::AbstractArray{<:Any,N},
+                   y::AbstractArray{<:Any,N}) where {N}
+    @inbounds @simd for i in all_indices(dst, x, y)
+        dst[i] = x[i]*y[i]
     end
-
+    return dst
 end
 
-@doc @doc(vproduct) vproduct!
+function vproduct!(dst::AbstractArray{<:Any,N},
+                   sel::AbstractVector{Int},
+                   x::AbstractArray{<:Any,N},
+                   y::AbstractArray{<:Any,N}) where {N}
+    if checkselection(sel, dst, x, y)
+        @inbounds @simd for j in eachindex(sel)
+            i = sel[j]
+            dst[i] = x[i]*y[i]
+        end
+    end
+    return dst
+end
 
 #------------------------------------------------------------------------------
 # VECTOR UPDATE
@@ -369,10 +350,9 @@ end
 """
     vupdate!(y, [sel,] α, x) -> y
 
-overwrites `y` with `α*x + y` and returns `y`.  The code is optimized for some
-specific values of the multiplier `α`.  For instance, if `α` is zero, then `y`
-is left unchanged without using `x`.  Computations are performed at the
-numerical precision of `promote_eltype(x,y)`.
+overwrites `y` with `α*x + y` and returns `y`. The code is optimized for some
+specific values of the multiplier `α`. For instance, if `α` is zero, then `y`
+is left unchanged without using `x`.
 
 Optional argument `sel` is a selection of indices to which apply the operation.
 Note that if an index is repeated, the operation will be performed several
@@ -385,11 +365,11 @@ function vupdate!(y::AbstractArray{<:Number,N},
                   α::Number,
                   x::AbstractArray{<:Number,N}) where {N}
     axes(x) == axes(y) || arguments_have_incompatible_axes()
-    if α == 1
+    if isone(α)
         @inbounds @simd for i in eachindex(x, y)
             y[i] += x[i]
         end
-    elseif α == -1
+    elseif isminusone(α)
         @inbounds @simd for i in eachindex(x, y)
             y[i] -= x[i]
         end
@@ -402,22 +382,22 @@ function vupdate!(y::AbstractArray{<:Number,N},
     return y
 end
 
-function vupdate!(y::AbstractArray{<:Floats,N},
+function vupdate!(y::AbstractArray{<:Number,N},
                   sel::AbstractVector{Int},
                   α::Number,
-                  x::AbstractArray{<:Floats,N}) where {N}
+                  x::AbstractArray{<:Number,N}) where {N}
     if checkselection(sel, x, y)
-        if α == 1
+        if isone(α)
             @inbounds @simd for j in eachindex(sel)
                 i = sel[j]
                 y[i] += x[i]
             end
-        elseif α == -1
+        elseif isminusone(α)
             @inbounds @simd for j in eachindex(sel)
                 i = sel[j]
                 y[i] -= x[i]
             end
-        elseif α != 0
+        elseif !iszero(α)
             alpha = promote_multiplier(α, x)
             @inbounds @simd for j in eachindex(sel)
                 i = sel[j]
@@ -435,21 +415,24 @@ end
 """
     vcombine(α, x, β, y) -> dst
 
-yields the linear combination `dst = α*x + β*y`.
+yields the linear combination `dst = α*x + β*y`. See [`vcombine!`](@ref)
+for the in-place version of the method.
 
-----
+"""
+vcombine(α::Number, x, β::Number, y) = vcombine!(vcreate(α, Id, x, false), α, x, β, y)
 
-To avoid allocating the result, the destination array `dst` can be specified
-with the in-place version of the method:
-
+"""
     vcombine!(dst, α, x, β, y) -> dst
 
-The code is optimized for some specific values of the multipliers `α` and `β`.
-For instance, if `α` (resp. `β`) is zero, then the prior contents of `x`
-(resp. `y`) is not used.
+overwrites `dst` with the linear combination `dst = α*x + β*y`. See
+[`vcombine`](@ref) for the out-of-place version of the method.
 
-The source(s) and the destination can be the same.  For instance, the two
-following lines of code produce the same result:
+The code is optimized for some specific values of the multipliers `α` and `β`.
+For instance, if `α` (resp. `β`) is zero, then the prior contents of `x` (resp.
+`y`) is not used.
+
+The source(s) and the destination can be the same. For instance, the two
+following statements produce the same result:
 
     vcombine!(dst, 1, dst, α, x)
     vupdate!(dst, α, x)
@@ -457,41 +440,38 @@ following lines of code produce the same result:
 See also: [`vscale!`](@ref), [`vupdate!](@ref).
 
 """
-vcombine(α::Number, x::V, β::Number, y::V) where {V} =
-    vcombine!(vcreate(x), α, x, β, y)
-
-function vcombine!(dst::AbstractArray{<:Number,N},
-                   α::Number, x::AbstractArray{<:Number,N},
-                   β::Number, y::AbstractArray{<:Number,N}) where {N}
+function vcombine!(dst::AbstractArray{<:Any,N},
+                   α::Number, x::AbstractArray{<:Any,N},
+                   β::Number, y::AbstractArray{<:Any,N}) where {N}
     axes(dst) == axes(x) == axes(y) || arguments_have_incompatible_axes()
-    if α == 0
-        if β == 0
+    if iszero(α)
+        if iszero(β)
             vzero!(dst)
-        elseif β == 1
+        elseif isone(β)
             _vcombine!(dst, axpby_yields_y,     0,x, 1,y)
-        elseif β == -1
+        elseif isminusone(β)
             _vcombine!(dst, axpby_yields_my,    0,x,-1,y)
         else
             b = promote_multiplier(β, y)
             _vcombine!(dst, axpby_yields_by,    0,x, b,y)
         end
-    elseif α == 1
-        if β == 0
+    elseif isone(α)
+        if iszero(β)
             _vcombine!(dst, axpby_yields_x,     1,x, 0,y)
-        elseif β == 1
+        elseif isone(β)
             _vcombine!(dst, axpby_yields_xpy,   1,x, 1,y)
-        elseif β == -1
+        elseif isminusone(β)
             _vcombine!(dst, axpby_yields_xmy,   1,x,-1,y)
         else
             b = promote_multiplier(β, y)
             _vcombine!(dst, axpby_yields_xpby,  1,x, b,y)
         end
-    elseif α == -1
-        if β == 0
+    elseif isminusone(α)
+        if iszero(β)
             _vcombine!(dst, axpby_yields_mx,   -1,x, 0,y)
-        elseif β == 1
+        elseif isone(β)
             _vcombine!(dst, axpby_yields_ymx,  -1,x, 1,y)
-        elseif β == -1
+        elseif isminusone(β)
             _vcombine!(dst, axpby_yields_mxmy, -1,x,-1,y)
         else
             b = promote_multiplier(β, y)
@@ -499,11 +479,11 @@ function vcombine!(dst::AbstractArray{<:Number,N},
         end
     else
         a = promote_multiplier(α, x)
-        if β == 0
+        if iszero(β)
             _vcombine!(dst, axpby_yields_ax,    a,x, 0,y)
-        elseif β == 1
+        elseif isone(β)
             _vcombine!(dst, axpby_yields_axpy,  a,x, 1,y)
-        elseif β == -1
+        elseif isminusone(β)
             _vcombine!(dst, axpby_yields_axmy,  a,x,-1,y)
         else
             b = promote_multiplier(β, y)
@@ -513,17 +493,13 @@ function vcombine!(dst::AbstractArray{<:Number,N},
     return dst
 end
 
-function _vcombine!(dst::AbstractArray{<:Number,N},
-                    f::Function,
-                    α::Number, x::AbstractArray{<:Number,N},
-                    β::Number, y::AbstractArray{<:Number,N}) where {N}
+function _vcombine!(dst::AbstractArray{<:Any,N}, f::Function,
+                    α::Number, x::AbstractArray{<:Any,N},
+                    β::Number, y::AbstractArray{<:Any,N}) where {N}
     @inbounds @simd for i in eachindex(dst, x, y)
         dst[i] = f(α, x[i], β, y[i])
     end
 end
-
-
-@doc @doc(vcombine) vcombine!
 
 #------------------------------------------------------------------------------
 # INNER PRODUCT
@@ -533,15 +509,15 @@ end
 
 yields the inner product of `x` and `y`; that is, the sum of `conj(x[i])*y[i]`
 or, if `w` is specified, the sum of `w[i]*conj(x[i])*y[i]` (`w` must have
-real-valued elements), for all indices `i`.  Optional argument `T` is the
-floating point type of the result.
+real-valued elements), for all indices `i`. Optional argument `T` is the
+floating-point type of the result.
 
 Another possibility is:
 
     vdot([T,] sel, x, y)
 
 with `sel` a selection of indices to restrict the computation of the inner
-product to some selected elements.  This yields the sum of `x[i]*y[i]` for all
+product to some selected elements. This yields the sum of `x[i]*y[i]` for all
 `i ∈ sel`.
 
 If the arguments have complex-valued elements and `T` is specified as a
@@ -553,8 +529,8 @@ the result is:
         (x[2].re*y[2].re + x[2].im*y[2].im) + ...)
 
 """
-vdot(::Type{T}, x, y) where {T<:AbstractFloat} = convert(T,vdot(x,y))::T
-vdot(::Type{T}, w, x, y) where {T<:AbstractFloat} = convert(T,vdot(w,x,y))::T
+vdot(::Type{T}, x, y) where {T} = convert(T,vdot(x,y))::T
+vdot(::Type{T}, w, x, y) where {T} = convert(T,vdot(w,x,y))::T
 
 function vdot(x::AbstractArray{<:AbstractFloat,N},
               y::AbstractArray{<:AbstractFloat,N}) where {N}
@@ -706,8 +682,7 @@ end
     flag = !isempty(sel)
     if flag
         imin, imax = extrema(sel)
-        I = eachindex(IndexLinear(), A)
-        ((first(I) ≤ imin) & (imax ≤ last(I))) || out_of_range_selection()
+        ((firstindex(A) ≤ imin) & (imax ≤ lastindex(A))) || out_of_range_selection()
     end
     return flag
 end
@@ -717,7 +692,7 @@ end
                                 B::AbstractArray{<:Any,N}) where {N}
     @certify IndexStyle(B) === IndexLinear()
     axes(A) == axes(B) || arguments_have_incompatible_axes()
-    checkselection(sel, A)
+    return checkselection(sel, A)
 end
 
 @inline function checkselection(sel::AbstractVector{Int},
@@ -727,7 +702,7 @@ end
     @certify IndexStyle(B) === IndexLinear()
     @certify IndexStyle(C) === IndexLinear()
     axes(A) == axes(B) == axes(C) || arguments_have_incompatible_axes()
-    checkselection(sel, A)
+    return checkselection(sel, A)
 end
 
 @noinline out_of_range_selection() =

@@ -400,7 +400,7 @@ conjugating the values.
 
 """
 get_vals(A::SparseOperator) = getfield(A, :vals)
-get_vals(A::Adjoint{<:SparseOperator}) = get_vals(unveil(A))
+get_vals(A::Adjoint{<:SparseOperator}) = get_vals(parent(A))
 
 """
     copy_vals([T = eltype(A),] A) -> vals
@@ -428,7 +428,7 @@ get_rows(A::SparseOperatorCSC) = getfield(A, :rows)
 get_rows(A::SparseOperatorCOO) = getfield(A, :rows)
 get_rows(A::CompressedSparseOperator{:CSR}) =
     copy_rows(A) # FIXME: yield an iterator
-get_rows(A::Adjoint{<:SparseOperator}) = get_cols(unveil(A))
+get_rows(A::Adjoint{<:SparseOperator}) = get_cols(parent(A))
 
 """
     copy_rows(A) -> rows
@@ -464,7 +464,7 @@ get_cols(A::SparseOperatorCSR) = getfield(A, :cols)
 get_cols(A::SparseOperatorCOO) = getfield(A, :cols)
 get_cols(A::Union{CompressedSparseOperator{:CSC},SparseMatrixCSC}) =
     copy_cols(A) # FIXME: yield an iterator
-get_cols(A::Adjoint{<:SparseOperator}) = get_rows(unveil(A))
+get_cols(A::Adjoint{<:SparseOperator}) = get_rows(parent(A))
 
 """
     copy_cols(A) -> cols
@@ -522,8 +522,8 @@ linear row indices for the `j`-th column of the sparse operator `A` stored in a
 """
 get_offs(A::SparseOperatorCSR) = getfield(A, :offs)
 get_offs(A::SparseOperatorCSC) = getfield(A, :offs)
-get_offs(A::Adjoint{<:CompressedSparseOperator{:CSR}}) = get_offs(unveil(A))
-get_offs(A::Adjoint{<:CompressedSparseOperator{:CSC}}) = get_offs(unveil(A))
+get_offs(A::Adjoint{<:CompressedSparseOperator{:CSR}}) = get_offs(parent(A))
+get_offs(A::Adjoint{<:CompressedSparseOperator{:CSC}}) = get_offs(parent(A))
 
 @inline function get_offs(A::AnyCSR, i::Int)
     offs = get_offs(A)
@@ -582,7 +582,7 @@ indices for the `i`-th row of `A`.
 """
 @inline each_off(A::CompressedSparseOperator{:COO}) = Base.OneTo(nnz(A))
 @inline each_off(A::Adjoint{<:CompressedSparseOperator{:COO}}) =
-    each_off(unveil(A))
+    each_off(parent(A))
 
 @inline @propagate_inbounds function each_off(A::AnyCSR, i::Int)
     k1, k2 = get_offs(A, i)
@@ -603,7 +603,7 @@ a sparse operator in *Compressed Sparse Column* (CSC) format.
 
 """
 each_row(A::CompressedSparseOperator{:CSR}) = Base.OneTo(nrows(A))
-each_row(A::Adjoint{<:CompressedSparseOperator{:CSC}}) = each_col(unveil(A))
+each_row(A::Adjoint{<:CompressedSparseOperator{:CSC}}) = each_col(parent(A))
 
 """
     each_col(A)
@@ -614,7 +614,7 @@ of a sparse operator in *Compressed Sparse Row* (CSR) format.
 
 """
 each_col(A::CompressedSparseOperator{:CSC}) = Base.OneTo(ncols(A))
-each_col(A::Adjoint{<:CompressedSparseOperator{:CSR}}) = each_row(unveil(A))
+each_col(A::Adjoint{<:CompressedSparseOperator{:CSR}}) = each_row(parent(A))
 
 """
     get_row(A, k) -> i

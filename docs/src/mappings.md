@@ -1,19 +1,24 @@
 # Methods for mappings
 
-`LazyAlgebra` provides a number of mappings and linear operators.  To create
-new primitive mapping types (not by combining existing mappings) and benefit
-from the `LazyAlgebra` infrastruture, you have to:
+`LazyAlgebra` provides a number of mappings and linear operators. To create a
+new primitive mapping type (not by combining existing mappings), say,
+`M<:Mapping{L}` and benefit from the `LazyAlgebra` infrastructure, you have to:
 
-* Create a new type derived from `Mapping` or one of its abstract sub-types
-  such as `LinearMapping`.
+* Define the new type, say `M`, as a structure derived from `LinearMapping` or
+  from `NonLinearMapping`.
 
 * Implement at least two methods `apply!` and `vcreate` specialized for the new
-  mapping type.  Applying the mapping is done by the former method.  The latter
-  method is called to create a new output variable suitable to store the result
-  of applying the mapping (or one of its variants) to some input variable.
+  mapping type `M` and any of its supported variants `Adjoint{M}`,
+  `Inverse{L,M}` and/or `InverseAdjoint{M}`, with `L = is_linear(M)`. Applying
+  the mapping is done by calling `vapply!` while `vcreate` is called to create
+  a new output variable suitable to store the result of applying the mapping
+  (or one of its variants) to some input variable.
 
-* Optionally specialize method `identical` for two arguments of the new
+* Optionally, specialize method `identical` for two arguments of the new
   mapping type.
+
+* Optionally, if `M` is linear, specialize method `Base.eltype(A::M)` to yield
+  the type of the coefficients of `A`.
 
 
 ## The `vcreate` method
@@ -22,12 +27,16 @@ The signature of the `vcreate` method to be implemented by specific mapping
 types is:
 
 ```julia
-vcreate(::Type{P}, A::Ta, x::Tx, scratch::Bool) -> y
+vcreate(α::Number, A::Ta, x::Tx, scratch::Bool) -> y
 ```
 
-where `A` is the mapping, `x` its argument and `P` is one of `Direct`,
-`Adjoint`, `Inverse` and/or `InverseAdjoint` (or equivalently `AdjointInverse`)
-and indicates how `A` is to be applied:
+where `α` is a multiplier, `A` is the mapping, and `x` its argument. The result
+returned by `vcreate` is an object suitable to store the result of `α*A*x`,
+that is `α` times `A` applied to `x`.
+
+The method shall be specialized for the type of `A` being that of mapping `M`
+and any supported variants `Adjoint{M}`, `Inverse{L,M}` and/or
+`InverseAdjoint{M}`, with `L = is_linear(M)`.
 
 * `Direct` to apply `A` to `x`, *e.g.* to compute `A⋅x`;
 * `Adjoint` to apply the adjoint of `A` to `x`, *e.g.* to compute `A'⋅x`;
@@ -35,27 +44,43 @@ and indicates how `A` is to be applied:
 * `InverseAdjoint` or `AdjointInverse` to apply the inverse of `A'` to `x`,
   *e.g.* to compute `A'\x`.
 
-The result returned by `vcreate` is a new output variables suitable to store
-the result of applying the mapping `A` (or one of its variants as indicated by
-`P`) to the input variables `x`.
-
 The `scratch` argument is a boolean to let the caller indicate whether the
-input variable `x` may be re-used to store the result.  If `scratch` is `true`
-and if that make sense, the value returned by `vcreate` may be `x`.  Calling
-`vcreate` with `scratch=true` can be used to limit the allocation of resources
-when possible.  Having `scratch=true` is only indicative and a specific
-implementation of `vcreate` may legitimately always assume `scratch=false` and
-return a new variable whatever the value of this argument (e.g. because
-applying the considered mapping *in-place* is not possible or because the
-considered mapping is not an endomorphism).  Of course, the opposite behavior
-(i.e., assuming that `scratch=true` while the method was called with
-`scratch=false`) is forbidden.
+input variable `x` may be re-used to store the result and thus spare allocation
+of resources if possible. If `scratch` is `true`, the value returned by
+`vcreate` may be `x`. Having `scratch=true` is only indicative and a specific
+implementation of `vcreate` may legitimately always return a new variable
+whatever the value of the `scratch` argument. Of course, assuming that
+`scratch=true` while the method was called with `scratch=false` is forbidden.
 
-The result returned by `vcreate` should be of predictible type to ensure
-*type-stability*.  Checking the validity (*e.g.* the size) of argument `x` in
+The result returned by `vcreate` must be of predictable type to ensure
+*type-stability*. In particular, `vcreate(α,A,x,true)` should only yield `x` if
+it has exactly the same type as the result that `vcreate(α,A,x,false)` would
+have returned. Checking the validity (*e.g.* the size) of argument `x` in
 `vcreate` may be skipped because this argument will be eventually checked by
 the `apply!` method.
 
+The multiplier is needed to determine the type of the result as it may have
+units. For a linear mapping:
+
+```julia
+F = floating_point_type(eltype(A), eltype(x))
+Ty = convert_floating_point_type(F, promote_type(typeof(α), eltype(A), eltype(x)))
+alpha = with_floating_point_type(F, α)
+```
+
+```julia
+function vcreate(α::Number, A::M, x, scratch::Bool)
+    T = output_type(α, A, x)
+    dims = ouput_size(A, x)
+    return Array{T}(undef, dims)
+end
+
+function output_type(α::Number, A::LinearMapping, x)
+    # Determine numerical precision.
+    F = floating_point_type(eltype(A), eltype(x))
+    return convert_floating_point_type(F, promote_type(typeof(α), eltype(A), eltype(x)))
+end
+```
 
 ## The `apply!` method
 
@@ -63,7 +88,7 @@ The signature of the `apply!` method to be implemented by specific mapping
 types is:
 
 ```julia
-apply!(α::Number, ::Type{P}, A::Ta, x::Tx, scratch::Bool, β::Number, y::Ty) -> y
+apply!(α::Number, A::Ta, x::Tx, scratch::Bool, β::Number, y::Ty) -> y
 ```
 
 This method shall overwrites the contents of output variables `y` with the

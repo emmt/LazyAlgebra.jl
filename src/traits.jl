@@ -11,6 +11,21 @@
 # Copyright (c) 2017-2022 Éric Thiébaut.
 #
 
+# Adjoint or inverse of a mapping type yields the corresponding mapping type
+# without the hassle to propagate the linear trait or to apply automatic
+# simplifications. These rules must appear very early as they may be used to
+# define the types of function arguments. These rules must closely follow the
+# logic implemented for taking the adjoint or inverse of mapping instances in
+# `rules.jl`.
+adjoint(::Type{M}) where {M<:LinearMapping} = Adjoint{M}
+adjoint(::Type{Adjoint{M}}) where {M<:LinearMapping} = M
+adjoint(::Type{Inverse{true,M}}) where {M<:LinearMapping} = inv(adjoint(M))
+# FIXME: adjoint(::Type{InverseAdjoint{M}}) where {M<:LinearMapping} = Inverse{true,M}
+inv(::Type{M}) where {L,M<:Mapping{L}} = Inverse{L,M}
+inv(::Type{Adjoint{M}}) where {M<:LinearMapping} = InverseAdjoint{M}
+inv(::Type{Inverse{L,M}}) where {L,M<:Mapping{L}} = M
+# FIXME: inv(::Type{InverseAdjoint{M}}) where {M<:LinearMapping} = Adjoint{M}
+
 """
     LinearType(A)
 
@@ -46,8 +61,8 @@ SelfAdjointType(::Type{<:InverseAdjoint{M}}) where {M} = SelfAdjointType(M)
 SelfAdjointType(::Type{<:Inverse{true,M}}) where {M} = SelfAdjointType(M)
 SelfAdjointType(::Type{<:Scaled{true,M}}) where {M} = SelfAdjointType(M)
 SelfAdjointType(::Type{<:Gram}) = SelfAdjoint()
-SelfAdjointType(::Type{T}) where {T<:Sum} =
-    (all_terms(is_selfadjoint, T) ? SelfAdjoint() : NonSelfAdjoint())
+@generated SelfAdjointType(::Type{M}) where {M<:Sum} =
+    :($(all(is_selfadjoint, types_of_terms(M)) ? SelfAdjoint() : NonSelfAdjoint()))
 
 @doc @doc(SelfAdjointType) SelfAdjoint
 @doc @doc(SelfAdjointType) NonSelfAdjoint
@@ -71,8 +86,8 @@ MorphismType(::Type{<:InverseAdjoint{M}}) where {M} = MorphismType(M)
 MorphismType(::Type{<:Inverse{<:Any,M}}) where {M} = MorphismType(M)
 MorphismType(::Type{<:Scaled{<:Any,M}}) where {M} = MorphismType(M)
 MorphismType(::Type{<:Gram}) = Endomorphism()
-MorphismType(::Type{T}) where {T<:Union{Sum,Composition}} =
-    (all_terms(is_endomorphism, T) ? Endomorphism() : Morphism())
+@generated MorphismType(::Type{M}) where {M<:Union{Sum,Composition}} =
+    :($(all(is_endomorphism, types_of_terms(M)) ? Endomorphism() : Morphism()))
 
 @doc @doc(MorphismType) Morphism
 @doc @doc(MorphismType) Endomorphism
@@ -95,18 +110,11 @@ DiagonalType(::Type{<:InverseAdjoint{M}}) where {M} = DiagonalType(M)
 DiagonalType(::Type{<:Inverse{true,M}}) where {M} = DiagonalType(M)
 DiagonalType(::Type{<:Scaled{true,M}}) where {M} = DiagonalType(M)
 DiagonalType(::Type{<:Gram{M}}) where {M} = DiagonalType(M)
-DiagonalType(::Type{T}) where {T<:Union{Sum,Composition}} =
-    (all_terms(is_diagonal, T) ? DiagonalMapping() : NonDiagonalMapping())
+@generated DiagonalType(::Type{M}) where {M<:Union{Sum,Composition}} =
+    :($(all(is_diagonal, types_of_terms(M)) ? DiagonalMapping() : NonDiagonalMapping()))
 
 @doc @doc(DiagonalType) NonDiagonalMapping
 @doc @doc(DiagonalType) DiagonalMapping
-
-function all_terms(f::Function, ::Type{<:Union{Sum{L,N,T},Composition{L,N,T}}}) where {L,N,T}
-    for x in T.types
-        f(x) || return false
-        end
-    return true
-end
 
 """
     is_linear(A)
@@ -170,3 +178,16 @@ See also: [`DiagonalType`](@ref).
 
 """
 is_diagonal(x) = (DiagonalType(x) === DiagonalMapping())
+
+"""
+    lazyAlgebra.types_of_terms(A) -> itr
+
+yields an iterable over the types of the terms that compose the mapping
+instance or type `A`. This introspection method is mostly useful for sum or
+composition of mappings; for other mappings, it just returns a 1-tuple of their
+type.
+
+"""
+types_of_terms(A::Mapping) = types_of_terms(typeof(A))
+types_of_terms(::Type{A}) where {A<:Mapping} = (A,)
+types_of_terms(::Type{A}) where {A<:Union{Sum,Composition}} = terms(A).types

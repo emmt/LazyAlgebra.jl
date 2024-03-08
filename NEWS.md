@@ -23,6 +23,19 @@
   arguments.  This would be useful to deal with arrays whose elements have
   non-standard numerical types as physical quantities in the `Unitful` package.
 
+* Simplify API, of `apply`, `apply!`, `vcreate`, etc., by removing the
+  operations parameter (usually denoted as `P`) which, if any, must decorate
+  the mapping.
+
+* Only extends `LinearAlgebra.mul!` for linear mappings.
+
+* To avoid type-unstable optimizations, mappings shall have a trait indicating
+  whether they can be applied in-place or not.
+
+* The `scratch` argument should never produce type instability. For example,
+  `vcreate(A,x,true)` should only yield `x` if it has exactly the same type as
+  `vcreate(A,x,false)`.
+
 ## Branch 0.3
 
 ### Breaking changes
