@@ -1,186 +1,177 @@
-#
-# utils.jl -
-#
-# General purpose methods.
-#
-#-------------------------------------------------------------------------------
-#
-# This file is part of LazyAlgebra (https://github.com/emmt/LazyAlgebra.jl)
-# released under the MIT "Expat" license.
-#
-# Copyright (c) 2017-2022 Éric Thiébaut.
-#
+to_axis(x::Integer) = Base.OneTo{Int}(x)
+to_axis(x::AbstractUnitRange{Int}) = x
+to_axis(x::AbstractUnitRange{<:Integer}) = map(Int, x)
+to_axis(x::Base.OneTo{<:Integer}) = Base.OneTo{Int}(length(x))
 
-@noinline bad_argument(args...) = bad_argument(string(args...))
-bad_argument(mesg::ArgumentError.types[1]) = throw(ArgumentError(mesg))
+to_axes(x::Tuple{Vararg{Union{Integer,AbstractUnitRange{<:Integer}}}}) = map(to_axis, x)
+to_axes(x::Tuple{Vararg{AbstractUnitRange{Int}}}) = x
 
-@noinline bad_size(args...) = bad_size(string(args...))
-bad_size(mesg::DimensionMismatch.types[1]) = throw(DimensionMismatch(mesg))
+to_size(x::Dims) = x
+to_size(x::Tuple{Vararg{Integer}}) = map(Int, x)
 
-arguments_have_incompatible_axes() =
-    bad_size("arguments have incompatible dimensions/indices")
-
-operands_have_incompatible_axes() =
-    bad_size("operands have incompatible dimensions/indices")
+eltype_in(A::AbstractArray, ::Type{T}) where {T} = eltype_in(typeof(A), T)
+eltype_in(::Type{<:AbstractArray{S}}, ::Type{T}) where {T,S<:T} = true
+eltype_in(::Type{<:AbstractArray{S}}, ::Type{T}) where {T,S} = promote_type(S, T) <: T
 
 """
-    message([io=stdout,] header, args...; color=:blue)
+    LazyAlgebra.is_subtype(A, B)
 
-prints a message on `io` with `header` text in bold followed by a space,
-`args...` and a newline.  Keyword `color` can be used to specify the text color
-of the message.
+yields whether type `A` is a subtype of type `B`. By default, this yields
+`A <: B` but this method may be extended to implement other behavior for
+specific types.
 
 """
-message(header::String, args...; kwds...) =
-    message(stdout, header, args...; kwds...)
+is_subtype(::Type{A}, ::Type{B}) where {A,B} = A <: B
 
-@noinline function message(io::IO, header::String, args...;
-                           color::Symbol=:blue)
-    printstyled(io, header; color=color, bold=true)
-    printstyled(io, " ", args...; color=color, bold=false)
-    println(io)
+"""
+    LazyAlgebra.concrete_float(T)
+
+yields a concrete floating-point type based on type `T`. Only the bare
+numerical type of `T` may be changed. Units, if any, are preserved. If `T` is
+real, the result is real; if `T` is complex, the result is complex.
+
+"""
+@inline function concrete_float(::Type{T}) where {T}
+    F = float(T)
+    return isconcretetype(F) ? F : convert_bare_type(Float64, T)
 end
 
 """
-    warn([io=stdout,] args...)
+    LazyAlgebra.is_integer(x)
 
-prints a warning message in yellow on `io` with `"Warning: "` in bold followed
-by `args...` and a newline.
-
-"""
-warn(args...) = warn(stderr, args...)
-warn(io::IO, args...) = message(io, "Warning:", args...; color=:yellow)
-
-#inform(args...) = inform(stderr, args...)
-#inform(io::IO, args...) = message(io, "Info:", args...; color=:blue)
+yields whether the bare type of `x` is integer. `x` may be a number or a number type.
 
 """
-    promote_multiplier(λ, T)
-
-yields multiplier `λ` converted to a suitable floating-point type for
-multiplying values or expressions of type `T`.  This method is *type stable*.
-The result has the same floating-point precision as `T` and is a real if `λ` is
-real or a complex if `λ` is complex.
-
-Multiple arguments can be specified after the multiplier `λ`:
-
-    promote_multiplier(λ, args...)
-
-to have `T` the promoted type of all types in `args...` or all element types of
-arrays in `args...`.
-
-See methods [`LazyAlgebra.multiplier_type`](@ref) and
-[`LazyAlgebra.multiplier_floatingpoint_type`](@ref).
-
-""" promote_multiplier
-
-# Note taht the only direct sub-types of `Number` are abstract types `Real` and
-# `Complex`.  Also see discussion here
-# (https://github.com/emmt/LinearInterpolators.jl/issues/7) for details about
-# the following implementation.
-
-@inline function promote_multiplier(λ::Real, args...)
-    T = multiplier_floatingpoint_type(args...)
-    return convert(T, λ)::T
-end
-
-@inline function promote_multiplier(λ::Complex{<:Real}, args...)
-    T = multiplier_floatingpoint_type(args...)
-    return convert(Complex{T}, λ)::Complex{T}
-end
+is_integer(x) = is_integer(typeof(x))
+is_integer(::Type{T}) where {T<:Number} = bare_type(T) <: Integer
+@noinline is_integer(::Type{T}) where {T} = throw(ArgumentError("`is_integer($T)` not implmented"))
 
 """
-    multiplier_floatingpoint_type(args...) -> T::AbstractFloat
+    LazyAlgebra.is_real(x)
 
-yields the multiplier floating-point type for the arguments `args...` of the
-multiplier.  Each argument may be anything acceptable for
-[`LazyAlgebra.multiplier_type`](@ref).  The result is guaranteed to be a
-concrete floating-point type.
-
-See methods [`LazyAlgebra.promote_multiplier`](@ref) and
-[`LazyAlgebra.multiplier_type`](@ref).
-
-""" multiplier_floatingpoint_type
-
-multiplier_floatingpoint_type(::Tuple{}) =
-    bad_argument("at least one other argument must be specified")
-
-@inline function multiplier_floatingpoint_type(args...)
-    T = promote_type(map(multiplier_type, args)...)
-    (T <: Number && isconcretetype(T)) || error(
-        "resulting multiplier type ", T, " is not a concrete real type")
-    return float(real(T))
-end
+yields whether the bare type of `x` is real. `x` may be a number or a number type.
 
 """
-    multiplier_type(x) -> T::Number
-
-yields the *element* type to be imposed to multipliers of `x`.  The result must
-be a concrete number type.  Argument `x` may be an array, a number, or a data
-type.  Other packages are however encouraged to specialize this method for
-their needs.
-
-See methods [`LazyAlgebra.promote_multiplier`](@ref) and
-[`LazyAlgebra.multiplier_floatingpoint_type`](@ref).
+is_real(x) = is_real(typeof(x))
+is_real(::Type{T}) where {T<:Number} = bare_type(T) <: Real
+@noinline is_real(::Type{T}) where {T} = throw(ArgumentError("`is_real($T)` not implmented"))
 
 """
-multiplier_type(::Type{T}) where  {T<:Number} = T
-multiplier_type(::AbstractArray{T}) where {T<:Number} = T
-multiplier_type(::T) where  {T<:Number} = T
+    LazyAlgebra.is_complex(x)
+
+yields whether the bare type of `x` is complex. `x` may be a number or a number type.
 
 """
-    to_tuple(arg)
+is_complex(x) = is_complex(typeof(x))
+is_complex(::Type{T}) where {T<:Number} = bare_type(T) <: Complex
+@noinline is_complex(::Type{T}) where {T} = throw(ArgumentError("`is_complex($T)` not implmented"))
 
-converts `arg` into an `N`-tuple where `N` is the number of elements of `arg`.
-This is equivalent to `Tuple(arg)` or `(arg...,)` for a vector but it is much
-faster for small vectors.
+abstract type NumericSet end
+struct IntegerSet     <: NumericSet end # FIXME NumericIntegers
+struct RealSet        <: NumericSet end # FIXME NumericReals
+struct ComplexSet     <: NumericSet end # FIXME NumericComplexes
+struct RealComplexSet <: NumericSet end
+const ℤ = IntegerSet()
+const ℝ = RealSet()
+const ℂ = ComplexSet()
+const 𝕂 = RealComplexSet()
+Base.in(x, ::IntegerSet) = is_integer(x)
+Base.in(x, ::RealSet) = is_real(x)
+Base.in(x, ::ComplexSet) = is_complex(x)
+Base.in(x, ::RealComplexSet) = is_real(x) || is_complex(x)
 
-""" to_tuple
+"""
+    LazyAlgebra.concat!(A, B) -> A
 
-to_tuple(x::Tuple) = x
+concatenates `A` and `B` into the vector `A`.
 
-# The cutoff at n = 10 below reflects what is used by `ntuple`.  This value is
-# somewhat arbitrary, on the machines where I tested the code, the explicit
-# unrolled expression for n = 10 is still about 44 times faster than `(x...,)`.
-# Calling `ntuple` for n ≤ 10 is about twice slower; for n > 10, `ntuple` is
-# slower than `(x...,)`.
-function to_tuple(x::AbstractVector)
-    n = length(x)
-    @inbounds begin
-        n == 0 ? () :
-        n > 10 || firstindex(x) != 1 ? (x...,) :
-        n == 1 ? (x[1],) :
-        n == 2 ? (x[1], x[2]) :
-        n == 3 ? (x[1], x[2], x[3]) :
-        n == 4 ? (x[1], x[2], x[3], x[4]) :
-        n == 5 ? (x[1], x[2], x[3], x[4], x[5]) :
-        n == 6 ? (x[1], x[2], x[3], x[4], x[5], x[6]) :
-        n == 7 ? (x[1], x[2], x[3], x[4], x[5], x[6], x[7]) :
-        n == 8 ? (x[1], x[2], x[3], x[4], x[5], x[6], x[7], x[8]) :
-        n == 9 ? (x[1], x[2], x[3], x[4], x[5], x[6], x[7], x[8], x[9]) :
-        (x[1], x[2], x[3], x[4], x[5], x[6], x[7], x[8], x[9], x[10])
+"""
+function concat!(A::AbstractVector, B::AbstractVector)
+    i = lastindex(A)
+    resize!(A, length(A) + length(B))
+    @inbounds for x in B
+        A[i += 1] = x
     end
+    return A
+end
+function concat!(A::AbstractVector, B)
+    resize!(A, length(A) + 1)
+    @inbounds A[lastindex(A)] = B
+    return A
 end
 
 """
-    @certify expr [mesg]
+    LazyAlgebra.concat([T,] A, B)
 
-asserts that expression `expr` is true; otherwise, throws an `AssertionError`
-exception with message `mesg`.  If unspecified, `mesg` is `expr` converted into
-a string.  Compared to `@assert`, the assertion made by `@certify` may never be
-disabled whatever the optimization level.
+concatenates `A` and `B` into a vector whose element type is `T`. `A` and `B`
+may be (abstract) vectors, otherwise they are assumed to be single entries in
+the result. Element type `T` is automatically guessed for arguments if not
+specified.
 
 """
-macro certify(expr)
-    _certify(expr, string(expr))
+concat(A::AbstractVector, B::AbstractVector) =
+    concat(promote_type(eltype(A), eltype(B)), A, B)
+concat(A, B::AbstractVector) =
+    concat(promote_type(typeof(A), eltype(B)), A, B)
+concat(A::AbstractVector, B) =
+    concat(promote_type(eltype(A), typeof(B)), A, B)
+concat(A, B) =
+    concat(promote_type(typeof(A), typeof(B)), A, B)
+
+function concat(::Type{T}, A::AbstractVector, B::AbstractVector) where {T}
+    dest = Vector{T}(undef, length(A) + length(B))
+    i = firstindex(dest)
+    @inbounds for x in A
+        dest[i] = x
+        i += 1
+    end
+    @inbounds for x in B
+        dest[i] = x
+        i += 1
+    end
+    return dest
 end
-macro certify(expr, mesg::Union{Expr,Symbol})
-    _certify(expr, :(string($(esc(mesg)))))
+
+function concat(::Type{T}, A, B::AbstractVector) where {T}
+    dest = Vector{T}(undef, 1 + length(B))
+    i = firstindex(dest)
+    @inbounds dest[i] = A
+    @inbounds for x in B
+        i += 1
+        dest[i] = x
+    end
+    return dest
 end
-macro certify(expr, mesg::AbstractString)
-    _certify(expr, mesg)
+
+function concat(::Type{T}, A::AbstractVector, B) where {T}
+    dest = Vector{T}(undef, length(A) + 1)
+    i = firstindex(dest)
+    @inbounds for x in A
+        dest[i] = x
+        i += 1
+    end
+    @inbounds dest[i] = B
+    return dest
 end
-macro certify(expr, mesg)
-    _certify(expr, string(mesg))
+
+function concat(::Type{T}, A, B) where {T}
+    dest = Vector{T}(undef, 2)
+    i = firstindex(dest)
+    @inbounds dest[i] = A
+    @inbounds dest[i + 1] = B
+    return dest
 end
-_certify(expr, mesg) = :($(esc(expr)) ? nothing : throw(AssertionError($mesg)))
+
+"""
+    LazyAlgebra.map_with_eltype(T, f, A) -> B
+
+yields a vector `B` with elements of type `T` set with `f.(A)`.
+
+"""
+function map_with_eltype(::Type{T}, f, A::AbstractVector) where {T}
+    B = similar(A, T)
+    @inbounds for i in eachindex(A, B)
+        B[i] = f(A[i])
+    end
+    return B
+end

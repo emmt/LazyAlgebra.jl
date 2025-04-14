@@ -1,492 +1,623 @@
-#
 # mappings.jl -
 #
-# Provide basic mappings.
-#
-#-------------------------------------------------------------------------------
-#
-# This file is part of LazyAlgebra (https://github.com/emmt/LazyAlgebra.jl)
-# released under the MIT "Expat" license.
-#
-# Copyright (c) 2017-2020 Éric Thiébaut.
+# Methods for mappings.
 #
 
-#------------------------------------------------------------------------------
-# IDENTITY AND UNIFORM SCALING
+for (io, param) in ((:input, :I), (:output, :O))
+    # NOTE input_domain_type / output_domain_type
+    func = Symbol(io,"_domain_type")
+    doc = """
+    $(func)(A)
 
-identical(::Identity, ::Identity) = true
+yields the type of the $(io) domain of the mapping (or mapping type) `A`.
 
-@callable Identity
-
-# Traits:
-SelfAdjointType(::Type{<:Identity}) = SelfAdjoint()
-MorphismType(::Type{<:Identity}) = Endomorphism()
-DiagonalType(::Type{<:Identity}) = DiagonalMapping()
-
-const Identities = Union{Identity,
-                         Adjoint{Identity},
-                         Inverse{true,Identity},
-                         InverseAdjoint{Identity}}
-
-output_eltype(::Type{A}, ::Type{x}) where {A<:Identities,x} = float(eltype(x))
-
-function vcreate(α::Number, ::Identities, x, scratch::Bool)
-    T = output_eltype(α, Id, x)
-    return (scratch && x isa Array{T}) ? x : vcreate(x, T)
-end
-
-apply!(α::Number, ::Identities, x, scratch::Bool, β::Number, y) =
-    vcombine!(y, α, x, β, y)
-
-simplify(::Identities) = Id
-simplify(A::UniformScaling) = Mapping(A)
-
-# Rules to automatically convert UniformScaling from standard library module
-# LinearAlgebra into λ*Id.  For other operators, there is no needs to extend ⋅
-# (\cdot) and ∘ (\circ) as they are already converted in calls to *.  But in
-# the case of UniformScaling, we must explicitly do that for * and for ∘ (not
-# for ⋅ which is replaced by a * by existing rules).
-for op in (:(+), :(-), :(*), :(∘), :(/), Symbol("\\"))
+"""
     @eval begin
-        Base.$op(A::UniformScaling, B::Mapping) = $op(Mapping(A), B)
-        Base.$op(A::Mapping, B::UniformScaling) = $op(A, Mapping(B))
+        @doc $doc $func
+        $func(A::AbstractMapping) = $func(typeof(A))
+        $func(::Type{<:AbstractMapping{I,O}}) where {I,O} = $param
+    end
+
+    # NOTE input_eltype / output_eltype
+    func = Symbol(io,"_eltype")
+    getter = Symbol(io,"_domain_type")
+    doc = """
+    $(func)(A)
+
+yields the array element type of the elements of the $(io) domain of the
+mapping (or mapping type) `A`.
+
+"""
+    @eval begin
+        @doc $doc $func
+        $func(A::AbstractMapping) = $func(typeof(A))
+        $func(::Type{A}) where {A} = element_eltype($getter(A))
+    end
+
+    # NOTE input_ndims / output_ndims
+    func = Symbol(io,"_ndims")
+    getter = Symbol(io,"_domain_type")
+    doc = """
+    $(func)(A)
+
+yields the number of dimensions of the elements of the $(io) domain of the
+mapping (or mapping type) `A`.
+
+"""
+    @eval begin
+        @doc $doc $func
+        $func(A::AbstractMapping) = $func(typeof(A))
+        $func(::Type{A}) where {A} = element_ndims($getter(A))
+    end
+
+    # NOTE input_length / output_length
+    func = Symbol(io,"_length")
+    getter = Symbol(io,"_domain")
+    doc = """
+    $(func)(A)
+
+yields the number of entries in the elements of the $(io) domain of the mapping
+`A`.
+
+"""
+    @eval begin
+        @doc $doc $func
+        $func(A::AbstractMapping) = element_length($getter(A))
+    end
+
+    # NOTE input_size / output_size
+    func = Symbol(io,"_size")
+    getter = Symbol(io,"_domain")
+    doc = """
+    $(func)(A)
+
+yields the dimensions of the elements of the $(io) domain of the mapping `A`.
+
+---
+    $(func)(A, i)
+
+yields the `i`-th dimension of the elements of the $(io) domain of the mapping
+`A`.
+
+"""
+    @eval begin
+        @doc $doc $func
+        $func(A::AbstractMapping) = element_size($getter(A))
+        $func(A::AbstractMapping, i::Integer) = element_size($getter(A))[i]
+    end
+
+    # NOTE input_axes / output_axes
+    func = Symbol(io,"_axes")
+    getter = Symbol(io,"_domain")
+    doc = """
+    $(func)(A)
+
+yields the index ranges of the elements of the $(io) domain of the mapping `A`.
+
+---
+    $(func)(A, i)
+
+yields the `i`-th index range of the elements of the $(io) domain of the
+mapping `A`.
+
+"""
+    @eval begin
+        @doc $doc $func
+        $func(A::AbstractMapping) = element_axes($getter(A))
+        $func(A::AbstractMapping, i::Integer) = element_axes($getter(A))[i]
     end
 end
 
-#------------------------------------------------------------------------------
-# SYMBOLIC MAPPINGS (FOR TESTS)
+"""
+    LazyAlgebra.Scaled(α::Number, B::AbstractMapping)
 
-struct SymbolicMapping{L,S} <: Mapping{L} end
+builds a mapping lazily representing `α*B`.
 
-# Alias for symbolic linear mapping.
-const SymbolicLinearMapping{S} = SymbolicMapping{true,S}
+!!! warning
+    Never directly call this constructor but use expression `α*B` instead to
+    benefit from automatic simplications and minimal checks.
 
-# Constructors.
-SymbolicMapping(id) = SymbolicMapping{false}(id)
-SymbolicMapping{L}(id::AbstractString) where {L} = SymbolicMapping{L}(Symbol(id))
-SymbolicMapping{L}(id::Symbol) where {L} = SymbolicMapping{L,Val{id}}()
+See also [`LazyAlgebra.multiplier`](@ref) and  [`LazyAlgebra.unscaled`](@ref).
 
-show(io::IO, A::SymbolicMapping{L,Val{S}}) where {L,S} = print(io, S)
-
-identical(::T, ::T) where {T<:SymbolicMapping} = true
-
-#------------------------------------------------------------------------------
-# NON-UNIFORM SCALING
+""" Scaled
+input_domain(A::Scaled) = input_domain(unscaled(A))
+output_domain(A::Scaled) = getfield(A, :out)
 
 """
-    Diag(A) -> NonuniformScaling(A)
+    LazyAlgebra.multiplier(A)
 
-yields a non-uniform scaling linear mapping (of type `NonuniformScaling`) whose
-effect is to apply elementwise multiplication of its argument by the scaling
-factors `A`.  This mapping can be thought as a *diagonal* operator.
+yields the multiplier associated with mapping `A`. For example, assuming `A`
+is not a scaled mapping and `λ` is a scalar number:
 
-The `diag` method in `LinearAlgebra` can be called to retrieve the scaling
-factors:
+    multiplier(A) -> 1
+    multiplier(λ*A) -> λ
 
-    using LinearAlgebra
-    W = Diag(A)
-    diag(W) === A  # this is true
-
-!!! note
-    Beware of the differences between the [`Diag`](@ref) (with an uppercase
-    'D') and [`diag`](@ref) (with an lowercase 'd') methods.
+See also [`LazyAlgebra.Scaled`](@ref) and  [`LazyAlgebra.unscaled`](@ref).
 
 """
-struct NonuniformScaling{T} <: LinearMapping
-    diag::T
-end
+multiplier(A::Scaled) = getfield(A, :multiplier)
+multiplier(::Type{<:Scaled{I,O,T,A}}) where {I,O,T,A} = T
+multiplier(A::AbstractMapping) = 1
 
-const Diag{T} = NonuniformScaling{T}
+"""
+    LazyAlgebra.unscaled(A)
 
-@callable NonuniformScaling
+yields the mapping `A` unscaled. For example, assuming `A`
+is not a scaled mapping and `λ` is a scalar number:
 
-# Traits:
-MorphismType(::Type{<:NonuniformScaling}) = Endomorphism() # FIXME: only if unitless coefficients
-DiagonalType(::Type{<:NonuniformScaling}) = DiagonalMapping()
-SelfAdjointType(::Type{<:NonuniformScaling{<:AbstractArray{<:Real}}}) =
-    SelfAdjoint() # FIXME: check this...
+    unscaled(A) -> A
+    unscaled(λ*A) -> A
 
-coefficients(A::NonuniformScaling) = getfield(A, :diag)
-LinearAlgebra.diag(A::NonuniformScaling) = coefficients(A)
+See also [`LazyAlgebra.Scaled`](@ref) and  [`LazyAlgebra.multiplier`](@ref).
 
-identical(A::T, B::T) where {T<:NonuniformScaling} =
-    coefficients(A) === coefficients(B)
+"""
+unscaled(A::Scaled) = getfield(A, :mapping)
+unscaled(::Type{<:Scaled{I,O,T,A}}) where {I,O,T,A} = A
+unscaled(A::AbstractMapping) = A
 
-Base.eltype(::Type{NonuniformScaling{T}}) where {T} = eltype(T)
+"""
+    LazyAlgebra.Adjoint(A::AbstractMapping)
 
-input_ndims(::NonuniformScaling{<:AbstractArray{T,N}}) where {T, N} = N
-input_size(A::NonuniformScaling{<:AbstractArray}) = size(coefficients(A))
-input_size(A::NonuniformScaling{<:AbstractArray}, i) =
-    size(coefficients(A), i)
+builds a mapping lazily representing the adjoint of `A`.
 
-output_ndims(::NonuniformScaling{<:AbstractArray{T,N}}) where {T, N} = N
-output_size(A::NonuniformScaling{<:AbstractArray}) = size(coefficients(A))
-output_size(A::NonuniformScaling{<:AbstractArray}, i) =
-    size(coefficients(A), i)
+!!! warning
+    Never directly call this constructor but use expressions `A'` or
+    `adjoint(A)` instead to benefit from automatic simplications and minimal
+    checks.
 
-# Simplify left multiplication (and division) by a scalar.
-# FIXME: α = 0 should be treated specifically
-# FIXME: This should only be done by `optimize`.
-*(α::Number, A::NonuniformScaling)::NonuniformScaling =
-    (α == 1 ? A : NonuniformScaling(vscale(α, coefficients(A))))
+""" Adjoint
+Base.parent(A::Adjoint) = getfield(A, :parent)
+Base.parent(::Type{<:Adjoint{I,O,A}}) where {I,O,A}  = A
+input_domain(A::Adjoint) = output_domain(parent(A))
+output_domain(A::Adjoint) = input_domain(parent(A))
 
-# Extend composition of diagonal operators.
-# FIXME: This should only be done by `optimize`.
-*(A::NonuniformScaling, B::NonuniformScaling) =
-    NonuniformScaling(vproduct(coefficients(A), coefficients(B)))
+"""
+    LazyAlgebra.Inverse(A::AbstractMapping)
 
-function simplify(A::inv(NonuniformScaling{<:AbstractArray}))
-    q = coefficients(A)
-    r = similar(q, typeof(inv(oneunits(eltype(q)))))
-    @inbounds @simd for i in eachindex(q, r)
-        r[i] = inv(q[i])
+builds a mapping lazily representing the inverse of `A`.
+
+!!! warning
+    Never directly call this constructor but use expression `inv(A)` instead to
+    benefit from automatic simplications and minimal checks.
+
+""" Inverse
+Base.parent(A::Inverse) = getfield(A, :parent)
+Base.parent(::Type{<:Inverse{I,O,A}}) where {I,O,A}  = A
+input_domain(A::Inverse) = output_domain(parent(A))
+output_domain(A::Inverse) = input_domain(parent(A))
+
+"""
+    LazyAlgebra.Sum(inp => out, terms)
+
+yields a mapping lazily representing the sum of mappings in `terms` and
+assuming that `inp` and `out` are the respective input and output domains of
+this sum of mappings.
+
+!!! warning
+    Never directly call this constructor but use expressions like `A + B + ...`
+    instead to benefit from automatic simplications and minimal checks.
+
+""" Sum
+input_domain(A::Sum) = getfield(A, :inp)
+output_domain(A::Sum) = getfield(A, :out)
+
+"""
+    LazyAlgebra.Composition(terms)
+
+yields a mapping lazily representing the composition of mappings in `terms`.
+
+!!! warning
+    Never directly call this constructor but use expressions like `A*B*...`
+    instead to benefit from automatic simplications and minimal checks.
+
+""" Composition
+input_domain(A::Composition) = input_domain(last(terms(A)))
+output_domain(A::Composition) = output_domain(first(terms(A)))
+
+"""
+    LazyAlgebra.terms(A)
+
+yields the vector of terms of the sum or the composition of mappings `A`.
+
+"""
+terms(A::Sum) = getfield(A, :terms)
+terms(A::Composition) = getfield(A, :terms)
+
+"""
+    Null(E)
+    Null(E => F)
+
+respectively yield the null mapping over domain `E` and the null mapping from
+input domain `E` to output domain `F`. Note that `Null(E)` is equivalent to
+`Null(E => E)`.
+
+"""
+Null(E::AbstractDomain) = Null(E => E)
+input_domain(A::Null) = getfield(A, :inp)
+output_domain(A::Null) = getfield(A, :out)
+unsafe_apply!(dst, α::Number, A::Null, x, β::Number, y) =
+    unsafe_scale!(dst, β, y)
+
+"""
+    Identity(io)
+
+yields the identity mapping on domain `io`.
+
+""" Identity
+input_domain(A::Identity) = getfield(A, :io)
+output_domain(A::Identity) = input_domain(A)
+unsafe_apply!(dst, α::Number, A::Identity, x, β::Number, y) =
+    unsafe_combine!(dst, α, x, β, y)
+
+"""
+    Diag([io::AbstractDomain,] A)
+
+yields a diagonal mapping on domain `io` with diagonal entries specified by
+`A`. If `A` is an array, `io = ArrayDomain(A)` is used by default
+
+"""
+Diag(A::AbstractArray) = Diag(ArrayDomain(A), A)
+LinearAlgebra.diag(A::Diag) = getfield(A, :diag)
+input_domain(A::Diag) = getfield(A, :io)
+output_domain(A::Diag) = input_domain(A)
+
+function unsafe_apply!(dst, α::Number,
+                       A::Diag{<:Any,<:AbstractArray},
+                       x, β::Number, y)
+    # NOTE `α` is not zero, do not use `y` if `β` is zero
+    d = diag(A)
+    if isone(α)
+        if iszero(β)
+            dst .= (d .* x)
+        elseif isone(β)
+            dst .= (d .* x) .+ y
+        else
+            β = convert_multiplier(β, eltype(y))
+            dst .= (d .* x) .+ β .* y
+        end
+    else
+        α = convert_multiplier(α, eltype(d), eltype(x))
+        if iszero(β)
+            dst .= α .* (d .* x)
+        elseif isone(β)
+            dst .= α .* (d .* x) .+ y
+        else
+            β = convert_multiplier(β, eltype(y))
+            dst .= α .* (d .* x) .+ β .* y
+        end
     end
-    return NonuniformScaling(r)
+    return nothing
 end
 
-function simplify(A::NonuniformScaling{<:AbstractArray{Ta,N}}, *,
-                  B::NonuniformScaling{<:AbstractArray{Tb,N}}) where {Ta,Tb,N}
-    A_diag = diag(A)
-    B_diag = diag(B)
-    axes(A_diag) == axes(B_diag) || error("FIXME:")
-    return NonuniformScaling(A_diag .* B_diag)
+function unsafe_apply!(dst, α::Number,
+                       A::Adjoint{<:Any,<:Any,<:Diag{<:Any,<:AbstractArray}},
+                       x, β::Number, y)
+    # NOTE `α` is not zero, do not use `y` if `β` is zero
+    d = diag(A)
+    if isone(α)
+        if iszero(β)
+            dst .= (conj.(d) .* x)
+        elseif isone(β)
+            dst .= (conj.(d) .* x) .+ y
+        else
+            β = convert_multiplier(β, eltype(y))
+            dst .= (conj.(d) .* x) .+ β .* y
+        end
+    else
+        α = convert_multiplier(α, eltype(d), eltype(x))
+        if iszero(β)
+            dst .= α .* (conj.(d) .* x)
+        elseif isone(β)
+            dst .= α .* (conj.(d) .* x) .+ y
+        else
+            β = convert_multiplier(β, eltype(y))
+            dst .= α .* (conj.(d) .* x) .+ β .* y
+        end
+    end
+    return nothing
 end
 
-operation(::Mapping) = identity
-operation(::Adjoint) = adjoint
-operation(::Inverse) = inv
-operation(::Inverse{true,<:Adjoint}) = inv∘adjoint
-operation(::Adjoint{<:Inverse{true}}) = inv∘adjoint
+function unsafe_apply!(dst, α::Number,
+                       A::Inverse{<:Any,<:Any,<:Diag{<:Any,<:AbstractArray}},
+                       x, β::Number, y)
+    # NOTE `α` is not zero, do not use `y` if `β` is zero
+    d = diag(A)
+    if isone(α)
+        if iszero(β)
+            dst .= (d .\ x)
+        elseif isone(β)
+            dst .= (d .\ x) .+ y
+        else
+            β = convert_multiplier(β, eltype(y))
+            dst .= (d .\ x) .+ β .* y
+        end
+    else
+        α = convert_multiplier(α, eltype(d), eltype(x))
+        if iszero(β)
+            dst .= α .* (d .\ x)
+        elseif isone(β)
+            dst .= α .* (d .\ x) .+ y
+        else
+            β = convert_multiplier(β, eltype(y))
+            dst .= α .* (d .\ x) .+ β .* y
+        end
+    end
+    return nothing
+end
 
-const NonuniformScalings{T} = Union{NonuniformScaling{T},
-                                    Adjoint{<:NonuniformScaling{T}},
-                                    Inverse{true,<:NonuniformScaling{T}},
-                                    Inverse{true,Adjoint{<:NonuniformScaling{T}}},
-                                    Adjoint{Inverse{true,<:NonuniformScaling{T}}}}
+function unsafe_apply!(dst, α::Number,
+                       A::InverseAdjoint{<:Any,<:Any,<:Diag{<:Any,<:AbstractArray}},
+                       x, β::Number, y)
+    # NOTE `α` is not zero, do not use `y` if `β` is zero
+    d = diag(A)
+    if isone(α)
+        if iszero(β)
+            dst .= (conj.(d) .\ x)
+        elseif isone(β)
+            dst .= (conj.(d) .\ x) .+ y
+        else
+            β = convert_multiplier(β, eltype(y))
+            dst .= (conj.(d) .\ x) .+ β .* y
+        end
+    else
+        α = convert_multiplier(α, eltype(d), eltype(x))
+        if iszero(β)
+            dst .= α .* (conj.(d) .\ x)
+        elseif isone(β)
+            dst .= α .* (conj.(d) .\ x) .+ y
+        else
+            β = convert_multiplier(β, eltype(y))
+            dst .= α .* (conj.(d) .\ x) .+ β .* y
+        end
+    end
+    return nothing
+end
 
-function apply!(α::Number,
-                W::NonuniformScalings{<:AbstractArray{Tw,N}},
-                x::AbstractArray{Tx,N},
-                scratch::Bool,
-                β::Number,
-                y::AbstractArray{Ty,N}) where {Tw,Tx,Ty,N}
-    w = coefficients(W)
-    I = all_indices(w, x, y)
-    P = operation(W)
+Base.iszero(A::Scaled) = iszero(multiplier(A)) || iszero(unscaled(A))
+Base.iszero(A::Null) = true
+Base.iszero(A::AbstractMapping) = false
+
+Base.isone(A::Scaled) = isone(multiplier(A)) && isone(unscaled(A))
+Base.isone(A::Identity) = true
+Base.isone(A::AbstractMapping) = false
+
+"""
+     LazyAlgebra.create_output(A::AbstractMapping, x) -> y
+
+yields an object suitable to store the result of `A*x`, if `A` is a linear
+mapping, or `A(x)`, if `A` is a non-linear mapping.
+
+"""
+function create_output(A::AbstractMapping{<:AbstractArrayDomain,
+                                           <:AbstractArrayDomain},
+                       x::AbstractArray)
+    return similar(x, concrete_float(output_eltype(A)), output_size(A))
+end
+
+"""
+     LazyAlgebra.apply(A::AbstractMapping, x) -> y
+
+yields `A*x`, if `A` is a linear mapping, or `A(x)`, if `A` is a non-linear
+mapping.
+
+This method is not exported because it corresponds to the syntax `A*x`.
+
+The default implementation checks that `x ∈ input_domain(A)` and calls
+ [`LazyAlgebra.unsafe_apply`](@ref).
+
+"""
+function apply(A::AbstractMapping, x)
+    x ∈ input_domain(A) || throw(ArgumentError(
+        "argument `x` does not belong to input domain of mapping `A`"))
+    return unsafe_apply(A, x)
+end
+
+"""
+     LazyAlgebra.unsafe_apply(A::AbstractMapping, x) -> y
+
+yields `A*x`, if `A` is a linear mapping, or `A(x)`, if `A` is a non-linear
+mapping.
+
+This method shall never be directly called except by
+[`LazyAlgebra.apply`](@ref) after checking the arguments. Indeed, the `unsafe_`
+prefix means that it is the caller's responsibility to verify the validity of
+the arguments so that, the implementation may assume that it is safe to use
+`@inbounds` for array arguments.
+
+This method is intended to be extended by other packages for their mappings or
+variable types. Other packages may opt to only extend
+[`LazyAlgebra.unsafe_apply!`](@ref) instead.
+
+The default implementation calls [`LazyAlgebra.create_ouput`](@ref)
+to allocate the result and [`LazyAlgebra.unsafe_apply!`](@ref) to
+apply the mapping.
+
+"""
+function unsafe_apply(A::AbstractMapping, x)
+    dst = create_output(A, x)
+    unsafe_apply!(dst, 1, A, x, 0, dst)
+    return dst
+end
+
+function unsafe_apply!(A::Scaled, x)
+    dst = create_output(A, x)
+    unsafe_apply!(dst, multiplier(A), unscaled(A), x, 0, dst)
+    return dst
+end
+
+"""
+     LazyAlgebra.apply!(dst, A::AbstractMapping, x) -> dst
+
+overwrites `dst` with `A*x`, if `A` is a linear mapping, or with `A(x)`, if
+`A` is a non-linear mapping, and returns `dst`.
+
+"""
+apply!(dst, A::AbstractMapping, x) = apply!(dst, 1, A, x)
+
+"""
+     LazyAlgebra.apply!(dst, α::Number, A::AbstractMapping, x) -> dst
+
+overwrites `dst` with `α*A*x`, if `A` is a linear mapping, or with `α*A(x)`,
+if `A` is a non-linear mapping, and returns `dst`. If `iszero(α)` holds,
+expression `A*x` or `A(x)` is not computed so that the contents of `x` is not
+considered.
+
+"""
+apply!(dst, α::Number, A::AbstractMapping, x) = apply!(dst, α, A, x, 0, dst)
+
+"""
+     LazyAlgebra.apply!(dst, α::Number, A::AbstractMapping, x, β::Number, y) -> dst
+
+overwrites `dst` with `α*A*x + β*y`, if `A` is a linear mapping, or with
+`α*A(x) + β*y`, if `A` is a non-linear mapping, and returns `dst`. If
+`iszero(α)` holds, expression `A*x` or `A(x)` is not computed so that the
+contents of `x` is not considered. Similarly, if `iszero(β)` holds, the
+contents of `y` is not considered.
+
+This method checks its arguments and then do:
+
     if iszero(α)
-        vscale!(y, β)
+        unsafe_scale!(dst, β, y)
+    else
+        unsafe_apply!(dst, α, A, x, β, y)
+    end
+    return dst
+
+Hence, [`LazyAlgebra.unsafe_apply!`](@ref), or
+[`LazyAlgebra.unsafe_scale!`](@ref) if `iszero(α)` holds, are the methods that
+must be implemented for the specific types of the arguments (in particular, `A`
+for `unsafe_apply!`).
+
+"""
+function apply!(dst, α::Number, A::AbstractMapping, x, β::Number, y)
+    x ∈ input_domain(A) || throw(ArgumentError(
+        "argument `x` does not belong to input domain of mapping `A`"))
+    dst ∈ output_domain(A) || throw(ArgumentError(
+        "argument `dst` does not belong to output domain of mapping `A`"))
+    y === dst || y ∈ output_domain(A) || throw(ArgumentError(
+        "argument `y` does not belong to output domain of mapping `A`"))
+    if iszero(α)
+        unsafe_scale!(dst, β, y)
+    else
+        unsafe_apply!(dst, α, A, x, β, y)
+    end
+    return dst
+end
+
+"""
+    LazyAlgebra.unsafe_apply!(dst, α::Number, A::AbstractMapping, x, β::Number, y) -> nothing
+
+overwrites the contents of `dst` with `α*A*x + β*y`, if `A` is a linear
+mapping, or with `α*A(x) + β*y`, if `A` is a non-linear mapping, and returns
+`nothing`. If `iszero(β)` holds, the contents of `y` is not considered. This
+method is never called if `iszero(α)` holds.
+
+This method shall never be directly called except by
+[`LazyAlgebra.apply!`](@ref) after checking the arguments and that `iszero(α)`
+does not hold. Indeed, the `unsafe_` prefix means that it is the caller's
+responsibility to verify these assumptions. Hence, the implementation may
+assume that `iszero(α)` does not hold and that it is safe to use `@inbounds`
+for array arguments.
+
+This method is intended to be extended by other packages for their mappings or
+variable types. Other packages may opt to extend the out of place version
+[`LazyAlgebra.unsafe_apply`](@ref). However, if only `unsafe_apply` is
+implemented for the types of the arguments, the fallback implementation calls
+[`LazyAlgebra.unsafe_apply`](@ref) and then
+[`LazyAlgebra.unsafe_combine!`](@ref) which has some overheads.
+
+"""
+unsafe_apply!(dst, α::Number, A::AbstractMapping, x, β::Number, y) =
+    unsafe_combine!(dst, α, unsafe_apply(A, x), β, y)
+
+unsafe_apply!(dst, α::Number, A::Scaled, x, β::Number, y) =
+    unsafe_apply!(dst, α*multiplier(A), unscaled(A), x, β, y)
+
+"""
+    LazyAlgebra.zerofill!(A) -> A
+
+overwrites the contents of `A` with zeros and returns `A`.
+
+An implementation of this method that is suitable for ordinary arrays is
+provided by `LazyAlgebra`. Other packages may extend this non-exported method
+for specific argument types.
+
+"""
+zerofill!(A::AbstractArray) = fill!(A, zero(eltype(A)))
+
+"""
+    LazyAlgebra.unsafe_copy!(dst, src) -> dst
+
+overwrites the contents of `dst` with that of `src` and returns `dst`.
+
+An implementation of this non-exported method that is suitable for ordinary
+arrays is provided by `LazyAlgebra`. Other packages may extend this method for
+specific argument types. The `unsafe_` prefix means that it is the caller's
+responsibility to check the arguments. In particular, the implementation may
+assume that it is safe to use `@inbounds` for indexing array arguments.
+
+"""
+function unsafe_copy!(dst::AbstractArray, src::AbstractArray)
+    dst === src || copyto!(dst, src)
+    return dst
+end
+
+"""
+    LazyAlgebra.unsafe_scale!(dst, α::Number, x) -> nothing
+
+overwrites destination `dst` with `α*x`. If `iszero(α)` holds, the destination
+is zero-filled without considering the contents of `x`. Returned result is
+`nothing`.
+
+An implementation of this non-exported method that is suitable for ordinary
+arrays is provided by `LazyAlgebra`. Other packages may extend this method for
+specific arguments types. The `unsafe_` prefix means that it is the caller's
+responsibility to check the arguments. In particular, the implementation may
+assume that it is safe to use `@inbounds` for indexing array arguments.
+
+"""
+function unsafe_scale!(dst::AbstractArray, α::Number, x::AbstractArray)
+    if iszero(α)
+        zerofill!(A)
+    elseif isone(α)
+        unsafe_copy!(dst, x)
+    else
+        α = promote_multipler(α, eltype(x))
+        @inbounds @simd for i in eachindex(dst, x)
+            dst[i] = α*x[i]
+        end
+    end
+    return nothing
+end
+
+"""
+    LazyAlgebra.unsafe_combine!(dst, α::Number, x, β::Number, y) -> nothing
+
+overwrites destination `dst` with `α*x + β*y`. If `iszero(α)` holds, the
+contents of `x` is not considered. Similarly, if `iszero(β)` holds, the
+contents of `y` is not considered.
+
+An implementation of this non-exported method that is suitable for ordinary
+arrays is provided by `LazyAlgebra`. Other packages may extend this method for
+specific arguments types. The `unsafe_` prefix means that it is the caller's
+responsibility to check the arguments. In particular, the implementation may
+assume that it is safe to use `@inbounds` for indexing array arguments.
+
+"""
+function unsafe_combine!(dst::AbstractArray,
+                         α::Number, x::AbstractArray,
+                         β::Number, y::AbstractArray)
+    if iszero(α)
+        unsafe_scale!(dst, β, y)
     elseif iszero(β)
-        if α == 1
-            _apply_diagonal!(P, axpby_yields_x, I, 1, w, x, 0, y)
-        else
-            a = promote_multiplier(α, Tw, Tx)
-            _apply_diagonal!(P, axpby_yields_ax, I, a, w, x, 0, y)
-        end
-    elseif β == 1
-        if α == 1
-            _apply_diagonal!(P, axpby_yields_xpy, I, 1, w, x, 1, y)
-        else
-            a = promote_multiplier(α, Tw, Tx)
-            _apply_diagonal!(P, axpby_yields_axpy, I, a, w, x, 1, y)
-        end
+        unsafe_scale!(dst, α, x)
     else
-        b = promote_multiplier(β, Ty)
-        if α == 1
-            _apply_diagonal!(P, axpby_yields_xpby, I, 1, w, x, b, y)
-        else
-            a = promote_multiplier(α, Tw, Tx)
-            _apply_diagonal!(P, axpby_yields_axpby, I, a, w, x, b, y)
+        # FIXME optimize for other values of α and β
+        α = promote_multipler(α, eltype(x))
+        β = promote_multipler(β, eltype(y))
+        @inbounds @simd for i in eachindex(dst, x, y)
+            dst[i] = α*x[i] + β*y[i]
         end
     end
-    return y
-end
-
-function _apply_diagonal!(::typeof(identity), axpby::Function, I,
-                          α, w, x, β, y)
-    @inbounds @simd for i in I
-        y[i] = axpby(α, w[i]*x[i], β, y[i])
-    end
-end
-
-function _apply_diagonal!(::typeof(adjoint), axpby::Function, I,
-                          α, w, x, β, y)
-    @inbounds @simd for i in I
-        y[i] = axpby(α, conj(w[i])*x[i], β, y[i])
-    end
-end
-
-function _apply_diagonal!(::typeof(inv), axpby::Function, I,
-                          α, w, x, β, y)
-    @inbounds @simd for i in I
-        y[i] = axpby(α, x[i]/w[i], β, y[i])
-    end
-end
-
-function _apply_diagonal!(::typeof(inv∘adjoint), axpby::Function, I,
-                          α, w, x, β, y)
-    @inbounds @simd for i in I
-        y[i] = axpby(α, x[i]/conj(w[i]), β, y[i])
-    end
-end
-
-function vcreate(::Type{<:Operations},
-                 W::NonuniformScaling{<:AbstractArray{Tw,N}},
-                 x::AbstractArray{Tx,N},
-                 scratch::Bool) where {Tw,Tx,N}
-    inds = same_axes(coefficients(W), x)
-    T = promote_type(Tw, Tx)
-    return (scratch && Tx == T ? x : similar(Array{T}, inds))
-end
-
-#------------------------------------------------------------------------------
-# RANK-1 OPERATORS
-
-"""
-    RankOneOperator(u, v) -> A
-
-yields the rank one linear operator `A = u⋅v'` defined by the two *vectors* `u`
-and `v` and behaving as:
-
-    A*x  -> vscale(vdot(v, x)), u)
-    A'*x -> vscale(vdot(u, x)), v)
-
-See also: [`SymmetricRankOneOperator`](@ref), [`LinearMapping`](@ref),
-          [`apply!`](@ref), [`vcreate`](@ref).
-
-"""
-struct RankOneOperator{U,V} <: LinearMapping
-    u::U
-    v::V
-end
-
-@callable RankOneOperator
-
-@generated Base.eltype(::Type{<:RankOneOperator{U,V}}) where {U,V} =
-    :($(typeof(zero(eltype(U))*zero(eltype(V)))))
-
-# Lazily assume that x has correct type, dimensions, etc.
-# FIXME: optimize when scratch=true
-
-vcreate(α::Number, A::RankOneOperator, x, scratch::Bool) = similar(A.v, output_eltype(α, A, x))
-vcreate(α::Number, A::Adjoint{<:RankOneOperator}, x, scratch::Bool) = similar(A.u, output_eltype(α, A, x))
-
-apply!(α::Number, A::RankOneOperator, x, scratch::Bool, β::Number, y) =
-    _apply_rank_one!(α, A.u, A.v, x, β, y)
-
-apply!(α::Number, A::Adjoint{<:RankOneOperator}, x, scratch::Bool, β::Number, y) =
-    _apply_rank_one!(α, A.v, A.u, x, β, y)
-
-function _apply_rank_one!(α::Number, u, v, x, β::Number, y)
-    if iszero(α)
-        # Lazily assume that y has correct type, dimensions, etc.
-        vscale!(y, β)
-    else
-        vcombine!(y, α*vdot(v, x), u, β, y)
-    end
-    return y
-end
-
-# FIXME: input_type(A::RankOneOperator{U,V}) where {U,V} = V
-input_ndims(::Type{<:RankOneOperator{U,V}}) where {U,V} = ndims(V)
-input_size(A::RankOneOperator) = size(A.v)
-input_size(A::RankOneOperator, d...) = size(A.v, d...)
-# FIXME: input_eltype(A::RankOneOperator) = eltype(A.v)
-
-# FIXME: output_type(A::RankOneOperator{U,V}) where {U,V} = U
-output_ndims(::Type{<:RankOneOperator{U,V}}) where {U,V} = ndims(U)
-output_size(A::RankOneOperator) = size(A.u)
-output_size(A::RankOneOperator, d...) = size(A.u, d...)
-# FIXME: output_eltype(A::RankOneOperator) = eltype(A.u)
-
-identical(A::T, B::T) where {T<:RankOneOperator} = ((A.u === B.u)&(A.v === B.v))
-
-"""
-    SymmetricRankOneOperator(u) -> A
-
-yields the symmetric rank one operator `A = u⋅u'` defined by the *vector* `u`
-and behaving as follows:
-
-    A'*x -> A*x
-    A*x  -> vscale(vdot(u, x)), u)
-
-See also: [`RankOneOperator`](@ref), [`LinearMapping`](@ref),
-          [`Trait`](@ref) [`apply!`](@ref), [`vcreate`](@ref).
-
-"""
-struct SymmetricRankOneOperator{U} <: LinearMapping
-    u::U
-end
-
-@callable SymmetricRankOneOperator
-
-# Traits:
-MorphismType(::Type{<:SymmetricRankOneOperator}) = Endomorphism() # FIXME: not true with units
-SelfAdjointType(::Type{<:SymmetricRankOneOperator}) = SelfAdjoint()
-
-@generated Base.eltype(::Type{<:SymmetricRankOneOperator{U}}) where {U} =
-    :($(typeof(zero(eltype(U))^2)))
-
-# Automatic simplifications rules.
-adjoint(A::SymmetricRankOneOperator) = A
-
-apply!(α::Number, A::SymmetricRankOneOperator, x, scratch::Bool, β::Number, y) =
-    _apply_rank_one!(α, A.u, A.u, x, β, y)
-apply!(α::Number, A::Adjoint{<:SymmetricRankOneOperator}, x, scratch::Bool, β::Number, y) =
-    apply!(α, parent(A), x, scratch, β, y)
-
-# Lazily assume that x has correct dimensions.
-function vcreate(α::Number, A::SymmetricRankOneOperator, x, scratch::Bool)
-    T = output_eltype(α, A, x)
-    return (scratch && x isa Array{T,ndims(A.u)}) ? x : similar(A.u, T)
-end
-vcreate(α::Number, A::Adjoint{<:SymmetricRankOneOperator}, x, scratch::Bool) =
-    vcreate(α, parent(A), x)
-
-input_type(A::SymmetricRankOneOperator{U}) where {U} = U
-input_ndims(A::SymmetricRankOneOperator) = ndims(A.u)
-input_size(A::SymmetricRankOneOperator) = size(A.u)
-input_size(A::SymmetricRankOneOperator, d...) = size(A.u, d...)
-input_eltype(A::SymmetricRankOneOperator) = eltype(A.u)
-
-output_type(A::SymmetricRankOneOperator{U}) where {U} = U
-output_ndims(A::SymmetricRankOneOperator) = ndims(A.u)
-output_size(A::SymmetricRankOneOperator) = size(A.u)
-output_size(A::SymmetricRankOneOperator, d...) = size(A.u, d...)
-output_eltype(A::SymmetricRankOneOperator) = eltype(A.u)
-
-identical(A::T, B::T) where {T<:SymmetricRankOneOperator} =
-    (A.u === B.u)
-
-#------------------------------------------------------------------------------
-# GENERALIZED MATRIX AND MATRIX-VECTOR PRODUCT
-
-"""
-    GeneralMatrix(A)
-
-creates a linear mapping whose coefficients are given by a multi-dimensional
-array `A` and which generalizes the definition of the matrix-vector product
-without calling `reshape` to change the dimensions.
-
-For instance, assuming that `G = GeneralMatrix(A)` with `A` a regular array,
-then `y = G*x` requires that the dimensions of `x` match the trailing
-dimensions of `A` and yields a result `y` whose dimensions are the remaining
-leading dimensions of `A`, such that `axes(A) = (axes(y)..., axes(x)...)`.
-Applying the adjoint of `G` as in `y = G'*x` requires that the dimensions of
-`x` match the leading dimension of `A` and yields a result `y` whose dimensions
-are the remaining trailing dimensions of `A`, such that `axes(A) = (axes(x)...,
-axes(y)...)`.
-
-See also: [`reshape`](@ref).
-
-"""
-struct GeneralMatrix{T<:AbstractArray} <: LinearMapping
-    arr::T
-end
-
-@callable GeneralMatrix
-
-coefficients(A) = A.arr
-
-# Make a GeneralMatrix behaves like an ordinary array.
-eltype(A::GeneralMatrix) = eltype(coefficients(A))
-length(A::GeneralMatrix) = length(coefficients(A))
-ndims(A::GeneralMatrix) = ndims(coefficients(A))
-axes(A::GeneralMatrix) = axes(coefficients(A))
-size(A::GeneralMatrix) = size(coefficients(A))
-size(A::GeneralMatrix, i...) = size(coefficients(A), i...)
-getindex(A::GeneralMatrix, i...) = getindex(coefficients(A), i...)
-setindex!(A::GeneralMatrix, x, i...) = setindex!(coefficients(A), x, i...)
-stride(A::GeneralMatrix, k) = stride(coefficients(A), k)
-strides(A::GeneralMatrix) = strides(coefficients(A))
-eachindex(A::GeneralMatrix) = eachindex(coefficients(A))
-
-identical(A::T, B::T) where {T<:GeneralMatrix} =
-    (coefficients(A) === coefficients(B))
-
-function apply!(α::Number,
-                P::Type{<:Operations},
-                A::GeneralMatrix{<:AbstractArray{<:GenMult.Floats}},
-                x::AbstractArray{<:GenMult.Floats},
-                scratch::Bool,
-                β::Number,
-                y::AbstractArray{<:GenMult.Floats})
-    return apply!(α, P, coefficients(A), x, scratch, β, y)
-end
-
-function vcreate(P::Type{<:Operations},
-                 A::GeneralMatrix{<:AbstractArray{<:GenMult.Floats}},
-                 x::AbstractArray{<:GenMult.Floats},
-                 scratch::Bool)
-    return vcreate(P, coefficients(A), x, scratch)
-end
-
-for (T, L) in ((:Direct, 'N'), (:Adjoint, 'C'))
-    @eval begin
-        function apply!(α::Number,
-                        ::Type{$T},
-                        A::AbstractArray{<:GenMult.Floats},
-                        x::AbstractArray{<:GenMult.Floats},
-                        scratch::Bool,
-                        β::Number,
-                        y::AbstractArray{<:GenMult.Floats})
-            return lgemv!(α, $L, A, x, β, y)
-        end
-    end
-end
-
-# To have apply and apply! methods callable with an array (instead of a
-# mapping), we have to provide the different possibilities.
-
-apply(A::AbstractArray, x::AbstractArray, scratch::Bool) =
-    apply(Direct, A, x, scratch)
-
-apply(P::Type{<:Operations}, A::AbstractArray, x::AbstractArray, scratch::Bool) =
-    apply!(1, P, A, x, scratch, 0, vcreate(P, A, x, scratch))
-
-apply!(y::AbstractArray, A::AbstractArray, x::AbstractArray) =
-    apply!(1, Direct, A, x, false, 0, y)
-
-apply!(y::AbstractArray, P::Type{<:Operations}, A::AbstractArray, x::AbstractArray) =
-    apply!(1, P, A, x, false, 0, y)
-
-function vcreate(P::Type{<:Union{Direct,InverseAdjoint}},
-                 A::AbstractArray{Ta,Na},
-                 x::AbstractArray{Tx,Nx},
-                 scratch::Bool) where {Ta,Na,Tx,Nx}
-    # Non-transposed matrix.  Trailing dimensions of X must match those of A,
-    # leading dimensions of A are those of the result.  Whatever the scratch
-    # parameter, a new array is returned as the operation cannot be done
-    # in-place.
-    @noinline incompatible_dimensions() =
-        bad_size("the indices of `x` do not match the trailing indices of `A`")
-    1 ≤ Nx < Na || incompatible_dimensions()
-    Ny = Na - Nx
-    xinds = axes(x)
-    Ainds = axes(A)
-    @inbounds for d in 1:Nx
-        xinds[d] == Ainds[Ny + d] || incompatible_dimensions()
-    end
-    shape = ntuple(d -> Ainds[d], Val(Ny)) # faster than Ainds[1:Ny]
-    return similar(A, promote_type(Ta, Tx), shape)
-end
-
-function vcreate(P::Type{<:Union{Adjoint,Inverse}},
-                 A::AbstractArray{Ta,Na},
-                 x::AbstractArray{Tx,Nx},
-                 scratch::Bool) where {Ta,Na,Tx,Nx}
-    # Transposed matrix.  Leading dimensions of X must match those of A,
-    # trailing dimensions of A are those of the result.  Whatever the scratch
-    # parameter, a new array is returned as the operation cannot be done
-    # in-place.
-    @noinline incompatible_dimensions() =
-        bad_size("the indices of `x` do not match the leading indices of `A`")
-    1 ≤ Nx < Na || incompatible_dimensions()
-    Ny = Na - Nx
-    xinds = axes(x)
-    Ainds = axes(A)
-    @inbounds for d in 1:Nx
-        xinds[d] == Ainds[d] || incompatible_dimensions()
-    end
-    shape = ntuple(d -> Ainds[Nx + d], Val(Ny)) # faster than Ainds[Nx+1:end]
-    return similar(A, promote_type(Ta, Tx), shape)
+    return nothing
 end
