@@ -38,7 +38,7 @@ test_api(P, A, x, y; atol=0, rtol=sqrt(eps(relative_precision(x,y))))
 test LazyAlgebra API for mapping `P(A)` using variables `x` and `y`.
 
 """
-function test_api(::Type{P}, A::Mapping, x0::AbstractArray, y0::AbstractArray;
+function test_api(::Type{P}, A::Operator, x0::AbstractArray, y0::AbstractArray;
                   rtol::Real=sqrt(relative_precision(x0,y0)),
                   atol::Real=0) where {P<:Union{Direct,InverseAdjoint}}
     x = vcopy(x0)
@@ -59,7 +59,7 @@ function test_api(::Type{P}, A::Mapping, x0::AbstractArray, y0::AbstractArray;
     end
 end
 
-function test_api(::Type{P}, A::Mapping, x0::AbstractArray, y0::AbstractArray;
+function test_api(::Type{P}, A::Operator, x0::AbstractArray, y0::AbstractArray;
                   rtol::Real=sqrt(relative_precision(x0,y0)),
                   atol::Real=0) where {P<:Union{Adjoint,Inverse}}
     x = vcopy(x0)

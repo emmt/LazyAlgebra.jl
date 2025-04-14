@@ -24,7 +24,9 @@ This page describes the most important changes in `LazyAlgebra`. The format is b
 
 ### Removed
 
-- Non-linear mappings are no longer supported.
+- Non-linear mappings are no longer supported. As a result, the `Jacobian` type, the
+  `jacobian`, `∇`, `primitive`, `variables`, and `is_linear` functions, and the
+  `LinearType` trait and its sub-types `Linear`, and `NonLinear` have been suppressed.
 
 ### Changed
 

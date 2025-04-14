@@ -4,7 +4,7 @@
 new primitive mapping types (not by combining existing mappings) and benefit
 from the `LazyAlgebra` infrastruture, you have to:
 
-* Create a new type derived from `Mapping` or one of its abstract sub-types
+* Create a new type derived from `Operator` or one of its abstract sub-types
   such as `Operator`.
 
 * Implement at least two methods `apply!` and `vcreate` specialized for the new

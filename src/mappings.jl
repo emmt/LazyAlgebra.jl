@@ -8,7 +8,7 @@
 # This file is part of LazyAlgebra (https://github.com/emmt/LazyAlgebra.jl)
 # released under the MIT "Expat" license.
 #
-# Copyright (c) 2017-2020 Éric Thiébaut.
+# Copyright (c) 2017-2025 Éric Thiébaut.
 #
 
 #------------------------------------------------------------------------------
@@ -21,7 +21,7 @@ identical(::Identity, ::Identity) = true
 # Traits:
 SelfAdjointType(::Identity) = SelfAdjoint()
 MorphismType(::Identity) = Endomorphism()
-DiagonalType(::Identity) = DiagonalMapping()
+DiagonalType(::Identity) = DiagonalOperator()
 
 apply(::Type{<:Operations}, ::Identity, x, scratch::Bool=false) = x
 
@@ -38,25 +38,24 @@ apply!(α::Number, ::Type{<:Operations}, ::Identity, x, ::Bool, β::Number, y) =
 # for ⋅ which is replaced by a * by existing rules).
 for op in (:(+), :(-), :(*), :(∘), :(/), Symbol("\\"))
     @eval begin
-        Base.$op(A::UniformScaling, B::Mapping) = $op(Mapping(A), B)
-        Base.$op(A::Mapping, B::UniformScaling) = $op(A, Mapping(B))
+        Base.$op(A::UniformScaling, B::Operator) = $op(Operator(A), B)
+        Base.$op(A::Operator, B::UniformScaling) = $op(A, Operator(B))
     end
 end
 
 #------------------------------------------------------------------------------
 # SYMBOLIC MAPPINGS (FOR TESTS)
 
-struct SymbolicMapping{T} <: Mapping end
 struct SymbolicOperator{T} <: Operator end
-SymbolicMapping(id::AbstractString) = SymbolicMapping(Symbol(id))
-SymbolicMapping(id::Symbol) = SymbolicMapping{Val{id}}()
+SymbolicOperator(id::AbstractString) = SymbolicOperator(Symbol(id))
+SymbolicOperator(id::Symbol) = SymbolicOperator{Val{id}}()
 SymbolicOperator(id::AbstractString) = SymbolicOperator(Symbol(id))
 SymbolicOperator(x::Symbol) = SymbolicOperator{Val{x}}()
 
-show(io::IO, A::SymbolicMapping{Val{T}}) where {T} = print(io, T)
+show(io::IO, A::SymbolicOperator{Val{T}}) where {T} = print(io, T)
 show(io::IO, A::SymbolicOperator{Val{T}}) where {T} = print(io, T)
 
-identical(::T, ::T) where {T<:SymbolicMapping} = true
+identical(::T, ::T) where {T<:SymbolicOperator} = true
 identical(::T, ::T) where {T<:SymbolicOperator} = true
 
 #------------------------------------------------------------------------------
@@ -91,7 +90,7 @@ const Diag{T} = NonuniformScaling{T}
 
 # Traits:
 MorphismType(::NonuniformScaling) = Endomorphism()
-DiagonalType(::NonuniformScaling) = DiagonalMapping()
+DiagonalType(::NonuniformScaling) = DiagonalOperator()
 SelfAdjointType(A::NonuniformScaling) =
     _selfadjointtype(eltype(coefficients(A)), A)
 _selfadjointtype(::Type{<:Real}, ::NonuniformScaling) =

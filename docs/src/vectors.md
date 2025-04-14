@@ -3,6 +3,7 @@
 A *vector* is that which has the algebra of a vector space (Peano 1888, van der
 Waerden 1931).  See talk by Jiahao Chen:
 [*Taking Vector Transposes Seriously*](https://www.youtube.com/watch?v=C2RO34b_oPM) at JuliaCon 2017.
+in `LazyAlgebra` any (abstract) array object can be considered as a *vector*.
 
 
 ## Vectorized methods
@@ -148,4 +149,4 @@ and
 vcreate(P::Type{P}, A::Ta, x::Tx) -> y
 ```
 
-for `Ta<:Mapping` and the supported operations `P<:Operations`.
+for `Ta<:Operator` and the supported operations `P<:Operations`.

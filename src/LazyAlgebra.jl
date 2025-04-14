@@ -8,7 +8,7 @@
 # This file is part of LazyAlgebra (https://github.com/emmt/LazyAlgebra.jl)
 # released under the MIT "Expat" license.
 #
-# Copyright (c) 2017-2021 Éric Thiébaut.
+# Copyright (c) 2017-2025 Éric Thiébaut.
 #
 
 module LazyAlgebra
@@ -24,9 +24,7 @@ export
     Gram,
     Id,
     Identity,
-    Jacobian,
     Operator,
-    Mapping,
     NonuniformScaling,
     RankOneOperator,
     SingularSystem,
@@ -38,7 +36,6 @@ export
     SymbolicMapping,
     SymmetricRankOneOperator,
     ZeroPaddingOperator,
-    ∇,
     adjoint,
     apply!,
     apply,
@@ -54,11 +51,9 @@ export
     input_type,
     is_diagonal,
     is_endomorphism,
-    is_linear,
     is_selfadjoint,
     isone,
     iszero,
-    jacobian,
     lgemm!,
     lgemm,
     lgemv!,

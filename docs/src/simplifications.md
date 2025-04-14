@@ -12,7 +12,7 @@ A distinction must be made between:
 
 - *basic* mappings which are the simplest mappings and are the building blocks
   of more complex constructions,
-- *scaled* or *decorated* mappings (see [`LazyAlgebra.DecoratedMapping`](@ref))
+- *scaled* or *decorated* mappings (see [`LazyAlgebra.DecoratedOperator`](@ref))
   which are simple structures wrapped around a mapping and which are almost
   costless to build,
 - *combinations* of mappings which are sums or compositions of mappings.
@@ -115,12 +115,12 @@ components, it can
 +(A::Adjoint, B::Adjoint) = (A + B)'
 *(A::Adjoint, B::Adjoint) = (B*A)'
 *(A::Inverse, B::Inverse) = inv(B*A)
-*(A::Inverse{T}, B::T) where {T<:Mapping} =
+*(A::Inverse{T}, B::T) where {T<:Operator} =
     (identical(unveil(A), B) ? Id : Composition(A,B))
-*(A::T, B::Inverse{T}) where {T<:Mapping} =
+*(A::T, B::Inverse{T}) where {T<:Operator} =
     (identical(A, unveil(B)) ? Id : Composition(A,B))
-\(A::Mapping, B::Mapping) = inv(A)*B
-/(A::Mapping, B::Mapping) = A*inv(B)
+\(A::Operator, B::Operator) = inv(A)*B
+/(A::Operator, B::Operator) = A*inv(B)
 adjoint(A::Adjoint) = unveil(A)
 adjoint(A::AdjointInverse) = inv(A)
 adjoint(A::Inverse) = AdjointInverse(A)
@@ -160,8 +160,8 @@ simplification rules that are automatically performed.
   right-multiplication and the right-division of a mapping by a scalar:
 
   ```julia
-  *(A::Mapping, α::Number) = (is_linear(A) ? α*A : A*(α*Id))
-  /(A::Mapping, α::Number) = A*inv(α)
+  *(A::Operator, α::Number) = α*A
+  /(A::Operator, α::Number) = A*inv(α)
   ```
 
   Only the right-multiplication is in charge of deciding whether the operation

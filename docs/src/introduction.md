@@ -1,8 +1,8 @@
 # Lazy algebra framework
 
-**LazyAlgebra** is a [Julia](http://julialang.org/) package to generalize the
-notion of matrices and vectors used in
-[linear algebra](https://en.wikipedia.org/wiki/Linear_algebra).
+`LazyAlgebra` is a [Julia](http://julialang.org/) package to generalize the notion of
+matrices and vectors used in [linear
+algebra](https://en.wikipedia.org/wiki/Linear_algebra).
 
 Many numerical methods (*e.g.* in numerical optimization or in digital signal processing)
 involve essentially [linear operations](https://en.wikipedia.org/wiki/Vector_space) on the
@@ -15,9 +15,7 @@ mappings and linear mappings to operate on the variables.
 A few concepts are central to `LazyAlgebra`:
 * *vectors* represent the variables of interest and can be anything providing a few
   methods are implemented for their specific type;
-* *mappings* are any functions between such vectors;
-* *linear mappings* (a.k.a. linear operators) behave linearly with respect to their
-  arguments.
+* linear *operators* behave linearly with respect to their arguments.
 
 There are several reasons to have special methods for basic vector operations rather than
 relying on Julia linear algebra methods. First, the notion of *vector* is different, in
@@ -31,7 +29,7 @@ considered as real-valued variables (each complex value being equivalent to a pa
 reals).
 
 
-## Mappings
+## Operators
 
 `LazyAlgebra` features:
 * flexible and extensible framework for creating complex mappings;
@@ -42,7 +40,7 @@ reals).
 
 ### General mappings
 
-A `Mapping` can be any function between two variables spaces. Using Householder-like
+A `Operator` can be any function between two variables spaces. Using Householder-like
 notation (that is upper case Latin letters denote *mappings*, lower case Latin letters
 denote *variables*, and Greek letters denote *scalars*), then:
 
@@ -77,7 +75,7 @@ These constructions can be combined to build up more complex mappings. For examp
 ### Linear mappings
 
 An `Operator` can be any linear mapping between two spaces. This abstract sub-type of
-`Mapping` is introduced to extend the notion of *matrices* and *vectors*. Assuming the
+`Operator` is introduced to extend the notion of *matrices* and *vectors*. Assuming the
 type of `A` inherits from `Operator`, then:
 
 * for linear mappings `A` and `B`, `A⋅B` is the same as `A∘B` or `A*B` which yields the
@@ -119,10 +117,10 @@ however, possible to prevent this by extending the `Base.inv` method so as to th
 exception when applied to the specific type of `A`:
 
 ```julia
-Base.inv(::SomeNonInvertibleMapping) = error("non-invertible mapping")
+Base.inv(::SomeNonInvertibleOperator) = error("non-invertible mapping")
 ```
 
-where `SomeNonInvertibleMapping <: Mapping` is the type of `A`.
+where `SomeNonInvertibleOperator <: Operator` is the type of `A`.
 
 Other example of simplifications:
 
@@ -165,6 +163,6 @@ which can be compared to `inv(A*B*3C)` when all operands are linear mappings.
 
 `LazyAlgebra` provides a number of simple mappings. Creating new primitive mapping types
 (not by combining existing mappings as explained above) which benefit from the
-`LazyAlgebra` framework is as simple as declaring a new mapping sub-type of `Mapping` (or
+`LazyAlgebra` framework is as simple as declaring a new mapping sub-type of `Operator` (or
 one of its abstract sub-types) and extending two methods `vcreate` and `apply!`
 specialized for the new mapping type. For mode details, see [here](mappings.md).

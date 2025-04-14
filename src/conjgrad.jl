@@ -152,8 +152,7 @@ See also: [`conjgrad`][@ref).
 conjgrad!(x, A::Union{Operator,AbstractArray}, b, args...; kwds...) =
     conjgrad!(x, WrappedLeftHandSideMatrix(A), b, args...; kwds...)
 
-function conjgrad!(x, A::Mapping, b, args...; kwds...)
-    is_linear(A) || bad_argument("`A` must be a linear map")
+function conjgrad!(x, A::Operator, b, args...; kwds...)
     conjgrad!(x, WrappedLeftHandSideMatrix(A), b, args...; kwds...)
 end
 

@@ -8,11 +8,11 @@ module TestingLazyAlgebraRules
 using LazyAlgebra
 using LazyAlgebra.Foundations
 import LazyAlgebra: ⋅,
-    Adjoint, Inverse, InverseAdjoint, Jacobian,
+    Adjoint, Inverse, InverseAdjoint,
     Scaled, Sum, Composition
 using Test
 
-function to_string(A::Mapping)
+function to_string(A::Operator)
     io = IOBuffer()
     show(io, A)
     String(take!(io))
@@ -24,9 +24,9 @@ end
     Composition = LazyAlgebra.Composition
     dims = (3,4,5)
 
-    M = SymbolicMapping(:M)
-    Q = SymbolicMapping(:Q)
-    R = SymbolicMapping(:R)
+    M = SymbolicOperator(:M)
+    Q = SymbolicOperator(:Q)
+    R = SymbolicOperator(:R)
     A = SymbolicOperator(:A)
     B = SymbolicOperator(:B)
     C = SymbolicOperator(:C)
@@ -39,26 +39,6 @@ end
     let E = A
         @test identical(A, E) == true
     end
-    @test is_linear(M) == false
-    @test is_linear(A) == true
-    @test is_linear(A + B) == true
-    @test is_linear(A') == true
-    @test is_linear(inv(A)) == true
-    @test is_linear(inv(M)) == false
-    @test is_linear(A + B + C) == true
-    @test is_linear(A' + B + C) == true
-    @test is_linear(A + B' + C) == true
-    @test is_linear(A + B + C') == true
-    @test is_linear(M + B + C) == false
-    @test is_linear(A + M + C) == false
-    @test is_linear(A + B + M) == false
-    @test is_linear(A*B*C) == true
-    @test is_linear(A'*B*C) == true
-    @test is_linear(A*B'*C) == true
-    @test is_linear(A*B*C') == true
-    @test is_linear(M*B*C) == false
-    @test is_linear(A*M*C) == false
-    @test is_linear(A*B*M) == false
     @test is_endomorphism(M) == false
     @test is_endomorphism(A) == false
     @test is_selfadjoint(M) == false
@@ -87,7 +67,7 @@ end
     @test inv(3Id) === (1/3)*Id
     @test SelfAdjointType(Id) === SelfAdjoint()
     @test MorphismType(Id) === Endomorphism()
-    @test DiagonalType(Id) === DiagonalMapping()
+    @test DiagonalType(Id) === DiagonalOperator()
     for T in (Float32, Float64)
         atol, rtol = zero(T), sqrt(eps(T))
         x = randn(T, dims)
@@ -111,8 +91,8 @@ end
 
     # Basic methods for sums and compositions of mappings.
     let A1 = A + B + M, A2 = C*B*M*Q
-        @test eltype(A1) <: Mapping
-        @test eltype(A2) <: Mapping
+        @test eltype(A1) <: Operator
+        @test eltype(A2) <: Operator
         @test Tuple(A1) === terms(A1)
         @test Tuple(A2) === terms(A2)
         @test length(A1) == 3
@@ -145,7 +125,7 @@ end
     @test 3A*2M === 6A*M
     @test 3R*2M !== 6R*M
 
-    # Test adjoint and Jacobian.
+    # Test adjoint.
     x = nothing
     @test (A*A')' === A*A'
     for X in (A*A', A'*A, B'*A'*A*B, B'*A*A'*B)
@@ -155,18 +135,11 @@ end
     @test A' isa Adjoint
     @test A'' === (A')' === A
     @test adjoint(A) === A'
-    @test jacobian(A,x) === A
-    @test ∇(A,x) === A
     @test (3A)' === 3*(A')
     @test (A + 2B)' - A' === 2*B'
-    @test_throws ArgumentError Jacobian(A,x)
     @test_throws ArgumentError M'
     @test_throws ArgumentError adjoint(M)
     @test_throws ArgumentError Adjoint(M)
-    @test jacobian(M,x) isa Jacobian
-    @test ∇(M,x) === jacobian(M,x)
-    @test ∇(3M,x) === 3*∇(M,x)
-    @test ∇(M,x) + ∇(2M,x) === 3∇(M,x)
 
     # Inverse.
     @test inv(M) === Id/M
@@ -270,8 +243,6 @@ end
     @test_throws ArgumentError InverseAdjoint(3A)
     @test_throws ArgumentError InverseAdjoint(A*B)
 
-    @test_throws ArgumentError Jacobian(3M,x)
-
     @test_throws ArgumentError Scaled(2,3M)
 
     # Check that sums and compositions must have at least 2 terms
@@ -291,8 +262,6 @@ end
     @test to_string(Id/(A + B)) == "inv($(to_string(A + B)))"
     @test to_string(M) == "M"
     @test to_string(M + M) == "2⋅M"
-    @test to_string(∇(M,x)) == "∇(M,x)"
-    @test to_string(∇(M,x) + ∇(M,x)) == "2⋅∇(M,x)"
 end # testset
 nothing
 

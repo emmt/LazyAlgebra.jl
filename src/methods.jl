@@ -12,12 +12,12 @@
 #
 
 @noinline function unimplemented(::Type{P},
-                                 ::Type{T}) where {P<:Operations, T<:Mapping}
+                                 ::Type{T}) where {P<:Operations, T<:Operator}
     throw(UnimplementedOperation("unimplemented operation `$P` for mapping $T"))
 end
 
 @noinline function unimplemented(func::Union{AbstractString,Symbol},
-                                 ::Type{T}) where {T<:Mapping}
+                                 ::Type{T}) where {T<:Operator}
     throw(UnimplementedMethod("unimplemented method `$func` for mapping $T"))
 end
 
@@ -36,13 +36,12 @@ end
 @callable Adjoint
 @callable Inverse
 @callable InverseAdjoint
-@callable Jacobian
 @callable Gram
 @callable Scaled
 @callable Sum
 @callable Composition
 
-show(io::IO, ::MIME"text/plain", A::Mapping) = show(io, A)
+show(io::IO, ::MIME"text/plain", A::Operator) = show(io, A)
 
 show(io::IO, A::Identity) = print(io, "Id")
 
@@ -69,7 +68,7 @@ function show(io::IO, A::Scaled{<:Sum})
     end
 end
 
-function show(io::IO, A::Adjoint{<:Mapping})
+function show(io::IO, A::Adjoint{<:Operator})
     show(io, unveil(A))
     print(io, "'")
 end
@@ -80,22 +79,16 @@ function show(io::IO, A::Adjoint{T}) where {T<:Union{Scaled,Composition,Sum}}
     print(io, ")'")
 end
 
-function show(io::IO, A::Inverse{<:Mapping})
+function show(io::IO, A::Inverse{<:Operator})
     print(io, "inv(")
     show(io, unveil(A))
     print(io, ")")
 end
 
-function show(io::IO, A::InverseAdjoint{<:Mapping})
+function show(io::IO, A::InverseAdjoint{<:Operator})
     print(io, "inv(")
     show(io, unveil(A))
     print(io, ")'")
-end
-
-function show(io::IO, A::Jacobian{<:Mapping})
-    print(io, "∇(")
-    show(io, primitive(A))
-    print(io, ",x)")
 end
 
 function show(io::IO, A::Sum{N}) where {N}
@@ -104,7 +97,7 @@ function show(io::IO, A::Sum{N}) where {N}
         show(io, A)
         print(io, ")")
     end
-    show_term(io::IO, A::Mapping) = show(io, A)
+    show_term(io::IO, A::Operator) = show(io, A)
 
     for i in 1:N
         let B = A[i]
@@ -159,23 +152,23 @@ as `terms(A)`.
 
 """
 terms(A::Union{Sum,Composition}) = getfield(A, :ops)
-terms(A::Mapping) = (A,)
+terms(A::Operator) = (A,)
 
 """
     unveil(A)
 
 unveils the mapping embedded in mapping `A` if it is a *decorated* mapping (see
-[`LazyAlgebra.DecoratedMapping`](@ref)); otherwise, just returns `A` if it is
+[`LazyAlgebra.DecoratedOperator`](@ref)); otherwise, just returns `A` if it is
 not a *decorated* mapping.
 
 As a special case, `A` may be an instance of `LinearAlgebra.UniformScaling` and
 the result is the LazyAlgebra mapping corresponding to `A`.
 
 """
-unveil(A::DecoratedMapping) = getfield(A, :op)
-unveil(A::Mapping) = A
+unveil(A::DecoratedOperator) = getfield(A, :op)
+unveil(A::Operator) = A
 unveil(A::UniformScaling) = multiplier(A)*Id
-Mapping(A::UniformScaling) = unveil(A)
+Operator(A::UniformScaling) = unveil(A)
 
 """
     unscaled(A)
@@ -186,7 +179,7 @@ otherwise yields `A`. This method also works for intances of
 `λ`.
 
 """
-unscaled(A::Mapping) = A
+unscaled(A::Operator) = A
 unscaled(A::Scaled) = getfield(A, :M)
 unscaled(A::UniformScaling) = Id
 
@@ -200,26 +193,8 @@ mapping `M`. `λ`.
 
 """
 multiplier(A::Scaled) = getfield(A, :λ)
-multiplier(A::Mapping) = 1
+multiplier(A::Operator) = 1
 multiplier(A::UniformScaling) = getfield(A, :λ)
-
-"""
-    primitive(J)
-
-yields the mapping `A` embedded in the Jacobian `J = ∇(A,x)`. Call
-[`variables`](@ref) to get `x` instead.
-
-"""
-primitive(J::Jacobian) = getfield(J, :A)
-
-"""
-    variables(J)
-
-yields the variables `x` embedded in the Jacobian `J = ∇(A,x)`. Call
-[`primitive`](@ref) to get `A` instead.
-
-"""
-variables(J::Jacobian) = getfield(J, :x)
 
 """
     identifier(A)
@@ -232,13 +207,13 @@ identifier is used for sorting terms in a sum of mappings.
     unique with a very high probability.
 
 """
-identifier(A::Mapping) = objectid(unscaled(A))
+identifier(A::Operator) = objectid(unscaled(A))
 
-Base.isless(A::Mapping, B::Mapping) = isless(identifier(A), identifier(B))
+Base.isless(A::Operator, B::Operator) = isless(identifier(A), identifier(B))
 
 # Extend base methods to simplify the code for reducing expressions.
-first(A::Mapping) = A
-last(A::Mapping) = A
+first(A::Operator) = A
+last(A::Operator) = A
 first(A::Union{Sum,Composition}) = @inbounds A[1]
 last(A::Union{Sum{N},Composition{N}}) where {N} = @inbounds A[N]
 firstindex(A::Union{Sum,Composition}) = 1
@@ -284,7 +259,7 @@ for sfx in (:size, :eltype, :ndims, :type),
         fn2 = Symbol(P === Adjoint || P === Inverse ?
                      (pfx === :output ? :input : :output) : pfx, "_", sfx)
 
-        T = (P === Adjoint || P === InverseAdjoint ? Operator : Mapping)
+        T = (P === Adjoint || P === InverseAdjoint ? Operator : Operator)
 
         # Provide basic methods for the different operations and for tagged
         # mappings.
@@ -312,9 +287,9 @@ for pfx in (:input, :output)
     get_size = Symbol(pfx, "_size")
     get_ndims = Symbol(pfx, "_ndims")
     @eval begin
-        $get_ndims(A::Mapping) = length($get_size(A))
-        $get_size(A::Mapping, dim) = $get_size(A)[dim]
-        function $get_size(A::Mapping, dim...)
+        $get_ndims(A::Operator) = length($get_size(A))
+        $get_size(A::Operator, dim) = $get_size(A)[dim]
+        function $get_size(A::Operator, dim...)
             dims = $get_size(A)
             ntuple(i -> dims[dim[i]], length(dim))
         end
@@ -322,7 +297,7 @@ for pfx in (:input, :output)
 end
 
 for f in (:input_eltype, :output_eltype, :input_size, :output_size)
-    @eval $f(::T) where {T<:Mapping} = unimplemented($(string(f)), T)
+    @eval $f(::T) where {T<:Operator} = unimplemented($(string(f)), T)
 end
 
 """
@@ -337,8 +312,6 @@ single- or multi-dimensional.
 
 """
 nrows(A::Operator) = prod(row_size(A))
-@noinline nrows(A::Mapping) =
-    throw(ArgumentError("`nrows` is only implemented for linear mappings"))
 
 """
     ncols(A)
@@ -352,8 +325,6 @@ or multi-dimensional.
 
 """
 ncols(A::Operator) = prod(col_size(A))
-@noinline ncols(A::Mapping) =
-    throw(ArgumentError("`ncols` is only implemented for linear mappings"))
 
 """
     row_size(A)
@@ -363,8 +334,6 @@ is equivalent to `output_size(A)`. Not all operators extend this method.
 
 """
 row_size(A::Operator) = output_size(A)
-@noinline row_size(A::Mapping) =
-    throw(ArgumentError("`row_size` is only implemented for linear mappings"))
 
 """
     col_size(A)
@@ -374,8 +343,6 @@ equivalent to `input_size(A)`. Not all operators extend this method.
 
 """
 col_size(A::Operator) = input_size(A)
-@noinline col_size(A::Mapping) =
-    throw(ArgumentError("`col_size` is only implemented for linear mappings"))
 
 """
     coefficients(A)
@@ -391,7 +358,7 @@ yields the object backing the storage of the coefficients of the linear mapping
 checks integrity of mapping `A` and returns it.
 
 """
-check(A::Mapping) = A
+check(A::Operator) = A
 
 """
     checkmapping(y, A, x) -> (v1, v2, v1 - v2)
@@ -420,8 +387,7 @@ See also: [`vdot`](@ref), [`vcreate`](@ref), [`apply!`](@ref),
 [`input_type`](@ref).
 
 """
-function checkmapping(y::Ty, A::Mapping, x::Tx) where {Tx, Ty}
-    is_linear(A) || bad_argument("expecting a linear mapping")
+function checkmapping(y::Ty, A::Operator, x::Tx) where {Tx, Ty}
     v1 = vdot(y, A*x)
     v2 = vdot(A'*y, x)
     (v1, v2, v1 - v2)
@@ -429,13 +395,13 @@ end
 
 function checkmapping(::Type{T},
                       outdims::Tuple{Vararg{Int}},
-                      A::Mapping,
+                      A::Operator,
                       inpdims::Tuple{Vararg{Int}}) where {T<:AbstractFloat}
     checkmapping(randn(T, outdims), A, randn(T, inpdims))
 end
 
 function checkmapping(outdims::Tuple{Vararg{Int}},
-                      A::Mapping,
+                      A::Operator,
                       inpdims::Tuple{Vararg{Int}})
     checkmapping(Float64, outdims, A, inpdims)
 end
@@ -465,8 +431,8 @@ The default implementation is to return `A === B`.
     operator without affecting identically the other.
 
 """
-@inline identical(::Mapping, ::Mapping) = false # false if not same types
-@inline identical(A::T, B::T) where {T<:Mapping} = (A === B)
+@inline identical(::Operator, ::Operator) = false # false if not same types
+@inline identical(A::T, B::T) where {T<:Operator} = (A === B)
 
 """
     gram(A) -> A'*A
@@ -478,8 +444,6 @@ See also [`Gram`](@ref).
 
 """
 gram(A::Operator) = A'*A
-gram(A::Mapping) =
-    is_linear(A) ? A'*A : throw_forbidden_Gram_of_non_linear_mapping()
 
 @noinline throw_forbidden_Gram_of_non_linear_mapping() =
     bad_argument("making a Gram operator out of a non-linear mapping is not allowed")
@@ -536,11 +500,11 @@ by `vcreate` should be of predictible type to ensure *type-stability*. Checking
 the validity (*e.g.* the size) of argument `x` in `vcreate` may be skipped
 because this argument will be eventually checked by the `apply!` method.
 
-See also: [`Mapping`](@ref), [`apply`](@ref).
+See also: [`Operator`](@ref), [`apply`](@ref).
 
 """
-vcreate(A::Mapping, x, scratch::Bool=false) = vcreate(Direct, A, x, scratch)
-vcreate(::Type{P}, A::Mapping, x) where {P<:Operations} =
+vcreate(A::Operator, x, scratch::Bool=false) = vcreate(Direct, A, x, scratch)
+vcreate(::Type{P}, A::Operator, x) where {P<:Operations} =
     vcreate(P, A, x, false)
 
 """
@@ -595,18 +559,18 @@ Julia methods are provided so that `apply(A', x)` automatically calls
 `apply(Adjoint, A, x)` so the shorter syntax may be used without impacting
 performances.
 
-See also: [`Mapping`](@ref), [`apply!`](@ref), [`vcreate`](@ref).
+See also: [`Operator`](@ref), [`apply!`](@ref), [`vcreate`](@ref).
 
 """
-apply(A::Mapping, x, scratch::Bool=false) = apply(Direct, A, x, scratch)
-apply(::Type{P}, A::Mapping, x, scratch::Bool=false) where {P<:Operations} =
+apply(A::Operator, x, scratch::Bool=false) = apply(Direct, A, x, scratch)
+apply(::Type{P}, A::Operator, x, scratch::Bool=false) where {P<:Operations} =
     apply!(1, P, A, x, scratch, 0, vcreate(P, A, x, scratch))
 
-*(A::Mapping, x) = apply(Direct, A, x, false)
-\(A::Mapping, x) = apply(Inverse, A, x, false)
+*(A::Operator, x) = apply(Direct, A, x, false)
+\(A::Operator, x) = apply(Inverse, A, x, false)
 
 """
-    apply!([α=1,] [P=Direct,] A::Mapping, x, [scratch=false,] [β=0,] y) -> y
+    apply!([α=1,] [P=Direct,] A::Operator, x, [scratch=false,] [β=0,] y) -> y
 
 overwrites `y` with `α*P(A)⋅x + β*y` where `P ∈ Operations` can be `Direct`,
 `Adjoint`, `Inverse` and/or `InverseAdjoint` to indicate which variant of the
@@ -624,7 +588,7 @@ method.
 The order of arguments can be changed and the same result as above is obtained
 with:
 
-    apply!([β=0,] y, [α=1,] [P=Direct,] A::Mapping, x, scratch=false) -> y
+    apply!([β=0,] y, [α=1,] [P=Direct,] A::Operator, x, scratch=false) -> y
 
 The result `y` may have been allocated by:
 
@@ -636,7 +600,7 @@ or by:
 
 if `P` is not specified.
 
-Mapping sub-types only need to extend `vcreate` and `apply!` with the specific
+Operator sub-types only need to extend `vcreate` and `apply!` with the specific
 signatures:
 
     vcreate(::Type{P}, A::M, x, scratch::Bool=false) -> y
@@ -651,76 +615,76 @@ Optionally, the method with signature:
 
 may also be extended to improve the default implementation which is:
 
-    apply(P::Type{<:Operations}, A::Mapping, x, scratch::Bool=false) =
+    apply(P::Type{<:Operations}, A::Operator, x, scratch::Bool=false) =
         apply!(1, P, A, x, scratch, 0, vcreate(P, A, x, scratch))
 
-See also: [`Mapping`](@ref), [`apply`](@ref), [`vcreate`](@ref).
+See also: [`Operator`](@ref), [`apply`](@ref), [`vcreate`](@ref).
 
 """ apply!
 
 # Provide fallbacks so that `Direct` is the default operation and only the
 # method with signature:
 #
-#     apply!(α::Number, ::Type{P}, A::MappingType, x::X, scratch::Bool,
+#     apply!(α::Number, ::Type{P}, A::OperatorType, x::X, scratch::Bool,
 #            β::Number, y::Y) where {P<:Operations,X,Y}
 #
 # has to be implemented (possibly with restrictions on X and Y) by subtypes of
-# Mapping so we provide the necessary mechanism to dispatch derived methods.
-apply!(A::Mapping, x, y) =
+# Operator so we provide the necessary mechanism to dispatch derived methods.
+apply!(A::Operator, x, y) =
     apply!(1, Direct, A, x, false, 0, y)
-apply!(α::Number, A::Mapping, x, y) =
+apply!(α::Number, A::Operator, x, y) =
     apply!(α, Direct, A, x, false, 0, y)
-apply!(A::Mapping, x, β::Number, y) =
+apply!(A::Operator, x, β::Number, y) =
     apply!(1, Direct, A, x, false, β, y)
-apply!(α::Number, A::Mapping, x, β::Number, y) =
+apply!(α::Number, A::Operator, x, β::Number, y) =
     apply!(α, Direct, A, x, false, β, y)
 
-apply!(P::Type{<:Operations}, A::Mapping, x, y) =
+apply!(P::Type{<:Operations}, A::Operator, x, y) =
     apply!(1, P, A, x, false, 0, y)
-apply!(α::Number, P::Type{<:Operations}, A::Mapping, x, y) =
+apply!(α::Number, P::Type{<:Operations}, A::Operator, x, y) =
     apply!(α, P, A, x, false, 0, y)
-apply!(P::Type{<:Operations}, A::Mapping, x, β::Number, y) =
+apply!(P::Type{<:Operations}, A::Operator, x, β::Number, y) =
     apply!(1, P, A, x, false, β, y)
-apply!(α::Number, P::Type{<:Operations}, A::Mapping, x, β::Number, y) =
+apply!(α::Number, P::Type{<:Operations}, A::Operator, x, β::Number, y) =
     apply!(α, P, A, x, false, β, y)
 
-apply!(A::Mapping, x, scratch::Bool, y) =
+apply!(A::Operator, x, scratch::Bool, y) =
     apply!(1, Direct, A, x, scratch, 0, y)
-apply!(α::Number, A::Mapping, x, scratch::Bool, y) =
+apply!(α::Number, A::Operator, x, scratch::Bool, y) =
     apply!(α, Direct, A, x, scratch, 0, y)
-apply!(A::Mapping, x, scratch::Bool, β::Number, y) =
+apply!(A::Operator, x, scratch::Bool, β::Number, y) =
     apply!(1, Direct, A, x, scratch, β, y)
 
-apply!(P::Type{<:Operations}, A::Mapping, x, scratch::Bool, y) =
+apply!(P::Type{<:Operations}, A::Operator, x, scratch::Bool, y) =
     apply!(1, P, A, x, scratch, 0, y)
-apply!(α::Number, P::Type{<:Operations}, A::Mapping, x, scratch::Bool, y) =
+apply!(α::Number, P::Type{<:Operations}, A::Operator, x, scratch::Bool, y) =
     apply!(α, P, A, x, scratch, 0, y)
-apply!(P::Type{<:Operations}, A::Mapping, x, scratch::Bool, β::Number, y) =
+apply!(P::Type{<:Operations}, A::Operator, x, scratch::Bool, β::Number, y) =
     apply!(1, P, A, x, scratch, β, y)
 
 # Change order of arguments.
-apply!(y, A::Mapping, x, scratch::Bool=false) =
+apply!(y, A::Operator, x, scratch::Bool=false) =
     apply!(1, Direct, A, x, scratch, 0, y)
-apply!(y, P::Type{<:Operations}, A::Mapping, x, scratch::Bool=false) =
+apply!(y, P::Type{<:Operations}, A::Operator, x, scratch::Bool=false) =
     apply!(1, P, A, x, scratch, 0, y)
-apply!(y, α::Number, A::Mapping, x, scratch::Bool=false) =
+apply!(y, α::Number, A::Operator, x, scratch::Bool=false) =
     apply!(α, Direct, A, x, scratch, 0, y)
-apply!(y, α::Number, P::Type{<:Operations}, A::Mapping, x, scratch::Bool=false) =
+apply!(y, α::Number, P::Type{<:Operations}, A::Operator, x, scratch::Bool=false) =
     apply!(α, P, A, x, scratch, 0, y)
-apply!(β::Number, y, A::Mapping, x, scratch::Bool=false) =
+apply!(β::Number, y, A::Operator, x, scratch::Bool=false) =
     apply!(1, Direct, A, x, scratch, β, y)
-apply!(β::Number, y, P::Type{<:Operations}, A::Mapping, x, scratch::Bool=false) =
+apply!(β::Number, y, P::Type{<:Operations}, A::Operator, x, scratch::Bool=false) =
     apply!(1, P, A, x, scratch, β, y)
-apply!(β::Number, y, α::Number, A::Mapping, x, scratch::Bool=false) =
+apply!(β::Number, y, α::Number, A::Operator, x, scratch::Bool=false) =
     apply!(α, Direct, A, x, scratch, β, y)
-apply!(β::Number, y, α::Number, P::Type{<:Operations}, A::Mapping, x, scratch::Bool=false) =
+apply!(β::Number, y, α::Number, P::Type{<:Operations}, A::Operator, x, scratch::Bool=false) =
     apply!(α, P, A, x, scratch, β, y)
 
 # Extend `LinearAlgebra.mul!` so that `A'*x`, `A*B*C*x`, etc. yield the
 # expected result.  FIXME: This should be restricted to linear mappings but
 # this is not possible without overheads.
-mul!(y, A::Mapping, x) = apply!(1, Direct, A, x, false, 0, y)
-mul!(y, A::Mapping, x, α::Number, β::Number) =
+mul!(y, A::Operator, x) = apply!(1, Direct, A, x, false, 0, y)
+mul!(y, A::Operator, x, α::Number, β::Number) =
     apply!(α, Direct, A, x, false, β, y)
 
 # Implemention of the `apply!(α,P,A,x,scratch,β,y)` and
@@ -884,7 +848,7 @@ function apply(::Type{P}, A::Composition{N}, x,
     apply(P, *, terms(A), x, scratch)
 end
 
-function apply(::Type{P}, ::typeof(*), ops::NTuple{N,Mapping}, x,
+function apply(::Type{P}, ::typeof(*), ops::NTuple{N,Operator}, x,
                scratch::Bool) where {N,P<:Union{Direct,InverseAdjoint}}
     w = apply(P, ops[N], x, scratch)
     N == 1 && return w
@@ -911,7 +875,7 @@ function apply(::Type{P}, A::Composition{N}, x,
     apply(P, *, terms(A), x, scratch)
 end
 
-function apply(::Type{P}, ::typeof(*), ops::NTuple{N,Mapping}, x,
+function apply(::Type{P}, ::typeof(*), ops::NTuple{N,Operator}, x,
                scratch::Bool) where {N,P<:Union{Adjoint,Inverse}}
     w = apply(P, ops[1], x, scratch)
     N == 1 && return w
