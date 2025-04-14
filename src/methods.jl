@@ -268,7 +268,7 @@ output are given by:
 For mappings operating on Julia arrays, only `input_size(A)` and
 `output_size(A)` have to be implemented.
 
-Also see: [`vcreate`](@ref), [`apply!`](@ref), [`LinearMapping`](@ref),
+Also see: [`vcreate`](@ref), [`apply!`](@ref), [`Operator`](@ref),
 [`Operations`](@ref).
 
 """
@@ -284,7 +284,7 @@ for sfx in (:size, :eltype, :ndims, :type),
         fn2 = Symbol(P === Adjoint || P === Inverse ?
                      (pfx === :output ? :input : :output) : pfx, "_", sfx)
 
-        T = (P === Adjoint || P === InverseAdjoint ? LinearMapping : Mapping)
+        T = (P === Adjoint || P === InverseAdjoint ? Operator : Mapping)
 
         # Provide basic methods for the different operations and for tagged
         # mappings.
@@ -336,7 +336,7 @@ rows is the number of element of the result of applying the operator be it
 single- or multi-dimensional.
 
 """
-nrows(A::LinearMapping) = prod(row_size(A))
+nrows(A::Operator) = prod(row_size(A))
 @noinline nrows(A::Mapping) =
     throw(ArgumentError("`nrows` is only implemented for linear mappings"))
 
@@ -351,7 +351,7 @@ columns is the number of element of an argument of the operator be it single-
 or multi-dimensional.
 
 """
-ncols(A::LinearMapping) = prod(col_size(A))
+ncols(A::Operator) = prod(col_size(A))
 @noinline ncols(A::Mapping) =
     throw(ArgumentError("`ncols` is only implemented for linear mappings"))
 
@@ -362,7 +362,7 @@ yields the dimensions of the result of applying the linear operator `A`, this
 is equivalent to `output_size(A)`. Not all operators extend this method.
 
 """
-row_size(A::LinearMapping) = output_size(A)
+row_size(A::Operator) = output_size(A)
 @noinline row_size(A::Mapping) =
     throw(ArgumentError("`row_size` is only implemented for linear mappings"))
 
@@ -373,7 +373,7 @@ yields the dimensions of the argument of the linear operator `A`, this is
 equivalent to `input_size(A)`. Not all operators extend this method.
 
 """
-col_size(A::LinearMapping) = input_size(A)
+col_size(A::Operator) = input_size(A)
 @noinline col_size(A::Mapping) =
     throw(ArgumentError("`col_size` is only implemented for linear mappings"))
 
@@ -440,7 +440,7 @@ function checkmapping(outdims::Tuple{Vararg{Int}},
     checkmapping(Float64, outdims, A, inpdims)
 end
 
-checkmapping(A::LinearMapping) =
+checkmapping(A::Operator) =
     checkmapping(randn(output_eltype(A), output_size(A)), A,
                  randn(input_eltype(A), input_size(A)))
 
@@ -477,7 +477,7 @@ equivalent to `A'*A` but its type depends on simplifications that may occur.
 See also [`Gram`](@ref).
 
 """
-gram(A::LinearMapping) = A'*A
+gram(A::Operator) = A'*A
 gram(A::Mapping) =
     is_linear(A) ? A'*A : throw_forbidden_Gram_of_non_linear_mapping()
 

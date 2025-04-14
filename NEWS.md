@@ -20,6 +20,16 @@ This page describes the most important changes in `LazyAlgebra`. The format is b
   This would be useful to deal with arrays whose elements have non-standard numerical
   types as physical quantities in the `Unitful` package.
 
+## Unreleased
+
+### Removed
+
+- Non-linear mappings are no longer supported.
+
+### Changed
+
+- Abstract type `LinearMapping` renamed `Operator`.
+
 ## Version 0.2.7 (2024-03-08)
 
 ### Fixed

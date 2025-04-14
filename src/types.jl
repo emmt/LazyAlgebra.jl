@@ -105,9 +105,9 @@ example:
 * `D = A*(B + C)` is a mapping such that `C⋅x` yields the same result as
   `A⋅(B⋅x + C⋅x)`.
 
-A `LinearMapping` is any linear mapping between two spaces. This abstract
+A `Operator` is any linear mapping between two spaces. This abstract
 subtype of `Mapping` is introduced to extend the notion of *matrices* and
-*vectors*. Assuming the type of `A` inherits from `LinearMapping`, then:
+*vectors*. Assuming the type of `A` inherits from `Operator`, then:
 
 * `A'⋅x` and `A'*x` yields the result of applying the adjoint of the mapping
   `A` to `x`;
@@ -137,30 +137,25 @@ See also: [`apply`](@ref), [`apply!`](@ref), [`vcreate`](@ref),
           [`Adjoint`](@ref), [`Inverse`](@ref), [`InverseAdjoint`](@ref).
 
 """
-abstract type Mapping <: Function end
-
-abstract type LinearMapping <: Mapping end
-@doc @doc(Mapping) LinearMapping
+abstract type Operator end
 
 """
     Identity()
 
-yields the identity linear mapping. The purpose of this mapping is to be as
-efficient as possible, hence the result of applying this mapping may be the
-same as the input argument.
+yields the identity linear mapping. The purpose of this mapping is to be as efficient as
+possible, hence the result of applying this mapping may be the same as the input argument.
 
 The identity is a singleton and is also available as:
 
     Id
 
-The `LinearAlgebra` module of the standard library exports a constant `I` which
-also corresponds to the identity (but in the sense of a matrix). When `I` is
-combined with any LazyAlgebra mapping, it is recognized as an alias of `Id`. So
-that, for instance, `I/A`, `A\\I`, `Id/A` and `A\\Id` all yield `inv(A)` for
-any LazyAlgebra mappings `A`.
+The `LinearAlgebra` module of the standard library exports a constant `I` which also
+corresponds to the identity (but in the sense of a matrix). When `I` is combined with any
+LazyAlgebra mapping, it is recognized as an alias of `Id`. So that, for instance, `I/A`,
+`A\\I`, `Id/A` and `A\\Id` all yield `inv(A)` for any LazyAlgebra mappings `A`.
 
 """
-struct Identity <: LinearMapping; end
+struct Identity <: Operator end
 
 """
     Trait
@@ -198,7 +193,7 @@ struct DiagonalMapping <: DiagonalType end
 Type `Direct` is a singleton type to indicate that a linear mapping should
 be directly applied.  This type is part of the union `Operations`.
 
-See also: [`LinearMapping`](@ref), [`apply`](@ref), [`Operations`](@ref).
+See also: [`Operator`](@ref), [`apply`](@ref), [`Operations`](@ref).
 
 """
 struct Direct; end
@@ -217,7 +212,7 @@ Call [`unveil(obj)`](@ref) to reveal the linear mapping `A` embedded in `obj`.
 See also [`DecoratedMapping`](@ref).
 
 """
-struct Adjoint{T<:Mapping} <: LinearMapping
+struct Adjoint{T<:Mapping} <: Operator
     op::T
 
     # The outer constructors prevent most illegal calls to `Adjoint(A)` we
@@ -266,7 +261,7 @@ Call [`unveil(obj)`](@ref) to reveal the mapping `A` embedded in `obj`.
 See also [`DecoratedMapping`](@ref).
 
 """
-struct InverseAdjoint{T<:Mapping} <: LinearMapping
+struct InverseAdjoint{T<:Mapping} <: Operator
     op::T
 
     # The outer constructors prevent most illegal calls to `InverseAdjoint(A)`
@@ -295,7 +290,7 @@ Call [`unveil(obj)`](@ref) to reveal the linear mapping `A` embedded in `obj`.
 See also [`gram`](@ref), [`unveil`](@ref) and [`DecoratedMapping`](@ref).
 
 """
-struct Gram{T<:Mapping} <: LinearMapping
+struct Gram{T<:Mapping} <: Operator
     op::T
 
     # The outer constructors prevent most illegal calls to `Gram(A)` we

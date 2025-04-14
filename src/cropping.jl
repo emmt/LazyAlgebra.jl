@@ -43,7 +43,7 @@ The adjoint of a cropping operator is a zero-padding operator.
 See also: [`ZeroPaddingOperator`](@ref).
 
 """
-struct CroppingOperator{N} <: LinearMapping
+struct CroppingOperator{N} <: Operator
     outdims::NTuple{N,Int} # cropped dimensions
     inpdims::NTuple{N,Int} # input dimensions
     offset::CartesianIndex{N} # offset of cropped region w.r.t. input array

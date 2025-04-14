@@ -27,10 +27,10 @@ end
     M = SymbolicMapping(:M)
     Q = SymbolicMapping(:Q)
     R = SymbolicMapping(:R)
-    A = SymbolicLinearMapping(:A)
-    B = SymbolicLinearMapping(:B)
-    C = SymbolicLinearMapping(:C)
-    D = SymbolicLinearMapping(:D)
+    A = SymbolicOperator(:A)
+    B = SymbolicOperator(:B)
+    C = SymbolicOperator(:C)
+    D = SymbolicOperator(:D)
 
     # Test properties.
     @test M !== R

@@ -61,7 +61,7 @@ differences** with **flat boundary conditions**, that is to say extrapolated
 entries are assumed equal to the nearest entry.
 
 """
-struct Diff{L,D,O<:OptimLevel} <: LinearMapping end
+struct Diff{L,D,O<:OptimLevel} <: Operator end
 # L = level of differentiation
 # D = list of dimensions along which compute the differences
 # O = optimization level

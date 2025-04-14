@@ -5,7 +5,7 @@ new primitive mapping types (not by combining existing mappings) and benefit
 from the `LazyAlgebra` infrastruture, you have to:
 
 * Create a new type derived from `Mapping` or one of its abstract sub-types
-  such as `LinearMapping`.
+  such as `Operator`.
 
 * Implement at least two methods `apply!` and `vcreate` specialized for the new
   mapping type.  Applying the mapping is done by the former method.  The latter
@@ -113,7 +113,7 @@ to operate on multi-dimensional arrays (the so-called *variables*):
 using LazyAlgebra
 import LazyAlgebra: vcreate, apply!, input_size, output_size
 
-struct SparseOperator{T<:AbstractFloat,M,N} <: LinearMapping
+struct SparseOperator{T<:AbstractFloat,M,N} <: Operator
     outdims::NTuple{M,Int}
     inpdims::NTuple{N,Int}
     A::Vector{T}

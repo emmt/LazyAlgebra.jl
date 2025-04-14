@@ -17,7 +17,7 @@ using LazyAlgebra:
     Gram,
     Inverse,
     InverseAdjoint,
-    LinearMapping,
+    Operator,
     Mapping,
     Scaled,
     Sum,

@@ -25,9 +25,9 @@ See also: [`Trait`](@ref), [`is_linear`](@ref).
 
 """
 LinearType(::Mapping) = NonLinear() # any mapping assumed non-linear by default
-LinearType(::LinearMapping) = Linear()
-LinearType(::Inverse{<:LinearMapping}) = Linear()
-LinearType(::Scaled{<:LinearMapping}) = Linear()
+LinearType(::Operator) = Linear()
+LinearType(::Inverse{<:Operator}) = Linear()
+LinearType(::Scaled{<:Operator}) = Linear()
 LinearType(A::Inverse) = LinearType(unveil(A))
 LinearType(A::Scaled) = LinearType(unscaled(A))
 LinearType(A::Union{Sum,Composition}) =
@@ -133,7 +133,7 @@ yields whether `A` is certainly a linear mapping.
 See also: [`LinearType`](@ref).
 
 """
-is_linear(A::LinearMapping) = true
+is_linear(A::Operator) = true
 is_linear(A::Mapping) = _is_linear(LinearType(A))
 _is_linear(::Linear) = true
 _is_linear(::NonLinear) = false

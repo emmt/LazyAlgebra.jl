@@ -124,7 +124,7 @@ See [`CompressedSparseOperator`](@ref) for usage of sparse operators
 implementing compressed storage formats.
 
 """
-abstract type SparseOperator{T,M,N} <: LinearMapping end
+abstract type SparseOperator{T,M,N} <: Operator end
 
 """
     CompressedSparseOperator{F,T,M,N}

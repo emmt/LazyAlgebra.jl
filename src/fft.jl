@@ -342,7 +342,7 @@ struct FFTOperator{T<:fftwNumber,  # element type of input
                    C<:fftwComplex, # element type of output
                    F<:Plan{T},     # type of forward plan
                    B<:Plan{C}      # type of backward plan
-                   } <: LinearMapping
+                   } <: Operator
     ncols::Int             # number of input elements
     inpdims::NTuple{N,Int} # input dimensions
     outdims::NTuple{N,Int} # output dimensions
@@ -527,7 +527,7 @@ end
 struct CirculantConvolution{T<:fftwNumber,N,
                             C<:fftwComplex,
                             F<:Plan{T},
-                            B<:Plan{C}} <: LinearMapping
+                            B<:Plan{C}} <: Operator
     dims::NTuple{N,Int}  # input/output dimensions
     zdims::NTuple{N,Int} # complex dimensions
     mtf::Array{C,N}      # modulation transfer function

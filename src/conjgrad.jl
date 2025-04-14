@@ -27,7 +27,7 @@ similar to `b` and to `x0`.
 
 Argument `A` implements the symmetric positive definite linear mapping `A`, it
 can be provided as a Julia array (interpreted as a general matrix, see
-[`GeneralMatrix`](@ref)), as an instance of [`LinearMapping`](@ref) or as a
+[`GeneralMatrix`](@ref)), as an instance of [`Operator`](@ref) or as a
 callable object (like a function) which is used as:
 
 ```julia
@@ -66,7 +66,7 @@ stored in `x` which is returned.
 
 Argument `A` implements the symmetric positive definite linear mapping `A`, it
 can be provided as a Julia array (interpreted as a general matrix, see
-[`GeneralMatrix`](@ref)), as an instance of [`LinearMapping`](@ref) or as a
+[`GeneralMatrix`](@ref)), as an instance of [`Operator`](@ref) or as a
 callable object (like a function) which is used as:
 
 ```julia
@@ -149,7 +149,7 @@ There are several keywords to control the algorithm:
 See also: [`conjgrad`][@ref).
 
 """
-conjgrad!(x, A::Union{LinearMapping,AbstractArray}, b, args...; kwds...) =
+conjgrad!(x, A::Union{Operator,AbstractArray}, b, args...; kwds...) =
     conjgrad!(x, WrappedLeftHandSideMatrix(A), b, args...; kwds...)
 
 function conjgrad!(x, A::Mapping, b, args...; kwds...)

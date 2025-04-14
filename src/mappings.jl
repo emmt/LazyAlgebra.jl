@@ -47,17 +47,17 @@ end
 # SYMBOLIC MAPPINGS (FOR TESTS)
 
 struct SymbolicMapping{T} <: Mapping end
-struct SymbolicLinearMapping{T} <: LinearMapping end
+struct SymbolicOperator{T} <: Operator end
 SymbolicMapping(id::AbstractString) = SymbolicMapping(Symbol(id))
 SymbolicMapping(id::Symbol) = SymbolicMapping{Val{id}}()
-SymbolicLinearMapping(id::AbstractString) = SymbolicLinearMapping(Symbol(id))
-SymbolicLinearMapping(x::Symbol) = SymbolicLinearMapping{Val{x}}()
+SymbolicOperator(id::AbstractString) = SymbolicOperator(Symbol(id))
+SymbolicOperator(x::Symbol) = SymbolicOperator{Val{x}}()
 
 show(io::IO, A::SymbolicMapping{Val{T}}) where {T} = print(io, T)
-show(io::IO, A::SymbolicLinearMapping{Val{T}}) where {T} = print(io, T)
+show(io::IO, A::SymbolicOperator{Val{T}}) where {T} = print(io, T)
 
 identical(::T, ::T) where {T<:SymbolicMapping} = true
-identical(::T, ::T) where {T<:SymbolicLinearMapping} = true
+identical(::T, ::T) where {T<:SymbolicOperator} = true
 
 #------------------------------------------------------------------------------
 # NON-UNIFORM SCALING
@@ -81,7 +81,7 @@ factors:
     'D') and [`diag`](@ref) (with an lowercase 'd') methods.
 
 """
-struct NonuniformScaling{T} <: LinearMapping
+struct NonuniformScaling{T} <: Operator
     diag::T
 end
 
@@ -225,11 +225,11 @@ and `v` and behaving as:
     A*x  -> vscale(vdot(v, x)), u)
     A'*x -> vscale(vdot(u, x)), v)
 
-See also: [`SymmetricRankOneOperator`](@ref), [`LinearMapping`](@ref),
+See also: [`SymmetricRankOneOperator`](@ref), [`Operator`](@ref),
           [`apply!`](@ref), [`vcreate`](@ref).
 
 """
-struct RankOneOperator{U,V} <: LinearMapping
+struct RankOneOperator{U,V} <: Operator
     u::U
     v::V
 end
@@ -285,11 +285,11 @@ and behaving as follows:
     A'*x -> A*x
     A*x  -> vscale(vdot(u, x)), u)
 
-See also: [`RankOneOperator`](@ref), [`LinearMapping`](@ref),
+See also: [`RankOneOperator`](@ref), [`Operator`](@ref),
           [`Trait`](@ref) [`apply!`](@ref), [`vcreate`](@ref).
 
 """
-struct SymmetricRankOneOperator{U} <: LinearMapping
+struct SymmetricRankOneOperator{U} <: Operator
     u::U
 end
 
@@ -347,7 +347,7 @@ axes(y)...)`.
 See also: [`reshape`](@ref).
 
 """
-struct GeneralMatrix{T<:AbstractArray} <: LinearMapping
+struct GeneralMatrix{T<:AbstractArray} <: Operator
     arr::T
 end
 
