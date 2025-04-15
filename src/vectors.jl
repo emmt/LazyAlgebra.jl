@@ -328,96 +328,107 @@ function vzeros(x)
     return vfill!(similar(x, T), one(T))
 end
 
-#------------------------------------------------------------------------------
+#-----------------------------------------------------------------------------------------
 
 """
-    vscale!(dst, α, src) -> dst
-
-overwrites `dst` with `α*src` and returns `dst`.  Computations are done at the
-numerical precision of `promote_eltype(src,dst)`.  The source argument may be
-omitted to perform *in-place* scaling:
-
     vscale!(x, α) -> x
-
-overwrites `x` with `α*x` and returns `x`.  The convention is that the result
-is zero-filled if `α=0` (whatever the values in the source).
-
-Methods are provided by default so that the order of the factor `α` and the
-source vector may be reversed:
-
-    vscale!(dst, src, α) -> dst
     vscale!(α, x) -> x
 
-See also [`vscale`](@ref), [`LinearAlgebra.rmul!](@ref).
+overwrites `x` with `α*x` and returns `x`. The convention is that `x` is zero-filled if
+`iszero(α)` holds (whatever the values of `x`) and that nothing is done if `isone(α)`
+holds. Multiplier `α` shall not have units.
+
+The method calls [`LazyAlgebra.unsafe_vscale!`](@ref) with `α` converted to a suitable
+floating-point type and only when neither `iszero(α)` nor `iszero(α)` hold.
+
+See also [`vscale`](@ref), [`vzero!`](@ref), and [`LinearAlgebra.rmul!](@ref).
 
 """
-function vscale!(dst::AbstractArray{<:Floats,N},
-                 α::Number,
-                 src::AbstractArray{<:Floats,N}) where {N}
-    if α == 1
-        vcopy!(dst, src)
-    elseif α == 0
-        axes(dst) == axes(src) || arguments_have_incompatible_axes()
-        vzero!(dst)
-    elseif α == -1
-        @inbounds @simd for i in all_indices(dst, src)
-            dst[i] = -src[i]
-        end
-    else
-        alpha = promote_multiplier(α, src)
-        @inbounds @simd for i in all_indices(dst, src)
-            dst[i] = alpha*src[i]
-        end
-    end
-    return dst
-end
-
-# In-place scaling.
-function vscale!(x::AbstractArray{<:Floats}, α::Number)
-    if α == 0
+vscale!(α::Number, x::AbstractArray) = vscale!(x, α)
+function vscale!(x::AbstractArray, α::Number)
+    alpha = convert_multiplier(α, x)
+    if iszero(alpha)
         vzero!(x)
-    elseif α == -1
-        @inbounds @simd for i in eachindex(x)
-            x[i] = -x[i]
-        end
-    elseif α != 1
-        alpha = promote_multiplier(α, x)
-        @inbounds @simd for i in eachindex(x)
-            x[i] *= alpha
-        end
+    elseif !isone(alpha)
+        unsafe_vscale!(x, alpha)
     end
     return x
 end
 
-# In-place scaling with reverse order of arguments.
-vscale!(α::Number, x) = vscale!(x, α)
+"""
+    LazyAlgebra.unsafe_vscale!(x::AbstractArray, α::Number)
 
-# Scaling for other *vector* types.
-vscale!(x, α::Number) = vscale!(x, α, x)
-vscale!(dst, src, α::Number) = vscale!(dst, α, src)
-
-# The following methods are needed to avoid looping forever.
-vscale!(::Number, ::Number) = error("bad argument types")
-vscale!(::Any, ::Number, ::Number) = error("bad argument types")
-vscale!(::Number, ::Any, ::Number) = error("bad argument types")
-vscale!(::Number, ::Number, ::Any) = error("bad argument types")
-vscale!(::Number, ::Number, ::Number) = error("bad argument types")
+scales in-place the values of `x` by the scalar `α`. This function is called by
+[`vscale!](@ref) with `α` converted to a suitable floating-point type and only when
+neither `iszero(α)` nor `iszero(α)` hold.
 
 """
-    vscale(α, x)
-
-or
-
-    vscale(x, α)
-
-yield a new *vector* whose elements are those of `x` multiplied by the scalar
-`α`.
-
-See also [`vscale!`](@ref), [`vcreate`](@ref).
+function unsafe_vscale!(x::AbstractArray, α::Number)
+    @inbounds @simd for i in eachindex(x)
+        x[i] *= α
+    end
+    nothing
+end
 
 """
-vscale(α::Number, x) = vscale!(vcreate(x), α, x)
-vscale(x, α::Number) = vscale(α, x)
+    vscale!(dst, α, src) -> dst
+
+overwrites `dst` with `α*src` and returns `dst`.
+
+See also [`vscale`](@ref), [`vcopy!`](@ref), [`LinearAlgebra.rmul!](@ref), and
+[`LazyAlgebra.vscale!`](@ref).
+
+"""
+function vscale!(dst::AbstractArray, α::Number, src::AbstractArray)
+    dst === src && return vscale!(dst, α)
+    @assert_same_axes dst src
+    alpha = convert_multiplier(α, src)
+    if iszero(alpha)
+        vzero!(dst)
+    elseif isone(alpha)
+        unsafe_vcopy!(dst, src)
+    else
+        unsafe_vscale!(dst, alpha, src)
+    end
+    return dst
+end
+
+"""
+    LazyAlgebra.unsafe_vscale!(dst::AbstractArray, α::Number, src::AbstractArray)
+
+overwrites `dst` with `α*src`. This function is called by [`vscale!](@ref) with `α`
+converted to a suitable floating-point type and only when neither `iszero(α)` nor
+`iszero(α)` hold.
+
+"""
+function unsafe_vscale!(dst::AbstractArray, α::Number, src::AbstractArray)
+    @inbounds @simd for i in eachindex(dst, src)
+        dst[i] = α*src[i]
+    end
+    nothing
+end
+
+"""
+    vscale(α::Number, x::AbstractArray)
+    vscale(x::AbstractArray, α::Number)
+
+yield a new *vector* whose elements are those of `x` multiplied by the scalar `α`.
+
+See also [`vscale!`](@ref).
+
+"""
+vscale(x::AbstractArray, α::Number) = vscale(α, x)
+function vscale(α::Number, x::AbstractArray)
+    S = multiplier_type(typeof(α), eltype(x))
+    y = similar(x, prod_type(S, eltype(x)))
+    alpha = as(S, α)
+    if iszero(alpha)
+        vzero!(y)
+    else
+        unsafe_vscale!(y, alpha, x)
+    end
+    return y
+end
 
 #------------------------------------------------------------------------------
 # ELEMENT-WISE MULTIPLICATION

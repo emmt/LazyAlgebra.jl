@@ -97,10 +97,11 @@ export
 using TypeUtils: @public
 @public convert_multiplier
 @public create_output
+@public multiplier_type
 @public unsafe_vcopy!
 @public unsafe_vdot
+@public unsafe_vscale!
 @public unsafe_vswap!
-@public multiplier_type
 using Printf
 using ArrayTools
 
