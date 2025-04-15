@@ -197,93 +197,110 @@ end
 @noinline out_of_range_selection() =
     bad_argument("some selected indices are out of range")
 
-#------------------------------------------------------------------------------
+#-----------------------------------------------------------------------------------------
 
 """
     vcopy!(dst, src) -> dst
 
-copies the contents of `src` into `dst` and returns `dst`.  This function
-checks that the copy makes sense (for instance, for array arguments, the
-`copyto!` operation does not check that the source and destination have the
-same dimensions).
+copies the contents of `src` into `dst` and returns `dst`. This function checks that the
+copy makes sense (for instance, for array arguments, the `copyto!` operation does not
+check that the source and destination have the same axes).
 
-Also see [`copyto!`](@ref), [`vcopy`](@ref), [`vswap!`](@ref).
+The method checks that its arguments have the same axes before calling
+[`LazyAlgebra.unsafe_vcopy!`](@ref) if `src` and `dst` are different objects. This latter
+method may be specialized for specific array types.
+
+See also [`copyto!`](@ref), [`vcopy`](@ref), [`vswap!`](@ref).
 
 """
-function vcopy!(dst::AbstractArray{<:Real,N},
-                src::AbstractArray{<:Real,N}) where {N}
+function vcopy!(dst::AbstractArray, x::AbstractArray)
     if dst !== src
-        axes(dst) == axes(src) || arguments_have_incompatible_axes()
-        copyto!(dst, src)
-    end
-    return dst
-end
-
-function vcopy!(dst::AbstractArray{<:Complex{<:Real},N},
-                src::AbstractArray{<:Complex{<:Real},N}) where {N}
-    if dst !== src
-        axes(dst) == axes(src) || arguments_have_incompatible_axes()
-        copyto!(dst, src)
+        @assert_same_axes dst src
+        unsafe_vcopy!(dst, src)
     end
     return dst
 end
 
 """
-    vcopy(x)
+    LazyAlgebra.unsafe_vcopy!(dst::AbstractArray, src::AbstractArray)
 
-yields a fresh copy of the *vector* `x`.  If `x` is is an array, the element
-type of the result is a floating-point type.
-
-Also see [`copy`](@ref), [`vcopy!`](@ref), [`vcreate!`](@ref).
+copies the values of `src` into `dst`. This function is only called by [`vcopy!](@ref) if
+`dst` and `src` are different objects and after having checked that `dst` and `src` do
+have the same axes.
 
 """
-vcopy(x) = vcopy!(vcreate(x), x)
+unsafe_vcopy!(dst::AbstractArray, src::AbstractArray) =
+    copyto!(dst, firstindex(dst), src, firstindex(src), length(dst))
+
+"""
+    vcopy(x::AbstractArray)
+
+yields a fresh copy of the *vector* `x`. Compared to `similar(x)`, the element type of the
+result is guaranteed to be floating-point.
+
+See also [`copy`](@ref), [`vcopy!`](@ref).
+
+"""
+vcopy(x) = unsafe_vcopy!(similar(x, float(eltype(x))), x)
 
 """
     vswap!(x, y)
 
-exchanges the contents of `x` and `y` (which must have the same element type
-and axes if they are arrays).
+exchanges the contents of `x` and `y`.
 
-Also see [`vcopy!`](@ref).
+The method checks that its arguments have the same axes before calling
+[`LazyAlgebra.unsafe_vswap!`](@ref) if `x` and `y` are different objects. This latter
+method may be specialized for specific array types.
+
+See also [`vcopy!`](@ref).
 
 """
-vswap!(x::T, y::T) where {T<:AbstractArray} =
-    x === y || _swap!(x, y)
+function vswap!(x::AbstractArray, y::AbstractArray)
+    if x !== y
+        @assert_same_axes x y
+        unsafe_vswap!(x, y)
+    end
+    return nothing
+end
 
-vswap!(x::AbstractArray{T,N}, y::AbstractArray{T,N}) where {T,N} =
-    _swap!(x, y)
+"""
+    LazyAlgebra.unsafe_vswap!(x::AbstractArray, y::AbstractArray)
 
-# Forced swapping.
-_swap!(x::AbstractArray{T,N}, y::AbstractArray{T,N}) where {T,N} =
-    @inbounds @simd for i in all_indices(x, y)
+swaps the values of `x` and `y`. This function is only called by [`vswap!](@ref) if `x`
+and `y` are different objects and after having checked that `x` and `y` do have the same
+axes.
+
+"""
+function unsafe_vswap!(x::AbstractArray, y::AbstractArray)
+    @inbounds @simd for i in eachindex(x, y)
         temp = x[i]
         x[i] = y[i]
         y[i] = temp
     end
+end
 
-#------------------------------------------------------------------------------
+#-----------------------------------------------------------------------------------------
 
 """
     vfill!(x, α) -> x
 
-sets all elements of `x` with the scalar value `α` and return `x`.  The default
-implementation just calls `fill!(x,α)` but this method may be specialized for
-specific types of variables `x`.
+sets all elements of `x` with the scalar value `α` and return `x`. The default
+implementation just calls `fill!(x, α)` but this method may be specialized for specific
+types of variables `x`.
 
-Also see [`vzero!`](@ref), [`fill!`](@ref).
+See also [`vzero!`](@ref), and [`vzeros`](@ref).
 
 """
-vfill!(x, α) = fill!(x, α)
+vfill!(x, α::Number) = fill!(x, as(eltype(x), α))
 
 """
     vzero!(x) -> x
 
-fills `x` with zeros and returns it.  The default implementation just calls
-`fill!(x,zero(eltype(x)))` but this method may be specialized for specific
-types of variables `x`.
+fills `x` with zeros and returns it. The default implementation just calls
+`fill!(x, zero(eltype(x)))` but this method may be specialized for specific types of
+variables `x`.
 
-Also see [`vfill!`](@ref).
+See also [`vfill!`](@ref).
 
 """
 vzero!(x) = vfill!(x, zero(eltype(x)))
@@ -293,21 +310,23 @@ vzero!(x) = vfill!(x, zero(eltype(x)))
 
 yields a *vector* like `x` filled with zeros.
 
-Also see [`vones`](@ref), [`vcreate`](@ref), [`vfill!`](@ref).
+See also [`vones`](@ref), [`vfill!`](@ref).
 
 """
-vzeros(x) = vzero!(vcreate(x))
+vzeros(x) = vzero!(similar(x, float(eltype(x))))
 
 """
     vones(x)
 
 yields a *vector* like `x` filled with ones.
 
-Also see [`vzeros`](@ref), [`vcreate`](@ref), [`vfill!`](@ref).
+See also [`vzeros`](@ref) and [`vfill!`](@ref).
 
 """
-vones(x) = vfill!(vcreate(x), 1)
-vones(x::AbstractArray{T}) where {T} = vfill!(vcreate(x), one(T))
+function vzeros(x)
+    T = float(eltype(x))
+    return vfill!(similar(x, T), one(T))
+end
 
 #------------------------------------------------------------------------------
 
@@ -329,7 +348,7 @@ source vector may be reversed:
     vscale!(dst, src, α) -> dst
     vscale!(α, x) -> x
 
-Also see [`vscale`](@ref), [`LinearAlgebra.rmul!](@ref).
+See also [`vscale`](@ref), [`LinearAlgebra.rmul!](@ref).
 
 """
 function vscale!(dst::AbstractArray{<:Floats,N},
@@ -394,7 +413,7 @@ or
 yield a new *vector* whose elements are those of `x` multiplied by the scalar
 `α`.
 
-Also see [`vscale!`](@ref), [`vcreate`](@ref).
+See also [`vscale!`](@ref), [`vcreate`](@ref).
 
 """
 vscale(α::Number, x) = vscale!(vcreate(x), α, x)

@@ -96,6 +96,9 @@ export
 
 using TypeUtils: @public
 @public create_output
+@public unsafe_vcopy!
+@public unsafe_vdot
+@public unsafe_vswap!
 using Printf
 using ArrayTools
 

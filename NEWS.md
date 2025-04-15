@@ -46,6 +46,14 @@ This page describes the most important changes in `LazyAlgebra`. The format is b
 - The inner product computed by `vdot` and the norms computed by `vnorm1`, `vnorm2`, and
   `vnorminf` treat complexes as usually done in linear algebra. The only difference is that
   multi-dimensional arguments are considered as *vectors*.
+
+- Most methods can be specialized for specific operator and/or array types by extending
+  the `LazyAlgebra.unsafe_$f` method that is called by method `$f` after having checked
+  that arguments have compatible axes and converted scalar multipliers (if any) to
+  suitable floating-point type without changing their units. This makes easier to
+  extend `LazyAlgebra`.
+
+
 ## Version 0.2.7 (2024-03-08)
 
 ### Fixed
