@@ -110,7 +110,7 @@ function vdot(x::AbstractArray, y::AbstractArray)
 end
 
 function vdot(w::AbstractArray, x::AbstractArray, y::AbstractArray)
-    @assert_same_axes w, x y
+    @assert_same_axes w x y
     real(eltype(w)) === eltype(w) || throw(ArgumentError("`w` shall have real-valued entries"))
     return unsafe_vdot(w, x, y)
 end
@@ -181,13 +181,13 @@ function unsafe_vdot(sel::AbstractVector{Int}, x::AbstractArray, y::AbstractArra
     # NOTE We cannot use `@simd` here due to scattering.
     s = 0*vdot(zero(eltype(x)), zero(eltype(y)))
     if IndexStyle(x, y) == IndexLinear()
-        @inbound @fastmath for i in sel
+        @inbounds @fastmath for i in sel
             i = sel[j]
             s += vdot(x[i], y[i])
         end
     else
         I = CartesianIndices(axes(x))
-        @inbound @fastmath for j in sel
+        @inbounds @fastmath for j in sel
             i = I[j]
             s += vdot(x[i], y[i])
         end
@@ -324,7 +324,7 @@ yields a *vector* like `x` filled with ones.
 See also [`vzeros`](@ref) and [`vfill!`](@ref).
 
 """
-function vzeros(x)
+function vones(x)
     T = float(eltype(x))
     return vfill!(similar(x, T), one(T))
 end
@@ -443,7 +443,7 @@ See also [`vproduct!`](@ref) and [`LazyAlgebra.unsafe_vproduct`](@ref).
 
 """
 function vproduct(x::AbstractArray{<:Any,N},
-                  y::AbstractArray{<:Any,N})
+                  y::AbstractArray{<:Any,N}) where {N}
     @assert_same_axes x y
     T = prod_type(eltype(x), eltype(y))
     dst = similar(x, T)
@@ -505,12 +505,12 @@ function unsafe_vproduct!(dst::AbstractArray{<:Any,N},
                           y::AbstractArray{<:Any,N}) where {N}
     # NOTE We cannot use `@simd` here due to scattering.
     if IndexStyle(dst, x, y) == IndexLinear()
-        @inbound @fastmath for i in sel
+        @inbounds @fastmath for i in sel
             dst[i] = x[i]*y[i]
         end
     else
         I = CartesianIndices(axes(dst))
-        @inbound @fastmath for j in sel
+        @inbounds @fastmath for j in sel
             i = I[j]
             dst[i] = x[i]*y[i]
         end
@@ -524,63 +524,104 @@ end
 """
     vupdate!(y, [sel,] α, x) -> y
 
-overwrites `y` with `α*x + y` and returns `y`.  The code is optimized for some
-specific values of the multiplier `α`.  For instance, if `α` is zero, then `y`
-is left unchanged without using `x`.  Computations are performed at the
-numerical precision of `promote_eltype(x,y)`.
+overwrites `y` with `α*x + y` and returns `y`. The code is optimized for some specific
+values of the multiplier `α`. For instance, if `α` is zero, then `y` is left unchanged
+without using `x`.
 
-Optional argument `sel` is a selection of indices to which apply the operation.
-Note that if an index is repeated, the operation will be performed several
-times at this location.
+Optional argument `sel` is a selection of indices to which apply the operation. Note that
+if an index is repeated, the operation will be performed several times at this location.
 
-See also: [`vscale!`](@ref), [`vcombine!](@ref).
+See also [`vscale!`](@ref), [`vcombine!](@ref), and [`LazyAlgebra.unsafe_vupdate!](@ref).
 
 """
-function vupdate!(y::AbstractArray{<:Number,N},
+function vupdate!(y::AbstractArray{<:Any,N},
                   α::Number,
-                  x::AbstractArray{<:Number,N}) where {N}
-    axes(x) == axes(y) || arguments_have_incompatible_axes()
-    if α == 1
-        @inbounds @simd for i in eachindex(x, y)
-            y[i] += x[i]
-        end
-    elseif α == -1
-        @inbounds @simd for i in eachindex(x, y)
-            y[i] -= x[i]
-        end
-    elseif α != 0
-        alpha = convert_multiplier(α, x)
-        @inbounds @simd for i in eachindex(x, y)
-            y[i] += alpha*x[i]
-        end
-    end
+                  x::AbstractArray{Tx,N}) where {Tx,N}
+    @assert_same_axes x y
+    alpha = convert_multiplier(α, Tx)
+    iszero(alpha) || unsafe_vupdate!(y, sel, alpha, x)
     return y
 end
 
-function vupdate!(y::AbstractArray{<:Floats,N},
+function vupdate!(y::AbstractArray{<:Any,N},
                   sel::AbstractVector{Int},
                   α::Number,
-                  x::AbstractArray{<:Floats,N}) where {N}
-    if checkselection(sel, x, y)
-        if α == 1
-            @inbounds @simd for j in eachindex(sel)
-                i = sel[j]
+                  x::AbstractArray{Tx,N}) where {Tx,N}
+    @assert_same_axes x y
+    imin, imax = extrema(sel)
+    ((firstindex(x) ≤ imin) & (imax ≤ lastindex(x))) || out_of_range_selection()
+    alpha = convert_multiplier(α, Tx)
+    iszero(alpha) || unsafe_vupdate!(y, sel, alpha, x)
+    return y
+end
+
+"""
+    LazyAlgebra.unsafe_vupdate!(y, [sel,] α, x)
+
+This method is called by [`vupdate!`](@ref) to overwrites `y` with `α*x + y` after
+checking that `@inbounds` can be assumed for this computation and only is `iszero(α)` does
+not hold.
+
+"""
+function unsafe_vupdate!(y::AbstractArray{<:Any,N},
+                         α::Number,
+                         x::AbstractArray{<:Any,N}) where {N}
+
+    if α == one(α)
+        @inbounds @fastmath @simd for i in eachindex(x, y)
+            y[i] += x[i]
+        end
+    elseif α == -one(α)
+        @inbounds @fastmath @simd for i in eachindex(x, y)
+            y[i] -= x[i]
+        end
+    else # we know that `α != zero(α)`
+        @inbounds @inbounds @simd for i in eachindex(x, y)
+            y[i] += α*x[i]
+        end
+    end
+    nothing
+end
+
+function unsafe_vupdate!(y::AbstractArray{<:Any,N},
+                         sel::AbstractVector{Int},
+                         α::Number,
+                         x::AbstractArray{<:Any,N}) where {N}
+    # NOTE We cannot use `@simd` here due to scattering.
+    if IndexStyle(x, y) == IndexLinear()
+        if α == one(α)
+            @inbounds @fastmath for i in sel
                 y[i] += x[i]
             end
-        elseif α == -1
-            @inbounds @simd for j in eachindex(sel)
-                i = sel[j]
+        elseif α == -one(α)
+            @inbounds @fastmath for i in sel
                 y[i] -= x[i]
             end
-        elseif α != 0
-            alpha = convert_multiplier(α, x)
-            @inbounds @simd for j in eachindex(sel)
-                i = sel[j]
-                y[i] += alpha*x[i]
+        else # we know that `α != zero(α)`
+            @inbounds @fastmath for i in sel
+                y[i] += α*x[i]
+            end
+        end
+    else
+        I = CartesianIndices(axes(x))
+        if α == one(α)
+            @inbounds @fastmath for j in sel
+                i = I[j]
+                y[i] += x[i]
+            end
+        elseif α == -one(α)
+            @inbounds @fastmath for j in sel
+                i = I[j]
+                y[i] -= x[i]
+            end
+        else # we know that `α != zero(α)`
+            @inbounds @fastmath for j in sel
+                i = I[j]
+                y[i] += α*x[i]
             end
         end
     end
-    return y
+    nothing
 end
 
 

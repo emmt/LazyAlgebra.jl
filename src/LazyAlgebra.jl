@@ -104,6 +104,7 @@ using TypeUtils: @public
 @public unsafe_vproduct!
 @public unsafe_vscale!
 @public unsafe_vswap!
+@public unsafe_vupdate!
 using Printf
 using ArrayTools
 
