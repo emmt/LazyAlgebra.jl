@@ -360,7 +360,7 @@ end
 
 scales in-place the values of `x` by the scalar `α`. This function is called by
 [`vscale!](@ref) with `α` converted to a suitable floating-point type and only when
-neither `iszero(α)` nor `iszero(α)` hold.
+neither `iszero(α)` nor `isone(α)` hold.
 
 """
 function unsafe_vscale!(x::AbstractArray, α::Number)
@@ -398,7 +398,7 @@ end
 
 overwrites `dst` with `α*src`. This function is called by [`vscale!](@ref) with `α`
 converted to a suitable floating-point type and only when neither `iszero(α)` nor
-`iszero(α)` hold.
+`isone(α)` hold.
 
 """
 function unsafe_vscale!(dst::AbstractArray, α::Number, src::AbstractArray)
@@ -485,7 +485,7 @@ end
 
 @doc @doc(vproduct) vproduct!
 
-#------------------------------------------------------------------------------
+#-----------------------------------------------------------------------------------------
 # VECTOR UPDATE
 
 """
@@ -551,98 +551,131 @@ function vupdate!(y::AbstractArray{<:Floats,N},
 end
 
 
-#------------------------------------------------------------------------------
+#-----------------------------------------------------------------------------------------
 # LINEAR COMBINATION
 
 """
-    vcombine(α, x, β, y) -> dst
+    vcombine(α, x, β, y) -> z
 
-yields the linear combination `dst = α*x + β*y`.
+yields the linear combination `z = α*x + β*y`.
 
-----
+See also [`vcombine!`](@ref), [`vscale!`](@ref), [`vupdate!](@ref), and
+[`LazyAlgebra.vcombine!](@ref).
 
-To avoid allocating the result, the destination array `dst` can be specified
-with the in-place version of the method:
+"""
+function vcombine(α::Number, x::AbstractArray{Tx,N},
+                  β::Number, y::AbstractArray{Ty,N}) where {Tx,Ty,N}
+    @assert_same_axes x y
+    a = convert_multiplier(α, Tx)
+    b = convert_multiplier(β, Ty)
+    T = sum_type(prod_type(typeof(a), Tx), prod_type(typeof(b), Ty))
+    return _vcombine!(similar(x, T), a, x, b, y)
+end
 
+
+"""
     vcombine!(dst, α, x, β, y) -> dst
 
-The code is optimized for some specific values of the multipliers `α` and `β`.
-For instance, if `α` (resp. `β`) is zero, then the prior contents of `x`
-(resp. `y`) is not used.
+overwrites `dst` with the linear combination `α*x + β*y`.
 
-The source(s) and the destination can be the same.  For instance, the two
-following lines of code produce the same result:
+The code is optimized for some specific values of the multipliers `α` and `β`. For
+instance, if `α` (resp. `β`) is zero, then the prior contents of `x` (resp. `y`) is not
+used.
+
+The source(s) and the destination can be the same. For instance, the two following lines
+of code produce the same result:
 
     vcombine!(dst, 1, dst, α, x)
     vupdate!(dst, α, x)
 
-See also: [`vscale!`](@ref), [`vupdate!](@ref).
+See also [`vcombine`](@ref), [`vscale!`](@ref), [`vupdate!](@ref), and
+[`LazyAlgebra.vcombine!](@ref).
 
 """
-vcombine(α::Number, x::V, β::Number, y::V) where {V} =
-    vcombine!(vcreate(x), α, x, β, y)
+function vcombine!(dst::AbstractArray{<:Any,N},
+                   α::Number, x::AbstractArray{Tx,N},
+                   β::Number, y::AbstractArray{Ty,N}) where {Tx,Ty,N}
+    @assert_same_axes dst x y
+    return _vcombine!(dst, convert_multiplier(α, Tx), x, convert_multiplier(β, Ty), y)
+end
 
-function vcombine!(dst::AbstractArray{<:Number,N},
-                   α::Number, x::AbstractArray{<:Number,N},
-                   β::Number, y::AbstractArray{<:Number,N}) where {N}
-    axes(dst) == axes(x) == axes(y) || arguments_have_incompatible_axes()
-    if α == 0
-        if β == 0
-            vzero!(dst)
-        elseif β == 1
-            _vcombine!(dst, axpby_yields_y,     0,x, 1,y)
-        elseif β == -1
-            _vcombine!(dst, axpby_yields_my,    0,x,-1,y)
+function _vcombine!(dst::AbstractArray{<:Any,N},
+                    α::Number, x::AbstractArray{<:Any,N},
+                    β::Number, y::AbstractArray{<:Any,N}) where {N}
+    c = ifelse(iszero(α), 1, 0) | ifelse(iszero(β), 2, 0)
+    if c == 0 # neither of `α` and `β` is 0
+        unsafe_vcombine!(dst, α, x, β, y)
+    elseif c == 2 # `β = 0` and `α` is not 0
+        if isone(α)
+            unsafe_vcopy!(dst, x)
         else
-            b = convert_multiplier(β, y)
-            _vcombine!(dst, axpby_yields_by,    0,x, b,y)
+            unsafe_vscale!(dst, α, x)
         end
-    elseif α == 1
-        if β == 0
-            _vcombine!(dst, axpby_yields_x,     1,x, 0,y)
-        elseif β == 1
-            _vcombine!(dst, axpby_yields_xpy,   1,x, 1,y)
-        elseif β == -1
-            _vcombine!(dst, axpby_yields_xmy,   1,x,-1,y)
+    elseif c == 1 # `α = 0` and `β` is not 0
+        if isone(β)
+            unsafe_vcopy!(dst, y)
         else
-            b = convert_multiplier(β, y)
-            _vcombine!(dst, axpby_yields_xpby,  1,x, b,y)
+            unsafe_vscale!(dst, β, y)
         end
-    elseif α == -1
-        if β == 0
-            _vcombine!(dst, axpby_yields_mx,   -1,x, 0,y)
-        elseif β == 1
-            _vcombine!(dst, axpby_yields_ymx,  -1,x, 1,y)
-        elseif β == -1
-            _vcombine!(dst, axpby_yields_mxmy, -1,x,-1,y)
-        else
-            b = convert_multiplier(β, y)
-            _vcombine!(dst, axpby_yields_bymx, -1,x, b,y)
-        end
-    else
-        a = convert_multiplier(α, x)
-        if β == 0
-            _vcombine!(dst, axpby_yields_ax,    a,x, 0,y)
-        elseif β == 1
-            _vcombine!(dst, axpby_yields_axpy,  a,x, 1,y)
-        elseif β == -1
-            _vcombine!(dst, axpby_yields_axmy,  a,x,-1,y)
-        else
-            b = convert_multiplier(β, y)
-            _vcombine!(dst, axpby_yields_axpby, a,x, b,y)
-        end
+    else # `α = 0` and `β = 0`
+        vzero!(dst)
     end
     return dst
 end
 
-function _vcombine!(dst::AbstractArray{<:Number,N},
-                    f::Function,
-                    α::Number, x::AbstractArray{<:Number,N},
-                    β::Number, y::AbstractArray{<:Number,N}) where {N}
-    @inbounds @simd for i in eachindex(dst, x, y)
-        dst[i] = f(α, x[i], β, y[i])
+"""
+    LazyAlgebra.unsafe_vcombine!(dst::AbstractArray,
+                                 α::Number, x::AbstractArray,
+                                 β::Number, y::AbstractArray)
+
+overwrites `dst` with `α*x + β*y`. This function is called by [`vcombine](@ref) or
+[`vcombine!](@ref) after checking that `dst`, `x`, and `y` have the same axes, with `α`
+and `β` converted to suitable floating-point types and only when neither `iszero(α)` nor
+`iszero(β)` hold.
+
+"""
+function unsafe_vcombine!(dst::AbstractArray{<:Any,N},
+                          α::Number, x::AbstractArray{Tx,N},
+                          β::Number, y::AbstractArray{Ty,N}) where {Tx,Ty,N}
+    # We know that neither `α` nor `β` is zero.
+    if α == one(α)
+        if β == one(β)
+            @inbounds @fastmath @simd for i in eachindex(dst, x, y)
+                dst[i] = x[i] + y[i]
+            end
+        elseif β == -one(β)
+            @inbounds @fastmath @simd for i in eachindex(dst, x, y)
+                dst[i] = x[i] - y[i]
+            end
+        else
+            @inbounds @fastmath @simd for i in eachindex(dst, x, y)
+                dst[i] = β*y[i] + x[i]
+            end
+        end
+    elseif α == -one(α)
+        if β == one(β)
+            @inbounds @fastmath @simd for i in eachindex(dst, x, y)
+                dst[i] = y[i] - x[i]
+            end
+        else
+            @inbounds @fastmath @simd for i in eachindex(dst, x, y)
+                dst[i] = β*y[i] - x[i]
+            end
+        end
+    else
+        if β == one(β)
+            @inbounds @fastmath @simd for i in eachindex(dst, x, y)
+                dst[i] = α*x[i] + y[i]
+            end
+        elseif β == -one(β)
+            @inbounds @fastmath @simd for i in eachindex(dst, x, y)
+                dst[i] = α*x[i] - y[i]
+            end
+        else
+            @inbounds @fastmath @simd for i in eachindex(dst, x, y)
+                dst[i] = α*x[i] + β*y[i]
+            end
+        end
     end
+    return dst
 end
-
-
-@doc @doc(vcombine) vcombine!
