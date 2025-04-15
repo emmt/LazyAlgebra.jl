@@ -178,17 +178,17 @@ function vdot(sel::AbstractVector{Int}, x::AbstractArray, y::AbstractArray)
 end
 
 function unsafe_vdot(sel::AbstractVector{Int}, x::AbstractArray, y::AbstractArray)
-    # NOTE Cannot use `@simd` here due to scattering.
+    # NOTE We cannot use `@simd` here due to scattering.
     s = 0*vdot(zero(eltype(x)), zero(eltype(y)))
     if IndexStyle(x, y) == IndexLinear()
-        @inbound @fastmath for j in eachindex(sel)
+        @inbound @fastmath for i in sel
             i = sel[j]
             s += vdot(x[i], y[i])
         end
     else
         I = CartesianIndices(axes(x))
-        @inbound @fastmath for j in eachindex(sel)
-            i = I[sel[j]]
+        @inbound @fastmath for j in sel
+            i = I[j]
             s += vdot(x[i], y[i])
         end
     end
@@ -503,16 +503,15 @@ function unsafe_vproduct!(dst::AbstractArray{<:Any,N},
                           sel::AbstractVector{Int},
                           x::AbstractArray{<:Any,N},
                           y::AbstractArray{<:Any,N}) where {N}
-    # NOTE Cannot use `@simd` here due to scattering.
+    # NOTE We cannot use `@simd` here due to scattering.
     if IndexStyle(dst, x, y) == IndexLinear()
-        @inbound @fastmath for j in eachindex(sel)
-            i = sel[j]
+        @inbound @fastmath for i in sel
             dst[i] = x[i]*y[i]
         end
     else
         I = CartesianIndices(axes(dst))
-        @inbound @fastmath for j in eachindex(sel)
-            i = I[sel[j]]
+        @inbound @fastmath for j in sel
+            i = I[j]
             dst[i] = x[i]*y[i]
         end
     end
@@ -711,5 +710,5 @@ function unsafe_vcombine!(dst::AbstractArray{<:Any,N},
             end
         end
     end
-    return dst
+    nothing
 end
