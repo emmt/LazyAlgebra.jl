@@ -20,12 +20,48 @@ export
     lgemv
 
 using ..LazyAlgebra
-using ..LazyAlgebra: Complexes, Floats, Reals, axes, promote_multiplier,
+using ..LazyAlgebra: axes, promote_multiplier,
     libblas, @blasfunc, BlasInt, BlasReal, BlasFloat, BlasComplex,
     bad_argument, bad_size
 using ArrayTools  # for `cartesian_indices`, `is_flat_array`, etc.
 using LinearAlgebra
 using LinearAlgebra.BLAS
+
+"""
+    Reals
+
+is the set of the floating point types. It is the numerical approximation of
+reals in the mathematical sense.
+
+This definition closely follows the semantic used in the BLAS module that
+`BlasReal` are all the real types supported by the BLAS library.
+
+"""
+const Reals = AbstractFloat
+
+"""
+    Complexes
+
+is the set of the complexes whose real and imaginary parts are floating point.
+It is the numerical approximation of complexes in the mathematical sense.
+
+This definition closely follows the semantic used in the BLAS module that
+`BlasComplex` are all the complex types supported by the BLAS library.
+
+"""
+const Complexes = Complex{<:Reals}
+
+"""
+    Floats
+
+is the union of all floating-point types (reals and complexes).
+
+This definition closely follows the semantic used in the BLAS module that
+`BlasFloat` are all floating-point types supported by the BLAS library.
+
+"""
+const Floats = Union{Reals,Complexes}
+
 
 """
 
