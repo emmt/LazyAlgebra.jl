@@ -14,7 +14,7 @@
 #
 
 """
-    vnorm1([T,] x)
+    vnorm1([T::Type,] x)
 
 yields the 1-norm of `x` treated as a *vector*, that is the sum of the absolute values of
 the elements of `x`. An equivalent formulation is:
@@ -37,7 +37,7 @@ end
 vmorm1(x::Number) = abs(x)
 
 """
-    vnorm2([T,] x)
+    vnorm2([T::Type,] x)
 
 yields the Euclidean norm of `x` treated as a *vector*, that is the square root of the sum
 of the squared absolute values of the elements of `x`. An equivalent formulation is:
@@ -61,14 +61,14 @@ end
 vmorm2(x::Number) = abs(x)
 
 """
-    vnorminf([T,] x)
+    vnorminf([T::Type,] x)
 
 yields the infinite-norm of `x` treated as a *vector*, that is the maximum absolute value
 of the elements of `x`. An equivalent formulation is:
 
     mapreduce(abs, max, x)
 
-The floating-point type of the result can be imposed by optional argument `T`.
+Optional argument `T` is to specify the floating-point type of the result.
 
 See also [`vnorm1`](@ref) and [`vnorm2`](@ref).
 
@@ -89,6 +89,113 @@ for func in (:vnorm2, :vnorm1, :vnorminf)
     @eval $func(::Type{T}, x) where {T<:AbstractFloat} =
         convert_floating_point_type(T, $func(x))
 end
+
+#-----------------------------------------------------------------------------------------
+# INNER PRODUCT
+
+"""
+     vdot([T::Type,] [w::AbstractArray,] x::AbstractArray, y::AbstractArray)
+
+yields the inner product of `w`, `x`, and `y` treated as *vectors*; that is, the sum of
+`conj(x[i])*y[i]` or, if `w` is specified, the sum of `w[i]*conj(x[i])*y[i]` (`w` shall
+have real-valued elements), for all indices `i`. Optional argument `T` is to impose the
+floating-point type of the result.
+
+See also [`LazyAlgebra.unsafe_vdot`](@ref).
+
+"""
+function vdot(x::AbstractArray, y::AbstractArray)
+    @assert_same_axes x y
+    return unsafe_vdot(x, y)
+end
+
+function vdot(w::AbstractArray, x::AbstractArray, y::AbstractArray)
+    @assert_same_axes w, x y
+    real(eltype(w)) === eltype(w) || throw(ArgumentError("`w` shall have real-valued entries"))
+    return unsafe_vdot(w, x, y)
+end
+
+@inline vdot(::Type{T}, args...) where {T<:AbstractFloat} =
+    convert_floating_point_type(T, vdot(args...))
+
+"""
+    vdot([w::Real,] x::Union{Real,Complex}, y::Union{Real,Complex})
+
+yields the inner product of `w`, `x`, and `y` both treated as 1-element *vectors*; that
+is, `conj(x)*y` or, if `w` is specified, the `w*conj(x)*y` (`w` shall have real-valued
+elements). This method is intended to be called by [`LazyAlgebra.unsafe_vdot`](@ref) on
+the entries of its input *vectors*. This method may be extended for specific number types.
+
+See also [`LazyAlgebra.vdot`](@ref).
+
+"""
+vdot(x::Real,    y::Real   ) = x*y
+vdot(x::Real,    y::Complex) = x*real(y)
+vdot(x::Complex, y::Real   ) = real(x)*y
+vdot(x::Complex, y::Complex) = conj(x)*y
+
+vdot(w::Real, x::Real,    y::Real   ) = w*x*y
+vdot(w::Real, x::Real,    y::Complex) = w*x*real(y)
+vdot(w::Real, x::Complex, y::Real   ) = w*real(x)*y
+vdot(w::Real, x::Complex, y::Complex) = w*conj(x)*y
+
+"""
+    LazyAlgebra.unsafe_vdot([w::AbstractArray,] x::AbstractArray, y::AbstractArray)
+
+yields the scalar product of `x` by `y` both treated as *vectors*. This method is called
+by [`LazyAlgebra.vdot`](@ref) when `axes(x) == axes(y)` holds. This method may be extended
+for specific array types.
+
+"""
+function unsafe_vdot(x::AbstractArray, y::AbstractArray)
+    s = 0*vdot(zero(eltype(x)), zero(eltype(y)))
+    @inbounds @fastmath for i in eachindex(x, y)
+        s += vdot(x[i], y[i])
+    end
+    return s
+end
+
+function unsafe_vdot(w::AbstractArray, x::AbstractArray, y::AbstractArray)
+    s = 0*vdot(zero(eltype(w)), zero(eltype(x)), zero(eltype(y)))
+    @inbounds @fastmath for i in eachindex(w, x, y)
+        s += vdot(w[i], x[i], y[i])
+    end
+    return s
+end
+
+"""
+    vdot([T,] sel::AbstractVector{Int}, x::AbstractArray, y::AbstractArray)
+
+yields the inner product of `x` and `y` restricted to the indices in `sel`; that is, the
+sum of `vdot(x[i], y[i])` for all `i ∈ sel`.
+
+"""
+function vdot(sel::AbstractVector{Int}, x::AbstractArray, y::AbstractArray)
+    @assert_same_axes x y
+    imin, imax = extrema(sel)
+    ((firstindex(x) ≤ imin) & (imax ≤ lastindex(x))) || out_of_range_selection()
+    return unsafe_vdot(sel, x, y)
+end
+
+function unsafe_vdot(sel::AbstractVector{Int}, x::AbstractArray, y::AbstractArray)
+    s = 0*vdot(zero(eltype(x)), zero(eltype(y)))
+    if IndexStyle(x, y) == IndexLinear()
+        @inbound @fastmath for j in eachindex(sel)
+            i = sel[j]
+            s += vdot(x[i], y[i])
+        end
+    else
+        I = CartesianIndices(axes(x))
+        @inbound @fastmath for j in eachindex(sel)
+            i = I[sel[j]]
+            s += vdot(x[i], y[i])
+        end
+    end
+    return s
+end
+
+@noinline out_of_range_selection() =
+    bad_argument("some selected indices are out of range")
 
 #------------------------------------------------------------------------------
 
@@ -509,211 +616,3 @@ end
 
 
 @doc @doc(vcombine) vcombine!
-
-#------------------------------------------------------------------------------
-# INNER PRODUCT
-
-"""
-    vdot([T,] [w,] x, y)
-
-yields the inner product of `x` and `y`; that is, the sum of `conj(x[i])*y[i]`
-or, if `w` is specified, the sum of `w[i]*conj(x[i])*y[i]` (`w` must have
-real-valued elements), for all indices `i`.  Optional argument `T` is the
-floating point type of the result.
-
-Another possibility is:
-
-    vdot([T,] sel, x, y)
-
-with `sel` a selection of indices to restrict the computation of the inner
-product to some selected elements.  This yields the sum of `x[i]*y[i]` for all
-`i ∈ sel`.
-
-If the arguments have complex-valued elements and `T` is specified as a
-floating-point type, complexes are considered as vectors of pairs of reals and
-the result is:
-
-    vdot(T::Type{AbstractFloat}, x, y)
-    -> ((x[1].re*y[1].re + x[1].im*y[1].im) +
-        (x[2].re*y[2].re + x[2].im*y[2].im) + ...)
-
-"""
-vdot(::Type{T}, x, y) where {T<:AbstractFloat} = convert(T,vdot(x,y))::T
-vdot(::Type{T}, w, x, y) where {T<:AbstractFloat} = convert(T,vdot(w,x,y))::T
-
-function vdot(x::AbstractArray{<:AbstractFloat,N},
-              y::AbstractArray{<:AbstractFloat,N}) where {N}
-    s = zero(promote_eltype(x, y))
-    @inbounds @simd for i in all_indices(x, y)
-        s += x[i]*y[i]
-    end
-    return s
-end
-
-function vdot(x::AbstractArray{<:Complex{<:AbstractFloat},N},
-              y::AbstractArray{<:Complex{<:AbstractFloat},N}) where {N}
-    s = zero(promote_eltype(x, y))
-    @inbounds @simd for i in all_indices(x, y)
-        s += conj(x[i])*y[i]
-    end
-    return s
-end
-
-# This one yields the real part of the dot product, just as if complexes were
-# pairs of reals.
-function vdot(T::Type{<:AbstractFloat},
-              x::AbstractArray{<:Complex{<:AbstractFloat},N},
-              y::AbstractArray{<:Complex{<:AbstractFloat},N}) where {N}
-    s = zero(real(promote_eltype(x, y)))
-    @inbounds @simd for i in all_indices(x, y)
-        xi = x[i]
-        yi = y[i]
-        s += real(xi)*real(yi) + imag(xi)*imag(yi)
-    end
-    return convert(T, s)::T
-end
-
-function vdot(T::Type{Complex{<:AbstractFloat}},
-              x::AbstractArray{<:Complex{<:AbstractFloat},N},
-              y::AbstractArray{<:Complex{<:AbstractFloat},N}) where {N}
-    return convert(T, vdot(x, y))::T
-end
-
-function vdot(w::AbstractArray{<:AbstractFloat,N},
-              x::AbstractArray{<:AbstractFloat,N},
-              y::AbstractArray{<:AbstractFloat,N}) where {N}
-    s = zero(promote_eltype(w, x, y))
-    @inbounds @simd for i in all_indices(w, x, y)
-        s += w[i]*x[i]*y[i]
-    end
-    return s
-end
-
-function vdot(T::Type{<:AbstractFloat},
-              w::AbstractArray{<:AbstractFloat,N},
-              x::AbstractArray{<:AbstractFloat,N},
-              y::AbstractArray{<:AbstractFloat,N}) where {N}
-    return convert(T, vdot(w, x, y))::T
-end
-
-function vdot(w::AbstractArray{<:AbstractFloat,N},
-              x::AbstractArray{<:Complex{<:AbstractFloat},N},
-              y::AbstractArray{<:Complex{<:AbstractFloat},N}) where {N}
-    s = zero(promote_eltype(w, x, y))
-    @inbounds @simd for i in all_indices(w, x, y)
-        s += w[i]*conj(x[i])*y[i]
-    end
-    return s
-end
-
-function vdot(T::Type{<:AbstractFloat},
-              w::AbstractArray{<:AbstractFloat,N},
-              x::AbstractArray{<:Complex{<:AbstractFloat},N},
-              y::AbstractArray{<:Complex{<:AbstractFloat},N}) where {N}
-    s = zero(real(promote_eltype(w, x, y)))
-    @inbounds @simd for i in all_indices(w, x, y)
-        xi = x[i]
-        yi = y[i]
-        s += (real(xi)*real(yi) + imag(xi)*imag(yi))*w[i]
-    end
-    return convert(T, s)::T
-end
-
-function vdot(T::Type{Complex{<:AbstractFloat}},
-              w::AbstractArray{<:AbstractFloat,N},
-              x::AbstractArray{<:Complex{<:AbstractFloat},N},
-              y::AbstractArray{<:Complex{<:AbstractFloat},N}) where {N}
-    return convert(T, vdot(w, x, y))::T
-end
-
-function vdot(sel::AbstractVector{Int},
-              x::AbstractArray{<:AbstractFloat,N},
-              y::AbstractArray{<:AbstractFloat,N}) where {N}
-    s = zero(promote_eltype(x, y))
-    if checkselection(sel, x, y)
-        @inbounds @simd for j in eachindex(sel)
-            i = sel[j]
-            s += x[i]*y[i]
-        end
-    end
-    return s
-end
-
-function vdot(T::Type{<:AbstractFloat},
-              sel::AbstractVector{Int},
-              x::AbstractArray{<:AbstractFloat,N},
-              y::AbstractArray{<:AbstractFloat,N}) where {N}
-    return convert(T, vdot(sel, x, y))::T
-end
-
-function vdot(sel::AbstractVector{Int},
-              x::AbstractArray{<:Complex{<:AbstractFloat},N},
-              y::AbstractArray{<:Complex{<:AbstractFloat},N}) where {N}
-    s = zero(promote_eltype(x, y))
-    if checkselection(sel, x, y)
-        @inbounds @simd for j in eachindex(sel)
-            i = sel[j]
-            s += conj(x[i])*y[i]
-        end
-    end
-    return s
-end
-
-function vdot(T::Type{<:AbstractFloat},
-              sel::AbstractVector{Int},
-              x::AbstractArray{<:Complex{<:AbstractFloat},N},
-              y::AbstractArray{<:Complex{<:AbstractFloat},N}) where {N}
-    s = zero(real(promote_eltype(x, y)))
-    if checkselection(sel, x, y)
-        @inbounds @simd for j in eachindex(sel)
-            i = sel[j]
-            xi = x[i]
-            yi = y[i]
-            s += real(xi)*real(yi) + imag(xi)*imag(yi)
-        end
-    end
-    return convert(T, s)::T
-end
-
-function vdot(T::Type{Complex{<:AbstractFloat}},
-              sel::AbstractVector{Int},
-              x::AbstractArray{<:Complex{<:AbstractFloat},N},
-              y::AbstractArray{<:Complex{<:AbstractFloat},N}) where {N}
-    return convert(T, vdot(sel, x, y))::T
-end
-
-# Check compatibility os selected indices with other specifed array(s) and
-# return whether the selection is non-empty.
-@inline function checkselection(sel::AbstractVector{Int},
-                                A::AbstractArray{<:Any,N}) where {N}
-    @certify IndexStyle(sel) === IndexLinear()
-    @certify IndexStyle(A) === IndexLinear()
-    flag = !isempty(sel)
-    if flag
-        imin, imax = extrema(sel)
-        I = eachindex(IndexLinear(), A)
-        ((first(I) ≤ imin) & (imax ≤ last(I))) || out_of_range_selection()
-    end
-    return flag
-end
-
-@inline function checkselection(sel::AbstractVector{Int},
-                                A::AbstractArray{<:Any,N},
-                                B::AbstractArray{<:Any,N}) where {N}
-    @certify IndexStyle(B) === IndexLinear()
-    axes(A) == axes(B) || arguments_have_incompatible_axes()
-    checkselection(sel, A)
-end
-
-@inline function checkselection(sel::AbstractVector{Int},
-                                A::AbstractArray{<:Any,N},
-                                B::AbstractArray{<:Any,N},
-                                C::AbstractArray{<:Any,N}) where {N}
-    @certify IndexStyle(B) === IndexLinear()
-    @certify IndexStyle(C) === IndexLinear()
-    axes(A) == axes(B) == axes(C) || arguments_have_incompatible_axes()
-    checkselection(sel, A)
-end
-
-@noinline out_of_range_selection() =
-    bad_argument("some selected indices are out of range")

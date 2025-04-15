@@ -42,6 +42,10 @@ This page describes the most important changes in `LazyAlgebra`. The format is b
   `DimensionMismatch` exception if the dimensions or axes of `x` are not compatible with
   `A` so that `@inbounds` can be assumed by `apply!` for computing `α*A*x + β*y`.
 
+
+- The inner product computed by `vdot` and the norms computed by `vnorm1`, `vnorm2`, and
+  `vnorminf` treat complexes as usually done in linear algebra. The only difference is that
+  multi-dimensional arguments are considered as *vectors*.
 ## Version 0.2.7 (2024-03-08)
 
 ### Fixed
