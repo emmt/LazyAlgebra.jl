@@ -77,7 +77,6 @@ export
     vcombine,
     vcopy!,
     vcopy,
-    vcreate,
     vdot,
     vfill!,
     vmul!,
@@ -95,6 +94,8 @@ export
     vzero!,
     vzeros
 
+using TypeUtils: @public
+@public create_output
 using Printf
 using ArrayTools
 

@@ -1,15 +1,53 @@
 #
 # methods.jl -
 #
-# Implement non-specific methods for mappings.
+# Implement non-specific methods for operators.
 #
-#-------------------------------------------------------------------------------
+#-----------------------------------------------------------------------------------------
 #
 # This file is part of LazyAlgebra (https://github.com/emmt/LazyAlgebra.jl)
 # released under the MIT "Expat" license.
 #
-# Copyright (c) 2017-2021 Éric Thiébaut.
+# Copyright (c) 2017-2025, Éric Thiébaut.
 #
+
+"""
+    y = LazyAlgebra.create_output([α::Number,] A::Operator, x::AbstractArray)
+
+creates an array `y` to store the result of `A*x` or of `α*A*x` if the multiplier `α` is
+specified. In this latter case, it shall be assumed that `α` has been already converted
+by [`LazyAlgebra.promote_multiplier`](@ref).
+
+The method may be specialized in the operator type. The default implementations are:
+
+```julia
+create_output(A::Operator, x::AbstractArray) =
+    new_array(output_eltype(A, x), output_axes(A, x))
+
+create_output(α::Number, A::Operator, x::AbstractArray) =
+    new_array(output_eltype(α, A, x), output_axes(A, x))
+```
+
+where the `new_array` method is taken from the `TypeUtils` package. Hence, by default, if
+`LazyAlgebra.output_axes(A, x)` yields a tuple consisting of `Base.OneTo` instances, an
+array of type `Array` with 1-based indices is returned; otherwise, an `OffsetArray` is
+returned.
+
+!!! warning
+    This method is called by [`LazyAlgebra.apply`](@ref) to create its output before
+    calling [`LazyAlgebra.unsafe_apply!`](@ref) assuming that `x` and `y` have correct
+    indices to compute `A*x` and store the result in `y`. Hence, it is important that any
+    specialization of `LazyAlgebra.create_output` throws an exception if the axes of `x`
+    are not valid.
+
+See also [`LazyAlgebra.output_axes`](@ref) and [`LazyAlgebra.output_eltype`](@ref).
+
+"""
+create_output(A::Operator, x::AbstractArray) =
+    new_array(output_eltype(A, x), output_axes(A, x))
+
+create_output(α::Number, A::Operator, x) =
+    new_array(output_eltype(α, A, x), output_axes(A, x))
 
 @noinline function unimplemented(::Type{P},
                                  ::Type{T}) where {P<:Operations, T<:Operator}

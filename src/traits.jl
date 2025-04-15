@@ -12,6 +12,44 @@
 # Copyright (c) 2017-2025, Éric Thiébaut.
 #
 
+"""
+    LazyAlgebra.output_eltype([alpha::Number,] A::Operator, x::AbstractArray) -> T
+
+yields the element type of the result of `A*x` or of `alpha*A*x` if the multiplier `alpha`
+is specified.
+
+This method implements a *trait*: the result shall only depend on the types of the
+arguments, and the method may also be directly called with the types of the arguments.
+
+One of the method:
+
+    Base.eltype(A::Type{<:Operator})
+    LazyAlgebra.output_eltype(A::Type{<:Operator}, x::Type{<:AbstractArray})
+
+must be specialized for the operator, and perhaps, argument types. If
+`LazyAlgebra.output_eltype` is not specialized in the type of the operator `A`, then it is
+assumed that the element type of `A*x` is that of the floating-point conversion of the
+product of two values of respective types `eltype(A)` and `eltype(x)` converted to
+floating-point. This machinery is needed to support quantities with units.
+
+See also [`LazyAlgebra.output_ndims`](@ref) and [`LazyAlgebra.multiplier_type`](@ref).
+
+"""
+output_eltype(A::Operator, x::AbstractArray) = output_eltype(typeof(A), typeof(x))
+
+# Default method, assumes that `eltype(A)` is extended.
+output_eltype(::Type{A}, ::Type{X}) where {A<:Operator,X<:AbstractArray} =
+    float(prod_type(eltype(A), eltype(X)))
+
+output_eltype(alpha::Number, A::Operator, x::AbstractArray) =
+    output_eltype(typeof(alpha), typeof(A), typeof(x))
+
+function output_eltype(::Type{S}, ::Type{A}, ::Type{X}) where {S<:Number,A<:Operator,
+                                                               X<:AbstractArray}
+    T = output_eltype(A, X) # element type of A*x
+    return prod_type(multiplier_type(S, T), T)
+end
+
 # Yield the type of a product of two terms of respective types `S` and `T`.
 prod_type(::Type{S}, ::Type{T}) where {S,T} = typeof(zero(S) * zero(T))
 

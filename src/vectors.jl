@@ -93,20 +93,6 @@ end
 #------------------------------------------------------------------------------
 
 """
-    vcreate(x)
-
-yields a new variable instance similar to `x`.  If `x` is an array, the
-element type of the result is a floating-point type.
-
-Also see [`similar`](@ref).
-
-"""
-vcreate(x::AbstractArray{T}) where {R<:Real,T<:Union{R,Complex{R}}} =
-    similar(x, float(T))
-
-#------------------------------------------------------------------------------
-
-"""
     vcopy!(dst, src) -> dst
 
 copies the contents of `src` into `dst` and returns `dst`.  This function

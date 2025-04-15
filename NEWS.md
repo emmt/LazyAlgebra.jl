@@ -32,6 +32,16 @@ This page describes the most important changes in `LazyAlgebra`. The format is b
 
 - Abstract type `LinearMapping` renamed `Operator`.
 
+- Method `vcreate` renamed as `LazyAlgebra.create_output` which is public but not exported
+  and which has a slightly different semantic: `y = create_output(α,A,x)` is called to
+  create an array `y` suitable to store `α*A*x` with `α` a scalar factor, `A` a linear
+  operator, and `x` an input array. This change was needed because (i) the `scratch`
+  argument is no longer supported and (ii) multipliers may have units which has an
+  incidence on the element type of the result of `α*A*x` even though the floating-point
+  type of `α` is given by that of `A*x`. The method `create_output(α,A,x)` shall throw a
+  `DimensionMismatch` exception if the dimensions or axes of `x` are not compatible with
+  `A` so that `@inbounds` can be assumed by `apply!` for computing `α*A*x + β*y`.
+
 ## Version 0.2.7 (2024-03-08)
 
 ### Fixed
