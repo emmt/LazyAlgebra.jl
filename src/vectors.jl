@@ -178,6 +178,7 @@ function vdot(sel::AbstractVector{Int}, x::AbstractArray, y::AbstractArray)
 end
 
 function unsafe_vdot(sel::AbstractVector{Int}, x::AbstractArray, y::AbstractArray)
+    # NOTE Cannot use `@simd` here due to scattering.
     s = 0*vdot(zero(eltype(x)), zero(eltype(y)))
     if IndexStyle(x, y) == IndexLinear()
         @inbound @fastmath for j in eachindex(sel)
@@ -430,60 +431,93 @@ function vscale(α::Number, x::AbstractArray)
     return y
 end
 
-#------------------------------------------------------------------------------
+#-----------------------------------------------------------------------------------------
 # ELEMENT-WISE MULTIPLICATION
 
 """
     vproduct(x, y) -> z
 
-yields the element-wise multiplication of `x` by `y`.  To avoid allocating the
-result, the destination array `dst` can be specified with the in-place version
-of the method:
+yields the element-wise multiplication (Hadamar product) of `x` by `y`.
 
-    vproduct!(dst, [sel,] x, y) -> dst
-
-which overwrites `dst` with the elementwise multiplication of `x` by `y`.
-Optional argument `sel` is a selection of indices to which apply the operation.
+See also [`vproduct!`](@ref) and [`LazyAlgebra.unsafe_vproduct`](@ref).
 
 """
-vproduct(x::V, y::V) where {V} = vproduct!(vcreate(x), x, y)
-
-vproduct(x::AbstractArray{<:Any,N}, y::AbstractArray{<:Any,N}) where {N} =
-    vproduct!(similar(x, promote_eltype(x,y)), x, y)
-
-for Td in (AbstractFloat, Complex{<:AbstractFloat}),
-    Tx in (AbstractFloat, Complex{<:AbstractFloat}),
-    Ty in (AbstractFloat, Complex{<:AbstractFloat})
-
-    if Td <: Complex || (Tx <: Real && Ty <: Real)
-
-        @eval function vproduct!(dst::AbstractArray{<:$Td,N},
-                                 x::AbstractArray{<:$Tx,N},
-                                 y::AbstractArray{<:$Ty,N}) where {N}
-            @inbounds @simd for i in all_indices(dst, x, y)
-                dst[i] = x[i]*y[i]
-            end
-            return dst
-        end
-
-        @eval function vproduct!(dst::AbstractArray{<:$Td,N},
-                                 sel::AbstractVector{Int},
-                                 x::AbstractArray{<:$Tx,N},
-                                 y::AbstractArray{<:$Ty,N}) where {N}
-            if checkselection(sel, dst, x, y)
-                @inbounds @simd for j in eachindex(sel)
-                    i = sel[j]
-                    dst[i] = x[i]*y[i]
-                end
-            end
-            return dst
-        end
-
-    end
-
+function vproduct(x::AbstractArray{<:Any,N},
+                  y::AbstractArray{<:Any,N})
+    @assert_same_axes x y
+    T = prod_type(eltype(x), eltype(y))
+    dst = similar(x, T)
+    unsafe_vproduct!(dst, x, y)
+    return dst
 end
 
-@doc @doc(vproduct) vproduct!
+"""
+    vproduct!(dst, [sel,] x, y) -> dst
+
+overwrites `dst` with the elementwise multiplication (Hadamar product) of `x` by `y`.
+
+Optional argument `sel` is a selection of indices to which apply the operation. The
+destination is left unchanged for indices not in `sel`. The behavior is unpredictable if
+the indices in `sel` are not all unique.
+
+See also [`vproduct`](@ref) and [`LazyAlgebra.unsafe_vproduct`](@ref).
+
+"""
+function vproduct!(dst::AbstractArray{<:Any,N},
+                   x::AbstractArray{<:Any,N},
+                   y::AbstractArray{<:Any,N}) where {N}
+    @assert_same_axes dst x y
+    unsafe_vproduct!(dst, x, y)
+    return dst
+end
+
+function vproduct!(dst::AbstractArray{<:Any,N},
+                   sel::AbstractVector{Int},
+                   x::AbstractArray{<:Any,N},
+                   y::AbstractArray{<:Any,N}) where {N}
+    @assert_same_axes dst x y
+    imin, imax = extrema(sel)
+    ((firstindex(dst) ≤ imin) & (imax ≤ lastindex(dst))) || out_of_range_selection()
+    unsafe_vproduct!(dst, sel, x, y)
+    return dst
+end
+
+"""
+    LazyAlgebra.unsafe_vproduct!(dst, [sel,] x, y)
+
+overwrites `dst` with the elementwise multiplication (Hadamar product) of `x` by `y`. This
+method is called by [`vproduct!`](@ref) and [`vproduct`](@ref) after checking all
+arguments so that `@inbounds` can be assumed for performing the operation.
+
+"""
+function unsafe_vproduct!(dst::AbstractArray{<:Any,N},
+                          x::AbstractArray{<:Any,N},
+                          y::AbstractArray{<:Any,N}) where {N}
+    @inbounds @fastmath @simd for i in eachindex(dst, x, y)
+        dst[i] = x[i]*y[i]
+    end
+    nothing
+end
+
+function unsafe_vproduct!(dst::AbstractArray{<:Any,N},
+                          sel::AbstractVector{Int},
+                          x::AbstractArray{<:Any,N},
+                          y::AbstractArray{<:Any,N}) where {N}
+    # NOTE Cannot use `@simd` here due to scattering.
+    if IndexStyle(dst, x, y) == IndexLinear()
+        @inbound @fastmath for j in eachindex(sel)
+            i = sel[j]
+            dst[i] = x[i]*y[i]
+        end
+    else
+        I = CartesianIndices(axes(dst))
+        @inbound @fastmath for j in eachindex(sel)
+            i = I[sel[j]]
+            dst[i] = x[i]*y[i]
+        end
+    end
+    nothing
+end
 
 #-----------------------------------------------------------------------------------------
 # VECTOR UPDATE
