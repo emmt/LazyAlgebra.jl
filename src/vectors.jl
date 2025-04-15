@@ -1,94 +1,93 @@
 #
 # vectors.jl -
 #
-# Implement basic operations for *vectors*.  Here arrays of any rank are
-# considered as *vectors*, the only requirements are that, when combining
-# *vectors*, they have the same list of axes (i.e. the same dimensions for
-# most arrays).  These methods are intended to be used for numerical
-# optimization.
+# Implement basic operations for *vectors*. In `LazyAlgebra`, arrays of any number of
+# dimensions are considered as *vectors*, the only requirements are that, when combining
+# *vectors*, they have the same axes (i.e., for most arrays, the same dimensions).
 #
-#-------------------------------------------------------------------------------
+#-----------------------------------------------------------------------------------------
 #
 # This file is part of LazyAlgebra (https://github.com/emmt/LazyAlgebra.jl)
 # released under the MIT "Expat" license.
 #
-# Copyright (c) 2017-2020 Éric Thiébaut.
+# Copyright (c) 2017-2025, Éric Thiébaut.
 #
 
 """
-    vnorm2([T,] v)
+    vnorm1([T,] x)
 
-yields the Euclidean (L2) norm of `v`.  The floating point type of the result
-can be imposed by optional argument `T`.  Also see [`vnorm1`](@ref) and
-[`vnorminf`](@ref).
+yields the 1-norm of `x` treated as a *vector*, that is the sum of the absolute values of
+the elements of `x`. An equivalent formulation is:
 
-"""
-function vnorm2(v::AbstractArray{<:Floats})
-    s = zero(real(eltype(v)))
-    @inbounds @simd for i in eachindex(v)
-        s += abs2(v[i])
-    end
-    return sqrt(s)
-end
+    mapreduce(abs, +, x)
 
-"""
-    vnorm1([T,] v)
-
-yields the L1 norm of `v`, that is the sum of the absolute values of its
-elements.  The floating point type of the result can be imposed by optional
-argument `T`.  For a complex valued argument, the result is the sum of the
-absolute values of the real part and of the imaginary part of the elements
-(like BLAS `asum`).
+The floating-point type of the result can be imposed by optional argument `T`.
 
 See also [`vnorm2`](@ref) and [`vnorminf`](@ref).
 
 """
-function vnorm1(v::AbstractArray{<:Reals})
-    s = zero(real(eltype(v)))
-    @inbounds @simd for i in eachindex(v)
-        s += abs(v[i])
+function vnorm1(x::AbstractArray)
+    s = zero(sum_type(real(eltype(x))))
+    @inbounds @fastmath @simd for i in eachindex(x)
+        s += abs(x[i])
     end
     return s
 end
 
-function vnorm1(v::AbstractArray{<:Complexes})
-    si = sr = zero(real(eltype(v)))
-    @inbounds @simd for i in eachindex(v)
-        z = v[i]
-        sr += abs(real(z))
-        si += abs(imag(z))
-    end
-    return sr + si
-end
+vmorm1(x::Number) = abs(x)
 
 """
-    vnorminf([T,] v)
+    vnorm2([T,] x)
 
-yields the infinite norm of `v`, that is the maximum absolute value of its
-elements.  The floating point type of the result can be imposed by optional
-argument `T`.  Also see [`vnorm1`](@ref) and [`vnorm2`](@ref).
+yields the Euclidean norm of `x` treated as a *vector*, that is the square root of the sum
+of the squared absolute values of the elements of `x`. An equivalent formulation is:
+
+    sqrt(mapreduce(abs2, +, x))
+
+The floating-point type of the result can be imposed by optional argument `T`.
+
+See also [`vnorm1`](@ref) and [`vnorminf`](@ref).
 
 """
-function vnorminf(v::AbstractArray{<:Reals})
-    absmax = zero(real(eltype(v)))
-    @inbounds @simd for i in eachindex(v)
-        absmax = max(absmax, abs(v[i]))
+function vnorm2(x::AbstractArray)
+    R = real(eltype(x))
+    s = zero(sumprod_type(R, R))
+    @inbounds @fastmath @simd for i in eachindex(x)
+        s += abs2(x[i])
     end
-    return absmax
+    return sqrt(s)
 end
 
-function vnorminf(v::AbstractArray{<:Complexes})
-    abs2max = zero(real(eltype(v)))
-    @inbounds @simd for i in eachindex(v)
-        abs2max = max(abs2max, abs2(v[i]))
+vmorm2(x::Number) = abs(x)
+
+"""
+    vnorminf([T,] x)
+
+yields the infinite-norm of `x` treated as a *vector*, that is the maximum absolute value
+of the elements of `x`. An equivalent formulation is:
+
+    mapreduce(abs, max, x)
+
+The floating-point type of the result can be imposed by optional argument `T`.
+
+See also [`vnorm1`](@ref) and [`vnorm2`](@ref).
+
+"""
+function vnorminf(x::AbstractArray)
+    s = abs(zero(eltype(x)))
+    @inbounds @simd for i in eachindex(x) # do not use @fastmath for isnan to work correctly
+        a = abs(x[i])
+        s = (isnan(a) | (a > s)) ? a : s
     end
-    return sqrt(abs2max)
+    return s
 end
 
-# Versions with forced type of output result.
+vmorminf(x::Number) = abs(x)
+
+# Versions with forced floating-point type of output result.
 for func in (:vnorm2, :vnorm1, :vnorminf)
-    @eval $func(::Type{T}, v) where {T<:AbstractFloat} =
-        convert(T, $func(v))::T
+    @eval $func(::Type{T}, x) where {T<:AbstractFloat} =
+        convert_floating_point_type(T, $func(x))
 end
 
 #------------------------------------------------------------------------------
