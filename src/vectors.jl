@@ -505,7 +505,7 @@ function vupdate!(y::AbstractArray{<:Number,N},
             y[i] -= x[i]
         end
     elseif α != 0
-        alpha = promote_multiplier(α, x)
+        alpha = convert_multiplier(α, x)
         @inbounds @simd for i in eachindex(x, y)
             y[i] += alpha*x[i]
         end
@@ -529,7 +529,7 @@ function vupdate!(y::AbstractArray{<:Floats,N},
                 y[i] -= x[i]
             end
         elseif α != 0
-            alpha = promote_multiplier(α, x)
+            alpha = convert_multiplier(α, x)
             @inbounds @simd for j in eachindex(sel)
                 i = sel[j]
                 y[i] += alpha*x[i]
@@ -583,7 +583,7 @@ function vcombine!(dst::AbstractArray{<:Number,N},
         elseif β == -1
             _vcombine!(dst, axpby_yields_my,    0,x,-1,y)
         else
-            b = promote_multiplier(β, y)
+            b = convert_multiplier(β, y)
             _vcombine!(dst, axpby_yields_by,    0,x, b,y)
         end
     elseif α == 1
@@ -594,7 +594,7 @@ function vcombine!(dst::AbstractArray{<:Number,N},
         elseif β == -1
             _vcombine!(dst, axpby_yields_xmy,   1,x,-1,y)
         else
-            b = promote_multiplier(β, y)
+            b = convert_multiplier(β, y)
             _vcombine!(dst, axpby_yields_xpby,  1,x, b,y)
         end
     elseif α == -1
@@ -605,11 +605,11 @@ function vcombine!(dst::AbstractArray{<:Number,N},
         elseif β == -1
             _vcombine!(dst, axpby_yields_mxmy, -1,x,-1,y)
         else
-            b = promote_multiplier(β, y)
+            b = convert_multiplier(β, y)
             _vcombine!(dst, axpby_yields_bymx, -1,x, b,y)
         end
     else
-        a = promote_multiplier(α, x)
+        a = convert_multiplier(α, x)
         if β == 0
             _vcombine!(dst, axpby_yields_ax,    a,x, 0,y)
         elseif β == 1
@@ -617,7 +617,7 @@ function vcombine!(dst::AbstractArray{<:Number,N},
         elseif β == -1
             _vcombine!(dst, axpby_yields_axmy,  a,x,-1,y)
         else
-            b = promote_multiplier(β, y)
+            b = convert_multiplier(β, y)
             _vcombine!(dst, axpby_yields_axpby, a,x, b,y)
         end
     end

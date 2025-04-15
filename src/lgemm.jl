@@ -278,9 +278,9 @@ function _lgemm(::Linear,
     m, n, p, shape = _lgemm_dims(transA, A, transB, B, Nc)
     T = _lgemm_type(α, A, B)
     return _linear_lgemm!(m, n, p,
-                          promote_multiplier(α, A, B), transA, A,
+                          convert_multiplier(α, A, B), transA, A,
                           transB, B,
-                          promote_multiplier(0, T),
+                          convert_multiplier(0, T),
                           Array{T}(undef, shape))
 end
 
@@ -294,9 +294,9 @@ function _lgemm!(::Linear,
                  C::AbstractArray{<:Floats})
     m, n, p = _lgemm_dims(transA, A, transB, B, C)
     return _linear_lgemm!(m, n, p,
-                          promote_multiplier(α, A, B), transA, A,
+                          convert_multiplier(α, A, B), transA, A,
                           transB, B,
-                          promote_multiplier(β, C), C)
+                          convert_multiplier(β, C), C)
 end
 
 # Julia implementations for any kind of abstract matrices.
@@ -311,9 +311,9 @@ function _lgemm(::Basic,
     I, J, K = _lgemm_indices(transA, A, transB, B, Nc)
     T = _lgemm_type(α, A, B)
     return _generic_lgemm!(I, J, K,
-                           promote_multiplier(α, A, B), transA, A,
+                           convert_multiplier(α, A, B), transA, A,
                            transB, B,
-                           promote_multiplier(0, T),
+                           convert_multiplier(0, T),
                            similar(Array{T}, (I, J)))
 end
 
@@ -327,9 +327,9 @@ function _lgemm!(::Basic,
                  C::AbstractMatrix{<:Floats})
     I, J, K = _lgemm_indices(transA, A, transB, B, C)
     return _generic_lgemm!(I, J, K,
-                           promote_multiplier(α, A, B), transA, A,
+                           convert_multiplier(α, A, B), transA, A,
                            transB, B,
-                           promote_multiplier(β, C), C)
+                           convert_multiplier(β, C), C)
 end
 
 # Generic Julia implementation.
@@ -344,9 +344,9 @@ function _lgemm(::Generic,
     I, J, K = _lgemm_indices(transA, A, transB, B, Nc)
     T = _lgemm_type(α, A, B)
     return _generic_lgemm!(I, J, K,
-                           promote_multiplier(α, A, B), transA, A,
+                           convert_multiplier(α, A, B), transA, A,
                            transB, B,
-                           promote_multiplier(0, T),
+                           convert_multiplier(0, T),
                            similar(Array{T}, (I, J)))
 end
 
@@ -360,9 +360,9 @@ function _lgemm!(::Generic,
                  C::AbstractMatrix{<:Floats})
     I, J, K = _lgemm_indices(transA, A, transB, B, C)
     return _generic_lgemm!(I, J, K,
-                           promote_multiplier(α, A, B), transA, A,
+                           convert_multiplier(α, A, B), transA, A,
                            transB, B,
-                           promote_multiplier(β, C), C)
+                           convert_multiplier(β, C), C)
 end
 
 function _lgemm(::Generic,
@@ -377,9 +377,9 @@ function _lgemm(::Generic,
     return _generic_lgemm!(cartesian_indices(I),
                            cartesian_indices(J),
                            cartesian_indices(K),
-                           promote_multiplier(α, A, B), transA, A,
+                           convert_multiplier(α, A, B), transA, A,
                            transB, B,
-                           promote_multiplier(0, T),
+                           convert_multiplier(0, T),
                            similar(Array{T}, (I..., J...)))
 end
 
@@ -395,9 +395,9 @@ function _lgemm!(::Generic,
     return _generic_lgemm!(cartesian_indices(I),
                            cartesian_indices(J),
                            cartesian_indices(K),
-                           promote_multiplier(α, A, B), transA, A,
+                           convert_multiplier(α, A, B), transA, A,
                            transB, B,
-                           promote_multiplier(β, C), C)
+                           convert_multiplier(β, C), C)
 end
 
 #

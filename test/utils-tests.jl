@@ -11,9 +11,9 @@ using LazyAlgebra
 
 @testset "Multipliers  " begin
     #
-    # Tests for `promote_multiplier`.
+    # Tests for `convert_multiplier`.
     #
-    let promote_multiplier = LazyAlgebra.promote_multiplier,
+    let convert_multiplier = LazyAlgebra.convert_multiplier,
         types = (Float32, Float16, BigFloat, Float64, ComplexF32, ComplexF64),
         perms = randperm(length(types)), # prevent compilation-time optimization
         n = length(types)
@@ -33,43 +33,43 @@ using LazyAlgebra
             A4 = zeros(T4, 4)
             for λ in (1, π, 2 - 1im)
                 # Check with type arguments.
-                @test identical(promote_multiplier(λ, T1),
+                @test identical(convert_multiplier(λ, T1),
                                 convert(isa(λ, Complex) ?
                                         Complex{real(T1)} :
                                         real(T1), λ))
-                @test identical(promote_multiplier(λ,T1,T2),
+                @test identical(convert_multiplier(λ,T1,T2),
                                 convert(isa(λ, Complex) ?
                                         Complex{real(promote_type(T1,T2))} :
                                         real(promote_type(T1,T2)), λ))
-                @test identical(promote_multiplier(λ,T1,T2,T3),
+                @test identical(convert_multiplier(λ,T1,T2,T3),
                                 convert(isa(λ, Complex) ?
                                         Complex{real(promote_type(T1,T2,T3))} :
                                         real(promote_type(T1,T2,T3)), λ))
-                @test identical(promote_multiplier(λ,T1,T2,T3,T4),
+                @test identical(convert_multiplier(λ,T1,T2,T3,T4),
                                 convert(isa(λ, Complex) ?
                                         Complex{real(promote_type(T1,T2,T3,T4))} :
                                         real(promote_type(T1,T2,T3,T4)), λ))
                 # Check with array arguments.
-                @test identical(promote_multiplier(λ, A1),
+                @test identical(convert_multiplier(λ, A1),
                                 convert(isa(λ, Complex) ?
                                         Complex{real(T1)} :
                                         real(T1), λ))
-                @test identical(promote_multiplier(λ, A1, A2),
+                @test identical(convert_multiplier(λ, A1, A2),
                                 convert(isa(λ, Complex) ?
                                         Complex{real(promote_type(T1,T2))} :
                                         real(promote_type(T1,T2)), λ))
-                @test identical(promote_multiplier(λ, A1, A2, A3),
+                @test identical(convert_multiplier(λ, A1, A2, A3),
                                 convert(isa(λ, Complex) ?
                                         Complex{real(promote_type(T1,T2,T3))} :
                                         real(promote_type(T1,T2,T3)), λ))
-                @test identical(promote_multiplier(λ, A1, A2, A3, A4),
+                @test identical(convert_multiplier(λ, A1, A2, A3, A4),
                                 convert(isa(λ, Complex) ?
                                         Complex{real(promote_type(T1,T2,T3,T4))} :
                                         real(promote_type(T1,T2,T3,T4)), λ))
             end
         end
         for T in (AbstractFloat, Real, Complex, Integer, Number, Unsigned)[randperm(6)]
-            @test_throws ErrorException promote_multiplier(1, T)
+            @test_throws ErrorException convert_multiplier(1, T)
         end
     end
 end # testset

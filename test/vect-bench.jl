@@ -12,7 +12,7 @@ module V1
 using ArrayTools
 using LazyAlgebra:
     Floats, vscale!, vzero!,
-    promote_multiplier, arguments_have_incompatible_axes
+    convert_multiplier, arguments_have_incompatible_axes
 
 function vupdate!(y::AbstractArray{<:Floats,N},
                   α::Number,
@@ -27,7 +27,7 @@ function vupdate!(y::AbstractArray{<:Floats,N},
             y[i] -= x[i]
         end
     elseif α != 0
-        alpha = promote_multiplier(α, x)
+        alpha = convert_multiplier(α, x)
         @inbounds @simd for i in I
             y[i] += alpha*x[i]
         end
@@ -58,7 +58,7 @@ function vcombine!(dst::AbstractArray{<:Floats,N},
                     dst[i] = x[i] - y[i]
                 end
             else
-                beta = promote_multiplier(β, y)
+                beta = convert_multiplier(β, y)
                 @inbounds @simd for i in I
                     dst[i] = x[i] + beta*y[i]
                 end
@@ -73,13 +73,13 @@ function vcombine!(dst::AbstractArray{<:Floats,N},
                     dst[i] = -x[i] - y[i]
                 end
             else
-                beta = promote_multiplier(β, y)
+                beta = convert_multiplier(β, y)
                 @inbounds @simd for i in I
                     dst[i] = beta*y[i] - x[i]
                 end
             end
         else
-            alpha = promote_multiplier(α, x)
+            alpha = convert_multiplier(α, x)
             if β == 1
                 @inbounds @simd for i in I
                     dst[i] = alpha*x[i] + y[i]
@@ -89,7 +89,7 @@ function vcombine!(dst::AbstractArray{<:Floats,N},
                     dst[i] = alpha*x[i] - y[i]
                 end
             else
-                beta = promote_multiplier(β, y)
+                beta = convert_multiplier(β, y)
                 @inbounds @simd for i in I
                     dst[i] = alpha*x[i] + beta*y[i]
                 end

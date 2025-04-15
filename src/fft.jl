@@ -793,7 +793,7 @@ function _apply!(arr::AbstractArray{Complex{T},N},
             arr[i] *= mtf[i]
         end
     else
-        alpha = promote_multiplier(α, T)
+        alpha = convert_multiplier(α, T)
         @inbounds @simd for i in eachindex(arr, mtf)
             arr[i] *= alpha*mtf[i]
         end
@@ -809,7 +809,7 @@ function _apply!(arr::AbstractArray{Complex{T},N},
             arr[i] *= conj(mtf[i])
         end
     else
-        alpha = promote_multiplier(α, T)
+        alpha = convert_multiplier(α, T)
         @inbounds @simd for i in eachindex(arr, mtf)
             arr[i] *= alpha*conj(mtf[i])
         end

@@ -95,10 +95,12 @@ export
     vzeros
 
 using TypeUtils: @public
+@public convert_multiplier
 @public create_output
 @public unsafe_vcopy!
 @public unsafe_vdot
 @public unsafe_vswap!
+@public multiplier_type
 using Printf
 using ArrayTools
 

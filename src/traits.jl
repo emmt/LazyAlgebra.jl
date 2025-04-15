@@ -50,6 +50,32 @@ function output_eltype(::Type{S}, ::Type{A}, ::Type{X}) where {S<:Number,A<:Oper
     return prod_type(multiplier_type(S, T), T)
 end
 
+"""
+    LazyAlgebra.multiplier_type(α::Number, x::AbstractArray) -> T
+    LazyAlgebra.multiplier_type(α::Number, A::Operator, x::AbstractArray) -> T
+
+yield the type of the multiplier `α` such that the operation `α*x` (if `A` is not
+specified) or `α*A*x` (if `A` is specified) has a numerical precision respectively driven
+by `x` or by `A*x` (not by `α`).
+
+This method implements a *trait*: the result shall only depend on the types of the
+arguments, and the method may also be directly called with the types of the arguments.
+
+See also [`LazyAlgebra.convert_multiplier`](@ref) and [``LazyAlgebra.output_eltype`](@ref).
+
+"""
+multiplier_type(α::Number, x::AbstractArray) =
+    multiplier_type(typeof(α), typeof(x))
+
+multiplier_type(::Type{S}, ::Type{X}) where {S<:Number,X<:AbstractArray} =
+    convert_floating_point_type(eltype(X), S)
+
+multiplier_type(α::Number, A::Operator, x::AbstractArray) =
+    multiplier_type(typeof(α), typeof(A), typeof(x))
+
+multiplier_type(::Type{S}, ::Type{A}, ::Type{X}) where {S<:Number,A<:Operator,X<:AbstractArray} =
+    convert_floating_point_type(output_eltype(A, X), S)
+
 # Yield the type of a product of two terms of respective types `S` and `T`.
 prod_type(::Type{S}, ::Type{T}) where {S,T} = typeof(zero(S) * zero(T))
 

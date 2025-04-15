@@ -2195,17 +2195,17 @@ usually depends on `f`.
         elseif β == 1
             f(1, A, x, 1, y, axpby_yields_xpy)
         else
-            b = promote_multiplier(β, y)
+            b = convert_multiplier(β, y)
             f(1, A, x, b, y, axpby_yields_xpby)
         end
     else
-        a = promote_multiplier(α, A, x)
+        a = convert_multiplier(α, A, x)
         if β == 0
             f(a, A, x, 0, y, axpby_yields_ax)
         elseif β == 1
             f(a, A, x, 1, y, axpby_yields_axpy)
         else
-            b = promote_multiplier(β, y)
+            b = convert_multiplier(β, y)
             f(a, A, x, b, y, axpby_yields_axpby)
         end
     end
@@ -2280,7 +2280,7 @@ function apply!(α::Number,
     β == 1 || vscale!(y, β)
     if α == 1
         @inbounds for i in each_row(A)
-            q = promote_multiplier(x[i], Tm)
+            q = convert_multiplier(x[i], Tm)
             if q != 0
                 for k in each_off(A, i)
                     j = get_col(A, k)
@@ -2290,9 +2290,9 @@ function apply!(α::Number,
             end
         end
     elseif α != 0
-        a = promote_multiplier(α, Tm)
+        a = convert_multiplier(α, Tm)
         @inbounds for i in each_row(A)
-            q = a*promote_multiplier(x[i], Tm)
+            q = a*convert_multiplier(x[i], Tm)
             if q != 0
                 for k in each_off(A, i)
                     j = get_col(A, k)
@@ -2321,7 +2321,7 @@ function apply!(α::Number,
     β == 1 || vscale!(y, β)
     if α == 1
         @inbounds for j in each_col(A)
-            q = promote_multiplier(x[j], Tm)
+            q = convert_multiplier(x[j], Tm)
             if q != 0
                 for k in each_off(A, j)
                     i = get_row(A, k)
@@ -2331,9 +2331,9 @@ function apply!(α::Number,
             end
         end
     elseif α != 0
-        a = promote_multiplier(α, Tm)
+        a = convert_multiplier(α, Tm)
         @inbounds for j in each_col(A)
-            q = a*promote_multiplier(x[j], Tm)
+            q = a*convert_multiplier(x[j], Tm)
             if q != 0
                 for k in each_off(A, j)
                     i = get_row(A, k)
@@ -2404,7 +2404,7 @@ function apply!(α::Number,
         else
             # The ordering of operations is to minimize the number of
             # operations in case `v` is complex while `α` and `x` are reals.
-            alpha = promote_multiplier(α, Ta, Tx)
+            alpha = convert_multiplier(α, Ta, Tx)
             @inbounds for k in eachindex(V, I, J)
                 v, i, j = V[k], I[k], J[k]
                 y[i] += (alpha*x[j])*v
@@ -2439,7 +2439,7 @@ function apply!(α::Number,
         else
             # The ordering of operations is to minimize the number of
             # operations in case `v` is complex while `α` and `x` are reals.
-            alpha = promote_multiplier(α, Ta, Tx)
+            alpha = convert_multiplier(α, Ta, Tx)
             @inbounds for k in eachindex(V, I, J)
                 v, i, j = V[k], I[k], J[k]
                 y[j] += (alpha*x[i])*conj(v)

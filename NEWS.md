@@ -47,11 +47,18 @@ This page describes the most important changes in `LazyAlgebra`. The format is b
   `vnorminf` treat complexes as usually done in linear algebra. The only difference is that
   multi-dimensional arguments are considered as *vectors*.
 
+### Added
+
 - Most methods can be specialized for specific operator and/or array types by extending
   the `LazyAlgebra.unsafe_$f` method that is called by method `$f` after having checked
   that arguments have compatible axes and converted scalar multipliers (if any) to
   suitable floating-point type without changing their units. This makes easier to
   extend `LazyAlgebra`.
+
+- Non-exported but public methods `LazyAlgebra.multiplier_type` and
+  `LazyAlgebra.convert_multiplier` may be used to infer the type of a scalar multiplier
+  and to convert it to a given floating-point type. These methods replace
+  `multiplier_floatingpoint_type` and `promote_multiplier`.
 
 
 ## Version 0.2.7 (2024-03-08)

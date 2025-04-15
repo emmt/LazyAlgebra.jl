@@ -16,7 +16,7 @@
 
 creates an array `y` to store the result of `A*x` or of `α*A*x` if the multiplier `α` is
 specified. In this latter case, it shall be assumed that `α` has been already converted
-by [`LazyAlgebra.promote_multiplier`](@ref).
+by [`LazyAlgebra.convert_multiplier`](@ref).
 
 The method may be specialized in the operator type. The default implementations are:
 
@@ -48,6 +48,34 @@ create_output(A::Operator, x::AbstractArray) =
 
 create_output(α::Number, A::Operator, x) =
     new_array(output_eltype(α, A, x), output_axes(A, x))
+
+"""
+    LazyAlgebra.convert_multiplier(α::Number, T::Type)
+
+yields the multiplier `α` converted to the same floating-point precision as `T`.
+
+See also [`LazyAlgebra.multiplier_type`](@ref) and [`LazyAlgebra.output_eltype`](@ref).
+
+"""
+convert_multiplier(α::Number, ::Type{T}) where {T<:Number} =
+    convert_floating_point_type(T, α)
+
+"""
+    LazyAlgebra.convert_multiplier(α::Number, [A::Operator,] x::AbstractArray)
+
+yields the multiplier `α` converted so that the operation `α*x` (if `A` is not specified)
+or `α*A*x` (if `A` is specified) has a floating-point precision driven by `x` or by `A*x`
+respectively.
+
+See also [`LazyAlgebra.multiplier_type`](@ref) and [`LazyAlgebra.output_eltype`](@ref).
+
+"""
+convert_multiplier(α::Number, x::AbstractArray) =
+    convert_multiplier(α, eltype(x))
+
+convert_multiplier(α::Number, A::Operator, x::AbstractArray) =
+    convert_multiplier(α, output_type(A, x))
+
 
 @noinline function unimplemented(::Type{P},
                                  ::Type{T}) where {P<:Operations, T<:Operator}

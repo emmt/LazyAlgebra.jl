@@ -255,8 +255,8 @@ function _lgemv(::Linear,
     nrows, ncols, shape = _lgemv_dims(trans, A, x)
     T = _lgemv_type(α, A, x)
     return _linear_lgemv!(nrows, ncols,
-                          promote_multiplier(α, A, x), trans, A, x,
-                          promote_multiplier(0, T), Array{T}(undef, shape))
+                          convert_multiplier(α, A, x), trans, A, x,
+                          convert_multiplier(0, T), Array{T}(undef, shape))
 end
 
 function _lgemv!(::Linear,
@@ -268,8 +268,8 @@ function _lgemv!(::Linear,
                  y::AbstractArray{<:Floats})
     nrows, ncols = _lgemv_dims(trans, A, x, y)
     return _linear_lgemv!(nrows, ncols,
-                          promote_multiplier(α, A, x), trans, A, x,
-                          promote_multiplier(β, y), y)
+                          convert_multiplier(α, A, x), trans, A, x,
+                          convert_multiplier(β, y), y)
 end
 
 # Basic Julia implementations when vectors and matrices are, respectively, 1D
@@ -283,8 +283,8 @@ function _lgemv(::Basic,
     rows, cols = _lgemv_indices(trans, A, x)
     T = _lgemv_type(α, A, x)
     return _generic_lgemv!(rows, cols,
-                           promote_multiplier(α, A, x), trans, A, x,
-                           promote_multiplier(0, T),
+                           convert_multiplier(α, A, x), trans, A, x,
+                           convert_multiplier(0, T),
                            similar(Array{T}, trans == 'N' ? rows : cols))
 end
 
@@ -297,8 +297,8 @@ function _lgemv!(::Basic,
                  y::AbstractVector{<:Floats})
     rows, cols = _lgemv_indices(trans, A, x, y)
     return _generic_lgemv!(rows, cols,
-                           promote_multiplier(α, A, x), trans, A, x,
-                           promote_multiplier(β, y), y)
+                           convert_multiplier(α, A, x), trans, A, x,
+                           convert_multiplier(β, y), y)
 end
 
 # Generic implementations for any other cases.
@@ -311,8 +311,8 @@ function _lgemv(::Generic,
     rows, cols = _lgemv_indices(trans, A, x)
     T = _lgemv_type(α, A, x)
     return _generic_lgemv!(cartesian_indices(rows), cartesian_indices(cols),
-                           promote_multiplier(α, A, x), trans, A, x,
-                           promote_multiplier(0, T),
+                           convert_multiplier(α, A, x), trans, A, x,
+                           convert_multiplier(0, T),
                            similar(Array{T}, trans == 'N' ? rows : cols))
 end
 
@@ -325,8 +325,8 @@ function _lgemv!(::Generic,
                  y::AbstractArray{<:Floats})
     rows, cols = _lgemv_indices(trans, A, x, y)
     return _generic_lgemv!(cartesian_indices(rows), cartesian_indices(cols),
-                           promote_multiplier(α, A, x), trans, A, x,
-                           promote_multiplier(β, y), y)
+                           convert_multiplier(α, A, x), trans, A, x,
+                           convert_multiplier(β, y), y)
 end
 
 #

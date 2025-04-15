@@ -454,17 +454,17 @@ function unsafe_apply!(alpha::Number,
         elseif beta == 1
             unsafe_apply!(axpby_yields_xpy,   1, P, A, x, 1, y, I, J, K, l)
         else
-            β = promote_multiplier(beta, y)
+            β = convert_multiplier(beta, y)
             unsafe_apply!(axpby_yields_xpby,  1, P, A, x, β, y, I, J, K, l)
         end
     else
-        α = promote_multiplier(alpha, y)
+        α = convert_multiplier(alpha, y)
         if beta == 0
             unsafe_apply!(axpby_yields_ax,    α, P, A, x, 0, y, I, J, K, l)
         elseif beta == 1
             unsafe_apply!(axpby_yields_axpy,  α, P, A, x, 1, y, I, J, K, l)
         else
-            β = promote_multiplier(beta, y)
+            β = convert_multiplier(beta, y)
             unsafe_apply!(axpby_yields_axpby, α, P, A, x, β, y, I, J, K, l)
         end
     end
@@ -488,17 +488,17 @@ function unsafe_apply!(alpha::Number,
         elseif beta == 1
             unsafe_apply!(axpby_yields_xpy,   1, P, A, x, 1, y, I, J, K)
         else
-            β = promote_multiplier(beta, y)
+            β = convert_multiplier(beta, y)
             unsafe_apply!(axpby_yields_xpby,  1, P, A, x, β, y, I, J, K)
         end
     else
-        α = promote_multiplier(alpha, y)
+        α = convert_multiplier(alpha, y)
         if beta == 0
             unsafe_apply!(axpby_yields_ax,    α, P, A, x, 0, y, I, J, K)
         elseif beta == 1
             unsafe_apply!(axpby_yields_axpy,  α, P, A, x, 1, y, I, J, K)
         else
-            β = promote_multiplier(beta, y)
+            β = convert_multiplier(beta, y)
             unsafe_apply!(axpby_yields_axpby, α, P, A, x, β, y, I, J, K)
         end
     end
