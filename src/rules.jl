@@ -13,6 +13,7 @@
 
 # Accessors.
 Base.parent(A::Union{Adjoint,Inverse,Gram}) = getfield(A, :parent)
+Base.getindex(A::Union{Adjoint,Inverse,Gram}) = parent(A)
 Base.Tuple( A::Union{Sum,Prod}) = getfield(A, :operands)
 Base.first( A::Union{Sum,Prod}) = @inbounds A[1]
 Base.last(  A::Union{Sum,Prod}) = @inbounds A[2]

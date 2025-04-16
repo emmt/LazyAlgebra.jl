@@ -165,8 +165,10 @@ struct DiagonalOperator <: DiagonalType end
 yield a linear operator `B` representing the *adjoint* (conjugate transpose) of the linear
 operator `A`.
 
-Taking the adjoint of `B` yields back `A`. Method [`LazyAlgebra.unveil(B)`](@ref) may also
-be used to reveal the bare linear operator `A` embedded in `B`.
+Taking the adjoint of `B` yields back `A`, that is `B' === A` holds. `B[]` and
+`Base.parent(B)` also yield the linear operator `A` embedded in `B = A'`.
+
+Also see [`LazyAlgebra.Inverse`](@ref).
 
 """
 struct Adjoint{T<:Operator} <: Operator
@@ -182,8 +184,10 @@ end
 yield a linear operator `B` representing the *inverse* of the linear operator `A`
 regardless whether this inverse exists or not.
 
-Taking the inverse of `B` yields back `A`. Method [`LazyAlgebra.unveil(B)`](@ref) may also
-be used to reveal the bare linear operator `A` embedded in `B`.
+Taking the inverse of `B` yields back `A`, that is `inv(B)' === A` holds. `B[]` and
+`Base.parent(B)` also yield the linear operator `A` embedded in `B = inv(A)`.
+
+Also see [`LazyAlgebra.Adjoint`](@ref).
 
 """
 struct Inverse{T<:Operator} <: Operator
