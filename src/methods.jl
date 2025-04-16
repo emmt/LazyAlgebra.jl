@@ -188,7 +188,6 @@ end
 @callable Prod
 
 Base.show(io::IO, ::MIME"text/plain", A::Operator) = show(io, A)
-Base.show(io::IO, A::Operator) = _show(io, A)
 
 Base.show(io::IO, A::Identity) = write(io, "Id")
 
@@ -205,7 +204,7 @@ function Base.show(io::IO, A::Inverse)
 end
 
 function show(io::IO, A::Prod)
-    protect = A[2] isa Union{Sum,Prod} # FIXME: only Sum?
+    protect = A[2] isa Sum
     if A[1] isa Number
         λ = A[1]
         if λ == -1

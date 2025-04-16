@@ -113,7 +113,7 @@ using ArrayTools
 
 import Base: *, ∘, +, -, \, /, ==
 import Base: Tuple, adjoint, inv, axes,
-    show, showerror, convert, eltype, ndims, size, length, stride, strides,
+    showerror, convert, eltype, ndims, size, length, stride, strides,
     getindex, setindex!, eachindex, first, last, firstindex, lastindex,
     one, zero, isone, iszero, @propagate_inbounds
 

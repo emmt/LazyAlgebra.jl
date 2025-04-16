@@ -14,10 +14,6 @@
 const AnyVariant{A} = Union{A,Adjoint{A},Inverse{A},InverseAdjoint{A}}
 
 #------------------------------------------------------------------------------
-# IDENTITY AND UNIFORM SCALING
-
-
-#------------------------------------------------------------------------------
 # SYMBOLIC MAPPINGS (FOR TESTS)
 
 struct SymbolicOperator <: Operator
@@ -26,7 +22,7 @@ end
 
 SymbolicOperator(name::AbstractString) = SymbolicOperator(Symbol(id))
 
-show(io::IO, A::SymbolicOperator) = print(io, A.name)
+Base.show(io::IO, A::SymbolicOperator) = print(io, A.name)
 
 identical(A::SymbolicOperator, B::SymbolicOperator) = A.name === B.name
 
@@ -57,6 +53,8 @@ struct Diag{D<:AbstractArray} <: Operator
 end
 
 @callable Diag
+
+Base.show(io::IO, A::Diag) = print(io, "Diag(…)")
 
 struct LazyMap{T,N,L,F,A<:AbstractArray{<:Any,N}} <: AbstractArray{T,N}
     func::F
