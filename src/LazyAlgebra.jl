@@ -110,6 +110,7 @@ using TypeUtils: @public
 
 using Printf
 using ArrayTools
+using TypeUtils
 
 import Base: *, ∘, +, -, \, /, ==
 import Base: Tuple, adjoint, inv, axes,

@@ -35,8 +35,6 @@ end
 showerror(io::IO, err::UnimplementedMethod) =
     print(io, err.msg)
 
-const ArrayAxes{N} = NTuple{N,AbstractUnitRange{Int}}
-
 """
 
 An `Operator` is any linear function between two variables spaces. Assuming upper case
