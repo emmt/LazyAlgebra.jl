@@ -12,10 +12,10 @@
 #
 
 """
-    LazyAlgebra.output_eltype([alpha::Number,] A::Operator, x::AbstractArray) -> T
+    LazyAlgebra.output_eltype([α::Number,] A::Operator, x::AbstractArray) -> T
 
-yields the element type `T` of the result of `A*x` or of `alpha*A*x` if the multiplier
-`alpha` is specified.
+yields the element type `T` of the result of `A*x` or of `α*A*x` if the multiplier `α` is
+specified.
 
 As a simplification, it is assumed that the element type of `A*x` is a *trait* that only
 depends on the type of the operator `A` and on the element type of the input array `x`.
@@ -25,15 +25,15 @@ Following this assumption, this method infers its result from that of:
 
 and it is thus expected that a method with this signature exists for the operator `A` and
 that it returns the element type of `A*x`. If such a method does not exists, a fallback method
-is provided which calls:
+is provided which amounts to calling:
 
     Base.eltype(typeof(A))
 
-to infer the type of the elements of `A` and which assumes that the element type of `A*x`
-is that of the floating-point conversion of the product of two values of respective types
-`eltype(A)` and `eltype(x)` converted to floating-point.
+to infer the type of the coefficients of `A` and which assumes that the element type of
+`A*x` is that of the floating-point conversion of the product of two values of respective
+types `eltype(A)` and `eltype(x)` converted to floating-point.
 
-This machinery is needed to support quantities with units.
+This machinery is needed to support quantities with units in `LazyAlgebra`.
 
 See also [`LazyAlgebra.output_axes`](@ref), [`LazyAlgebra.create_output`](@ref), and
 [`LazyAlgebra.multiplier_type`](@ref).
@@ -64,9 +64,9 @@ output_eltype(::Type{Sum{L,R}}, ::Type{X}) where {L,R,X} =
 
 yields the axes of the result of `A*x`.
 
-As a simplification, it is assumed that the axes of the output only depend on the operator
-`A` and on the axes of the input array `x`. Following this assumption, this method returns
-the result of:
+As a simplification, it is assumed that the axes of `A*x` only depend on the operator `A`
+and on the axes of the input array `x`. Following this assumption, this method returns the
+result of:
 
     LazyAlgebra.output_axes(A, axes(x))
 
@@ -118,9 +118,9 @@ returned.
 !!! warning
     This method is called by [`LazyAlgebra.apply`](@ref) to create its output before
     calling [`LazyAlgebra.unsafe_apply!`](@ref) assuming that `x` and `y` have correct
-    indices to compute `A*x` and store the result in `y`. Hence, it is important that any
-    specialization of `LazyAlgebra.create_output` throws an exception if the axes of `x`
-    are not valid.
+    indices to compute `A*x` and to store the result in `y`. Hence, it is important that
+    any specialization of `LazyAlgebra.create_output` throws an exception if the axes of
+    `x` are not valid.
 
 See also [`LazyAlgebra.output_axes`](@ref) and [`LazyAlgebra.output_eltype`](@ref).
 
