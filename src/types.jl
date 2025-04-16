@@ -248,13 +248,13 @@ const Operand = Union{Number,Operator}
     C = A*B # if at least one of A or B is an Operator
     C = LazyAlgebra.Prod(A::Union{Number,Operator}, B::Union{Number,Operator})
 
-yields the result of multiplying operand `A` by operand `B`. If both operands are scalars
+yield the result of multiplying operand `A` by operand `B`. If both operands are scalars
 the result is a scalar; otherwise an instance of `Prod` is returned. If any operand is an
-operator, `A*B` is the same as `Prod(A, B)`.n
+operator, `A*B` yields the same thing as `Prod(A, B)`.
 
-If `C` is an instance of `LazyAlgebra.Prod`, then `C.left` and `C.right` yield the left
-and right operands of `C`. However, die to simplifications that may occur, these are not
-necessarily `A` and `B`.
+If `C` is an instance of `LazyAlgebra.Prod`, then `C[1]` and `C[2]` respectively yield the
+left and right operands of `C`. However, due to simplifications that may occur, these are
+not necessarily `A` and `B`.
 
 When composing instances of `Prod` whose operands are operators, right associativity is
 applied so as to keep the operands in suitable order when applying the composite operator:
@@ -270,11 +270,9 @@ struct Prod{L<:Operand,R<:Operator} <: Operator
     # In a `Prod` object, only the left operand can be a scalar, the right operand must be
     # an operator. This is to force factorization of scalar multipliers to the left of
     # products.
-    left::L
-    right::R
-    Prod(left::L, right::R) where {L<:Operand,R<:Operator} = new{L,R}(left, right)
+    operands::Tuple{L,R}
+    Prod(left::L, right::R) where {L<:Operand,R<:Operator} = new{L,R}((left, right))
 end
-
 
 # Alias representing `λ*A`, the linear operator `A` multiplied by a scalar `λ`.
 # Call [`LazyAlgebra.multiplier(B)`](@ref) and [`unscaled(B)`](@ref) with a scaled
@@ -289,13 +287,12 @@ const Composition = Prod # FIXME:
 
 yields a linear operator `C` representing the sum of the linear operators `A` and `B`.
 
-If `C` is an instance of `LazyAlgebra.Sum`, the `C.left` and `C.right` yield the left and
-right operands of `C`. However, due to simplifications that may occur, these are not
-necessarily `A` and `B`.
+If `C` is an instance of `LazyAlgebra.Sum`, then `C[1]` and `C[2]` respectively yield the
+left and right operands of `C`. However, due to simplifications that may occur, these are
+not necessarily `A` and `B`.
 
 """
 struct Sum{L<:Operator,R<:Operator} <: Operator
-    left::L
-    right::R
-    Sum(left::L, right::R) where {L<:Operator,R<:Operator} = new{L,R}(left, right)
+    operands::Tuple{L,R}
+    Sum(left::L, right::R) where {L<:Operator,R<:Operator} = new{L,R}((left, right))
 end

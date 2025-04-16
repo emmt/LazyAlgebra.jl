@@ -13,18 +13,20 @@
 
 # Accessors.
 Base.parent(A::Union{Adjoint,Inverse,Gram}) = getfield(A, :parent)
-Base.first(A::Union{Sum,Prod}) = getfield(A, :left)
-Base.last( A::Union{Sum,Prod}) = getfield(A, :right)
+Base.Tuple( A::Union{Sum,Prod}) = getfield(A, :operands)
+Base.first( A::Union{Sum,Prod}) = @inbounds A[1]
+Base.last(  A::Union{Sum,Prod}) = @inbounds A[2]
 
 # Make Sum and Prod iterable.
 Base.IteratorSize(::Type{<:Union{Sum,Prod}}) = Base.HasLength()
 Base.length(A::Union{Sum,Prod}) = 2
-@inline Base.iterate(A::Union{Sum,Prod}, i::Int = 0) =
-    i == 0 ? (first(A), 1) :
-    i == 1 ? ( last(A), 2) : nothing
+@inline Base.iterate(A::Union{Sum,Prod}, i::Int = 1) =
+    1 ≤ i ≤ 2 ? (unsafe_getindex(A, i), i + 1) : nothing
 @inline Base.getindex(A::Union{Sum,Prod}, i::Integer) =
-    i == 1 ? first(A) :
-    i == 2 ?  last(A) : throw(BoundsError(A, i))
+    1 ≤ i ≤ 2 ? unsafe_getindex(A, i) : throw(BoundsError(A, i))
+
+@inline unsafe_getindex(A::Union{Sum,Prod}, i::Integer) =
+    @inbounds getindex(Tuple(A), Int(i))
 
 # Extend `A'` to call `Adjoint(A)` for any operator `A`, automatically simplify taking the
 # adjoint of the adjoint of an operator and propagate the adjoint in products and in sums.

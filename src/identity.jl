@@ -34,10 +34,10 @@ Prod(A::Identity, B::Identity) = Id
 Prod(A::Operator, B::Identity) = A
 Prod(A::Identity, B::Operator) = B
 #
-Sum(A::Identity,  B::Identity) = 2Id
-Sum(A::Prod{<:Number,Identity}, B::Identity)                = (A.left + 1) * Id
-Sum(A::Identity,                B::Prod{<:Number,Identity}) = (B.left + 1) * Id
-Sum(A::Prod{<:Number,Identity}, B::Prod{<:Number,Identity}) = (A.left + B.left) * Id
+Sum(A::Identity,                B::Identity               ) = 2Id
+Sum(A::Prod{<:Number,Identity}, B::Identity               ) = (A[1] + 1) * Id
+Sum(A::Identity,                B::Prod{<:Number,Identity}) = (B[1] + 1) * Id
+Sum(A::Prod{<:Number,Identity}, B::Prod{<:Number,Identity}) = (A[1] + B[1]) * Id
 
 # Traits.
 SelfAdjointType(::Identity) = SelfAdjoint()
