@@ -13,49 +13,6 @@
 #
 
 """
-    LazyAlgebra.multiplier_type(α::Number, x::AbstractArray) -> T
-    LazyAlgebra.multiplier_type(α::Number, A::Operator, x::AbstractArray) -> T
-
-yield the type of the multiplier `α` such that the operation `α*x` (if `A` is not
-specified) or `α*A*x` (if `A` is specified) has a numerical precision respectively driven
-by `x` or by `A*x` (not by `α`).
-
-This method implements a *trait*: the result shall only depend on the types of the
-arguments, and the method may also be directly called with the types of the arguments.
-
-See also [`LazyAlgebra.convert_multiplier`](@ref) and [``LazyAlgebra.output_eltype`](@ref).
-
-"""
-multiplier_type(α::Number, x::AbstractArray) =
-    multiplier_type(typeof(α), typeof(x))
-
-multiplier_type(::Type{S}, ::Type{X}) where {S<:Number,X<:AbstractArray} =
-    convert_floating_point_type(eltype(X), S)
-
-multiplier_type(α::Number, A::Operator, x::AbstractArray) =
-    multiplier_type(typeof(α), typeof(A), typeof(x))
-
-multiplier_type(::Type{S}, ::Type{A}, ::Type{X}) where {S<:Number,A<:Operator,X<:AbstractArray} =
-    convert_floating_point_type(output_eltype(A, X), S)
-
-# Yield the type of a product of two terms of respective types `S` and `T`.
-prod_type(::Type{S}, ::Type{T}) where {S,T} = typeof(zero(S) * zero(T))
-
-# Yield the type of a sum of two terms of respective types `S` and `T`. Same as
-# `promote_type` except that the result is always concrete.
-sum_type(::Type{S}, ::Type{T}) where {S,T} = typeof(zero(S) + zero(T))
-
-# Yield the type of a sum of terms all of type `T`. The implemented logic is that `x[1] +
-# x[2] + ...` shall have the same type as `n*x[i]` with `n` an `Int`.
-sum_type(::Type{T}) where {T} = prod_type(Int, T)
-
-# Yield the type of a sum of products of two terms, all of respective types `S` and `T`.
-# The implemented logic is that `x[1]*y[1] + x[2]*y[2] + ...` shall have the same type as
-# `n*x[i]*y[i]` with `n` an `Int`.
-sumprod_type(::Type{S}, ::Type{T}) where {S,T} =
-    typeof(zero(Int) * zero(S) * zero(T))
-
-"""
 
 ```julia
 SelfAdjointType(A)
