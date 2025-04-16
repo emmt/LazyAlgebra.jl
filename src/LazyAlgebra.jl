@@ -23,9 +23,7 @@ export
     GeneralMatrix,
     Gram,
     Id,
-    Identity,
     Operator,
-    NonuniformScaling,
     RankOneOperator,
     SingularSystem,
     SparseOperator,
@@ -33,7 +31,6 @@ export
     SparseOperatorCSC,
     SparseOperatorCSR,
     SymbolicOperator,
-    SymbolicMapping,
     SymmetricRankOneOperator,
     ZeroPaddingOperator,
     adjoint,
@@ -63,16 +60,11 @@ export
     nnz,
     nonzeros,
     nrows,
-    output_eltype,
-    output_ndims,
-    output_size,
-    output_type,
     row_size,
     sparse,
     terms,
     unpack!,
     unscaled,
-    unveil,
     vcombine!,
     vcombine,
     vcopy!,
@@ -95,9 +87,17 @@ export
     vzeros
 
 using TypeUtils: @public
+@public Adjoint
+@public Identity
+@public Inverse
+@public InverseAdjoint
+@public Prod
+@public Sum
 @public convert_multiplier
 @public create_output
 @public multiplier_type
+@public output_axes
+@public output_eltype
 @public unsafe_vcombine!
 @public unsafe_vcopy!
 @public unsafe_vdot
@@ -105,6 +105,9 @@ using TypeUtils: @public
 @public unsafe_vscale!
 @public unsafe_vswap!
 @public unsafe_vupdate!
+
+@public unveil
+
 using Printf
 using ArrayTools
 
@@ -126,13 +129,14 @@ using SparseArrays: sparse
 include("types.jl")
 include("traits.jl")
 include("utils.jl")
-include("methods.jl")
 include("vectors.jl")
+include("methods.jl")
+include("rules.jl")
+include("identity.jl")
+include("operators.jl")
 #include("genmult.jl")
 #import .GenMult: lgemm!, lgemm, lgemv!, lgemv
 #include("blas.jl")
-#include("rules.jl")
-include("mappings.jl")
 #include("foundations.jl")
 
 #include("sparse.jl")

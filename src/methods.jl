@@ -5,11 +5,93 @@
 #
 #-----------------------------------------------------------------------------------------
 #
-# This file is part of LazyAlgebra (https://github.com/emmt/LazyAlgebra.jl)
-# released under the MIT "Expat" license.
+# This file is part of LazyAlgebra (https://github.com/emmt/LazyAlgebra.jl) released under
+# the MIT "Expat" license.
 #
 # Copyright (c) 2017-2025, Éric Thiébaut.
 #
+
+"""
+    LazyAlgebra.output_eltype([alpha::Number,] A::Operator, x::AbstractArray) -> T
+
+yields the element type `T` of the result of `A*x` or of `alpha*A*x` if the multiplier
+`alpha` is specified.
+
+As a simplification, it is assumed that the element type of `A*x` is a *trait* that only
+depends on the type of the operator `A` and on the element type of the input array `x`.
+Following this assumption, this method infers its result from that of:
+
+    LazyAlgebra.output_eltype(typeof(A), eltype(x))
+
+and it is thus expected that a method with this signature exists for the operator `A` and
+that it returns the element type of `A*x`. If such a method does not exists, a fallback method
+is provided which calls:
+
+    Base.eltype(typeof(A))
+
+to infer the type of the elements of `A` and which assumes that the element type of `A*x`
+is that of the floating-point conversion of the product of two values of respective types
+`eltype(A)` and `eltype(x)` converted to floating-point.
+
+This machinery is needed to support quantities with units.
+
+See also [`LazyAlgebra.output_axes`](@ref), [`LazyAlgebra.create_output`](@ref), and
+[`LazyAlgebra.multiplier_type`](@ref).
+
+"""
+function output_eltype(α::Number, A::Operator, x::AbstractArray)
+    T = output_eltype(A, x) # element type of A*x
+    return prod_type(multiplier_type(typeof(α), T), T)
+end
+
+output_eltype(A::Operator, x::AbstractArray) = output_eltype(typeof(A), eltype(x))
+
+# Fallback method, assumes that `eltype(A)` is extended.
+output_eltype(::Type{A}, ::Type{X}) where {A<:Operator,X} =
+    float(prod_type(eltype(A), X))
+
+# Output element type for products and sums assuming right-associativity.
+output_eltype(::Type{Prod{L,R}}, ::Type{X}) where {L,R,X} =
+    output_eltype(L, output_eltype(R, X))
+output_eltype(::Type{Sum{L,R}}, ::Type{X}) where {L,R,X} =
+    sum_type(output_eltype(L, X), output_eltype(R, X))
+#
+#output_eltype(::Type{S}, ::Type{X}) where {S<:Number,X} =
+#    prod_type(multiplier_type(S, X), X)
+
+"""
+    LazyAlgebra.output_axes(A::Operator, x::AbstractArray)
+
+yields the axes of the result of `A*x`.
+
+As a simplification, it is assumed that the axes of the output only depend on the operator
+`A` and on the axes of the input array `x`. Following this assumption, this method returns
+the result of:
+
+    LazyAlgebra.output_axes(A, axes(x))
+
+and it is thus expected that a method with this signature exists for the operator `A`.
+
+See also [`LazyAlgebra.output_eltype`](@ref) and [`LazyAlgebra.create_output`](@ref).
+
+"""
+output_axes(A::Operator, x::AbstractArray) = output_axes(A, axes(x))
+
+# Output axes for products assuming right-associativity.
+output_axes(A::Prod{<:Number}, J::ArrayAxes) = output_axes(last(A), J)
+output_axes(A::Prod, J::ArrayAxes) = output_axes(first(A), output_axes(last(A), J))
+
+# Output axes for sums assuming right-associativity.
+output_axes(A::Sum, J::ArrayAxes) =
+    output_axes_in_sum(output_axes(first(A), J), last(A), J)
+output_axes_in_sum(I::ArrayAxes, A::Sum, J::ArrayAxes) =
+    output_axes(first(A), J) == I ? output_axes_in_sum(I, last(A), J) :
+    throw_incompatible_axes_in_sum()
+output_axes_in_sum(I::ArrayAxes, A::Operator, J::ArrayAxes) =
+    output_axes(A, J) == I ? I : throw_incompatible_axes_in_sum()
+
+@noinline  throw_incompatible_axes_in_sum() =
+    throw(DimensionMismatch("incompatible axes in sum"))
 
 """
     y = LazyAlgebra.create_output([α::Number,] A::Operator, x::AbstractArray)
@@ -101,124 +183,97 @@ macro callable(T)
 end
 @callable Adjoint
 @callable Inverse
-@callable InverseAdjoint
 @callable Gram
-@callable Scaled
 @callable Sum
-@callable Composition
+@callable Prod
 
-show(io::IO, ::MIME"text/plain", A::Operator) = show(io, A)
+Base.show(io::IO, ::MIME"text/plain", A::Operator) = show(io, A)
+Base.show(io::IO, A::Operator) = _show(io, A)
 
-show(io::IO, A::Identity) = print(io, "Id")
+Base.show(io::IO, A::Identity) = write(io, "Id")
 
-function show(io::IO, A::Scaled)
-    λ, M = multiplier(A), unscaled(A)
-    if λ == -1
-        print(io, "-")
-    elseif λ != 1
-        print(io, λ, "⋅")
-    end
-    show(io, M)
+function Base.show(io::IO, A::Adjoint)
+    B = parent(A)
+    show_paren(io, B, B isa Union{Sum,Prod,Adjoint})
+    write(io, '\'')
 end
 
-function show(io::IO, A::Scaled{<:Sum})
-    λ, M = multiplier(A), unscaled(A)
-    if λ == -1
-        print(io, "-(")
-    elseif λ != 1
-        print(io, λ, "⋅(")
-    end
-    show(io, M)
-    if λ != 1
-        print(io, ")")
-    end
+function Base.show(io::IO, A::Inverse)
+    write(io, "inv(")
+    show(io, parent(A))
+    write(io, ')')
 end
 
-function show(io::IO, A::Adjoint{<:Operator})
-    show(io, unveil(A))
-    print(io, "'")
-end
-
-function show(io::IO, A::Adjoint{T}) where {T<:Union{Scaled,Composition,Sum}}
-    print(io, "(")
-    show(io, unveil(A))
-    print(io, ")'")
-end
-
-function show(io::IO, A::Inverse{<:Operator})
-    print(io, "inv(")
-    show(io, unveil(A))
-    print(io, ")")
-end
-
-function show(io::IO, A::InverseAdjoint{<:Operator})
-    print(io, "inv(")
-    show(io, unveil(A))
-    print(io, ")'")
-end
-
-function show(io::IO, A::Sum{N}) where {N}
-    function show_term(io::IO, A::Sum)
-        print(io, "(")
-        show(io, A)
-        print(io, ")")
-    end
-    show_term(io::IO, A::Operator) = show(io, A)
-
-    for i in 1:N
-        let B = A[i]
-            if isa(B, Scaled)
-                λ, M = multiplier(B), unscaled(B)
-                if λ < 0
-                    print(io, (i == 1 ? "-" : " - "))
-                    λ = -λ
-                elseif i > 1
-                    print(io, " + ")
-                end
-                if λ != 1
-                    print(io, λ, "⋅")
-                end
-                show_term(io, M)
-            else
-                if i > 1
-                    print(io, " + ")
-                end
-                show_term(io, B)
-            end
+function show(io::IO, A::Prod)
+    protect = A[2] isa Union{Sum,Prod} # FIXME: only Sum?
+    if A[1] isa Number
+        λ = A[1]
+        if λ == -1
+            write(io, '-')
+        elseif λ == 1
+            protect = false
+        else
+            show_multiplier(io, λ)
+            write(io, '*')
         end
+    else
+        show_in_prod(io, A[1])
+        write(io, '*')
     end
+    show_paren(io, A[2], protect)
 end
 
-function show(io::IO, A::Composition{N}) where {N}
-    for i in 1:N
-        let B = A[i]
-            if i > 1
-                print(io, "⋅")
-            end
-            if isa(B, Sum) || isa(B, Scaled)
-                print(io, "(")
-                show(io, B)
-                print(io, ")")
-            else
-                show(io, B)
-            end
+function Base.show(io::IO, A::Sum)
+    show(io, A[1])
+    show_next_in_sum(io, A[2])
+end
+
+# Show a multiplier.
+show_multiplier(io::IO, λ::Number) =  show_paren(io, λ, is_complex(λ))
+is_complex(λ::Number) = false
+is_complex(λ::Complex) = true
+
+# Show a term in a product.
+show_in_prod(io::IO, A::Operator) = show_paren(io, A, A isa Sum)
+
+# Show a term optionally enclosed by parentheses.
+function show_paren(io::IO, x, paren::Bool)
+    paren && print(io, '(')
+    show(io, x)
+    paren && print(io, ')')
+end
+
+# `show_next_in_sum` shows a term in a sum (not the first one).
+function show_next_in_sum(io::IO, A::Operator)
+    write(io, " + ")
+    show(io, A)
+end
+
+function show_next_in_sum(io::IO, A::Sum)
+    show_next_in_sum(io, A[1])
+    show_next_in_sum(io, A[2])
+end
+
+function show_next_in_sum(io::IO, A::Prod)
+    if A[1] isa Number
+        λ = A[1]
+        if λ < zero(λ)
+            λ = -λ
+            write(io, " - ")
+        else
+            write(io, " + ")
         end
+        if λ != one(λ)
+            show_multiplier(io, λ)
+            write(io, '*')
+        end
+    else
+        write(io, " + ")
+        show_in_prod(io, A[1])
+        write(io, '*')
     end
+    show_in_prod(io, A[2])
 end
-
-"""
-    terms(A)
-
-yields the list (as a tuple) of terms that compose mapping `A`.  If `A` is a
-sum or a composition of mappings, the list of terms is returned; otherwise, the
-1-tuple `(A,)` is returned.
-
-If `A` is sum or a composition of mappings, `Tuple(A)` yields the same result
-as `terms(A)`.
-
-"""
-terms(A::Union{Sum,Composition}) = getfield(A, :ops)
-terms(A::Operator) = (A,)
 
 """
     unveil(A)
@@ -231,10 +286,10 @@ As a special case, `A` may be an instance of `LinearAlgebra.UniformScaling` and
 the result is the LazyAlgebra mapping corresponding to `A`.
 
 """
-unveil(A::DecoratedOperator) = getfield(A, :op)
+unveil(A::Union{Adjoint,Inverse,Gram}) = parent(A)
+unveil(A::Union{Adjoint{<:Inverse},Inverse{<:Adjoint}}) = parent(parent(A))
 unveil(A::Operator) = A
-unveil(A::UniformScaling) = multiplier(A)*Id
-Operator(A::UniformScaling) = unveil(A)
+unveil(A::UniformScaling) = Operator(A)
 
 """
     unscaled(A)
@@ -246,7 +301,7 @@ otherwise yields `A`. This method also works for intances of
 
 """
 unscaled(A::Operator) = A
-unscaled(A::Scaled) = getfield(A, :M)
+unscaled(A::Prod{<:Number}) = first(A)
 unscaled(A::UniformScaling) = Id
 
 """
@@ -258,7 +313,7 @@ intances of `LinearAlgebra.UniformScaling`. Call [`unscaled`](@ref) to get the
 mapping `M`. `λ`.
 
 """
-multiplier(A::Scaled) = getfield(A, :λ)
+multiplier(A::Prod{<:Number}) = last(A)
 multiplier(A::Operator) = 1
 multiplier(A::UniformScaling) = getfield(A, :λ)
 
@@ -276,95 +331,6 @@ identifier is used for sorting terms in a sum of mappings.
 identifier(A::Operator) = objectid(unscaled(A))
 
 Base.isless(A::Operator, B::Operator) = isless(identifier(A), identifier(B))
-
-# Extend base methods to simplify the code for reducing expressions.
-first(A::Operator) = A
-last(A::Operator) = A
-first(A::Union{Sum,Composition}) = @inbounds A[1]
-last(A::Union{Sum{N},Composition{N}}) where {N} = @inbounds A[N]
-firstindex(A::Union{Sum,Composition}) = 1
-lastindex(A::Union{Sum{N},Composition{N}}) where {N} = N
-length(A::Union{Sum{N},Composition{N}}) where {N} = N
-eltype(::Type{<:Sum{N,T}}) where {N,T} = eltype(T)
-eltype(::Type{<:Composition{N,T}}) where {N,T} = eltype(T)
-Tuple(A::Union{Sum,Composition}) = terms(A)
-
-@inline @propagate_inbounds getindex(A::Union{Sum,Composition}, i) =
-    getindex(terms(A), i)
-
-"""
-    input_type([P=Direct,] A)
-    output_type([P=Direct,] A)
-
-yield the (preferred) types of the input and output arguments of the operation
-`P` with mapping `A`.  If `A` operates on Julia arrays, the element type, list
-of dimensions, `i`-th dimension and number of dimensions for the input and
-output are given by:
-
-    input_eltype([P=Direct,] A)          output_eltype([P=Direct,] A)
-    input_size([P=Direct,] A)            output_size([P=Direct,] A)
-    input_size([P=Direct,] A, i)         output_size([P=Direct,] A, i)
-    input_ndims([P=Direct,] A)           output_ndims([P=Direct,] A)
-
-For mappings operating on Julia arrays, only `input_size(A)` and
-`output_size(A)` have to be implemented.
-
-Also see: [`vcreate`](@ref), [`apply!`](@ref), [`Operator`](@ref),
-[`Operations`](@ref).
-
-"""
-function input_type end
-
-for sfx in (:size, :eltype, :ndims, :type),
-    pfx in (:output, :input)
-
-    fn1 = Symbol(pfx, "_", sfx)
-
-    for P in (Direct, Adjoint, Inverse, InverseAdjoint)
-
-        fn2 = Symbol(P === Adjoint || P === Inverse ?
-                     (pfx === :output ? :input : :output) : pfx, "_", sfx)
-
-        T = (P === Adjoint || P === InverseAdjoint ? Operator : Operator)
-
-        # Provide basic methods for the different operations and for tagged
-        # mappings.
-        @eval $fn1(::Type{$P}, A::$T) = $fn2(A)
-        if P !== Direct
-            @eval $fn1(A::$P{<:$T}) = $fn2(unveil(A))
-        end
-        if sfx === :size
-            if P !== Direct
-                @eval $fn1(A::$P{<:$T}, dim...) = $fn2(unveil(A), dim...)
-            end
-            @eval $fn1(::Type{$P}, A::$T, dim...) = $fn2(A, dim...)
-        end
-    end
-
-    # Link documentation for the basic methods.
-    if fn1 !== :input_type
-        @eval @doc @doc(:input_type) $fn1
-    end
-
-end
-
-# Provide default methods for `$(sfx)_size(A, dim...)` and `$(sfx)_ndims(A)`.
-for pfx in (:input, :output)
-    get_size = Symbol(pfx, "_size")
-    get_ndims = Symbol(pfx, "_ndims")
-    @eval begin
-        $get_ndims(A::Operator) = length($get_size(A))
-        $get_size(A::Operator, dim) = $get_size(A)[dim]
-        function $get_size(A::Operator, dim...)
-            dims = $get_size(A)
-            ntuple(i -> dims[dim[i]], length(dim))
-        end
-    end
-end
-
-for f in (:input_eltype, :output_eltype, :input_size, :output_size)
-    @eval $f(::T) where {T<:Operator} = unimplemented($(string(f)), T)
-end
 
 """
     nrows(A)
@@ -540,53 +506,19 @@ gram(A::Operator) = A'*A
 # VCREATE, APPLY AND APPLY!
 
 """
-    vcreate([P,] A, x, scratch=false) -> y
-
-yields a new instance `y` suitable for storing the result of applying mapping
-`A` to the argument `x`. Optional parameter `P ∈ Operations` is one of `Direct`
-(the default), `Adjoint`, `Inverse` and/or `InverseAdjoint` and can be used to
-specify how `A` is to be applied as explained in the documentation of the
-[`apply`](@ref) method.
-
-Optional argument `scratch` indicates whether input argument `x` can be
-overwritten by the operation and thus used to store the result. This may be
-exploited by some mappings (which are able to operate *in-place*) to avoid
-allocating a new object for the result `y`.
-
-The caller should set `scratch = true` if `x` is not needed after calling
-`apply`. If `scratch = true`, then it is possible that `y` be the same object
-as `x`; otherwise, `y` is a new object unless applying the operation yields the
-same contents as `y` for the result `x` (this is always true for the identity
-for instance). Thus, in general, it should not be assumed that the returned `y`
-is different from the input `x`.
-
-The method `vcreate(::Type{P}, A, x)` should be implemented by linear mappings
-for any supported operations `P` and argument type for `x`. The result returned
-by `vcreate` should be of predictible type to ensure *type-stability*. Checking
-the validity (*e.g.* the size) of argument `x` in `vcreate` may be skipped
-because this argument will be eventually checked by the `apply!` method.
-
-See also: [`Operator`](@ref), [`apply`](@ref).
-
-"""
-vcreate(A::Operator, x, scratch::Bool=false) = vcreate(Direct, A, x, scratch)
-vcreate(::Type{P}, A::Operator, x) where {P<:Operations} =
-    vcreate(P, A, x, false)
-
-"""
     vmul(A, x) -> y
 
-yields `y = A*x`. The default behavior is to call `apply(Direct,A,x,false)`.
+yields `y = A*x`. The default behavior is to call `apply(A,x,false)`.
 Method [`vmul!`](@ref) is the in-place version.
 
 """
-vmul(A, x) = apply(Direct, A, x, false)
+vmul(A, x) = apply(A, x, false)
 
 """
     vmul!(y, A, x) -> y
 
 overwrites `y` with the result of `A*x` and returns `y`. The default behavior
-is to call `apply!(1,Direct,A,x,false,0,y)`.
+is to call `apply!(1,A,x,false,0,y)`.
 
 !!! note
     This method is intended to be used by algorithms such as the conjugate
@@ -595,15 +527,14 @@ is to call `apply!(1,Direct,A,x,false,0,y)`.
     requires to consider the specific values of the multipliers `α` and `β`.
 
 """
-vmul!(y, A, x) = apply!(1, Direct, A, x, false, 0, y)
+vmul!(y, A, x) = apply!(1, A, x, false, 0, y)
 
 """
-    apply([P=Direct,] A, x, scratch=false) -> y
+    apply(A, x, scratch=false) -> y
 
 yields the result `y` of applying mapping `A` to the argument `x`. Optional
 parameter `P` can be used to specify how `A` is to be applied:
 
-* `Direct` (the default) to apply `A` and yield `y = A⋅x`;
 * `Adjoint` to apply the adjoint of `A` and yield `y = A'⋅x`;
 * `Inverse` to apply the inverse of `A` and yield `y = A\\x`;
 * `InverseAdjoint` or `AdjointInverse` to apply the inverse of `A'` and
@@ -628,48 +559,36 @@ performances.
 See also: [`Operator`](@ref), [`apply!`](@ref), [`vcreate`](@ref).
 
 """
-apply(A::Operator, x, scratch::Bool=false) = apply(Direct, A, x, scratch)
-apply(::Type{P}, A::Operator, x, scratch::Bool=false) where {P<:Operations} =
-    apply!(1, P, A, x, scratch, 0, vcreate(P, A, x, scratch))
+apply(A::Operator, x, scratch::Bool=false) =
+    apply!(1, P, A, x, scratch, 0, vcreate(A, x, scratch))
 
-*(A::Operator, x) = apply(Direct, A, x, false)
-\(A::Operator, x) = apply(Inverse, A, x, false)
+*(A::Operator, x::AbstractArray) = apply(A, x)
+\(A::Operator, x::AbstractArray) = apply(inv(A), x)
 
 """
-    apply!([α=1,] [P=Direct,] A::Operator, x, [scratch=false,] [β=0,] y) -> y
+    apply!([α=1,] A::Operator, x, [scratch=false,] [β=0,] y) -> y
 
-overwrites `y` with `α*P(A)⋅x + β*y` where `P ∈ Operations` can be `Direct`,
-`Adjoint`, `Inverse` and/or `InverseAdjoint` to indicate which variant of the
-mapping `A` to apply. The convention is that the prior contents of `y` is not
-used at all if `β = 0` so `y` can be directly used to store the result even
-though it is not initialized. The `scratch` optional argument indicates whether
-the input `x` is no longer needed by the caller and can thus be used as a
-scratch array. Having `scratch = true` or `β = 0` may be exploited by the
-specific implementation of the `apply!` method for the mapping type to avoid
-allocating temporary workspace(s).
+overwrites `y` with `α*A⋅x + β*y`. The convention is that the prior contents of `y` is not
+used at all if `β = 0` so `y` can be directly used to store the result even though it is
+not initialized. The `scratch` optional argument indicates whether the input `x` is no
+longer needed by the caller and can thus be used as a scratch array. Having `scratch =
+true` or `β = 0` may be exploited by the specific implementation of the `apply!` method
+for the mapping type to avoid allocating temporary workspace(s).
 
-The `apply!` method can be seen as a generalization of the `LinearAlgebra.mul!`
-method.
+The `apply!` method can be seen as a generalization of the `LinearAlgebra.mul!` method.
 
-The order of arguments can be changed and the same result as above is obtained
-with:
+The order of arguments can be changed and the same result as above is obtained with:
 
-    apply!([β=0,] y, [α=1,] [P=Direct,] A::Operator, x, scratch=false) -> y
+    apply!([β=0,] y, [α=1,] A::Operator, x, scratch=false) -> y
 
 The result `y` may have been allocated by:
 
-    y = vcreate(P, A, x, scratch=false)
-
-or by:
-
     y = vcreate(A, x, scratch=false)
-
-if `P` is not specified.
 
 Operator sub-types only need to extend `vcreate` and `apply!` with the specific
 signatures:
 
-    vcreate(::Type{P}, A::M, x, scratch::Bool=false) -> y
+    vcreate(A::M, x, scratch::Bool=false) -> y
     apply!(α::Number, ::Type{P}, A::M, x, scratch::Bool, β::Number, y) -> y
 
 for any supported operation `P` and where `M` is the type of the mapping. Of
@@ -686,83 +605,53 @@ may also be extended to improve the default implementation which is:
 
 See also: [`Operator`](@ref), [`apply`](@ref), [`vcreate`](@ref).
 
-""" apply!
+"""
+apply!(A::Operator, x::AbstractArray, y::AbstractArray) =
+    apply!(1, A, x, false, 0, y)
+apply!(α::Number, A::Operator, x::AbstractArray, y::AbstractArray) =
+    apply!(α, A, x, false, 0, y)
+apply!(A::Operator, x::AbstractArray, β::Number, y::AbstractArray) =
+    apply!(1, A, x, false, β, y)
+apply!(α::Number, A::Operator, x::AbstractArray, β::Number, y::AbstractArray) =
+    apply!(α, A, x, false, β, y)
 
-# Provide fallbacks so that `Direct` is the default operation and only the
-# method with signature:
-#
-#     apply!(α::Number, ::Type{P}, A::OperatorType, x::X, scratch::Bool,
-#            β::Number, y::Y) where {P<:Operations,X,Y}
-#
-# has to be implemented (possibly with restrictions on X and Y) by subtypes of
-# Operator so we provide the necessary mechanism to dispatch derived methods.
-apply!(A::Operator, x, y) =
-    apply!(1, Direct, A, x, false, 0, y)
-apply!(α::Number, A::Operator, x, y) =
-    apply!(α, Direct, A, x, false, 0, y)
-apply!(A::Operator, x, β::Number, y) =
-    apply!(1, Direct, A, x, false, β, y)
-apply!(α::Number, A::Operator, x, β::Number, y) =
-    apply!(α, Direct, A, x, false, β, y)
+apply!(A::Operator, x::AbstractArray, scratch::Bool, y::AbstractArray) =
+    apply!(1, A, x, scratch, 0, y)
+apply!(α::Number, A::Operator, x::AbstractArray, scratch::Bool, y::AbstractArray) =
+    apply!(α, A, x, scratch, 0, y)
+apply!(A::Operator, x::AbstractArray, scratch::Bool, β::Number, y::AbstractArray) =
+    apply!(1, A, x, scratch, β, y)
 
-apply!(P::Type{<:Operations}, A::Operator, x, y) =
-    apply!(1, P, A, x, false, 0, y)
-apply!(α::Number, P::Type{<:Operations}, A::Operator, x, y) =
-    apply!(α, P, A, x, false, 0, y)
-apply!(P::Type{<:Operations}, A::Operator, x, β::Number, y) =
-    apply!(1, P, A, x, false, β, y)
-apply!(α::Number, P::Type{<:Operations}, A::Operator, x, β::Number, y) =
-    apply!(α, P, A, x, false, β, y)
+apply!(y::AbstractArray, A::Operator, x::AbstractArray, scratch::Bool=false) =
+    apply!(1, A, x, scratch, 0, y)
+apply!(y::AbstractArray, α::Number, A::Operator, x::AbstractArray, scratch::Bool=false) =
+    apply!(α, A, x, scratch, 0, y)
+apply!(β::Number, y::AbstractArray, A::Operator, x::AbstractArray, scratch::Bool=false) =
+    apply!(1, A, x, scratch, β, y)
+apply!(β::Number, y::AbstractArray, α::Number, A::Operator, x::AbstractArray, scratch::Bool=false) =
+    apply!(α, A, x, scratch, β, y)
 
-apply!(A::Operator, x, scratch::Bool, y) =
-    apply!(1, Direct, A, x, scratch, 0, y)
-apply!(α::Number, A::Operator, x, scratch::Bool, y) =
-    apply!(α, Direct, A, x, scratch, 0, y)
-apply!(A::Operator, x, scratch::Bool, β::Number, y) =
-    apply!(1, Direct, A, x, scratch, β, y)
+# Extend `LinearAlgebra.ldiv!(y, A, b)` to overwrite `y` with `A\b`.
+LinearAlgebra.ldiv!(y::AbstractArray, A::Operator, b::AbstractArray) =
+    apply!(y, inv(A), b)
 
-apply!(P::Type{<:Operations}, A::Operator, x, scratch::Bool, y) =
-    apply!(1, P, A, x, scratch, 0, y)
-apply!(α::Number, P::Type{<:Operations}, A::Operator, x, scratch::Bool, y) =
-    apply!(α, P, A, x, scratch, 0, y)
-apply!(P::Type{<:Operations}, A::Operator, x, scratch::Bool, β::Number, y) =
-    apply!(1, P, A, x, scratch, β, y)
+# Extend `LinearAlgebra.mul!(c, A, b, α, β)` to overwrite `c` with `α*A*b + β*c`.
+LinearAlgebra.mul!(y::AbstractArray, A::Operator, x::AbstractArray) =
+    apply!(1, A, x, false, 0, y)
 
-# Change order of arguments.
-apply!(y, A::Operator, x, scratch::Bool=false) =
-    apply!(1, Direct, A, x, scratch, 0, y)
-apply!(y, P::Type{<:Operations}, A::Operator, x, scratch::Bool=false) =
-    apply!(1, P, A, x, scratch, 0, y)
-apply!(y, α::Number, A::Operator, x, scratch::Bool=false) =
-    apply!(α, Direct, A, x, scratch, 0, y)
-apply!(y, α::Number, P::Type{<:Operations}, A::Operator, x, scratch::Bool=false) =
-    apply!(α, P, A, x, scratch, 0, y)
-apply!(β::Number, y, A::Operator, x, scratch::Bool=false) =
-    apply!(1, Direct, A, x, scratch, β, y)
-apply!(β::Number, y, P::Type{<:Operations}, A::Operator, x, scratch::Bool=false) =
-    apply!(1, P, A, x, scratch, β, y)
-apply!(β::Number, y, α::Number, A::Operator, x, scratch::Bool=false) =
-    apply!(α, Direct, A, x, scratch, β, y)
-apply!(β::Number, y, α::Number, P::Type{<:Operations}, A::Operator, x, scratch::Bool=false) =
-    apply!(α, P, A, x, scratch, β, y)
-
-# Extend `LinearAlgebra.mul!` so that `A'*x`, `A*B*C*x`, etc. yield the
-# expected result.  FIXME: This should be restricted to linear mappings but
-# this is not possible without overheads.
-mul!(y, A::Operator, x) = apply!(1, Direct, A, x, false, 0, y)
-mul!(y, A::Operator, x, α::Number, β::Number) =
-    apply!(α, Direct, A, x, false, β, y)
+# Extend `LinearAlgebra.mul!(c, A, b, α, β)` to overwrite `c` with `α*A*b + β*c`.
+LinearAlgebra.mul!(c::AbstractArray, A::Operator, b::AbstractArray, α::Number, β::Number) =
+    apply!(α, A, x, false, β, y)
 
 # Implemention of the `apply!(α,P,A,x,scratch,β,y)` and
 # `vcreate(P,A,x,scratch)` methods for a scaled mapping.
-for (P, expr) in ((:Direct, :(α*multiplier(A))),
-                  (:Adjoint, :(α*conj(multiplier(A)))),
+for (P, expr) in ((:Adjoint, :(α*conj(multiplier(A)))),
                   (:Inverse, :(α/multiplier(A))),
                   (:InverseAdjoint, :(α/conj(multiplier(A)))))
-    @eval begin
+    @eval begin # FIXME:
 
-        apply!(α::Number, ::Type{$P}, A::Scaled, x, scratch::Bool, β::Number, y) =
-            apply!($expr, $P, unscaled(A), x, scratch, β, y)
+        apply!(α::Number, A::$P{<:Scaled}, x, scratch::Bool, β::Number, y) =
+            apply!($expr, unscaled(unveil(A)), x, scratch, β, y)
 
     end
 end
@@ -779,23 +668,23 @@ overwritable(scratch::Bool, x, y) = (scratch || x !== y)
 # Implement `apply` for scaled operators to avoid the needs of explicitly
 # calling `vcreate` as done by the default implementation of `apply`.  This is
 # needed for scaled compositions among others.
-function apply(::Type{Direct}, A::Scaled, x, scratch::Bool)
-    y = apply(Direct, unscaled(A), x, scratch)
+function apply(A::Scaled, x, scratch::Bool)
+    y = apply(Operator, unscaled(A), x, scratch)
     vscale!((overwritable(scratch, x, y) ? y : vcopy(y)), multiplier(A))
 end
 
 function apply(::Type{Adjoint}, A::Scaled, x, scratch::Bool)
-    y = apply(Direct, unscaled(A), x, scratch)
+    y = apply(Operator, unscaled(A), x, scratch)
     vscale!((overwritable(scratch, x, y) ? y : vcopy(y)), conj(multiplier(A)))
 end
 
 function apply(::Type{Inverse}, A::Scaled, x, scratch::Bool)
-    y = apply(Direct, unscaled(A), x, scratch)
+    y = apply(Operator, unscaled(A), x, scratch)
     vscale!((overwritable(scratch, x, y) ? y : vcopy(y)), 1/multiplier(A))
 end
 
 function apply(::Type{InverseAdjoint}, A::Scaled, x, scratch::Bool)
-    y = apply(Direct, unscaled(A), x, scratch)
+    y = apply(Operator, unscaled(A), x, scratch)
     vscale!((overwritable(scratch, x, y) ? y : vcopy(y)), 1/conj(multiplier(A)))
 end
 
@@ -805,18 +694,13 @@ vcreate(P::Type{<:Operations}, A::Scaled, x, scratch::Bool) =
 # Implemention of the `vcreate(P,A,x,scratch)` and
 # `apply!(α,P,A,x,scratch,β,y)` methods for the various decorations of a
 # mapping so as to automatically unveil the embedded mapping.
-for (T1, T2, T3) in ((:Direct,         :Adjoint,        :Adjoint),
-                     (:Adjoint,        :Adjoint,        :Direct),
-                     (:Inverse,        :Adjoint,        :InverseAdjoint),
+for (T1, T2, T3) in ((:Inverse,        :Adjoint,        :InverseAdjoint),
                      (:InverseAdjoint, :Adjoint,        :Inverse),
-                     (:Direct,         :Inverse,        :Inverse),
+                     (:Operator,       :Inverse,        :Inverse),
                      (:Adjoint,        :Inverse,        :InverseAdjoint),
-                     (:Inverse,        :Inverse,        :Direct),
                      (:InverseAdjoint, :Inverse,        :Adjoint),
-                     (:Direct,         :InverseAdjoint, :InverseAdjoint),
                      (:Adjoint,        :InverseAdjoint, :Inverse),
-                     (:Inverse,        :InverseAdjoint, :Adjoint),
-                     (:InverseAdjoint, :InverseAdjoint, :Direct))
+                     (:Inverse,        :InverseAdjoint, :Adjoint))
     @eval begin
 
         vcreate(::Type{$T1}, A::$T2, x, scratch::Bool) =
@@ -828,18 +712,7 @@ for (T1, T2, T3) in ((:Direct,         :Adjoint,        :Adjoint),
     end
 end
 
-# Implementation of the `vcreate(P,A,x,scratch)` and
-# `apply!(α,P,A,x,scratch,β,y)` and methods for a sum of mappings.  Note that
-# `Sum` instances are warranted to have at least 2 components.
-
-function vcreate(::Type{P}, A::Sum, x,
-                 scratch::Bool) where {P<:Union{Direct,Adjoint}}
-    # The sum only makes sense if all mappings yields the same kind of result.
-    # Hence we just call the vcreate method for the first mapping of the sum.
-    vcreate(P, A[1], x, scratch)
-end
-
-function apply!(α::Number, P::Type{<:Union{Direct,Adjoint}}, A::Sum{N},
+function apply!(α::Number, P::Type{<:Union{Operator,Adjoint}}, A::Sum{N},
                 x, scratch::Bool, β::Number, y) where {N}
     if α == 0
         # Just scale the destination.
@@ -896,7 +769,7 @@ function vcreate(::Type{<:Operations},
 end
 
 function apply!(α::Number, ::Type{P}, A::Composition{N}, x, scratch::Bool,
-                β::Number, y) where {N,P<:Union{Direct,InverseAdjoint}}
+                β::Number, y) where {N,P<:Union{Operator,InverseAdjoint}}
     if α == 0
         # Just scale the destination.
         vscale!(y, β)
@@ -910,12 +783,12 @@ function apply!(α::Number, ::Type{P}, A::Composition{N}, x, scratch::Bool,
 end
 
 function apply(::Type{P}, A::Composition{N}, x,
-               scratch::Bool) where {N,P<:Union{Direct,InverseAdjoint}}
+               scratch::Bool) where {N,P<:Union{Operator,InverseAdjoint}}
     apply(P, *, terms(A), x, scratch)
 end
 
 function apply(::Type{P}, ::typeof(*), ops::NTuple{N,Operator}, x,
-               scratch::Bool) where {N,P<:Union{Direct,InverseAdjoint}}
+               scratch::Bool) where {N,P<:Union{Operator,InverseAdjoint}}
     w = apply(P, ops[N], x, scratch)
     N == 1 && return w
     scratch = overwritable(scratch, w, x)
@@ -953,17 +826,17 @@ end
 # construction which left only 2 cases to deal with.
 
 apply!(α::Number, ::Type{Adjoint}, A::Gram, x, scratch::Bool, β::Number, y) =
-    apply!(α, Direct, A, x, scratch, β, y)
+    apply!(α, Operator, A, x, scratch, β, y)
 
 apply!(α::Number, ::Type{InverseAdjoint}, A::Gram, x, scratch::Bool, β::Number, y) =
     apply!(α, Inverse, A, x, scratch, β, y)
 
-function apply!(α::Number, ::Type{Direct}, A::Gram, x, scratch::Bool, β::Number, y)
+function apply!(α::Number, ::Type{Operator}, A::Gram, x, scratch::Bool, β::Number, y)
     if α == 0
         vscale!(y, β)
     else
         B = unveil(A) # A ≡ B'*B
-        z = apply(Direct, B, x, scratch) # z <- B⋅x
+        z = apply(Operator, B, x, scratch) # z <- B⋅x
         apply!(α, Adjoint, B, z, (z !== x), β, y) # y <- α⋅B'⋅z + β⋅y
     end
     return y

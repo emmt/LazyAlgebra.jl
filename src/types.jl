@@ -1,14 +1,14 @@
 #
 # types.jl -
 #
-# Type definitions and (some) constructors for linear algebra.
+# Definition of types and constants for linear algebra.
 #
-#-------------------------------------------------------------------------------
+#-----------------------------------------------------------------------------------------
 #
-# This file is part of LazyAlgebra (https://github.com/emmt/LazyAlgebra.jl)
-# released under the MIT "Expat" license.
+# This file is part of LazyAlgebra (https://github.com/emmt/LazyAlgebra.jl) released under
+# the MIT "Expat" license.
 #
-# Copyright (c) 2017-2025 Éric Thiébaut.
+# Copyright (c) 2017-2025, Éric Thiébaut.
 #
 
 struct SingularSystem <: Exception
@@ -34,6 +34,8 @@ struct UnimplementedMethod <: Exception
 end
 showerror(io::IO, err::UnimplementedMethod) =
     print(io, err.msg)
+
+const ArrayAxes{N} = NTuple{N,AbstractUnitRange{Int}}
 
 """
 
@@ -116,6 +118,20 @@ corresponds to the identity (but in the sense of a matrix). When `I` is combined
 struct Identity <: Operator end
 
 """
+    Id
+
+is the identity operator in `LazyAlgebra`; it is a *singleton*: the only instance of
+[`LazyAlgebra.Identity`](@ref).
+
+The `LinearAlgebra` module of the standard library exports a constant `I` which also
+corresponds to the identity (but in the sense of a matrix). When `I` is combined with any
+`LazyAlgebra` operator, it is recognized as an alias of `Id`. So that, for instance,
+`I/A`, `A\\I`, `I/A` and `A\\I` all yield `inv(A)` for any `LazyAlgebra` operator `A`.
+
+"""
+const Id = Identity()
+
+"""
     Trait
 
 is the abstract type inherited by types indicating specific traits.
@@ -142,125 +158,76 @@ struct NonDiagonalOperator <: DiagonalType end
 struct DiagonalOperator <: DiagonalType end
 
 """
+    B = A'
+    B = adjoint(A)
+    B = LazyAlgebra.Adjoint(A)
 
-Type `Direct` is a singleton type to indicate that a linear mapping should
-be directly applied.  This type is part of the union `Operations`.
+yield a linear operator `B` representing the *adjoint* (conjugate transpose) of the linear
+operator `A`.
 
-See also: [`Operator`](@ref), [`apply`](@ref), [`Operations`](@ref).
-
-"""
-struct Direct; end
-
-"""
-    Adjoint(A) -> obj
-
-yields an object instance `obj` representing `A'`, the adjoint of the linear
-mapping `A`.
-
-Directly calling this constructor is discouraged, use an expression like `A'`
-instead and benefit from automatic simplification rules.
-
-Call [`unveil(obj)`](@ref) to reveal the linear mapping `A` embedded in `obj`.
-
-See also [`DecoratedOperator`](@ref).
+Taking the adjoint of `B` yields back `A`. Method [`LazyAlgebra.unveil(B)`](@ref) may also
+be used to reveal the bare linear operator `A` embedded in `B`.
 
 """
 struct Adjoint{T<:Operator} <: Operator
-    op::T
-
-    # The outer constructors prevent most illegal calls to `Adjoint(A)` we
-    # just have to check that the argument is a simple linear mapping.
-    function Adjoint{T}(A::T) where {T<:Operator}
-        return new{T}(A)
-    end
+    parent::T
 end
 
 """
-    Inverse(A) -> obj
+    B = inv(A)
+    B = A\\Id
+    B = Id/A
+    B = LazyAlgebra.Inverse(A)
 
-yields an object instance `obj` representing the inverse of the mapping `A`.
+yield a linear operator `B` representing the *inverse* of the linear operator `A`
+regardless whether this inverse exists or not.
 
-Directly calling this constructor is discouraged, call `inv(A)` or use an
-expression like `Id/A` instead and benefit from automatic simplification rules.
-
-Call [`unveil(obj)`](@ref) to reveal the mapping `A` embedded in `obj`.
-
-See also [`DecoratedOperator`](@ref).
+Taking the inverse of `B` yields back `A`. Method [`LazyAlgebra.unveil(B)`](@ref) may also
+be used to reveal the bare linear operator `A` embedded in `B`.
 
 """
 struct Inverse{T<:Operator} <: Operator
-    op::T
-
-    # The outer constructors prevent all illegal calls to `Inverse(A)` so there
-    # is nothing more to check.
-    Inverse{T}(A::T) where {T<:Operator} = new{T}(A)
+    parent::T
 end
 
 """
-    InverseAdjoint(A) -> obj
+    LazyAlgebra.InverseAdjoint{A}
 
-yields an object instance `obj` representing the inverse of the adjoint of the
-linear mapping `A`.
+is an alias for the type of an operator that is the inverse adjoint (or adjoint inverse)
+of an operator of type `A`.
 
-Directly calling this constructor is discouraged, use expressions like
-`inv(A')`, `inv(A')` or `Id/A'` instead and benefit from automatic
-simplification rules.
-
-Call [`unveil(obj)`](@ref) to reveal the mapping `A` embedded in `obj`.
-
-`AdjointInverse` is an alias for `InverseAdjoint`.
-
-See also [`DecoratedOperator`](@ref).
+See also [`LazyAlgebra.Adjoint`](@ref) and [`LazyAlgebra.Inverse`](@ref).
 
 """
-struct InverseAdjoint{T<:Operator} <: Operator
-    op::T
-
-    # The outer constructors prevent most illegal calls to `InverseAdjoint(A)`
-    # we just have to check that the argument is a simple linear mapping.
-    function InverseAdjoint{T}(A::T) where {T<:Operator}
-        return new{T}(A)
-    end
-end
-
-const AdjointInverse{T} = InverseAdjoint{T}
-@doc @doc(InverseAdjoint) AdjointInverse
+const InverseAdjoint{A} = Union{Inverse{Adjoint{A}},Adjoint{Inverse{A}}}
 
 """
-    Gram(A) -> obj
+    B = Gram(A)
+    B = simplify(A'*A)
 
-yields an object instance `obj` representing the composition `A'*A` for the
-linear mapping `A`.
+yield a linear operator `B` representing the composition `A'*A` for the linear mapping
+`A`.
 
-Directly calling this constructor is discouraged, call [`gram(A)`](@ref) or use
-expression `A'*A` instead and benefit from automatic simplification rules.
-
-Call [`unveil(obj)`](@ref) to reveal the linear mapping `A` embedded in `obj`.
-
-See also [`gram`](@ref), [`unveil`](@ref) and [`DecoratedOperator`](@ref).
+Method [`LazyAlgebra.unveil(B)`](@ref) may be used to reveal the bare linear operator `A`
+embedded in `B`.
 
 """
 struct Gram{T<:Operator} <: Operator
-    op::T
-
-    # The outer constructors prevent most illegal calls to `Gram(A)` we
-    # just have to check that the argument is a simple linear mapping.
-    function Gram{T}(A::T) where {T<:Operator}
-        return new{T}(A)
-    end
+    parent::T
 end
 
 """
-    DecoratedOperator
+    LazyAlgebra.DecoratedOperator{A}
 
-is the union of the *decorated* mapping types: [`Adjoint`](@ref),
-[`Inverse`](@ref), [`InverseAdjoint`](@ref), and [`Gram`](@ref).
+is the union of the *decorated* operator types: [`LazyAlgebra.Adjoint`](@ref),
+[`LazyAlgebra.Inverse`](@ref), and [`LazyAlgebra.Gram`](@ref). Parameter `A` is the type
+of the decorated operator.
 
-The method [`unveil(A)`](@ref) can be called to reveal the mapping embedded in
-a decorated mapping `A`.
+The `Base.parent` method can be called to reveal the operator embedded in a decorated
+operator.
 
 """
-const DecoratedOperator = Union{Adjoint,Inverse,InverseAdjoint,Gram}
+const DecoratedOperator{A<:Operator} = Union{Adjoint{A},Inverse{A},Gram{A}}
 
 """
     Operations
@@ -272,73 +239,63 @@ is the union of the possible variants to apply a mapping: [`Direct`](@ref),
 See also: [`apply`](@ref) and [`apply!`](@ref).
 
 """
-const Operations = Union{Direct,Adjoint,Inverse,InverseAdjoint}
+const Operations = Union{Adjoint,Inverse} # FIXME:
+
+# Type of operands in a product.
+const Operand = Union{Number,Operator}
 
 """
-    Scaled(λ, M) -> obj
+    C = A*B # if at least one of A or B is an Operator
+    C = LazyAlgebra.Prod(A::Union{Number,Operator}, B::Union{Number,Operator})
 
-yields an object instance `obj` representing `λ*M`, the mapping `M` multiplied
-by a scalar `λ`.
+yields the result of multiplying operand `A` by operand `B`. If both operands are scalars
+the result is a scalar; otherwise an instance of `Prod` is returned. If any operand is an
+operator, `A*B` is the same as `Prod(A, B)`.n
 
-Directly calling this constructor is discouraged, use expressions like `λ*M`
-instead and benefit from automatic simplification rules.
+If `C` is an instance of `LazyAlgebra.Prod`, then `C.left` and `C.right` yield the left
+and right operands of `C`. However, die to simplifications that may occur, these are not
+necessarily `A` and `B`.
 
-Call [`multiplier(obj)`](@ref) and [`unscaled(obj)`](@ref) with a scaled
-mapping `obj = λ*M` to retrieve `λ` and `M` respectively.
+When composing instances of `Prod` whose operands are operators, right associativity is
+applied so as to keep the operands in suitable order when applying the composite operator:
+
+```julia
+A*B*C   -> Prod(A, Prod(B, C))
+(A*B)*C -> Prod(A, Prod(B, C))
+A*(B*C) -> Prod(A, Prod(B, C))
+```
 
 """
-struct Scaled{T<:Operator,S<:Number} <: Operator
-    λ::S
-    M::T
-    Scaled{T,S}(λ::S, M::Operator) where {S<:Number,T<:Operator} =
-        new{T,S}(λ, M)
+struct Prod{L<:Operand,R<:Operator} <: Operator
+    # In a `Prod` object, only the left operand can be a scalar, the right operand must be
+    # an operator. This is to force factorization of scalar multipliers to the left of
+    # products.
+    left::L
+    right::R
+    Prod(left::L, right::R) where {L<:Operand,R<:Operator} = new{L,R}(left, right)
 end
 
-"""
-    Sum(A, B, ...) -> obj
 
-yields an object instance `obj` representing the sum `A + B + ...` of the
-mappings `A`, `B`, ...
+# Alias representing `λ*A`, the linear operator `A` multiplied by a scalar `λ`.
+# Call [`LazyAlgebra.multiplier(B)`](@ref) and [`unscaled(B)`](@ref) with a scaled
+# operator `B = λ*A` to retrieve `λ` and `A` respectively.
+const Scaled{L<:Number,R} = Prod{L,R}
 
-Directly calling this constructor is discouraged, use expressions like `A + B +
-...` instead and benefit from automatic simplification rules.
-
-Call [`terms(obj)`](@ref) retrieve the tuple `(A,B,...)` of the terms of the
-sum stored in `obj`.
+const Composition = Prod # FIXME:
 
 """
-struct Sum{N,T<:NTuple{N,Operator}} <: Operator
-    ops::T
+    C = A + B
+    C = LazyAlgebra.Sum(A::Operator, B::Operator)
 
-    # The inner constructor ensures that the number of arguments is at least 2.
-    function Sum{N,T}(ops::T) where {N,T<:NTuple{N,Operator}}
-        N ≥ 2 ||
-            throw(ArgumentError("a sum of mappings has at least 2 components"))
-        new{N,T}(ops)
-    end
-end
+yields a linear operator `C` representing the sum of the linear operators `A` and `B`.
+
+If `C` is an instance of `LazyAlgebra.Sum`, the `C.left` and `C.right` yield the left and
+right operands of `C`. However, due to simplifications that may occur, these are not
+necessarily `A` and `B`.
 
 """
-    Composition(A, B, ...) -> obj
-
-yields an object instance `obj` representing the composition `A*B*...` of the
-mappings `A`, `B`, ...
-
-Directly calling this constructor is discouraged, use expressions like
-`A*B*...` `A∘B∘...` or `A⋅B⋅...` instead and benefit from automatic
-simplification rules.
-
-Call [`terms(obj)`](@ref) retrieve the tuple `(A,B,...)` of the terms of the
-composition stored in `obj`.
-
-"""
-struct Composition{N,T<:NTuple{N,Operator}} <: Operator
-    ops::T
-
-    # The inner constructor ensures that the number of arguments is at least 2.
-    function Composition{N,T}(ops::T) where {N,T<:NTuple{N,Operator}}
-        N ≥ 2 ||
-            throw(ArgumentError("a composition of mappings has at least 2 components"))
-        new{N,T}(ops)
-    end
+struct Sum{L<:Operator,R<:Operator} <: Operator
+    left::L
+    right::R
+    Sum(left::L, right::R) where {L<:Operator,R<:Operator} = new{L,R}(left, right)
 end
