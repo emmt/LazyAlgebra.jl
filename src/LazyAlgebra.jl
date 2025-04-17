@@ -34,8 +34,6 @@ export
     SymmetricRankOneOperator,
     ZeroPaddingOperator,
     adjoint,
-    apply!,
-    apply,
     coefficients,
     col_size,
     conjgrad!,
@@ -93,11 +91,14 @@ using TypeUtils: @public
 @public InverseAdjoint
 @public Prod
 @public Sum
+@public apply!
+@public apply
 @public convert_multiplier
 @public create_output
 @public multiplier_type
 @public output_axes
 @public output_eltype
+@public unsafe_apply!
 @public unsafe_vcombine!
 @public unsafe_vcopy!
 @public unsafe_vdot
