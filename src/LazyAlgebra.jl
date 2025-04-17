@@ -131,6 +131,7 @@ using SparseArrays: sparse
 include("types.jl")
 include("traits.jl")
 include("utils.jl")
+include("multipliers.jl")
 include("vectors.jl")
 include("operators.jl")
 include("matrices.jl")
