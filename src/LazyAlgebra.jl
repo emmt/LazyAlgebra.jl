@@ -94,6 +94,8 @@ using TypeUtils: @public
 @public Sum
 @public convert_multiplier
 @public create_output
+@public default_cropping_offset
+@public default_zeropadding_offset
 @public input_axes
 @public multiplier_type
 @public output_axes
@@ -138,6 +140,7 @@ include("matrices.jl")
 include("methods.jl")
 include("rules.jl")
 include("identity.jl")
+include("cropping.jl")
 #include("genmult.jl")
 #import .GenMult: lgemm!, lgemm, lgemv!, lgemv
 #include("blas.jl")
@@ -147,7 +150,6 @@ include("identity.jl")
 #using .SparseOperators
 #import .SparseOperators: unpack!
 #
-#include("cropping.jl")
 #import .Cropping: CroppingOperator, ZeroPaddingOperator, defaultoffset
 #include("diff.jl")
 #import .FiniteDifferences: Diff

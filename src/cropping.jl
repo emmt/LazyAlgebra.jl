@@ -1,279 +1,216 @@
 #
 # cropping.jl -
 #
-# Provide zero-padding and cropping operators.
+# Implement cropping and zero-padding operators.
 #
-#-------------------------------------------------------------------------------
+#-----------------------------------------------------------------------------------------
 #
-# This file is part of LazyAlgebra (https://github.com/emmt/LazyAlgebra.jl)
-# released under the MIT "Expat" license.
+# This file is part of LazyAlgebra (https://github.com/emmt/LazyAlgebra.jl) released under
+# the MIT "Expat" license.
 #
-# Copyright (c) 2019-2021, Éric Thiébaut.
+# Copyright (c), 2019-2025, Éric Thiébaut.
 #
-
-module Cropping
 
 # FIXME: add simplifying rules:
 #   Z'*Z = Id (not Z*Z' = Id)  crop zero-padded array is identity
 
-export
-    CroppingOperator,
-    ZeroPaddingOperator,
-    defaultoffset
+"""
+    A = CroppingOperator(I, J, k = default_cropping_offset(I, J))
 
-using ArrayTools
-using ..Foundations
-using ..LazyAlgebra
-using ..LazyAlgebra: bad_argument, bad_size
-import ..LazyAlgebra: vmul!, vcreate,
-    input_size, input_ndims, output_size, output_ndims
+builds a linear operator which implements cropping of arrays of shape `J` to produce
+arrays of shape `I`. By default, the output array is centered with respect to the input
+one (using the same conventions as `fftshift`). Optional argument `k` is to specify a
+different relative position; `k` may be an integer (to assume the same offset in all
+dimensions), a tuple of integers, or a Cartesian index. For an array `x` of shape `J`, the
+result of `A*x` is an array `y` of shape `I` defined by:
+
+```julia
+∀ i ∈ I, y[i] = x[i + k]
+```
+
+The adjoint and pseudo-inverse of a cropping operator is a zero-padding operator.
+
+See also [`ZeroPaddingOperator`](@ref).
 
 """
-    CroppingOperator(outdims, inpdims, offset=defaultoffset(outdims,inpdims))
+CroppingOperator(I::RelaxedArrayShape{N}, J::RelaxedArrayShape{N}) where {N} =
+    CroppingOperator(as_array_axes(I), as_array_axes(J))
 
-yields a linear map which implements cropping of arrays of size `inpdims` to
-produce arrays of size `outdims`.  By default, the output array is centered
-with respect to the inpput array (using the same conventions as `fftshift`).
-Optional argument `offset` can be used to specify a different relative
-position.  If `offset` is given, the output value at multi-dimensional index
-`i` is given by input value at index `j = i + offset`.
+CroppingOperator(I::ArrayAxes{N}, J::ArrayAxes{N}) where {N} =
+    CroppingOperator(I, J, default_cropping_offset(I, J))
 
-The adjoint of a cropping operator is a zero-padding operator.
+CroppingOperator(I::RelaxedArrayShape{N}, J::RelaxedArrayShape{N}, k::CartesianIndex{N}) where {N} =
+    CroppingOperator(as_array_axes(I), as_array_axes(J), k)
 
-See also: [`ZeroPaddingOperator`](@ref).
+CroppingOperator(I::RelaxedArrayShape{N}, J::RelaxedArrayShape{N}, k::NTuple{N,Integer}) where {N} =
+    CroppingOperator(I, J, CartesianIndex(map(as(Int), k)))
 
-"""
-struct CroppingOperator{N} <: Operator
-    outdims::NTuple{N,Int} # cropped dimensions
-    inpdims::NTuple{N,Int} # input dimensions
-    offset::CartesianIndex{N} # offset of cropped region w.r.t. input array
-    function CroppingOperator{N}(outdims::NTuple{N,Int},
-                                 inpdims::NTuple{N,Int}) where {N}
-        @inbounds for d in 1:N
-            1 ≤ outdims[d] || error("invalid output dimension(s)")
-            outdims[d] ≤ inpdims[d] ||
-                error(1 ≤ inpdims[d]
-                      ? "invalid input dimension(s)"
-                      : "output dimensions must be less or equal input ones")
+# Accessors and operator API for the cropping operator.
+output_axes(A::CroppingOperator) = getfield(A, :I)
+input_axes( A::CroppingOperator) = getfield(A, :J)
+offset(     A::CroppingOperator) = getfield(A, :k)
+
+output_eltype(::Type{<:CroppingOperator}, ::Type{T}) where {T} = T
+
+function unsafe_vmul!(α::Number, A::CroppingOperator{N}, x::AbstractArray{<:Any,N},
+                      β::Number, y::AbstractArray{<:Any,N}) where {N}
+    k = offset(A)
+    I = CartesianIndices(axes(y)) # also output_axes(A)
+    if isone(α)
+        if iszero(β)
+            @inbounds @fastmath @simd for i in I
+                y[i] = x[i + k]
+            end
+        elseif isone(β)
+            @inbounds @fastmath @simd for i in I
+                y[i] += x[i + k]
+            end
+        else
+            @inbounds @fastmath @simd for i in I
+                y[i] = x[i + k] + β*y[i]
+            end
         end
-        offset = defaultoffset(inpdims, outdims)
-        return new{N}(outdims, inpdims, offset)
-    end
-    function CroppingOperator{N}(outdims::NTuple{N,Int},
-                                 inpdims::NTuple{N,Int},
-                                 offset::CartesianIndex{N}) where {N}
-        @inbounds for d in 1:N
-            1 ≤ outdims[d] || error("invalid output dimension(s)")
-            outdims[d] ≤ inpdims[d] ||
-                error(1 ≤ inpdims[d]
-                      ? "invalid input dimension(s)"
-                      : "output dimensions must less or equal input ones")
-            0 ≤ offset[d] ≤ inpdims[d] - outdims[d] ||
-                error("out of range offset(s)")
-        end
-        return new{N}(outdims, inpdims, offset)
-    end
-end
-
-@callable CroppingOperator
-
-commonpart(C::CroppingOperator) = CartesianIndices(output_size(C))
-offset(C::CroppingOperator) = C.offset
-
-input_ndims(C::CroppingOperator{N}) where {N} = N
-input_size(C::CroppingOperator) = C.inpdims
-input_size(C::CroppingOperator, i...) = input_size(C)[i...]
-
-output_ndims(C::CroppingOperator{N}) where {N} = N
-output_size(C::CroppingOperator) = C.outdims
-output_size(C::CroppingOperator, i...) = output_size(C)[i...]
-
-# Union of acceptable types for the offset.
-const Offset = Union{CartesianIndex,Integer,Tuple{Vararg{Integer}}}
-
-CroppingOperator(outdims::ArraySize, inpdims::ArraySize) =
-    CroppingOperator(to_size(outdims), to_size(inpdims))
-
-CroppingOperator(outdims::ArraySize, inpdims::ArraySize, offset::Offset) =
-    CroppingOperator(to_size(outdims), to_size(inpdims),
-                     CartesianIndex(offset))
-
-CroppingOperator(::Tuple{Vararg{Int}}, ::Tuple{Vararg{Int}}) =
-    error("numbers of output and input dimensions must be equal")
-
-CroppingOperator(::Tuple{Vararg{Int}}, ::Tuple{Vararg{Int}}, ::CartesianIndex) =
-    error("numbers of output and input dimensions and offsets must be equal")
-
-CroppingOperator(outdims::NTuple{N,Int}, inpdims::NTuple{N,Int}) where {N} =
-    CroppingOperator{N}(outdims, inpdims)
-
-CroppingOperator(outdims::NTuple{N,Int}, inpdims::NTuple{N,Int},
-                 offset::CartesianIndex{N}) where {N} =
-    CroppingOperator{N}(outdims, inpdims, offset)
-
-function vcreate(::Type{Direct},
-                 C::CroppingOperator{N},
-                 x::AbstractArray{T,N},
-                 scratch::Bool) where {T,N}
-    (scratch && isa(x, Array{T,N}) && input_size(C) == output_size(C)) ? x :
-        Array{T,N}(undef, output_size(C))
-end
-
-function vcreate(::Type{Adjoint},
-                 C::CroppingOperator{N},
-                 x::AbstractArray{T,N},
-                 scratch::Bool) where {T,N}
-    (scratch && isa(x, Array{T,N}) && input_size(C) == output_size(C)) ? x :
-        Array{T,N}(undef, input_size(C))
-end
-
-# Apply cropping operation.
-#
-#     for I in R
-#         J = I + K
-#         y[I] = α*x[J] + β*y[I]
-#     end
-#
-function vmul!(α::Number,
-               ::Type{Direct},
-               C::CroppingOperator{N},
-               x::AbstractArray{T,N},
-               scratch::Bool,
-               β::Number,
-               y::AbstractArray{T,N}) where {T,N}
-    has_standard_indexing(x) ||
-        bad_argument("input array has non-standard indexing")
-    size(x) == input_size(C) ||
-        bad_size("bad input array dimensions")
-    has_standard_indexing(y) ||
-        bad_argument("output array has non-standard indexing")
-    size(y) == output_size(C) ||
-        bad_size("bad output array dimensions")
-    if α == 0
-        β == 1 || vscale!(y, β)
     else
-        k = offset(C)
-        I = commonpart(C)
-        if α == 1
-            if β == 0
-                @inbounds @simd for i in I
-                    y[i] = x[i + k]
-                end
-            elseif β == 1
-                @inbounds @simd for i in I
-                    y[i] += x[i + k]
-                end
-            else
-                beta = convert(T, β)
-                @inbounds @simd for i in I
-                    y[i] = x[i + k] + beta*y[i]
-                end
+        if iszero(β)
+            @inbounds @fastmath @simd for i in I
+                y[i] = α*x[i + k]
+            end
+        elseif isone(β)
+            @inbounds @fastmath @simd for i in I
+                y[i] += α*x[i + k]
             end
         else
-            alpha = convert(T, α)
-            if β == 0
-                @inbounds @simd for i in I
-                    y[i] = alpha*x[i + k]
-                end
-            elseif β == 1
-                @inbounds @simd for i in I
-                    y[i] += alpha*x[i + k]
-                end
-            else
-                beta = convert(T, β)
-                @inbounds @simd for i in I
-                    y[i] = alpha*x[i + k] + beta*y[i]
-                end
+            @inbounds @fastmath @simd for i in I
+                y[i] = α*x[i + k] + β*y[i]
             end
         end
     end
-    return y
+    nothing
 end
 
-# Apply zero-padding operation.
-#
-#     for i in I
-#         y[i + k] = α*x[i] + β*y[i + k]
-#     end
-#     # Plus y[i + k] *= β outside common region R
-#
-function vmul!(α::Number,
-               ::Type{Adjoint},
-               C::CroppingOperator{N},
-               x::AbstractArray{T,N},
-               scratch::Bool,
-               β::Number,
-               y::AbstractArray{T,N}) where {T,N}
-    has_standard_indexing(x) ||
-        bad_argument("input array has non-standard indexing")
-    size(x) == output_size(C) ||
-        bad_size("bad input array dimensions")
-    has_standard_indexing(y) ||
-        bad_argument("output array has non-standard indexing")
-    size(y) == input_size(C) ||
-        bad_size("bad output array dimensions")
-    β == 1 || vscale!(y, β)
-    if α != 0
-        k = offset(C)
-        I = commonpart(C)
-        if α == 1
-            if β == 0
-                @inbounds @simd for i in I
-                    y[i + k] = x[i]
-                end
-            else
-                @inbounds @simd for i in I
-                    y[i + k] += x[i]
-                end
+# Accessors and operator API for the zero-padding operator which is stored as the adjoint
+# of the cropping operator.
+output_axes(A::ZeroPaddingOperator) = input_axes(A[])
+input_axes( A::ZeroPaddingOperator) = output_axes(A[])
+offset(     A::ZeroPaddingOperator) = offset(A[])
+
+output_eltype(::Type{<:ZeroPaddingOperator}, ::Type{T}) where {T} = T
+
+function unsafe_vmul!(α::Number, A::ZeroPaddingOperator{N}, x::AbstractArray{<:Any,N},
+                      β::Number, y::AbstractArray{<:Any,N}) where {N}
+    fix_vmul_output!(y, β)
+    k = offset(A)
+    J = CartesianIndices(axes(x)) # also input_axes(A)
+    if isone(α)
+        if iszero(β)
+            @inbounds @fastmath @simd for j in J
+                y[j + k] = x[j]
             end
         else
-            alpha = convert(T, α)
-            if β == 0
-                @inbounds @simd for i in I
-                    y[i + k] = alpha*x[i]
-                end
-            else
-                @inbounds @simd for i in I
-                    y[i + k] += alpha*x[i]
-                end
+            @inbounds @fastmath @simd for j in J
+                y[j + k] += x[j]
             end
+        end
+    else
+        if iszero(β)
+            @inbounds @fastmath @simd for j in J
+                y[j + k] = α*x[j]
+            end
+        else
+            @inbounds @fastmath @simd for j in J
+                y[j + k] += α*x[j]
+            end
+        end
+    end
+    nothing
+end
+
+# Fix output `y` of `vmul!` so that it can be used as `y[i] += (α*A*x)[i]`
+fix_vmul_output!(y::AbstractArray, β::Number) = fix_vmul_output!(β, y)
+function fix_vmul_output!(β::Number, y::AbstractArray)
+    if !isone(β)
+        if iszero(β)
+            vzero!(y)
+        else
+            unsafe_vscale!(y, β)
         end
     end
     return y
 end
 
 """
-    ZeroPaddingOperator(outdims, inpdims, offset=defaultoffset(outdims,inpdims))
+    A = ZeroPaddingOperator(I, J, k = default_zeropadding_offset(I, J))
 
-yields a linear map which implements zero-padding of arrays of size `inpdims`
-to produce arrays of size `outdims`.  By default, the input array is centered
-with respect to the output array (using the same conventions as `fftshift`).
-Optional argument `offset` can be used to specify a different relative
-position.  If `offset` is given, the input value at multi-dimensional index `j`
-is copied at index `i = j + offset` in the result.
+builds a linear operator which implements zero-padding of arrays of shape `J` to produce
+arrays of shape `I`. By default, the input array is centered with respect to the output
+array (using the same conventions as `fftshift`). Optional argument `k` is to specify a
+different relative position; `k` may be an integer (to assume the same offset in all
+dimensions), a tuple of integers, or a Cartesian index. For an array `x` of shape `J`, the
+result of `A*x` is an array `y` of shape `I` defined by:
+
+```julia
+∀ i ∈ I, y[i] = x[i - k]    if i - k ∈ J
+              = 0           else
+```
 
 A zero-padding operator is implemented as the adjoint of a cropping operator.
 
-See also: [`CroppingOperator`](@ref).
+See also [`CroppingOperator`](@ref).
 
 """
-ZeroPaddingOperator(outdims, inpdims) =
-    Adjoint(CroppingOperator(inpdims, outdims))
-ZeroPaddingOperator(outdims, inpdims, offset) =
-    Adjoint(CroppingOperator(inpdims, outdims, offset))
+ZeroPaddingOperator(I, J) = Adjoint(CroppingOperator(J, I))
+ZeroPaddingOperator(I, J, k) = Adjoint(CroppingOperator(J, I, k))
 
 """
-    defaultoffset(dim1,dim2)
+    LazyAlgebra.default_cropping_offset(I, J)
 
-yields the index offset such that the centers (in the same sense as assumed by
-`fftshift`) of dimensions of lengths `dim1` and `dim2` are coincident.  If `off
-= defaultoffset(dim1,dim2)` and `i2` is the index along `dim2`, then the index
-along `dim1` is `i1 = i2 + off`.
+yields the offset for the cropping operator such that the centers (in the same sense as
+assumed by `fftshift`) of the output and input arrays of respective shapes `I` and `J` are
+coincident in a cropping operation.
 
 """
-defaultoffset(dim1::Integer, dim2::Integer) =
-    (Int(dim1) >> 1) - (Int(dim2) >> 1)
-defaultoffset(dims1::NTuple{N,Integer}, dims2::NTuple{N,Integer}) where {N} =
-    CartesianIndex(map(defaultoffset, dims1, dims2))
+default_cropping_offset(out::eltype(ArrayShape), inp::eltype(ArrayShape)) =
+    offset_to_center(inp) - offset_to_center(out)
 
-end # module
+default_cropping_offset(out::ArrayShape{N}, inp::ArrayShape{N}) where {N} =
+    CartesianIndex(map(default_cropping_offset, out, inp))
+
+"""
+    LazyAlgebra.default_zeropadding_offset(I, J)
+
+yields the offset for the zero-padding operator such that the centers (in the same sense
+as assumed by `fftshift`) of the output and input arrays of respective shapes `I` and `J`
+are coincident in a zero-padding operation.
+
+"""
+default_zeropadding_offset(I, J) = default_cropping_offset(J, I)
+
+# `offset_to_center` yields the offset to the center relative to the first index and using
+# the same conventions as `fftshift`. It is assumed that the argument is a valid dimension
+# length or array axis.
+offset_to_center(dim::Integer) = Int(dim) >> 1
+offset_to_center(rng::AbstractUnitRange{<:Integer}) = offset_to_center(length(rng))
+
+function Base.show(io::IO, A::CroppingOperator)
+    write(io, "Crop(")
+    print_shape(io, input_axes(A))
+    #print_axes(io, map((r, k) -> (first(r) + k):(last(r) + k),
+    #                   output_axes(A), Tuple(offset(A))))
+    write(io, " -> ")
+    print_shape(io, output_axes(A))
+    write(io, " with offset ")
+    show(io, Tuple(offset(A)))
+    write(io, ')')
+end
+
+function Base.show(io::IO, A::ZeroPaddingOperator)
+    write(io, "ZeroPad(")
+    print_shape(io, input_axes(A))
+    #print_axes(io, map((r, k) -> (first(r) - k):(last(r) - k),
+    #                   output_axes(A), Tuple(offset(A))))
+    write(io, " -> ")
+    print_shape(io, output_axes(A))
+    write(io, " with offset ")
+    show(io, Tuple(offset(A)))
+    write(io, ')')
+end

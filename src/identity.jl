@@ -15,6 +15,8 @@ identical(::Identity, ::Identity) = true
 
 @callable Identity
 
+Base.show(io::IO, A::Identity) = write(io, "Id")
+
 # Implement API of operators for the identity.
 output_eltype(::Type{Identity}, ::Type{X}) where {X} = float(X)
 output_axes(A::Identity, I::ArrayAxes) = I

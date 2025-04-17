@@ -99,6 +99,7 @@ See also [`vmul`](@ref), [`vmul!`](@ref), [`vcreate`](@ref),
 
 """
 abstract type Operator end
+
 if VERSION ≥ v"1.3.0"
     # Only since Julia 1.3, methods can be added to an abstract type.
     @callable Operator
@@ -176,6 +177,7 @@ Also see [`LazyAlgebra.Inverse`](@ref).
 struct Adjoint{T<:Operator} <: Operator
     parent::T
 end
+
 @callable Adjoint
 
 """
@@ -196,6 +198,7 @@ Also see [`LazyAlgebra.Adjoint`](@ref).
 struct Inverse{T<:Operator} <: Operator
     parent::T
 end
+
 @callable Inverse
 
 """
@@ -223,6 +226,7 @@ embedded in `B`.
 struct Gram{T<:Operator} <: Operator
     parent::T
 end
+
 @callable Gram
 
 """
@@ -282,6 +286,7 @@ struct Prod{L<:Operand,R<:Operator} <: Operator
     operands::Tuple{L,R}
     Prod(left::L, right::R) where {L<:Operand,R<:Operator} = new{L,R}((left, right))
 end
+
 @callable Prod
 
 # Alias representing `λ*A`, the linear operator `A` multiplied by a scalar `λ`.
@@ -306,4 +311,28 @@ struct Sum{L<:Operator,R<:Operator} <: Operator
     operands::Tuple{L,R}
     Sum(left::L, right::R) where {L<:Operator,R<:Operator} = new{L,R}((left, right))
 end
+
 @callable Sum
+
+struct CroppingOperator{N,_I<:ArrayAxes{N},_J<:ArrayAxes{N}} <: Operator
+    I::_I # output (cropped) axes
+    J::_J # input axes
+    k::CartesianIndex{N} # offset of cropped region w.r.t. input array
+    # Inner constructor to check arguments.
+    function CroppingOperator(I::_I, J::_J, k::CartesianIndex{N}) where {N,_I<:ArrayAxes{N},
+                                                                         _J<:ArrayAxes{N}}
+        @inbounds for d in 1:N
+            isempty(I[d]) && throw(ArgumentError("invalid empty output shape"))
+            I[d] ⊆ J[d] || throw(ArgumentError(
+                "output range(s) are not within input one(s)"))
+            (I[d] .+ k[d]) ⊆ J[d] || throw(ArgumentError(
+                "output range(s) are not within input one(s)"))
+        end
+        return new{N,_I,_J}(I, J, k)
+    end
+end
+
+@callable CroppingOperator
+
+# A zero-padding operator is implemented as the adjoint of a cropping operator.
+const ZeroPaddingOperator{N,I,J} = Adjoint{CroppingOperator{N,J,I}}

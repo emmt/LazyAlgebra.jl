@@ -186,7 +186,9 @@ create_output(α::Number, A::Operator, x) =
 
 Base.show(io::IO, ::MIME"text/plain", A::Operator) = show(io, A)
 
-Base.show(io::IO, A::Identity) = write(io, "Id")
+function Base.show(io::IO, A::Operator)
+    show(io, typeof(A))
+end
 
 function Base.show(io::IO, A::Adjoint)
     B = parent(A)
@@ -200,7 +202,7 @@ function Base.show(io::IO, A::Inverse)
     write(io, ')')
 end
 
-function show(io::IO, A::Prod)
+function Base.show(io::IO, A::Prod)
     protect = A[2] isa Sum
     if A[1] isa Number
         λ = A[1]
@@ -540,6 +542,9 @@ function axes_to_string(rngs::Tuple{Vararg{AbstractUnitRange{<:Integer}}})
     return String(take!(io))
 end
 
+print_axis(io::IO, dim::Integer) =
+    print(io, "1:", max(0, Int(dim)))
+
 print_axis(io::IO, rng::AbstractUnitRange{<:Integer}) =
     print(io, first(rng), ':', last(rng))
 
@@ -547,10 +552,19 @@ function print_axes(io::IO, rngs::Tuple{Vararg{AbstractUnitRange{<:Integer}}})
     write(io, '(')
     for (i, rng) in enumerate(rngs)
         i > 1 && write(io, ", ")
-        print_axis(rng)
+        print_axis(io, rng)
     end
     length(rngs) == 1 && write(io, ',')
     write(io, ')')
+    nothing
+end
+
+function print_shape(io::IO, shape::ArrayShape)
+    if shape isa Tuple{Vararg{Union{Integer,Base.OneTo}}}
+        show(io, as_array_size(shape))
+    else
+        print_axes(io, shape)
+    end
     nothing
 end
 
