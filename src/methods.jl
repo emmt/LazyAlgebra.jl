@@ -545,10 +545,20 @@ gram(A::Operator) = A'*A
     y = A*x
     y = vmul(A, x)
 
-yield the result of applying the linear operator `A` to the argument `x`.
+or:
 
-See also [`LazyAlgebra.Operator`](@ref), [`vmul!`](@ref),
-[`LazyAlgebra.create_output`](@ref), and [`LazyAlgebra.unsafe_vmul!`](@ref).
+    y = (α*A)*x
+    y = vmul(α, A, x)
+
+yield the result of applying the linear operator `A` or the scaled linear operator `α*A`
+to the argument `x`.
+
+!!! warning
+    Do not extend this method for specific operator types, but rather the
+    [`LazyAlgebra.unsafe_vmul!`](@ref) method.
+
+See also [`vmul](@ref), [`LazyAlgebra.Operator`](@ref), and
+[`LazyAlgebra.unsafe_vmul!`](@ref).
 
 """
 function vmul(A::Operator, x::AbstractArray)
@@ -558,16 +568,6 @@ function vmul(A::Operator, x::AbstractArray)
     return y
 end
 
-"""
-    y = (α*A)*x
-    y = vmul(α, A, x)
-
-yield the result of applying the scaled linear operator `α*A` to the argument `x`.
-
-See also [`LazyAlgebra.Operator`](@ref), [`vmul!`](@ref),
-[`LazyAlgebra.create_output`](@ref), and [`LazyAlgebra.unsafe_vmul!`](@ref).
-
-"""
 function vmul(α::Number, A::Operator, x::AbstractArray)
     α = convert_multiplier(α, A, x)
     y = create_output(α, A, x)
@@ -586,33 +586,30 @@ overwrites `y` with `α*A⋅x + β*y`. The convention is that the prior contents
 used at all if `iszero(β)` holds so `y` can be directly used to store the result even
 though it is not initialized.
 
+Another supported syntax is:
+
+    vmul!(y::AbstractArray, [α::Number=1], A::Operator, x::AbstractArray) -> y
+
+which overwrites `y` with `α*A*x` and returns `y` and thus amounts to calling:
+
+    vmul!(α, A, x, 0, y)
+
 The `vmul!` method can be seen as a generalization of the `LinearAlgebra.mul!` method.
 
-The method checks the axes of the arguments (see [`LazyAlgebra.output_axes`](@ref)),
-converts the multipliers `α` and `β` to the same floating-point type as respectively `A*x`
-and `y` and, if `iszero(α)` does not hold, calls:
+!!! warning
+    Do not extend this method for specific operator types, but rather the
+    [`LazyAlgebra.unsafe_vmul!`](@ref) method.
 
-```julia
-LazyAlgebra.unsafe_vmul!(α, A, x, β, y)
-```
-
-otherwise, if `iszero(β)` does not hold, calls:
-
-```julia
-LazyAlgebra.unsafe_vscale!(y, β)
-```
-
-otherwise, calls:
-
-```julia
-vzero!(y)
-```
-
-See also [`vmul`](@ref), [`LazyAlgebra.Operator`](@ref),
-[`LazyAlgebra.unsafe_vmul!`](@ref), [`LazyAlgebra.unsafe_vscale!`](@ref), and
-[`vzero!`](@ref).
+See also [`vmul`](@ref), [`LazyAlgebra.Operator`](@ref), and
+[`LazyAlgebra.unsafe_vmul!`](@ref).
 
 """
+vmul!(y::AbstractArray, A::Operator, x::AbstractArray) =
+    vmul!(1, A, x, 0, y)
+
+vmul!(y::AbstractArray, α::Number, A::Operator, x::AbstractArray) =
+    vmul!(α, A, x, 0, y)
+
 function vmul!(α::Number, A::Operator, x::AbstractArray, β::Number, y::AbstractArray)
     axes_Ax = output_axes(A, x)
     axes_y = axes(y)
@@ -653,33 +650,37 @@ function print_axes(io::IO, rngs::Tuple{Vararg{AbstractUnitRange{<:Integer}}})
 end
 
 """
-    vmul!(y::AbstractArray, [α::Number=1], A::Operator, x::AbstractArray) -> y
-
-overwrites `y` with `α*A*x` and returns `y`. This amounts to calling:
-
-```julia
-vmul!(α, A, x, 0, y)
-```
-
-"""
-vmul!(y::AbstractArray, A::Operator, x::AbstractArray) =
-    vmul!(1, A, x, 0, y)
-
-vmul!(y::AbstractArray, α::Number, A::Operator, x::AbstractArray) =
-    vmul!(α, A, x, 0, y)
-
-"""
     LazyAlgebra.unsafe_vmul!(α::Number, A::Operator, x::AbstractArray,
                              β::Number, y::AbstractArray)
 
-overwrites `y` with `α*A⋅x + β*y`. This method is called by [`vmul`](@ref)) and
-[`vmul!`](@ref)) after checking that arguments `x` and `y` have correct axes (so that
-`@inbounds` can be assumed to compute the result stored in `y`), with multipliers `α` and
-`β` converted to suitable floating-point types, and only if `iszero(α)` does not hold. The
-convention is that the prior contents of `y` is not used at all if `iszero(β)` holds so
-that `y` can be directly used to store the result even though it is not initialized.
-`LazyAlgebra.unsafe_vmul!` shall return `nothing` (any returned value is ignored by
-[`vmul`](@ref)) and [`vmul!`](@ref)).
+overwrites `y` with `α*A⋅x + β*y`. This method (not [`vmul`](@ref) nor [`vmul!`](@ref))
+is supposed to be specialized for any supported operator type.
+
+This method is called by [`vmul`](@ref) and [`vmul!`](@ref) after checking that arguments
+`x` and `y` have correct axes (so that `@inbounds` may be assumed to compute the result
+stored in `y`), with multipliers `α` and `β` converted to suitable floating-point types,
+and only if `iszero(α)` does not hold. The convention is that the prior contents of `y` is
+not used at all if `iszero(β)` holds so that `y` can be directly used to store the result
+even though it is not initialized. `LazyAlgebra.unsafe_vmul!` shall return `nothing` (any
+returned value is ignored by [`vmul`](@ref) and [`vmul!`](@ref).
+
+After checking the axes of `x` and of `y` and converting the multipliers `α` and `β`,
+[`vmul`](@ref) and [`vmul!`](@ref) do something like:
+
+```julia
+if !iszero(α)
+    LazyAlgebra.unsafe_vmul!(α, A, x, β, y)
+elseif !iszero(β)
+    LazyAlgebra.unsafe_vscale!(y, β)
+else
+    LazyAlgebra.vzero!(y)
+end
+```
+
+See also [`vmul`](@ref), [`vmul!`](@ref), [`LazyAlgebra.Operator`](@ref),
+[`LazyAlgebra.unsafe_vscale!`](@ref), [`vzero!`](@ref),
+[`LazyAlgebra.output_eltype`](@ref) [`LazyAlgebra.output_axes`](@ref), and
+[`LazyAlgebra.create_output`](@ref).
 
 """
 function unsafe_vmul! end
