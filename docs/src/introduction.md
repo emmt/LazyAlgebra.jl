@@ -10,93 +10,101 @@ considered variables. `LazyAlgebra` provides a framework to implement these kind
 numerical methods independently of the specific type of the variables.
 
 `LazyAlgebra` also provides a flexible and extensible framework for creating complex
-mappings and linear mappings to operate on the variables.
+linear operators to operate on the variables.
 
 A few concepts are central to `LazyAlgebra`:
-* *vectors* represent the variables of interest and can be anything providing a few
-  methods are implemented for their specific type;
-* linear *operators* behave linearly with respect to their arguments.
+* *Multipliers* are scalar factors (of type `Number`) that may scale the following terms.
+* *Vectors* represent the variables of interest and can be any abstract array providing a
+  few methods are implemented for their specific type.
+* Linear *operators* of type [`LazyAlgebra.Operator`](@ref) are linear mappings that take
+  a *vector* as input and produce a *vector* as output. An *operator* in LazyAlgebra
+  generalizes the notion of *matrix* in Julia.
 
 There are several reasons to have special methods for basic vector operations rather than
 relying on Julia linear algebra methods. First, the notion of *vector* is different, in
 Julia a mono-dimensional array is a vector while, here any object with embedded values can
 be assumed to be a vector providing a subset of methods are specialized for this type of
-object. For instance, `LazyAlgebra` provides such methods specialized for real-valued and
-complex-valued (with real components) arrays of any dimensionality. Second, the meaning of
-the methods may have to be different. For instance, only real-valued functions can be
-minimized (or maximized) and for this task, complex-valued variables can just be
-considered as real-valued variables (each complex value being equivalent to a pair of
-reals).
+objects.
 
 
 ## Operators
 
 `LazyAlgebra` features:
-* flexible and extensible framework for creating complex mappings;
-* *lazy* evaluation of the mappings;
-* *lazy* assumptions when combining mappings;
+* flexible and extensible framework for creating complex operators;
+* *lazy* evaluation of the operators;
+* *lazy* assumptions when combining operators;
 * efficient memory allocation by avoiding temporaries.
 
 
-### General mappings
+### General operators
 
-A `Operator` can be any function between two variables spaces. Using Householder-like
-notation (that is upper case Latin letters denote *mappings*, lower case Latin letters
-denote *variables*, and Greek letters denote *scalars*), then:
+An `Operator` extend the notion of *matrix* and can be any linear function between two
+variables spaces. Using Householder-like notation (that is upper-case Latin letters denote
+*operators*, lower-case Latin letters denote *variables*, and Greek letters denote
+*scalars*), then:
 
-* `A(x)`, `A*x` or `A⋅x` yields the result of applying the mapping `A` to `x`;
+* `A*x` yields the result of applying the operator `A` to `x`;
 
-* `A\x` yields the result of applying the inverse of `A` to `x`;
+* `A\x` and `inv(A)*x` yield the result of applying the inverse of `A` to `x`;
 
-Simple constructions are allowed for any kind of mappings and can be used to create new
-instances of mappings which behave correctly. For instance:
+* `A'*x` and `adjoint(A)*x` yield the result of applying the adjoint of `A` to `x`;
 
-* `B = α*A` (where `α` is a number) is a mapping which behaves as `A` times `α`; that is
-  `B(x)` yields the same result as `α*(A(x))`.
+* `A'\x`, `inv(A')*x`, and `inv(A)'*x` yield the result of applying the inverse of the
+  adjoint of `A` (or the adjoint of the inverse of `A`, this is the same thing) to `x`;
 
-* `C = A + B + ...` is a mapping which behaves as the sum of the mappings `A`, `B`, ...;
-  that is `C(x)` yields the same result as `A(x) + B(x) + ...`.
+Simple constructions are allowed and can be used to create new instances of operators
+which behave correctly:
 
-* `C = A*B`, `C = A∘B` or `C = A⋅B` is a mapping which behaves as the composition of the
-  mappings `A` and `B`; that is `C⋅x` yields the same result as `A(B(x))`. As for the sum
-  of mappings, there may be an arbitrary number of mappings in a composition; for example,
-  if `D = A*B*C` then `D(x)` yields the same result as `A(B(C(x)))`.
+* `B = α*A` (where `α` is a number) is an operator which behaves as `A` times `α`; that is
+  `B*x -> α*(A*x)`.
 
-* `C = A\B` is a mapping such that `C(x)` yields the same result as `inv(A)(B(x))`.
+* `C = A + B + ...` is an operator which behaves as the sum of the operators `A`, `B`,
+  ...; that is `C*x -> A*x + B*x + ...` or `(A + B + ...)*x`.
 
-* `C = A/B` is a mapping such that `C(x)` yields the same result as `A(inv(B)(x))`.
+* `C = A*B` or `C = A∘B` is an operator which behaves as the composition of the operators
+  `A` and `B`; that is `C*x -> A*(B*x)`. As for the sum of operators, there may be an
+  arbitrary number of operators in a composition; for example, if `D = A*B*C` then `D*x ->
+  A*(B*(C*x))`.
 
-These constructions can be combined to build up more complex mappings. For example:
+* `B = A'` or `B = adjoint(A)` is an operator such that `B*x -> A'*x`.
 
-* `D = A*(B + 3C)` is a mapping such that `D⋅x` yields the same result as `A(B(x) +
-  3*C(x))`.
+* `B = inv(A)` is an operator such that `B*x -> inv(A)*x`.
 
+* `C = A\B` is an operator such that `C*x -> inv(A)*(B*x)`.
 
-### Linear mappings
+* `C = A/B` is an operator such that `C*x -> A*(inv(B)*x)` or `A*(B\x)`.
 
-An `Operator` can be any linear mapping between two spaces. This abstract sub-type of
-`Operator` is introduced to extend the notion of *matrices* and *vectors*. Assuming the
-type of `A` inherits from `Operator`, then:
+These constructions can be combined to build up more complex operators. For example:
 
-* for linear mappings `A` and `B`, `A⋅B` is the same as `A∘B` or `A*B` which yields the
-  composition of `A` and `B` whose effect is to apply `B` and then `A`;
-
-* `A'⋅x` and `A'*x` yields the result of applying the adjoint of the mapping `A` to `x`;
-
-* `A'\x` yields the result of applying the adjoint of the inverse of mapping `A` to `x`.
-
-* `B = A'` is a mapping such that `B⋅x` yields the same result as `A'⋅x`.
+* `D = A*(B + 3C)` is an operator such that `D*x -> A*(B*x + 3*(C*x))`.
 
 !!! note
-    Beware that, due to the priority of operators in Julia, `A*B(x)` is the
-    same as `A(B(x))` not `(A*B)(x)`.
+    An important feature of `LazyAlgebra` is that any complex construction of operator is
+    itself an operator but whose coefficients are not immediately computed: a constructed
+    operator keeps its structure reflecting how it has been built (apart from a few
+    automatic simplifications explained next) and *knows* how to behave when applied to an
+    input vector. This *lazy* behavior explains the name of the package.
+
+!!! note
+    As a facility, most operators may be called as a function: `A(x)` and `A*x` are the
+    same thing. However note that , due to the priority of operators in Julia, `A*B(x)` is
+    the same as `A(B(x))` not `(A*B)(x)` which is the same as `A*B*x`.
 
 
 ## Automatic simplifications
 
-An important feature of `LazyAlgebra` framework for mappings is that a *number of
-simplifications are automatically made at construction time*. For instance, assuming `A` is
-a mapping:
+An important feature of `LazyAlgebra` framework when combining operators is that a *number
+of simplifications are automatically made at construction time*. These automatic
+simplifications are type-stable and their result is therefore inferable (this was not the
+case in old versions of the package).
+
+A few simplification rules occur while building combinations of operators:
+
+* `Id` is the identity operator exported by `LazyAlgebra`, as you can guess, `Id*A`,
+  `Id\A`, and `A/Id` yield `A` while `Id/A` and `A\Id` yield `inv(A)`,
+
+For instance,
+assuming `A` is an operator:
 
 ```julia
 B = A'
@@ -117,7 +125,7 @@ however, possible to prevent this by extending the `Base.inv` method so as to th
 exception when applied to the specific type of `A`:
 
 ```julia
-Base.inv(::SomeNonInvertibleOperator) = error("non-invertible mapping")
+Base.inv(::SomeNonInvertibleOperator) = error("non-invertible operator")
 ```
 
 where `SomeNonInvertibleOperator <: Operator` is the type of `A`.
@@ -129,13 +137,13 @@ B = 3A
 C = 7B'
 ```
 
-where mappings `B` and `C` are such that `B*x -> 3*(A*x)` and `C*x -> 21*(A*x)` for any
+where operators `B` and `C` are such that `B*x -> 3*(A*x)` and `C*x -> 21*(A*x)` for any
 *vector* `x`. That is `C*x` is evaluated as `21*(A*x)` not as `7*(3*(A*x))` thanks to
-simplifications occurring while the mapping `C` is constructed.
+simplifications occurring while the operator `C` is constructed.
 
 Using the `->` to denote in the right-hand side the actual construction made by
 `LazyAlgebra` for the expression in the left-hand side and assuming `A`, `B` and `C` are
-linear mappings, the following simplifications will occur:
+linear operators, the following simplifications will occur:
 
 ```julia
 (A + C + B + 3C)' -> A' + B' + 4C'
@@ -143,13 +151,13 @@ linear mappings, the following simplifications will occur:
 inv(A*B*3C)       -> 3\inv(C)*inv(B)*inv(A)
 ```
 
-However, if `M` is a non-linear mapping, then:
+However, if `M` is a non-linear operator, then:
 
 ```julia
 inv(A*B*3M) -> inv(M)*(3\inv(B))*inv(A)
 ```
 
-which can be compared to `inv(A*B*3C)` when all operands are linear mappings.
+which can be compared to `inv(A*B*3C)` when all operands are linear operators.
 
 !!! note
     Due to the associative rules applied by Julia, parentheses are needed
@@ -159,10 +167,10 @@ which can be compared to `inv(A*B*3C)` when all operands are linear mappings.
     apply `A*B` to `3` and right multiply the result by `C`.
 
 
-## Creating new mappings
+## Creating new operators
 
-`LazyAlgebra` provides a number of simple mappings. Creating new primitive mapping types
-(not by combining existing mappings as explained above) which benefit from the
-`LazyAlgebra` framework is as simple as declaring a new mapping sub-type of `Operator` (or
-one of its abstract sub-types) and extending two methods `vcreate` and `vmul!`
-specialized for the new mapping type. For mode details, see [here](mappings.md).
+`LazyAlgebra` provides a number of simple operators. Creating new primitive operator types
+(not by combining existing operators as explained above) which benefit from the
+`LazyAlgebra` framework is as simple as declaring a new operator sub-type of `Operator`
+(or one of its abstract sub-types) and specializing a couple of methods for the new
+operator type. This is explained in details [here](operators.md).

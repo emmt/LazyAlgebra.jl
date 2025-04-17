@@ -564,7 +564,7 @@ to the argument `x`.
     Do not extend this method for specific operator types, but rather the
     [`LazyAlgebra.unsafe_vmul!`](@ref) method.
 
-See also [`vmul](@ref), [`LazyAlgebra.Operator`](@ref), and
+See also [`vmul!`](@ref), [`LazyAlgebra.Operator`](@ref), and
 [`LazyAlgebra.unsafe_vmul!`](@ref).
 
 """
@@ -589,15 +589,15 @@ Base.:(\)(A::Operator, x::AbstractArray) = vmul(inv(A), x)
 """
     vmul!(α::Number, A::Operator, x::AbstractArray, β::Number, y::AbstractArray) -> y
 
-overwrites `y` with `α*A⋅x + β*y`. The convention is that the prior contents of `y` is not
-used at all if `iszero(β)` holds so `y` can be directly used to store the result even
-though it is not initialized.
+overwrites `y` with `α*A⋅x + β*y` and returns `y`. The convention is that the prior
+contents of `y` is not used at all if `iszero(β)` holds so `y` can be directly used to
+store the result even though it is not initialized.
 
 Another supported syntax is:
 
     vmul!(y::AbstractArray, [α::Number=1], A::Operator, x::AbstractArray) -> y
 
-which overwrites `y` with `α*A*x` and returns `y` and thus amounts to calling:
+which overwrites `y` with `α*A*x` and returns `y`, this is a shortcut for:
 
     vmul!(α, A, x, 0, y)
 

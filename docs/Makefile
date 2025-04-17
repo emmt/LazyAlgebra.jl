@@ -3,7 +3,7 @@ SOURCES = \
     make.jl \
     src/index.md \
     src/introduction.md \
-    src/mappings.md \
+    src/operators.md \
     src/refs.md \
     src/simplifications.md \
     src/vectors.md

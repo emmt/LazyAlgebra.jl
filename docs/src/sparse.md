@@ -12,7 +12,7 @@ implementing compressed sparse storage in various formats.  Parameter `T` is
 the type of the elements while parameters `M` and `N` are the number of
 dimensions of the *rows* and of the *columns* respectively.  Objects of this
 kind are a generalization of sparse matrices in the sense that they implement
-linear mappings which can be applied to `N`-dimensional arguments to produce
+linear operators which can be applied to `N`-dimensional arguments to produce
 `M`-dimensional results (as explained below).  The construction of a sparse
 operator depends on its storage format.  Several concrete implementations are
 provided: [*Compressed Sparse Row* (CSR)](#Compressed-sparse-row-format),
@@ -61,7 +61,7 @@ sparse operator.
 
 ## Generalized matrix multplication by a sparse operator
 
-A sparse operator `A` can be directly used as any linear mapping in
+A sparse operator `A` can be directly used as any linear operator in
 `LazyAlgebra`:
 
 ```julia
@@ -126,7 +126,7 @@ specific storage format of a compressed sparse operator (see
 
 !!! note
     For now, row and column indices are restricted to be linear indices and
-    arguments to the linear mappings implemented by compressed sparse
+    arguments to the linear operators implemented by compressed sparse
     operators must be arrays with conventional indexing (1-based linear
     indices) and preferably implementing linear indices (not Cartesian ones).
 
@@ -305,7 +305,7 @@ linear row indices and a vector of linear column indices.  It is even possible
 to have repeated entries.  This format is very useful to build a sparse
 operator.  It can be converted to a more efficient format like *Compressed
 Sparse Column* or *Compressed Sparse Row* for fast application of the sparse
-linear mapping or of its adjoint.
+linear operator or of its adjoint.
 
 A sparse operator in with COO storage can be directly constructed by:
 
