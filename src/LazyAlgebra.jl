@@ -91,6 +91,7 @@ using TypeUtils: @public
 @public Sum
 @public convert_multiplier
 @public create_output
+@public input_axes
 @public multiplier_type
 @public output_axes
 @public output_eltype

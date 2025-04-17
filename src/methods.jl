@@ -92,10 +92,45 @@ result of:
 
 and it is thus expected that a method with this signature exists for the operator `A`.
 
-See also [`LazyAlgebra.output_eltype`](@ref) and [`LazyAlgebra.create_output`](@ref).
+If the axes of the input and output of `A` do not depend on the input `x`, an alternative
+is to implement:
+
+    LazyAlgebra.input_axes(A)
+    LazyAlgebra.output_axes(A)
+
+to respectively yield the the axes of the input and output of `A` when these axes do not
+depend on `x`.
+
+See also [`LazyAlgebra.output_eltype`](@ref), [`LazyAlgebra.create_output`](@ref), and
+[`LazyAlgebra.input_eltype`](@ref).
 
 """
 output_axes(A::Operator, x::AbstractArray) = output_axes(A, axes(x))
+
+# Fallback version of `output_axes(A, x)` assuming `input_axes(A)` and `input_axes(A)` are
+# defined for `A`.
+function output_axes(A::Operator, x_axes::ArrayAxes) where {C<:CroppingOperator}
+    x_axes == input_axes(A) || throw(DimensionMismatch("invalid input axes"))
+    return output_axes(A)
+end
+
+@noinline output_axes(A::Operator) =
+    error("`LazyAlgebra.output_axes(A)` not defined for operator `A` of type `$(typeof(A))`")
+
+"""
+    LazyAlgebra.input_axes(A::Operator)
+
+yields the axes that `x` must have to compute `A*x`.
+
+See also [`LazyAlgebra.output_axes`](@ref).
+
+"""
+@noinline input_axes(A::Operator) =
+    error("`LazyAlgebra.input_axes(A)` not defined for operator `A` of type `$(typeof(A))`")
+
+# Input and output axes for a regular matrix.
+output_axes(A::AbstractMatrix) = axes(A, 1)
+input_axes( A::AbstractMatrix) = axes(A, 2)
 
 # Output axes for products assuming right-associativity.
 output_axes(A::Prod{<:Number}, J::ArrayAxes) = output_axes(A[2], J)
@@ -112,7 +147,7 @@ output_axes_in_sum(I::ArrayAxes, A::Sum, J::ArrayAxes) =
 output_axes_in_sum(I::ArrayAxes, A::Operator, J::ArrayAxes) =
     output_axes(A, J) == I ? I : throw_incompatible_output_axes_in_sum()
 
-@noinline  throw_incompatible_output_axes_in_sum() =
+@noinline throw_incompatible_output_axes_in_sum() =
     throw(DimensionMismatch("incompatible output axes in sum"))
 
 """
