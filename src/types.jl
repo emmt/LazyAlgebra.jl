@@ -99,6 +99,10 @@ See also [`vmul`](@ref), [`vmul!`](@ref), [`vcreate`](@ref),
 
 """
 abstract type Operator end
+if VERSION ≥ v"1.3.0"
+    # Only since Julia 1.3, methods can be added to an abstract type.
+    @callable Operator
+end
 
 """
     Identity()
@@ -172,6 +176,7 @@ Also see [`LazyAlgebra.Inverse`](@ref).
 struct Adjoint{T<:Operator} <: Operator
     parent::T
 end
+@callable Adjoint
 
 """
     B = inv(A)
@@ -191,6 +196,7 @@ Also see [`LazyAlgebra.Adjoint`](@ref).
 struct Inverse{T<:Operator} <: Operator
     parent::T
 end
+@callable Inverse
 
 """
     LazyAlgebra.InverseAdjoint{A}
@@ -217,6 +223,7 @@ embedded in `B`.
 struct Gram{T<:Operator} <: Operator
     parent::T
 end
+@callable Gram
 
 """
     LazyAlgebra.DecoratedOperator{A}
@@ -275,6 +282,7 @@ struct Prod{L<:Operand,R<:Operator} <: Operator
     operands::Tuple{L,R}
     Prod(left::L, right::R) where {L<:Operand,R<:Operator} = new{L,R}((left, right))
 end
+@callable Prod
 
 # Alias representing `λ*A`, the linear operator `A` multiplied by a scalar `λ`.
 # Call [`LazyAlgebra.multiplier(B)`](@ref) and [`unscaled(B)`](@ref) with a scaled
@@ -298,3 +306,4 @@ struct Sum{L<:Operator,R<:Operator} <: Operator
     operands::Tuple{L,R}
     Sum(left::L, right::R) where {L<:Operator,R<:Operator} = new{L,R}((left, right))
 end
+@callable Sum

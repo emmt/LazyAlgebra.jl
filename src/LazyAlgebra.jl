@@ -13,6 +13,9 @@
 
 module LazyAlgebra
 
+# Macros must be defined earlier, before being exported.
+include("macros.jl")
+
 export
     CirculantConvolution,
     CompressedSparseOperator,
