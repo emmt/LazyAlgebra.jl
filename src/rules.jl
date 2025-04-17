@@ -15,12 +15,14 @@
 Base.parent(A::Union{Adjoint,Inverse,Gram}) = getfield(A, :parent)
 Base.getindex(A::Union{Adjoint,Inverse,Gram}) = parent(A)
 Base.Tuple( A::Union{Sum,Prod}) = getfield(A, :operands)
-Base.first( A::Union{Sum,Prod}) = @inbounds A[1]
-Base.last(  A::Union{Sum,Prod}) = @inbounds A[2]
 
 # Make Sum and Prod iterable.
-Base.IteratorSize(::Type{<:Union{Sum,Prod}}) = Base.HasLength()
+Base.first(A::Union{Sum,Prod}) = @inbounds A[1]
+Base.last( A::Union{Sum,Prod}) = @inbounds A[2]
+Base.firstindex(A::Union{Sum,Prod}) = 1
+Base.lastindex( A::Union{Sum,Prod}) = 2
 Base.length(A::Union{Sum,Prod}) = 2
+Base.IteratorSize(::Type{<:Union{Sum,Prod}}) = Base.HasLength()
 @inline Base.iterate(A::Union{Sum,Prod}, i::Int = 1) =
     1 ≤ i ≤ 2 ? (unsafe_getindex(A, i), i + 1) : nothing
 @inline Base.getindex(A::Union{Sum,Prod}, i::Integer) =
@@ -37,11 +39,13 @@ Adjoint(A::Prod{<:Number}) = conj(A[1]) * Adjoint(A[2])
 Adjoint(A::Prod          ) = Adjoint(A[2]) * Adjoint(A[1])
 Adjoint(A::Sum           ) = Adjoint(A[1]) + Adjoint(A[2])
 Adjoint(α::Number        ) = conj(α)
-Adjoint(A::Gram          ) = A
 
 # Maintain inverse on top of adjoint.
 Adjoint(A::Inverse           ) = Inverse(Adjoint(parent(A)))
 Adjoint(A::Inverse{<:Adjoint}) = inv(parent(parent(A)))
+
+# Gram operators are self-adjoint by construction.
+Adjoint(A::Gram) = A
 
 # Extend `inv(A)` to call `Inverse(A)` for any operator `A`. Automatically simplify taking
 # the inverse of the inverse of an operator and propagate the inverse in products.
