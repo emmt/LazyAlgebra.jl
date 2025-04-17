@@ -85,6 +85,7 @@ export
     vzeros
 
 using TypeUtils: @public
+@public @callable
 @public Adjoint
 @public Identity
 @public Inverse
