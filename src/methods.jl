@@ -109,7 +109,7 @@ output_axes(A::Operator, x::AbstractArray) = output_axes(A, axes(x))
 
 # Fallback version of `output_axes(A, x)` assuming `input_axes(A)` and `input_axes(A)` are
 # defined for `A`.
-function output_axes(A::Operator, x_axes::ArrayAxes) where {C<:CroppingOperator}
+function output_axes(A::Operator, x_axes::ArrayAxes)
     x_axes == input_axes(A) || throw(DimensionMismatch("invalid input axes"))
     return output_axes(A)
 end
@@ -127,10 +127,6 @@ See also [`LazyAlgebra.output_axes`](@ref).
 """
 @noinline input_axes(A::Operator) =
     error("`LazyAlgebra.input_axes(A)` not defined for operator `A` of type `$(typeof(A))`")
-
-# Input and output axes for a regular matrix.
-output_axes(A::AbstractMatrix) = axes(A, 1)
-input_axes( A::AbstractMatrix) = axes(A, 2)
 
 # Output axes for products assuming right-associativity.
 output_axes(A::Prod{<:Number}, J::ArrayAxes) = output_axes(A[2], J)
@@ -249,33 +245,6 @@ end
                                  ::Type{T}) where {T<:Operator}
     throw(UnimplementedMethod("unimplemented method `$func` for operator $T"))
 end
-
-"""
-    LazyAlgebra.@callable T
-
-makes instances of concrete type `T` callable as a regular `LazyAlgebra` operator, that is
-`A(x)` behaves as `A*x` and calls [`vmul(A, x)`](@ref vmul) for any operator `A` of type
-`T`.
-
-!!! note
-    Since Julia 1.3, methods can be added to an abstract type and it is not necessary to
-    use this macro for user-defined operators unless retro-compatibility is needed.
-
-"""
-macro callable(T)
-    quote
-	(A::$(esc(T)))(x) = vmul(A, x)
-    end
-end
-if VERSION ≥ v"1.3.0"
-    # Only since Julia 1.3, methods can be added to an abstract type.
-    @callable Operator
-end
-@callable Adjoint
-@callable Inverse
-@callable Gram
-@callable Sum
-@callable Prod
 
 Base.show(io::IO, ::MIME"text/plain", A::Operator) = show(io, A)
 
@@ -420,58 +389,6 @@ identifier is used for sorting terms in a sum of operators.
 identifier(A::Operator) = objectid(unscaled(A))
 
 Base.isless(A::Operator, B::Operator) = isless(identifier(A), identifier(B))
-
-"""
-    nrows(A)
-
-yields the *equivalent* number of rows of the linear operator `A`. Not all
-operators extend this method.
-
-In the implemented generalization of linear operators, the equivalent number of
-rows is the number of element of the result of applying the operator be it
-single- or multi-dimensional.
-
-"""
-nrows(A::Operator) = prod(row_size(A))
-
-"""
-    ncols(A)
-
-yields the *equivalent* number of columns of the linear operator `A`. Not all
-operators extend this method.
-
-In the implemented generalization of linear operators, the equivalent number of
-columns is the number of element of an argument of the operator be it single-
-or multi-dimensional.
-
-"""
-ncols(A::Operator) = prod(col_size(A))
-
-"""
-    row_size(A)
-
-yields the dimensions of the result of applying the linear operator `A`, this
-is equivalent to `output_size(A)`. Not all operators extend this method.
-
-"""
-row_size(A::Operator) = output_size(A)
-
-"""
-    col_size(A)
-
-yields the dimensions of the argument of the linear operator `A`, this is
-equivalent to `input_size(A)`. Not all operators extend this method.
-
-"""
-col_size(A::Operator) = input_size(A)
-
-"""
-    coefficients(A)
-
-yields the object backing the storage of the coefficients of the linear operator
-`A`. Not all linear operators extend this method.
-
-""" coefficients
 
 """
     check(A) -> A
@@ -775,15 +692,3 @@ function unsafe_vmul!(α::Number, G::Inverse{<:Gram}, x::AbstractArray,
     A = G[][] # yields A such that G = inv(A'*A) = inv(A)*inv(A')
     unsafe_vmul!(α, inv(A), inv(A')*x, β, y)
 end
-
-# Extend `LinearAlgebra.ldiv!(y, A, b)` to overwrite `y` with `A\b`.
-LinearAlgebra.ldiv!(y::AbstractArray, A::Operator, b::AbstractArray) =
-    vmul!(y, inv(A), b)
-
-# Extend `LinearAlgebra.mul!(c, A, b, α, β)` to overwrite `c` with `α*A*b + β*c`.
-LinearAlgebra.mul!(c::AbstractArray, A::Operator, b::AbstractArray, α::Number, β::Number) =
-    vmul!(α, A, b, β, c)
-
-# Extend `LinearAlgebra.mul!(y, A, b)` to overwrite `y` with `A*b`.
-LinearAlgebra.mul!(y::AbstractArray, A::Operator, b::AbstractArray) =
-    vmul!(y, A, b)
