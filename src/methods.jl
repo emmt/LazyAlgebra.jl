@@ -48,6 +48,13 @@ output_eltype(A::Operator, x::AbstractArray) = output_eltype(typeof(A), eltype(x
 output_eltype(::Type{A}, ::Type{X}) where {A<:Operator,X} =
     float(prod_type(eltype(A), X))
 
+# Extend `Base.eltype` for operators and their variants. NOTE This is not necessary for
+# `Sum` and `Prod` as they implement `output_eltype` properly.
+Base.eltype(A::Operator) = eltype(typeof(A))
+Base.eltype(::Type{Adjoint{A}}) where {A} = eltype(A)
+Base.eltype(::Type{Inverse{A}}) where {A} = float(eltype(A))
+Base.eltype(::Type{InverseAdjoint{A}}) where {A} = float(eltype(A))
+
 # Output element type for products and sums assuming right-associativity.
 output_eltype(::Type{Prod{L,R}}, ::Type{X}) where {L,R,X} =
     output_eltype(L, output_eltype(R, X))
