@@ -302,7 +302,7 @@ end # testset
             @test LazyAlgebra.identical(SparseOperator{T,M}(S), S)
             @test LazyAlgebra.identical(SparseOperator{T,M,N}(S), S)
 
-            # Check `apply!` and `vcreate` with integer valued multipliers so
+            # Check `vmul!` and `vcreate` with integer valued multipliers so
             # that exact results are expected.
             Sx  = S*x;  @test x == xsav;
             Sty = S'*y; @test y == ysav;
@@ -311,7 +311,7 @@ end # testset
                 β in (0, 1, -1, 7),
                 scratch in (false, true)
                 # Test operator.
-                @test apply!(α, Direct, S, x, scratch, β, vcopy(y)) ==
+                @test vmul!(α, Direct, S, x, scratch, β, vcopy(y)) ==
                     R(α)*Sx + R(β)*y
                 if scratch
                     vcopy!(x, xsav)
@@ -319,7 +319,7 @@ end # testset
                     @test x == xsav
                 end
                 # Test  adjoint.
-                @test apply!(α, Adjoint, S, y, scratch, β, vcopy(x)) ==
+                @test vmul!(α, Adjoint, S, y, scratch, β, vcopy(x)) ==
                     R(α)*Sty + R(β)*x
                 if scratch
                     vcopy!(y, ysav)

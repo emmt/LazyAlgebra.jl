@@ -14,7 +14,7 @@
 struct WrappedLeftHandSideMatrix{T}
     op::T
 end
-(obj::WrappedLeftHandSideMatrix)(dst, src) = apply!(dst, obj.op, src)
+(obj::WrappedLeftHandSideMatrix)(dst, src) = vmul!(dst, obj.op, src)
 
 """
 ```julia

@@ -30,10 +30,8 @@ is provided which amounts to calling:
     Base.eltype(typeof(A))
 
 to infer the type of the coefficients of `A` and which assumes that the element type of
-`A*x` is that of the floating-point conversion of the product of two values of respective
-types `eltype(A)` and `eltype(x)` converted to floating-point.
-
-This machinery is needed to support quantities with units in `LazyAlgebra`.
+`A*x` is that of the floating-point conversion of the multiplication of two values of
+respective types `eltype(A)` and `eltype(x)`.
 
 See also [`LazyAlgebra.output_axes`](@ref), [`LazyAlgebra.create_output`](@ref), and
 [`LazyAlgebra.multiplier_type`](@ref).
@@ -133,11 +131,11 @@ array of type `Array` with 1-based indices is returned; otherwise, an `OffsetArr
 returned.
 
 !!! warning
-    This method is called by [`LazyAlgebra.apply`](@ref) to create its output before
-    calling [`LazyAlgebra.unsafe_apply!`](@ref) assuming that `x` and `y` have correct
-    indices to compute `A*x` and to store the result in `y`. Hence, it is important that
-    any specialization of `LazyAlgebra.create_output` throws an exception if the axes of
-    `x` are not valid.
+    This method is called by [`vmul`](@ref) to create its output before calling
+    [`LazyAlgebra.unsafe_vmul!`](@ref) assuming that `x` and `y` have correct indices to
+    compute `A*x` and to store the result in `y`. Hence, it is important that any
+    specialization of `LazyAlgebra.create_output` throws an exception if the axes of `x`
+    are not valid.
 
 See also [`LazyAlgebra.output_axes`](@ref) and [`LazyAlgebra.output_eltype`](@ref).
 
@@ -214,13 +212,13 @@ end
     LazyAlgebra.@callable T
 
 makes instances of concrete type `T` callable as a regular `LazyAlgebra` operator, that is
-`A(x)` yields [`LazyAlgebra.apply(A,x)`](@ref LazyAlgebra.apply) for any operator `A` of
+`A(x)` yields [`vmul(A,x)`](@ref vmul) for any operator `A` of
 type `T`.
 
 """
 macro callable(T)
     quote
-	(A::$(esc(T)))(x) = apply(A, x)
+	(A::$(esc(T)))(x) = vmul(A, x)
     end
 end
 @callable Adjoint
@@ -434,7 +432,7 @@ checks integrity of operator `A` and returns it.
 check(A::Operator) = A
 
 """
-    LazyAlgebra.checkapply(y, A, x) -> (v1, v2, v1 - v2)
+    LazyAlgebra.check_vmul(y, A, x) -> (v1, v2, v1 - v2)
 
 yields `v1 = vdot(y, A*x)`, `v2 = vdot(A'*y, x)` and their difference for `A` a linear
 operator, `y` a *vector* of the output space of `A` and `x` a *vector* of the input space
@@ -444,7 +442,7 @@ otherwise the implementation of the operator has a bug.
 Simple linear operators operating on Julia arrays can be tested on random
 *vectors* with:
 
-    checkapply([T=Float64,] outdims, A, inpdims) -> (v1, v2, v1 - v2)
+    check_vmul([T=Float64,] outdims, A, inpdims) -> (v1, v2, v1 - v2)
 
 with `outdims` and `outdims` the dimensions of the output and input *vectors*
 for `A`. Optional argument `T` is the element type.
@@ -452,36 +450,36 @@ for `A`. Optional argument `T` is the element type.
 If `A` operates on Julia arrays and methods `input_eltype`, `input_size`,
 `output_eltype` and `output_size` have been specialized for `A`, then:
 
-    checkapply(A) -> (v1, v2, v1 - v2)
+    check_vmul(A) -> (v1, v2, v1 - v2)
 
 is sufficient to check `A` against automatically generated random arrays.
 
-See also: [`vdot`](@ref), [`vcreate`](@ref), [`apply!`](@ref),
+See also: [`vdot`](@ref), [`vcreate`](@ref), [`vmul!`](@ref),
 [`input_type`](@ref).
 
 """
-function checkapply(y::Ty, A::Operator, x::Tx) where {Tx, Ty}
+function check_vmul(y::Ty, A::Operator, x::Tx) where {Tx, Ty}
     v1 = vdot(y, A*x)
     v2 = vdot(A'*y, x)
     (v1, v2, v1 - v2)
 end
 
-function checkapply(::Type{T},
-                      outdims::Tuple{Vararg{Int}},
-                      A::Operator,
-                      inpdims::Tuple{Vararg{Int}}) where {T<:AbstractFloat}
-    checkapply(randn(T, outdims), A, randn(T, inpdims))
+function check_vmul(::Type{T},
+                    outdims::Tuple{Vararg{Int}},
+                    A::Operator,
+                    inpdims::Tuple{Vararg{Int}}) where {T<:AbstractFloat}
+    check_vmul(randn(T, outdims), A, randn(T, inpdims))
 end
 
-function checkapply(outdims::Tuple{Vararg{Int}},
-                      A::Operator,
-                      inpdims::Tuple{Vararg{Int}})
-    checkapply(Float64, outdims, A, inpdims)
+function check_vmul(outdims::Tuple{Vararg{Int}},
+                    A::Operator,
+                    inpdims::Tuple{Vararg{Int}})
+    check_vmul(Float64, outdims, A, inpdims)
 end
 
-checkapply(A::Operator) =
-    checkapply(randn(output_eltype(A), output_size(A)), A,
-                 randn(input_eltype(A), input_size(A)))
+check_vmul(A::Operator) =
+    check_vmul(randn(output_eltype(A), output_size(A)), A,
+               randn(input_eltype(A), input_size(A)))
 
 """
     identical(A, B)
@@ -523,7 +521,7 @@ gram(A::Operator) = A'*A
 
 # Inlined functions called to perform `α*x + β*y` for specific values of the
 # multipliers `α` and `β`.  Passing these (simple) functions to another method
-# is to simplify the coding of vectorized methods and of the the `apply!`
+# is to simplify the coding of vectorized methods and of the the `vmul!`
 # method by operators.  NOTE: Forcing inlining may not be necessary but it does
 # not hurt.
 @inline axpby_yields_zero( α, x, β, y) = zero(typeof(y)) # α = 0, β = 0
@@ -543,87 +541,59 @@ gram(A::Operator) = A'*A
 @inline axpby_yields_axmy( α, x, β, y) = α*x - y         # any α, β = -1
 @inline axpby_yields_axpby(α, x, β, y) = α*x + β*y       # any α, any β
 
-#------------------------------------------------------------------------------
-# VCREATE, APPLY AND APPLY!
-
-"""
-    vmul(A, x) -> y
-
-yields `y = A*x`. The default behavior is to call `apply(A,x,false)`.
-Method [`vmul!`](@ref) is the in-place version.
-
-"""
-vmul(A, x) = apply(A, x, false)
-
-"""
-    vmul!(y, A, x) -> y
-
-overwrites `y` with the result of `A*x` and returns `y`. The default behavior
-is to call `apply!(1,A,x,false,0,y)`.
-
-!!! note
-    This method is intended to be used by algorithms such as the conjugate
-    gradient to apply operators. It may be specialized by the caller for its
-    needs which is much easier than specializing [`apply!`](@ref) which
-    requires to consider the specific values of the multipliers `α` and `β`.
-
-"""
-vmul!(y, A, x) = apply!(1, A, x, false, 0, y)
-
 """
     y = A*x
-    y = LazyAlgebra.apply(A, x)
+    y = vmul(A, x)
 
 yield the result of applying the linear operator `A` to the argument `x`.
 
-See also [`LazyAlgebra.Operator`](@ref), [`LazyAlgebra.apply!`](@ref),
-[`LazyAlgebra.create_output`](@ref), and [`LazyAlgebra.unsafe_apply!`](@ref).
+See also [`LazyAlgebra.Operator`](@ref), [`vmul!`](@ref),
+[`LazyAlgebra.create_output`](@ref), and [`LazyAlgebra.unsafe_vmul!`](@ref).
 
 """
-function apply(A::Operator, x::AbstractArray)
+function vmul(A::Operator, x::AbstractArray)
     y = create_output(A, x)
     T = floating_point_type(eltype(y))
-    unsafe_apply!(one(T), A, x, zero(T), y)
+    unsafe_vmul!(one(T), A, x, zero(T), y)
     return y
 end
 
 """
     y = (α*A)*x
-    y = LazyAlgebra.apply(α, A, x)
+    y = vmul(α, A, x)
 
 yield the result of applying the scaled linear operator `α*A` to the argument `x`.
 
-See also [`LazyAlgebra.Operator`](@ref), [`LazyAlgebra.apply!`](@ref),
-[`LazyAlgebra.create_output`](@ref), and [`LazyAlgebra.unsafe_apply!`](@ref).
+See also [`LazyAlgebra.Operator`](@ref), [`vmul!`](@ref),
+[`LazyAlgebra.create_output`](@ref), and [`LazyAlgebra.unsafe_vmul!`](@ref).
 
 """
-function apply(α::Number, A::Operator, x::AbstractArray)
+function vmul(α::Number, A::Operator, x::AbstractArray)
     α = convert_multiplier(α, A, x)
     y = create_output(α, A, x)
     T = floating_point_type(eltype(y))
-    unsafe_apply!(α, A, x, zero(T), y)
+    unsafe_vmul!(α, A, x, zero(T), y)
     return y
 end
 
-Base.:(*)(A::Operator, x::AbstractArray) = apply(A, x)
-Base.:(\)(A::Operator, x::AbstractArray) = apply(inv(A), x)
+Base.:(*)(A::Operator, x::AbstractArray) = vmul(A, x)
+Base.:(\)(A::Operator, x::AbstractArray) = vmul(inv(A), x)
 
 """
-    apply!(α::Number, A::Operator, x::AbstractArray,
-           β::Number, y::AbstractArray) -> y
+    vmul!(α::Number, A::Operator, x::AbstractArray, β::Number, y::AbstractArray) -> y
 
 overwrites `y` with `α*A⋅x + β*y`. The convention is that the prior contents of `y` is not
-used at all if `β = 0` so `y` can be directly used to store the result even though it is
-not initialized.
+used at all if `iszero(β)` holds so `y` can be directly used to store the result even
+though it is not initialized.
 
-The `apply!` method can be seen as a generalization of the `LinearAlgebra.mul!` method.
+The `vmul!` method can be seen as a generalization of the `LinearAlgebra.mul!` method.
 
 The method checks the axes of the arguments (see [`LazyAlgebra.output_axes`](@ref)),
 converts the multipliers `α` and `β` to the same floating-point type as respectively `A*x`
 and `y` and, if `iszero(α)` does not hold, calls:
 
 ```julia
-LazyAlgebra.unsafe_apply!(α, A, x, β, y)
+LazyAlgebra.unsafe_vmul!(α, A, x, β, y)
 ```
 
 otherwise, if `iszero(β)` does not hold, calls:
@@ -635,22 +605,22 @@ LazyAlgebra.unsafe_vscale!(y, β)
 otherwise, calls:
 
 ```julia
-LazyAlgebra.vzero!(y)
+vzero!(y)
 ```
 
-See also [`LazyAlgebra.apply`](@ref), [`LazyAlgebra.Operator`](@ref),
-[`LazyAlgebra.unsafe_apply!`](@ref), [`LazyAlgebra.unsafe_vscale!`](@ref), and
-[`LazyAlgebra.vzero!`](@ref).
+See also [`vmul`](@ref), [`LazyAlgebra.Operator`](@ref),
+[`LazyAlgebra.unsafe_vmul!`](@ref), [`LazyAlgebra.unsafe_vscale!`](@ref), and
+[`vzero!`](@ref).
 
 """
-function apply!(α::Number, A::Operator, x::AbstractArray, β::Number, y::AbstractArray)
+function vmul!(α::Number, A::Operator, x::AbstractArray, β::Number, y::AbstractArray)
     axes_Ax = output_axes(A, x)
     axes_y = axes(y)
     axes_y == axes_Ax || throw_incompatible_axes("`y`", axes_y, axes_Ax)
     α = convert_multiplier(α, A, x)
     β = convert_multiplier(β, y)
     if !iszero(α)
-        unsafe_apply!(α, A, x, β, y)
+        unsafe_vmul!(α, A, x, β, y)
     elseif !iszero(β)
         unsafe_vscale!(y, β)
     else
@@ -683,85 +653,86 @@ function print_axes(io::IO, rngs::Tuple{Vararg{AbstractUnitRange{<:Integer}}})
 end
 
 """
-    LazyAlgebra.apply!(y::AbstractArray, [α::Number=1], A::Operator, x::AbstractArray) -> y
+    vmul!(y::AbstractArray, [α::Number=1], A::Operator, x::AbstractArray) -> y
 
 overwrites `y` with `α*A*x` and returns `y`. This amounts to calling:
 
 ```julia
-LazyAlgebra.apply!(α, A, x, 0, y)
+vmul!(α, A, x, 0, y)
 ```
 
 """
-apply!(y::AbstractArray, A::Operator, x::AbstractArray) =
-    apply!(1, A, x, 0, y)
+vmul!(y::AbstractArray, A::Operator, x::AbstractArray) =
+    vmul!(1, A, x, 0, y)
 
-apply!(y::AbstractArray, α::Number, A::Operator, x::AbstractArray) =
-    apply!(α, A, x, 0, y)
-
-"""
-    LazyAlgebra.unsafe_apply!(α::Number, A::Operator, x::AbstractArray,
-                              β::Number, y::AbstractArray)
-
-overwrites `y` with `α*A⋅x + β*y`. This method is called by methods
-[`LazyAlgebra.apply`](@ref)) and [`LazyAlgebra.apply!`](@ref)) after having checked that
-arguments have correct axes (so that `@inbounds` can be assuned to compute the result),
-with multipliers `α` and `β` converted to suitable floating-point types, and only if
-`iszero(α)` does not hold. The convention is that the prior contents of `y` is not used at
-all if `β = 0` so `y` can be directly used to store the result even though it is not
-initialized.
+vmul!(y::AbstractArray, α::Number, A::Operator, x::AbstractArray) =
+    vmul!(α, A, x, 0, y)
 
 """
-function unsafe_apply! end
+    LazyAlgebra.unsafe_vmul!(α::Number, A::Operator, x::AbstractArray,
+                             β::Number, y::AbstractArray)
 
-# Implement `unsafe_apply!` for a sum of operators knowing that a sum of more than 2
+overwrites `y` with `α*A⋅x + β*y`. This method is called by [`vmul`](@ref)) and
+[`vmul!`](@ref)) after checking that arguments `x` and `y` have correct axes (so that
+`@inbounds` can be assumed to compute the result stored in `y`), with multipliers `α` and
+`β` converted to suitable floating-point types, and only if `iszero(α)` does not hold. The
+convention is that the prior contents of `y` is not used at all if `iszero(β)` holds so
+that `y` can be directly used to store the result even though it is not initialized.
+`LazyAlgebra.unsafe_vmul!` shall return `nothing` (any returned value is ignored by
+[`vmul`](@ref)) and [`vmul!`](@ref)).
+
+"""
+function unsafe_vmul! end
+
+# Specialize `unsafe_vmul!` for a sum of operators knowing that a sum of more than 2
 # operators is stored according to right-associativity.
-function unsafe_apply!(α::Number, A::Sum, x::AbstractArray, β::Number, y::AbstractArray)
-    unsafe_apply!(α, A[1], x, β,      y)
-    unsafe_apply!(α, A[2], x, one(β), y)
+function unsafe_vmul!(α::Number, A::Sum, x::AbstractArray, β::Number, y::AbstractArray)
+    unsafe_vmul!(α, A[1], x, β,      y)
+    unsafe_vmul!(α, A[2], x, one(β), y)
 end
 
-# Specialize `unsafe_apply!` for a product whose leading operand is a scalar.
-function unsafe_apply!(α::Number, A::Prod{<:Number}, x::AbstractArray,
-                       β::Number, y::AbstractArray)
+# Specialize `unsafe_vmul!` for a product whose leading operand is a scalar.
+function unsafe_vmul!(α::Number, A::Prod{<:Number}, x::AbstractArray,
+                      β::Number, y::AbstractArray)
     # Compute product of multipliers with the precision of `α`. This is necessary because
     # there is no constraints on the precision of the multiplier `λ` of a scaled operator.
     αλ = convert_floating_point_type(typeof(α), α*A[1])
-    unsafe_apply!(αλ, A[2], x, β, y)
+    unsafe_vmul!(αλ, A[2], x, β, y)
 end
 
-# Implement `unsafe_apply!` for a product whose leading operand is a linear operator. This
+# Specialize `unsafe_vmul!` for a product whose leading operand is a linear operator. This
 # requires allocating temporaries. Thanks to the right-associativity imposed by the
 # constructors, passing unused arguments `α`, `β`, and `y`, is avoided.
-unsafe_apply!(α::Number, A::Prod{<:Operator}, x::AbstractArray, β::Number, y::AbstractArray) =
-    unsafe_apply!(α, A[1], A[2]*x, β, y)
+unsafe_vmul!(α::Number, A::Prod{<:Operator}, x::AbstractArray, β::Number, y::AbstractArray) =
+    unsafe_vmul!(α, A[1], A[2]*x, β, y)
 
-@noinline function unsafe_apply!(α::Number, A::Union{Inverse{<:Sum},InverseAdjoint{<:Sum}},
+@noinline function unsafe_vmul!(α::Number, A::Union{Inverse{<:Sum},InverseAdjoint{<:Sum}},
                                  x::AbstractArray, β::Number, y::AbstractArray)
     error("automatic dispatching of the inverse of a sum of operators is not supported")
 end
 
-# Default rules to apply a Gram operator.  Gram matrices are Hermitian by
-# construction which left only 2 cases to deal with.
-function unsafe_apply!(α::Number, G::Gram, x::AbstractArray,
-                       β::Number, y::AbstractArray)
+# Default rules to apply a Gram operator. Gram matrices are Hermitian by construction
+# which left only 2 cases to deal with.
+function unsafe_vmul!(α::Number, G::Gram, x::AbstractArray,
+                      β::Number, y::AbstractArray)
     A = G[] # yields A such that G = A'*A
-    unsafe_apply!(α, A', A*x, β, y)
+    unsafe_vmul!(α, A', A*x, β, y)
 end
 #
-function unsafe_apply!(α::Number, G::Inverse{<:Gram}, x::AbstractArray,
-                       β::Number, y::AbstractArray)
+function unsafe_vmul!(α::Number, G::Inverse{<:Gram}, x::AbstractArray,
+                      β::Number, y::AbstractArray)
     A = G[][] # yields A such that G = inv(A'*A) = inv(A)*inv(A')
-    unsafe_apply!(α, inv(A), inv(A')*x, β, y)
+    unsafe_vmul!(α, inv(A), inv(A')*x, β, y)
 end
 
 # Extend `LinearAlgebra.ldiv!(y, A, b)` to overwrite `y` with `A\b`.
 LinearAlgebra.ldiv!(y::AbstractArray, A::Operator, b::AbstractArray) =
-    apply!(y, inv(A), b)
+    vmul!(y, inv(A), b)
 
 # Extend `LinearAlgebra.mul!(c, A, b, α, β)` to overwrite `c` with `α*A*b + β*c`.
 LinearAlgebra.mul!(c::AbstractArray, A::Operator, b::AbstractArray, α::Number, β::Number) =
-    apply!(α, A, b, β, c)
+    vmul!(α, A, b, β, c)
 
 # Extend `LinearAlgebra.mul!(y, A, b)` to overwrite `y` with `A*b`.
 LinearAlgebra.mul!(y::AbstractArray, A::Operator, b::AbstractArray) =
-    apply!(y, A, b)
+    vmul!(y, A, b)

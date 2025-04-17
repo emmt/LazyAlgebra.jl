@@ -20,9 +20,9 @@ output_eltype(::Type{Identity}, ::Type{X}) where {X} = float(X)
 output_axes(A::Identity, I::ArrayAxes) = I
 create_output(α::Number, ::Identity, x::AbstractArray) =
     similar(x, prod_type(typeof(α), eltype(x)))
-unsafe_apply!(α::Number, A::Identity, x::AbstractArray, β::Number, y::AbstractArray) =
+unsafe_vmul!(α::Number, A::Identity, x::AbstractArray, β::Number, y::AbstractArray) =
     unsafe_vcombine!(y, α, x, β, y)
-unsafe_apply!(dst::AbstractArray, α::Number, A::Identity, x::AbstractArray) =
+unsafe_vmul!(dst::AbstractArray, α::Number, A::Identity, x::AbstractArray) =
     unsafe_scale!(dst, α, x)
 
 # Special rules for the identity.

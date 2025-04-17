@@ -84,7 +84,7 @@ Operator`:
 
 ```julia
 vcreate(::Type{P}, A::M, x, scratch::Bool) -> y
-apply!(α::Number, ::Type{P}, A::M, x, , scratch::Bool, β::Number, y) -> y
+vmul!(α::Number, ::Type{P}, A::M, x, , scratch::Bool, β::Number, y) -> y
 ```
 
 for any supported operation `P ∈ Operations` (`Direct`, `Adjoint`, `Inverse` and/or
@@ -93,9 +93,9 @@ methods `P(A)` may be extended, *e.g.* to throw exceptions if operation `P` is f
 (or not implemented). By default, all these operations are assumed possible (except
 `Adjoint` and `InverseAdjoint` for a nonlinear mapping).
 
-See also: [`apply`](@ref), [`apply!`](@ref), [`vcreate`](@ref), [`Scalar`](@ref),
-          [`Direct`](@ref), [`Adjoint`](@ref), [`Inverse`](@ref),
-          [`InverseAdjoint`](@ref).
+See also [`vmul`](@ref), [`vmul!`](@ref), [`vcreate`](@ref),
+[`LazyAlgebra.Adjoint`](@ref), [``LazyAlgebra.Inverse`](@ref),
+[``LazyAlgebra.InverseAdjoint`](@ref).
 
 """
 abstract type Operator end
@@ -238,7 +238,7 @@ is the union of the possible variants to apply a mapping: [`Direct`](@ref),
 [`Adjoint`](@ref), [`Inverse`](@ref) and [`InverseAdjoint`](@ref) (or its alias
 [`AdjointInverse`](@ref)).
 
-See also: [`apply`](@ref) and [`apply!`](@ref).
+See also [`vmul`](@ref) and [`vmul!`](@ref).
 
 """
 const Operations = Union{Adjoint,Inverse} # FIXME:

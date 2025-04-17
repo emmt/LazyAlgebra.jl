@@ -43,7 +43,7 @@ using ..LazyAlgebra: @certify
 import .LazyAlgebra:
     MorphismType,
     multiplier_type,
-    apply!,
+    vmul!,
     vcreate,
     identical,
     coefficients,
@@ -2217,7 +2217,7 @@ end
 # We assume that in-place operation is not possible and thus simply ignore the
 # `scratch` flag.  Operators which can be applied in-place shall specialize
 # this method.  We do not check the dimensions and indexing of `x` as this will
-# be done when `apply!` is called.
+# be done when `vmul!` is called.
 
 function vcreate(::Type{P},
                  A::SparseOperator{Ta,M,N},
@@ -2238,7 +2238,7 @@ end
 # Apply a sparse linear mapping, and its adjoint, stored in Compressed Sparse
 # Row (CSR) format.
 
-function apply!(α::Number,
+function vmul!(α::Number,
                 ::Type{Direct},
                 A::CompressedSparseOperator{:CSR,Ta,M,N},
                 x::AbstractArray{Tx,N},
@@ -2267,7 +2267,7 @@ function unsafe_apply_direct!(α::Number,
     end
 end
 
-function apply!(α::Number,
+function vmul!(α::Number,
                 ::Type{Adjoint},
                 A::CompressedSparseOperator{:CSR,Ta,M,N},
                 x::AbstractArray{Tx,M},
@@ -2308,7 +2308,7 @@ end
 # Apply a sparse operator, and its adjoint, stored in Compressed Sparse Column
 # (CSC) format.
 
-function apply!(α::Number,
+function vmul!(α::Number,
                 ::Type{Direct},
                 A::CompressedSparseOperator{:CSC,Ta,M,N},
                 x::AbstractArray{Tx,N},
@@ -2346,7 +2346,7 @@ function apply!(α::Number,
     return y
 end
 
-function apply!(α::Number,
+function vmul!(α::Number,
                 ::Type{Adjoint},
                 A::CompressedSparseOperator{:CSC,Ta,M,N},
                 x::AbstractArray{Tx,M},
@@ -2379,7 +2379,7 @@ end
 # Apply a sparse operator, and its adjoint, stored in Compressed Sparse
 # Coordinate (COO) format.
 
-function apply!(α::Number,
+function vmul!(α::Number,
                 ::Type{Direct},
                 A::CompressedSparseOperator{:COO,Ta,M,N},
                 x::AbstractArray{Tx,N},
@@ -2414,7 +2414,7 @@ function apply!(α::Number,
     return y
 end
 
-function apply!(α::Number,
+function vmul!(α::Number,
                 ::Type{Adjoint},
                 A::CompressedSparseOperator{:COO,Ta,M,N},
                 x::AbstractArray{Tx,M},

@@ -118,28 +118,28 @@ output_axes(A::AnyVariant{Diag}, x::AbstractArray) =
     (rngs = axes(diag(unveil(A)))) == axes(x) ? rngs : throw(DimensionMismatch(
         "argument has incompatible indices"))
 
-conj_mul(w, x) = conj(w)*x
-conj_ldiv(w, x) = conj(w)\x
 
-function unsafe_apply!(α::Number, A::Diag, x::AbstractArray,
-                       β::Number, y::AbstractArray)
+function unsafe_vmul!(α::Number, A::Diag, x::AbstractArray,
+                      β::Number, y::AbstractArray)
     unsafe_map!(α, *, diag(A), x, β, y)
 end
 
-function unsafe_apply!(α::Number, A::Adjoint{<:Diag}, x::AbstractArray,
-                       β::Number, y::AbstractArray)
+function unsafe_vmul!(α::Number, A::Adjoint{<:Diag}, x::AbstractArray,
+                      β::Number, y::AbstractArray)
     unsafe_map!(α, conj_mul, diag(unveil(A)), x, β, y)
 end
+conj_mul(w, x) = conj(w)*x
 
-function unsafe_apply!(α::Number, A::Inverse{<:Diag}, x::AbstractArray,
-                       β::Number, y::AbstractArray)
+function unsafe_vmul!(α::Number, A::Inverse{<:Diag}, x::AbstractArray,
+                      β::Number, y::AbstractArray)
     unsafe_map!(α, \, diag(unveil(A)), x, β, y)
 end
 
-function unsafe_apply!(α::Number, A::InverseAdjoint{<:Diag}, x::AbstractArray,
-                       β::Number, y::AbstractArray)
+function unsafe_vmul!(α::Number, A::InverseAdjoint{<:Diag}, x::AbstractArray,
+                      β::Number, y::AbstractArray)
     unsafe_map!(α, conj_ldiv, diag(unveil(A)), x, β, y)
 end
+conj_ldiv(w, x) = conj(w)\x
 
 """
     LazyAlgebra.unsafe_map!(dst, α, f, w, x)
@@ -230,8 +230,7 @@ and behaving as:
     A*x  -> vdot(v, x) * u
     A'*x -> vdot(u, x) * v
 
-See also: [`SymmetricRankOneOperator`](@ref), [`Operator`](@ref),
-          [`apply!`](@ref), [`vcreate`](@ref).
+See also [`SymmetricRankOneOperator`](@ref), [`Operator`](@ref), [`vmul`](@ref).
 
 """
 struct RankOneOperator{U<:AbstractArray,V<:AbstractArray} <: Operator
@@ -241,30 +240,14 @@ end
 
 @callable RankOneOperator
 
-function apply!(α::Number, A::RankOneOperator,
-                x, scratch::Bool, β::Number, y)
-    return _apply_rank_one!(α, A.u, A.v, x, β, y)
-end
+unsafe_vmul!(α::Number, A::RankOneOperator, x, β::Number, y) =
+    unsafe_apply_rank_one!(α, A.u, A.v, x, β, y)
 
-function apply!(α::Number, A::Adjoint{<:RankOneOperator},
-                x, scratch::Bool, β::Number, y)
-    return _apply_rank_one!(α, A.v, A.u, x, β, y)
-end
+unsafe_vmul!(α::Number, A::Adjoint{<:RankOneOperator}, x, β::Number, y) =
+    unsafe_apply_rank_one!(α, A.v, A.u, x, β, y)
 
-function _apply_rank_one!(α::Number, u, v, x, β::Number, y)
-    if α == 0
-        # Lazily assume that y has correct type, dimensions, etc.
-        vscale!(y, β)
-    else
-        vcombine!(y, α*vdot(v, x), u, β, y)
-    end
-    return y
-end
-
-# Lazily assume that x has correct type, dimensions, etc.
-# FIXME: optimize when scratch=true
-#FIXME: vcreate(::Type{Direct}, A::RankOneOperator, x, scratch::Bool) = vcreate(A.v)
-#FIXME: vcreate(::Type{Adjoint}, A::RankOneOperator, x, scratch::Bool) = vcreate(A.u)
+unsafe_apply_rank_one!(α::Number, u, v, x, β::Number, y) =
+    unsafe_vcombine!(y, convert_multiplier(α*vdot(v, x), eltype(u)), u, β, y)
 
 # Traits.
 for func in (:(Base.eltype), :input_ndims, :output_ndims)
@@ -295,7 +278,7 @@ and behaving as follows:
     A*x  -> vscale(vdot(u, x)), u)
 
 See also: [`RankOneOperator`](@ref), [`Operator`](@ref),
-          [`Trait`](@ref) [`apply!`](@ref), [`vcreate`](@ref).
+          [`Trait`](@ref) [`vmul!`](@ref), [`vcreate`](@ref).
 
 """
 struct SymmetricRankOneOperator{U} <: Operator
@@ -308,7 +291,7 @@ end
 MorphismType(::SymmetricRankOneOperator) = Endomorphism()
 SelfAdjointType(::SymmetricRankOneOperator) = SelfAdjoint()
 
-# FIXME: function apply!(α::Number, ::Type{<:Union{Direct,Adjoint}},
+# FIXME: function vmul!(α::Number, ::Type{<:Union{Direct,Adjoint}},
 # FIXME:                 A::SymmetricRankOneOperator, x, scratch::Bool, β::Number, y)
 # FIXME:     return _apply_rank_one!(α, A.u, A.u, x, β, y)
 # FIXME: end
@@ -382,14 +365,14 @@ eachindex(A::GeneralMatrix) = eachindex(coefficients(A))
 identical(A::T, B::T) where {T<:GeneralMatrix} =
     (coefficients(A) === coefficients(B))
 
-# FIXME: function apply!(α::Number,
+# FIXME: function vmul!(α::Number,
 # FIXME:                 P::Type{<:Operations},
 # FIXME:                 A::GeneralMatrix{<:AbstractArray{<:GenMult.Floats}},
 # FIXME:                 x::AbstractArray{<:GenMult.Floats},
 # FIXME:                 scratch::Bool,
 # FIXME:                 β::Number,
 # FIXME:                 y::AbstractArray{<:GenMult.Floats})
-# FIXME:     return apply!(α, P, coefficients(A), x, scratch, β, y)
+# FIXME:     return vmul!(α, P, coefficients(A), x, scratch, β, y)
 # FIXME: end
 
 function output_axes(A::Union{G,InverseAdjoint{G}},
@@ -410,11 +393,11 @@ function output_axes(A::Union{Adjoint{G},Inverse{G}},
     return rngs[M+1:L]
 end
 
-function unsafe_apply!(α::Number,
-                       A::GeneralMatrix,
-                       x::AbstractArray,
-                       β::Number,
-                       y::AbstractArray)
+function unsafe_vmul!(α::Number,
+                      A::GeneralMatrix,
+                      x::AbstractArray,
+                      β::Number,
+                      y::AbstractArray)
     C = coefficients(unveil(A))
     I = CartesianIndices(axes(y))
     J = CartesianIndices(axes(x))
@@ -430,11 +413,11 @@ function unsafe_apply!(α::Number,
     nothing
 end
 
-function unsafe_apply!(α::Number,
-                       A::Adjoint{<:GeneralMatrix},
-                       x::AbstractArray,
-                       β::Number,
-                       y::AbstractArray)
+function unsafe_vmul!(α::Number,
+                      A::Adjoint{<:GeneralMatrix},
+                      x::AbstractArray,
+                      β::Number,
+                      y::AbstractArray)
     C = coefficients(unveil(A))
     I = CartesianIndices(axes(x))
     J = CartesianIndices(axes(y))
@@ -451,82 +434,3 @@ function unsafe_apply!(α::Number,
     end
     nothing
 end
-
-
-# FIXME: function vcreate(P::Type{<:Operations},
-# FIXME:                  A::GeneralMatrix{<:AbstractArray{<:GenMult.Floats}},
-# FIXME:                  x::AbstractArray{<:GenMult.Floats},
-# FIXME:                  scratch::Bool)
-# FIXME:     return vcreate(P, coefficients(A), x, scratch)
-# FIXME: end
-# FIXME:
-# FIXME: for (T, L) in ((:Direct, 'N'), (:Adjoint, 'C'))
-# FIXME:     @eval begin
-# FIXME:         function apply!(α::Number,
-# FIXME:                         ::Type{$T},
-# FIXME:                         A::AbstractArray{<:GenMult.Floats},
-# FIXME:                         x::AbstractArray{<:GenMult.Floats},
-# FIXME:                         scratch::Bool,
-# FIXME:                         β::Number,
-# FIXME:                         y::AbstractArray{<:GenMult.Floats})
-# FIXME:             return lgemv!(α, $L, A, x, β, y)
-# FIXME:         end
-# FIXME:     end
-# FIXME: end
-
-# To have apply and apply! methods callable with an array (instead of a
-# mapping), we have to provide the different possibilities.
-
-# FIXME: apply(A::AbstractArray, x::AbstractArray, scratch::Bool) =
-# FIXME:     apply(Direct, A, x, scratch)
-# FIXME:
-# FIXME: apply(P::Type{<:Operations}, A::AbstractArray, x::AbstractArray, scratch::Bool) =
-# FIXME:     apply!(1, P, A, x, scratch, 0, vcreate(P, A, x, scratch))
-# FIXME:
-# FIXME: apply!(y::AbstractArray, A::AbstractArray, x::AbstractArray) =
-# FIXME:     apply!(1, Direct, A, x, false, 0, y)
-# FIXME:
-# FIXME: apply!(y::AbstractArray, P::Type{<:Operations}, A::AbstractArray, x::AbstractArray) =
-# FIXME:     apply!(1, P, A, x, false, 0, y)
-# FIXME:
-# FIXME: function vcreate(P::Type{<:Union{Direct,InverseAdjoint}},
-# FIXME:                  A::AbstractArray{Ta,Na},
-# FIXME:                  x::AbstractArray{Tx,Nx},
-# FIXME:                  scratch::Bool) where {Ta,Na,Tx,Nx}
-# FIXME:     # Non-transposed matrix.  Trailing dimensions of X must match those of A,
-# FIXME:     # leading dimensions of A are those of the result.  Whatever the scratch
-# FIXME:     # parameter, a new array is returned as the operation cannot be done
-# FIXME:     # in-place.
-# FIXME:     @noinline incompatible_dimensions() =
-# FIXME:         bad_size("the indices of `x` do not match the trailing indices of `A`")
-# FIXME:     1 ≤ Nx < Na || incompatible_dimensions()
-# FIXME:     Ny = Na - Nx
-# FIXME:     xinds = axes(x)
-# FIXME:     Ainds = axes(A)
-# FIXME:     @inbounds for d in 1:Nx
-# FIXME:         xinds[d] == Ainds[Ny + d] || incompatible_dimensions()
-# FIXME:     end
-# FIXME:     shape = ntuple(d -> Ainds[d], Val(Ny)) # faster than Ainds[1:Ny]
-# FIXME:     return similar(A, promote_type(Ta, Tx), shape)
-# FIXME: end
-# FIXME:
-# FIXME: function vcreate(P::Type{<:Union{Adjoint,Inverse}},
-# FIXME:                  A::AbstractArray{Ta,Na},
-# FIXME:                  x::AbstractArray{Tx,Nx},
-# FIXME:                  scratch::Bool) where {Ta,Na,Tx,Nx}
-# FIXME:     # Transposed matrix.  Leading dimensions of X must match those of A,
-# FIXME:     # trailing dimensions of A are those of the result.  Whatever the scratch
-# FIXME:     # parameter, a new array is returned as the operation cannot be done
-# FIXME:     # in-place.
-# FIXME:     @noinline incompatible_dimensions() =
-# FIXME:         bad_size("the indices of `x` do not match the leading indices of `A`")
-# FIXME:     1 ≤ Nx < Na || incompatible_dimensions()
-# FIXME:     Ny = Na - Nx
-# FIXME:     xinds = axes(x)
-# FIXME:     Ainds = axes(A)
-# FIXME:     @inbounds for d in 1:Nx
-# FIXME:         xinds[d] == Ainds[d] || incompatible_dimensions()
-# FIXME:     end
-# FIXME:     shape = ntuple(d -> Ainds[Nx + d], Val(Ny)) # faster than Ainds[Nx+1:end]
-# FIXME:     return similar(A, promote_type(Ta, Tx), shape)
-# FIXME: end

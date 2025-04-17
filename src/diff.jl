@@ -18,7 +18,7 @@ export Diff
 using MayOptimize
 using LazyAlgebra
 using LazyAlgebra.Foundations
-import LazyAlgebra: apply!, vcreate, identical
+import LazyAlgebra: vmul!, vcreate, identical
 
 using Base: @propagate_inbounds
 import Base: show
@@ -169,7 +169,7 @@ anydims(::Gram{Diff{L,D,P}}) where {L,D,P} = gram(Diff{L,Any,P}())
 for (P,A) in ((:Direct,  :Diff),
               (:Adjoint, :Diff),
               (:Direct,  :(Gram{<:Diff})))
-    @eval function apply!(α::Number,
+    @eval function vmul!(α::Number,
                           P::Type{$P},
                           A::$A,
                           x::AbstractArray,
@@ -181,23 +181,23 @@ for (P,A) in ((:Direct,  :Diff),
             # Get rid of this stupid case!
             vscale!(y, β)
         else
-            # Call unsafe_apply! to dispatch on the dimensions of interest and on
+            # Call unsafe_vmul! to dispatch on the dimensions of interest and on
             # the values of the multipliers.
-            unsafe_apply!(α, P, A, x, β, y, inds)
+            unsafe_vmul!(α, P, A, x, β, y, inds)
         end
         return y
     end
 end
 
 # FIXME: This should not be necessary.
-function apply!(α::Number,
+function vmul!(α::Number,
                 ::Type{<:Adjoint},
                 A::Gram{<:Diff},
                 x::AbstractArray,
                 scratch::Bool,
                 β::Number,
                 y::AbstractArray)
-    apply!(α, Direct, A, x, scratch, β, y)
+    vmul!(α, Direct, A, x, scratch, β, y)
 end
 
 function vcreate(::Type{Direct},
@@ -335,7 +335,7 @@ throw_dimension_mismatch(str::String) = throw(DimensionMismatch(str))
 
 # Apply the operation along all dimensions of interest but one dimension at a
 # time and knowing that α is not zero.
-@generated function unsafe_apply!(α::Number,
+@generated function unsafe_vmul!(α::Number,
                                   ::Type{P},
                                   A::Diff{L,D},
                                   x::AbstractArray,
@@ -354,7 +354,7 @@ throw_dimension_mismatch(str::String) = throw(DimensionMismatch(str))
     # Dispatch on dimensions of interest.
     if isa(D, Int)
         # Arrays x and y have the same dimensions.
-        push!(exprs, :(unsafe_apply!(α, P, B, x, β, y,
+        push!(exprs, :(unsafe_vmul!(α, P, B, x, β, y,
                                      inds[1:$(D-1)],
                                      inds[$D],
                                      inds[$(D+1):$N],
@@ -367,7 +367,7 @@ throw_dimension_mismatch(str::String) = throw(DimensionMismatch(str))
         dims = (D === Colon ? (1:N) : D)
         for l in 1:length(dims)
             d = dims[l]
-            push!(exprs, :(unsafe_apply!(α, P, B, x,
+            push!(exprs, :(unsafe_vmul!(α, P, B, x,
                                          $(keep_beta ? :β : 1), y,
                                          inds[1:$(d-1)],
                                          inds[$d],
@@ -389,7 +389,7 @@ throw_dimension_mismatch(str::String) = throw(DimensionMismatch(str))
     end
 end
 
-@generated function unsafe_apply!(α::Number,
+@generated function unsafe_vmul!(α::Number,
                                   ::Type{P},
                                   A::Gram{<:Diff{L,D}},
                                   x::AbstractArray,
@@ -407,7 +407,7 @@ end
     # Dispatch on dimensions of interest.  Arrays x and y have the same
     # dimensions and there is no last index `l` to specify.
     if isa(D, Int)
-        push!(exprs, :(unsafe_apply!(α, P, B, x, β, y,
+        push!(exprs, :(unsafe_vmul!(α, P, B, x, β, y,
                                      inds[1:$(D-1)],
                                      inds[$D],
                                      inds[$(D+1):$N])))
@@ -416,7 +416,7 @@ end
         dims = (D === Colon ? (1:N) : D)
         for l in 1:length(dims)
             d = dims[l]
-            push!(exprs, :(unsafe_apply!(α, P, B, x,
+            push!(exprs, :(unsafe_vmul!(α, P, B, x,
                                          $(l == 1 ? :β : 1), y,
                                          inds[1:$(d-1)],
                                          inds[$d],
@@ -437,7 +437,7 @@ end
 end
 
 # Dispatch on multipliers values (α is not zero).
-function unsafe_apply!(alpha::Number,
+function unsafe_vmul!(alpha::Number,
                        P::Type{<:Operations},
                        A::Union{Diff{L,Any,Opt},
                                 Gram{Diff{L,Any,Opt}}},
@@ -450,22 +450,22 @@ function unsafe_apply!(alpha::Number,
                        l::CartesianIndex) where {L,Opt}
     if alpha == 1
         if beta == 0
-            unsafe_apply!(axpby_yields_x,     1, P, A, x, 0, y, I, J, K, l)
+            unsafe_vmul!(axpby_yields_x,     1, P, A, x, 0, y, I, J, K, l)
         elseif beta == 1
-            unsafe_apply!(axpby_yields_xpy,   1, P, A, x, 1, y, I, J, K, l)
+            unsafe_vmul!(axpby_yields_xpy,   1, P, A, x, 1, y, I, J, K, l)
         else
             β = convert_multiplier(beta, y)
-            unsafe_apply!(axpby_yields_xpby,  1, P, A, x, β, y, I, J, K, l)
+            unsafe_vmul!(axpby_yields_xpby,  1, P, A, x, β, y, I, J, K, l)
         end
     else
         α = convert_multiplier(alpha, y)
         if beta == 0
-            unsafe_apply!(axpby_yields_ax,    α, P, A, x, 0, y, I, J, K, l)
+            unsafe_vmul!(axpby_yields_ax,    α, P, A, x, 0, y, I, J, K, l)
         elseif beta == 1
-            unsafe_apply!(axpby_yields_axpy,  α, P, A, x, 1, y, I, J, K, l)
+            unsafe_vmul!(axpby_yields_axpy,  α, P, A, x, 1, y, I, J, K, l)
         else
             β = convert_multiplier(beta, y)
-            unsafe_apply!(axpby_yields_axpby, α, P, A, x, β, y, I, J, K, l)
+            unsafe_vmul!(axpby_yields_axpby, α, P, A, x, β, y, I, J, K, l)
         end
     end
     nothing
@@ -473,7 +473,7 @@ end
 
 # Dispatch on multipliers values (α is not zero) for Gram compositions of a
 # finite difference operator.
-function unsafe_apply!(alpha::Number,
+function unsafe_vmul!(alpha::Number,
                        P::Type{<:Operations},
                        A::Gram{<:Diff},
                        x::AbstractArray,
@@ -484,22 +484,22 @@ function unsafe_apply!(alpha::Number,
                        K::ArrayAxes)
     if alpha == 1
         if beta == 0
-            unsafe_apply!(axpby_yields_x,     1, P, A, x, 0, y, I, J, K)
+            unsafe_vmul!(axpby_yields_x,     1, P, A, x, 0, y, I, J, K)
         elseif beta == 1
-            unsafe_apply!(axpby_yields_xpy,   1, P, A, x, 1, y, I, J, K)
+            unsafe_vmul!(axpby_yields_xpy,   1, P, A, x, 1, y, I, J, K)
         else
             β = convert_multiplier(beta, y)
-            unsafe_apply!(axpby_yields_xpby,  1, P, A, x, β, y, I, J, K)
+            unsafe_vmul!(axpby_yields_xpby,  1, P, A, x, β, y, I, J, K)
         end
     else
         α = convert_multiplier(alpha, y)
         if beta == 0
-            unsafe_apply!(axpby_yields_ax,    α, P, A, x, 0, y, I, J, K)
+            unsafe_vmul!(axpby_yields_ax,    α, P, A, x, 0, y, I, J, K)
         elseif beta == 1
-            unsafe_apply!(axpby_yields_axpy,  α, P, A, x, 1, y, I, J, K)
+            unsafe_vmul!(axpby_yields_axpy,  α, P, A, x, 1, y, I, J, K)
         else
             β = convert_multiplier(beta, y)
-            unsafe_apply!(axpby_yields_axpby, α, P, A, x, β, y, I, J, K)
+            unsafe_vmul!(axpby_yields_axpby, α, P, A, x, β, y, I, J, K)
         end
     end
     nothing
@@ -526,7 +526,7 @@ end
 #
 # Apply 1st order finite differences along 1st dimension:
 #
-function unsafe_apply!(f::Function,
+function unsafe_vmul!(f::Function,
                        α::Number,
                        ::Type{Direct},
                        A::Diff{1,Any,Opt},
@@ -555,7 +555,7 @@ end
 #
 # Apply 1st order finite differences along 2nd and subsequent dimensions:
 #
-function unsafe_apply!(f::Function,
+function unsafe_vmul!(f::Function,
                        α::Number,
                        ::Type{Direct},
                        A::Diff{1,Any,Opt},
@@ -588,7 +588,7 @@ end
 #
 # Apply adjoint of 1st order finite differences along 1st dimension:
 #
-function unsafe_apply!(f::Function,
+function unsafe_vmul!(f::Function,
                        α::Number,
                        ::Type{Adjoint},
                        A::Diff{1,Any,Opt},
@@ -629,7 +629,7 @@ end
 # Apply adjoint of 1st order finite differences along 2nd and subsequent
 # dimensions:
 #
-function unsafe_apply!(f::Function,
+function unsafe_vmul!(f::Function,
                        α::Number,
                        ::Type{Adjoint},
                        A::Diff{1,Any,Opt},
@@ -686,7 +686,7 @@ end
 #
 # Apply D'*D along 1st dimension:
 #
-function unsafe_apply!(f::Function,
+function unsafe_vmul!(f::Function,
                        α::Number,
                        ::Type{<:Union{Direct,Adjoint}},
                        A::Gram{Diff{1,Any,Opt}},
@@ -725,7 +725,7 @@ end
 #
 # Apply  D'*D along 2nd and subsequent dimensions:
 #
-function unsafe_apply!(f::Function,
+function unsafe_vmul!(f::Function,
                        α::Number,
                        ::Type{<:Union{Direct,Adjoint}},
                        A::Gram{Diff{1,Any,Opt}},
@@ -790,7 +790,7 @@ end
 #
 # Apply 2nd order finite differences along 1st dimension:
 #
-function unsafe_apply!(f::Function,
+function unsafe_vmul!(f::Function,
                        α::Number,
                        ::Type{Direct},
                        A::Diff{2,Any,Opt},
@@ -830,7 +830,7 @@ end
 #
 # Apply 2nd order finite differences along 2nd and subsequent dimensions:
 #
-function unsafe_apply!(f::Function,
+function unsafe_vmul!(f::Function,
                        α::Number,
                        ::Type{Direct},
                        A::Diff{2,Any,Opt},
@@ -880,7 +880,7 @@ end
 #
 # Apply adjoint of 2nd order finite differences along 1st dimension:
 #
-function unsafe_apply!(f::Function,
+function unsafe_vmul!(f::Function,
                        α::Number,
                        ::Type{Adjoint},
                        A::Diff{2,Any,Opt},
@@ -922,7 +922,7 @@ end
 #
 # Apply 2nd order finite differences along 2nd and subsequent dimensions:
 #
-function unsafe_apply!(f::Function,
+function unsafe_vmul!(f::Function,
                        α::Number,
                        ::Type{Adjoint},
                        A::Diff{2,Any,Opt},
@@ -1084,7 +1084,7 @@ end
 #
 # Apply Gram composition of 2nd order finite differences along 1st dimension:
 #
-function unsafe_apply!(f::Function,
+function unsafe_vmul!(f::Function,
                        α::Number,
                        ::Type{<:Union{Direct,Adjoint}},
                        A::Gram{Diff{2,Any,Opt}},
@@ -1164,7 +1164,7 @@ end
 # Apply Gram composition of 2nd order finite differences along 2nd and
 # subsequent dimensions:
 #
-function unsafe_apply!(f::Function,
+function unsafe_vmul!(f::Function,
                        α::Number,
                        ::Type{<:Union{Direct,Adjoint}},
                        A::Gram{Diff{2,Any,Opt}},

@@ -136,17 +136,19 @@ methods that may be implemented:
 vscale!(alpha::Real, x::V) -> x
 ```
 
-For mappings and linear operators (see
-[Implementation of new mappings](mappings.md) for details), implement:
+For operators and linear operators (see [Implementation of new operators](operators.md)
+for details), implement:
 
 ```julia
-apply!(α::Scalar, P::Type{<:Operations}, A::Ta, x::Tx, β::Scalar, y::Ty) -> y
+LazyAlgebra.unsafe_vmul!(α, A, x, β, y)
+LazyAlgebra.output_eltype(typeof(A), eltype(x))
+LazyAlgebra.output_axes(A, axes(x))
 ```
 
-and
+Note that extending [`LazyAlgebra.output_eltype`](@ref) may be avoided if
 
 ```julia
-vcreate(P::Type{P}, A::Ta, x::Tx) -> y
+Base.eltype(typeof(A))
 ```
 
-for `Ta<:Operator` and the supported operations `P<:Operations`.
+exists and yields the type of the *coefficients* of `A`.

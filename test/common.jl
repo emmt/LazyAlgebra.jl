@@ -43,13 +43,13 @@ function test_api(::Type{P}, A::Operator, x0::AbstractArray, y0::AbstractArray;
                   atol::Real=0) where {P<:Union{Direct,InverseAdjoint}}
     x = vcopy(x0)
     y = vcopy(y0)
-    z = apply(P, A, x)
+    z = vmul(P, A, x)
     @test x == x0
     T = floating_point_type(x, y, z)
     for α in (0, 1, -1,  2.71, π),
         β in (0, 1, -1, -1.33, Base.MathConstants.φ),
         scratch in (false, true)
-        @test apply!(α, P, A, x, scratch, β, vcopy(y)) ≈
+        @test vmul!(α, P, A, x, scratch, β, vcopy(y)) ≈
             T(α)*z + T(β)*y  atol=atol rtol=rtol
         if scratch
             vcopy!(x, x0)
@@ -64,13 +64,13 @@ function test_api(::Type{P}, A::Operator, x0::AbstractArray, y0::AbstractArray;
                   atol::Real=0) where {P<:Union{Adjoint,Inverse}}
     x = vcopy(x0)
     y = vcopy(y0)
-    z = apply(P, A, y)
+    z = vmul(P, A, y)
     @test y == y0
     T = floating_point_type(x, y, z)
     for α in (0, 1, -1,  2.71, π),
         β in (0, 1, -1, -1.33, Base.MathConstants.φ),
         scratch in (false, true)
-        @test apply!(α, P, A, y, scratch, β, vcopy(x)) ≈
+        @test vmul!(α, P, A, y, scratch, β, vcopy(x)) ≈
             T(α)*z + T(β)*x  atol=atol rtol=rtol
         if scratch
             vcopy!(y, y0)

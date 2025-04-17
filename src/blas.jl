@@ -24,9 +24,9 @@
 # We may want to use fast BLAS routines.
 #
 # According to the following timings (for n = 96 and 4 threads), the fastest
-# method is the BLAS version of `apply!(,Adjoint,,)`.  When looking at the
-# loops, this is understandable as `apply!(,Adjoint,,)` is easier to
-# parallelize than `apply!(,Direct,,)`.  Note that Julia implementations are
+# method is the BLAS version of `vmul!(,Adjoint,,)`.  When looking at the
+# loops, this is understandable as `vmul!(,Adjoint,,)` is easier to
+# parallelize than `vmul!(,Direct,,)`.  Note that Julia implementations are
 # with SIMD and no bounds checking.
 #
 #             A⋅x       A'.x      x'⋅y

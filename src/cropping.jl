@@ -25,7 +25,7 @@ using ArrayTools
 using ..Foundations
 using ..LazyAlgebra
 using ..LazyAlgebra: bad_argument, bad_size
-import ..LazyAlgebra: apply!, vcreate,
+import ..LazyAlgebra: vmul!, vcreate,
     input_size, input_ndims, output_size, output_ndims
 
 """
@@ -134,13 +134,13 @@ end
 #         y[I] = α*x[J] + β*y[I]
 #     end
 #
-function apply!(α::Number,
-                ::Type{Direct},
-                C::CroppingOperator{N},
-                x::AbstractArray{T,N},
-                scratch::Bool,
-                β::Number,
-                y::AbstractArray{T,N}) where {T,N}
+function vmul!(α::Number,
+               ::Type{Direct},
+               C::CroppingOperator{N},
+               x::AbstractArray{T,N},
+               scratch::Bool,
+               β::Number,
+               y::AbstractArray{T,N}) where {T,N}
     has_standard_indexing(x) ||
         bad_argument("input array has non-standard indexing")
     size(x) == input_size(C) ||
@@ -197,13 +197,13 @@ end
 #     end
 #     # Plus y[i + k] *= β outside common region R
 #
-function apply!(α::Number,
-                ::Type{Adjoint},
-                C::CroppingOperator{N},
-                x::AbstractArray{T,N},
-                scratch::Bool,
-                β::Number,
-                y::AbstractArray{T,N}) where {T,N}
+function vmul!(α::Number,
+               ::Type{Adjoint},
+               C::CroppingOperator{N},
+               x::AbstractArray{T,N},
+               scratch::Bool,
+               β::Number,
+               y::AbstractArray{T,N}) where {T,N}
     has_standard_indexing(x) ||
         bad_argument("input array has non-standard indexing")
     size(x) == output_size(C) ||

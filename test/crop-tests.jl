@@ -109,14 +109,14 @@ using LazyAlgebra.Foundations
         @test y == ysav
         @test Cty == zeropad(y, isz)
 
-        # Test various possibilities for apply!
+        # Test various possibilities for vmul!
         atol = 0
         rtol = eps(R)
         for α in (0, 1, -1,  2.71, π),
             β in (0, 1, -1, -1.33, Base.MathConstants.φ),
             scratch in (false, true)
             # Test operator.
-            @test apply!(α, Direct, C, x, scratch, β, vcopy(y)) ≈
+            @test vmul!(α, Direct, C, x, scratch, β, vcopy(y)) ≈
                 R(α)*Cx + R(β)*y  atol=atol rtol=rtol
             if scratch
                 vcopy!(x, xsav)
@@ -124,7 +124,7 @@ using LazyAlgebra.Foundations
                 @test x == xsav
             end
             # Test  adjoint.
-            @test apply!(α, Adjoint, C, y, scratch, β, vcopy(x)) ≈
+            @test vmul!(α, Adjoint, C, y, scratch, β, vcopy(x)) ≈
                 R(α)*Cty + R(β)*x  atol=atol rtol=rtol
             if scratch
                 vcopy!(y, ysav)

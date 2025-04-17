@@ -89,26 +89,10 @@ Prod(A::Prod{<:Operator}, B::Prod{<:Number}) = B[1] * (A * B[2])
 Prod(A::Prod{<:Number},   B::Prod{<:Number}) = (A[1] * B[1]) * (A[2] * B[2])
 #
 # - Right-associativity is applied to keep product and sum of operators in the expected
-#   order for applying these constructions to an argument. See `apply!` method for these
-#   constructions.
+#   order for applying these constructions to an argument. See `unsafe_vmul!` method for
+#   these constructions.
 Sum( A::Sum,  B::Operator) = A[1] + (A[2] + B)
 Prod(A::Prod, B::Operator) = A[1] * (A[2] * B)
-
-# Apply a Prod assuming right-associativity. This requires temporaries.
-function apply!(α::Number, A::Prod{<:Number}, x::AbstractArray,
-                β::Number, y::AbstractArray)
-    return apply!(α*A[1], A[2], x, β, y)
-end
-function apply!(α::Number, A::Prod, x::AbstractArray,
-                β::Number, y::AbstractArray)
-    return apply!(α, A[1], A[2]*x, β, y)
-end
-
-# Apply a Sum assuming right-associativity and using `y` to accumulate.
-function apply!(α::Number, A::Sum, x::AbstractArray,
-                β::Number, y::AbstractArray)
-    return apply!(α, A[2], x, 1, apply!(α, A[1], x, β, y))
-end
 
 #-----------------------------------------------------------------------------------------
 # NEUTRAL ELEMENTS

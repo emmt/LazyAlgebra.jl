@@ -69,16 +69,11 @@ end # testset
     @test U'*x ≈ λ*x       atol=atol rtol=rtol
     @test U\x  ≈ (1/λ)*x   atol=atol rtol=rtol
     @test U'\x ≈ (1/λ)*x   atol=atol rtol=rtol
-    for α in ALPHAS,
-        β in BETAS
-        for P in (Direct, Adjoint)
-            @test apply!(α, P, U, x, β, vcopy(y)) ≈
-                T(α*λ)*x + T(β)*y atol=atol rtol=rtol norm=vnorm2
-        end
-        for P in (Inverse, InverseAdjoint)
-            @test apply!(α, P, U, x, β, vcopy(y)) ≈
-                T(α/λ)*x + T(β)*y atol=atol rtol=rtol norm=vnorm2
-        end
+    for α in ALPHAS, β in BETAS
+        @test vmul!(α, U,       x, β, vcopy(y)) ≈       (α*λ)*x + β*y atol=atol rtol=rtol norm=vnorm2
+        @test vmul!(α, U',      x, β, vcopy(y)) ≈ (α*conj(λ))*x + β*y atol=atol rtol=rtol norm=vnorm2
+        @test vmul!(α, inv(U),  x, β, vcopy(y)) ≈       (α/λ)*x + β*y atol=atol rtol=rtol norm=vnorm2
+        @test vmul!(α, inv(U'), x, β, vcopy(y)) ≈ (α/conj(λ))*x + β*y atol=atol rtol=rtol norm=vnorm2
     end
 end # testset
 
@@ -106,12 +101,9 @@ end # testset
     z = vmul!(vcreate(y), B, x)
     @test z == vmul(B, x)
     @test z == B*x
-    for α in ALPHAS,
-        β in BETAS
-        for P in (Direct, Adjoint)
-            @test apply!(α, P, C, x, β, vcopy(y)) ≈
-                T(α*vdot(w,x))*w + T(β)*y atol=atol rtol=rtol norm=vnorm2
-        end
+    for α in ALPHAS, β in BETAS
+        @test vmul!(α, C,  x, β, vcopy(y)) ≈ (α*vdot(w,x))*w + β*y atol=atol rtol=rtol norm=vnorm2
+        @test vmul!(α, C', x, β, vcopy(y)) ≈ (α*vdot(w,x))*w + β*y atol=atol rtol=rtol norm=vnorm2
     end
 end # testset
 
@@ -127,7 +119,7 @@ end # testset
     x = randn(T, dims)
     y = randn(T, dims)
     z = vcreate(y)
-    S = NonuniformScaling(w)
+    S = Diag(w)
     @test diag(S) === w
     @test Diag(w) === S
     atol, rtol = zero(T), sqrt(eps(T))
@@ -135,16 +127,11 @@ end # testset
     @test S'*x ≈ w.*x atol=atol rtol=rtol norm=vnorm2
     @test S\x ≈ x./w atol=atol rtol=rtol norm=vnorm2
     @test S'\x ≈ x./w atol=atol rtol=rtol norm=vnorm2
-    for α in ALPHAS,
-        β in BETAS
-        for P in (Direct, Adjoint)
-            @test apply!(α, P, S, x, β, vcopy(y)) ≈
-                T(α)*w.*x + T(β)*y atol=atol rtol=rtol norm=vnorm2
-        end
-        for P in (Inverse, InverseAdjoint)
-            @test apply!(α, P, S, x, β, vcopy(y)) ≈
-                T(α)*x./w + T(β)*y atol=atol rtol=rtol norm=vnorm2
-        end
+    for α in ALPHAS, β in BETAS
+        @test vmul!(α,     S,   x, β, vcopy(y)) ≈ α*(       w.*x) + β*y atol=atol rtol=rtol norm=vnorm2
+        @test vmul!(α,     S',  x, β, vcopy(y)) ≈ α*(conj.(w).*x) + β*y atol=atol rtol=rtol norm=vnorm2
+        @test vmul!(α, inv(S),  x, β, vcopy(y)) ≈ α*(       w.\x) + β*y atol=atol rtol=rtol norm=vnorm2
+        @test vmul!(α, inv(S'), x, β, vcopy(y)) ≈ α*(conj.(w).\x) + β*y atol=atol rtol=rtol norm=vnorm2
     end
 end # testset
 
@@ -168,16 +155,11 @@ end # testset
     @test S'*x ≈ conj.(w).*x atol=atol rtol=rtol norm=vnorm2
     @test S\x ≈ x./w atol=atol rtol=rtol norm=vnorm2
     @test S'\x ≈ x./conj.(w) atol=atol rtol=rtol norm=vnorm2
-    for α in ALPHAS,
-        β in BETAS
-        @test apply!(α, Direct, S, x, β, vcopy(y)) ≈
-            T(α)*w.*x + T(β)*y atol=atol rtol=rtol norm=vnorm2
-        @test apply!(α, Adjoint, S, x, β, vcopy(y)) ≈
-            T(α)*conj.(w).*x + T(β)*y atol=atol rtol=rtol norm=vnorm2
-        @test apply!(α, Inverse, S, x, β, vcopy(y)) ≈
-            T(α)*x./w + T(β)*y atol=atol rtol=rtol norm=vnorm2
-        @test apply!(α, InverseAdjoint, S, x, β, vcopy(y)) ≈
-            T(α)*x./conj.(w) + T(β)*y atol=atol rtol=rtol norm=vnorm2
+    for α in ALPHAS, β in BETAS
+        @test vmul!(α,     S,   x, β, vcopy(y)) ≈ α*(       w.*x) + β*y atol=atol rtol=rtol norm=vnorm2
+        @test vmul!(α,     S',  x, β, vcopy(y)) ≈ α*(conj.(w).*x) + β*y atol=atol rtol=rtol norm=vnorm2
+        @test vmul!(α, inv(S),  x, β, vcopy(y)) ≈ α*(       w.\x) + β*y atol=atol rtol=rtol norm=vnorm2
+        @test vmul!(α, inv(S'), x, β, vcopy(y)) ≈ α*(conj.(w).\x) + β*y atol=atol rtol=rtol norm=vnorm2
     end
 end # testset
 

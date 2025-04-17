@@ -32,6 +32,17 @@ This page describes the most important changes in `LazyAlgebra`. The format is b
 
 - Abstract type `LinearMapping` renamed `Operator`.
 
+- Scalar multipliers, array elements, and operator coefficients may have units.
+
+- Methods `vmul`, `vmul!`, and `LazyAlgebra.unsafe_vmul!` replace `LazyAlgebra.apply` and
+  `LazyAlgebra.apply!`. `vmul`, and `vmul!` were already existing wand were exported by
+  `using LazyAlgebra`. Instead of extending `vmul!` directly for each operator type, it is
+  sufficient to specialize `LazyAlgebra.unsafe_vmul!(α, A, x, β, y)` which is called after
+  checking that `x` and `y` have suitable dimensions or axes and after converting the
+  floating-point type of the multipliers `α` and `β` to the ones of respectively `A*x` and
+  `y`. The `scratch` argument that was in `apply!` is no longer used. This disallows an
+  optimization that was possible but little used and difficult to implement without bugs.
+
 - Method `vcreate` renamed as `LazyAlgebra.create_output` which is public but not exported
   and which has a slightly different semantic: `y = create_output(α,A,x)` is called to
   create an array `y` suitable to store `α*A*x` with `α` a scalar factor, `A` a linear
@@ -40,8 +51,8 @@ This page describes the most important changes in `LazyAlgebra`. The format is b
   incidence on the element type of the result of `α*A*x` even though the floating-point
   type of `α` is given by that of `A*x`. The method `create_output(α,A,x)` shall throw a
   `DimensionMismatch` exception if the dimensions or axes of `x` are not compatible with
-  `A` so that `@inbounds` can be assumed by `apply!` for computing `α*A*x + β*y`.
-
+  `A` so that `@inbounds` can be assumed by `LazyAlgebra.unsafe_vmul!` for computing
+  `α*A*x + β*y`.
 
 - The inner product computed by `vdot` and the norms computed by `vnorm1`, `vnorm2`, and
   `vnorminf` treat complexes as usually done in linear algebra. The only difference is that

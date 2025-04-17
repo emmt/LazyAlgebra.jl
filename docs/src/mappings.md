@@ -1,94 +1,145 @@
-# Methods for mappings
+# Methods for operators
 
-`LazyAlgebra` provides a number of mappings and linear operators.  To create
-new primitive mapping types (not by combining existing mappings) and benefit
-from the `LazyAlgebra` infrastruture, you have to:
+`LazyAlgebra` provides a number of linear operators. To create new primitive operator
+types (not by combining existing operators) and benefit from the `LazyAlgebra`
+infrastructure, you have to:
 
-* Create a new type derived from `Operator` or one of its abstract sub-types
-  such as `Operator`.
+* Create a new type derived from `Operator`.
 
-* Implement at least two methods `apply!` and `vcreate` specialized for the new
-  mapping type.  Applying the mapping is done by the former method.  The latter
-  method is called to create a new output variable suitable to store the result
-  of applying the mapping (or one of its variants) to some input variable.
+* In order to apply the operator `A`, the method `LazyAlgebra.unsafe_vmul!(α, A, x, β, y)`
+  must be implemented to overwrite `y` with `α*A*x + β*y`. The same method may also be
+  extended for `A'`, `inv(A)` and/or `inv(A')` to apply the adjoint, inverse, and/or
+  inverse-adjoint of `A`.
 
-* Optionally specialize method `identical` for two arguments of the new
-  mapping type.
+* In order to create the array `y` to store the result of `A*x` or of `α*A*x` or to check
+  the validity of `y` when it is provided by the user, methods `LazyAlgebra.output_axes(A,
+  axes(x))`, and at least one of `Base.eltype(typeof(A))` or
+  `LazyAlgebra.output_eltype(typeof(A), eltype(x))` specialized for the operator `A`.
 
-
-## The `vcreate` method
-
-The signature of the `vcreate` method to be implemented by specific mapping
-types is:
-
-```julia
-vcreate(::Type{P}, A::Ta, x::Tx, scratch::Bool) -> y
-```
-
-where `A` is the mapping, `x` its argument and `P` is one of `Direct`,
-`Adjoint`, `Inverse` and/or `InverseAdjoint` (or equivalently `AdjointInverse`)
-and indicates how `A` is to be applied:
-
-* `Direct` to apply `A` to `x`, *e.g.* to compute `A⋅x`;
-* `Adjoint` to apply the adjoint of `A` to `x`, *e.g.* to compute `A'⋅x`;
-* `Inverse` to apply the inverse of `A` to `x`, *e.g.* to compute `A\x`;
-* `InverseAdjoint` or `AdjointInverse` to apply the inverse of `A'` to `x`,
-  *e.g.* to compute `A'\x`.
-
-The result returned by `vcreate` is a new output variables suitable to store
-the result of applying the mapping `A` (or one of its variants as indicated by
-`P`) to the input variables `x`.
-
-The `scratch` argument is a boolean to let the caller indicate whether the
-input variable `x` may be re-used to store the result.  If `scratch` is `true`
-and if that make sense, the value returned by `vcreate` may be `x`.  Calling
-`vcreate` with `scratch=true` can be used to limit the allocation of resources
-when possible.  Having `scratch=true` is only indicative and a specific
-implementation of `vcreate` may legitimately always assume `scratch=false` and
-return a new variable whatever the value of this argument (e.g. because
-applying the considered mapping *in-place* is not possible or because the
-considered mapping is not an endomorphism).  Of course, the opposite behavior
-(i.e., assuming that `scratch=true` while the method was called with
-`scratch=false`) is forbidden.
-
-The result returned by `vcreate` should be of predictible type to ensure
-*type-stability*.  Checking the validity (*e.g.* the size) of argument `x` in
-`vcreate` may be skipped because this argument will be eventually checked by
-the `apply!` method.
+* Optionally specialize method `LazyAlgebra.identical` for two arguments of the new
+  operator type.
 
 
-## The `apply!` method
+## The `LazyAlgebra.unsafe_vmul!` method
 
-The signature of the `apply!` method to be implemented by specific mapping
-types is:
+The signature of the `LazyAlgebra.unsafe_vmul!` method to be implemented for a specific
+operator type `Ta<:Operator` is:
 
 ```julia
-apply!(α::Number, ::Type{P}, A::Ta, x::Tx, scratch::Bool, β::Number, y::Ty) -> y
+LazyAlgebra.unsafe_vmul!(α::Number, A::Ta, x::Tx, β::Number, y::Ty)
 ```
 
-This method shall overwrites the contents of output variables `y` with the
-result of `α*P(A)⋅x + β*y` where `P` is one of `Direct`, `Adjoint`, `Inverse`
-and/or `InverseAdjoint` (or equivalently `AdjointInverse`) and shall return
-`y`.  The convention is that the prior contents of `y` is not used at all if `β
-= 0` so the contents of `y` does not need to be initialized in that case.
+This method shall overwrite `y` with `α*A*x + β*y`. This method is called by
+[`vmul`](@ref)) and [`vmul!`](@ref)) after checking that arguments`x` and `y` have correct
+axes (so that `@inbounds` can be assumed to compute the result stored in `y`), with
+multipliers `α` and `β` converted to suitable floating-point types, and only if
+`iszero(α)` does not hold. The convention is that the prior contents of `y` is not used at
+all if `iszero(β)` holds so that `y` can be directly used to store the result even though
+it is not initialized. [`LazyAlgebra.unsafe_vmul!`](@ref) shall return `nothing` (any returned
+value is ignored by [`vmul`](@ref)) and [`vmul!`](@ref)).
 
-Not all operations `P` must be implemented, only the supported ones.  For
-iterative resolution of (inverse) problems, it is generally needed to implement
-at least the `Direct` and `Adjoint` operations for linear operators.  However
-nonlinear mappings are not supposed to implement the `Adjoint` and derived
-operations.
+In the above signature, `Ta<:Operator` is the type of the operator to apply,
+`Tx<:AbstractArray` and `Ty<:AbstractArray` are the respective types of `x` (to be
+multiplied by `A`) and `y` (to store the result).
 
-Argument `scratch` is a boolean to let the caller indicate whether the contents
-of the input variable `x` may be overwritten during the operations.  If
-`scratch=false`, the `apply!` method shall not modify the contents of `x`.
+If applying the adjoint, inverse, or inverse-adjoint of an operator of type `Ta` is
+supported, [`LazyAlgebra.unsafe_vmul!`](@ref) shall be implemented for
+[`LazyAlgebra.Adjoint{Ta}`](@ref LazyAlgebra.Adjoint), [`LazyAlgebra.Inverse{Ta}`](@ref
+LazyAlgebra.Inverse), and `LazyAlgebra.Inverse{LazyAlgebra.Adjoint{Ta}}` respectively.
+Note the particular order of the latter construction: in effect, the inverse-adjoint of
+`A` given by expressions `inv(A)'` and `inv(A')` is always stored as `inv(A')`. As a
+facility, the alias [`LazyAlgebra.InverseAdjoint{Ta}`](@ref LazyAlgebra.InverseAdjoint)
+can also be used in the signature, this alias is the union of
+`LazyAlgebra.Inverse{LazyAlgebra.Adjoint{Ta}}` and
+`LazyAlgebra.Adjoint{LazyAlgebra.Inverse{Ta}}`.
+
+
+## Creating the output of an operator
+
+To create the array to store `A*x` or `α*A*x`, the following method is called:
+
+```julia
+y = LazyAlgebra.create_output([α::Number,] A::Operator, x::AbstractArray)
+```
+
+where, if the multiplier `α` is supplied, it shall be assumed that `α` has been already
+converted by [`LazyAlgebra.convert_multiplier`](@ref).
+
+The default implementations are:
+
+```julia
+create_output(A::Operator, x::AbstractArray) =
+    new_array(output_eltype(A, x), output_axes(A, x))
+
+create_output(α::Number, A::Operator, x::AbstractArray) =
+    new_array(output_eltype(α, A, x), output_axes(A, x))
+```
+
+where the `new_array` method is taken from the
+[TypeUtils](https://github.com/emmt/TypeUtils.jl) package. As can be seen,
+[`LazyAlgebra.create_output`](@ref) relies on two auxiliary methods
+[`LazyAlgebra.output_eltype`](@ref) and [`LazyAlgebra.output_axes`](@ref). These two
+methods must be specialized for the type of `A` (and of `A'`, `inv(A)`, or `inv(A')` if
+these variants are supported) as explained next.
+
+As a first simplification, it is assumed in `LazyAlgebra` that the element type of `A*x`
+is a *trait* that only depends on the type of the operator `A` and on the element type of
+the input array `x`. Following this assumption, [`LazyAlgebra.create_output`](@ref) infers
+its result from that of:
+
+```julia
+LazyAlgebra.output_eltype(typeof(A), eltype(x))
+```
+
+and it is thus expected that a method with this signature be implemented for the operator `A`
+to yield the element type of `A*x`. If such a method does not exists, a fallback method
+is provided which amounts to calling:
+
+```julia
+Base.eltype(typeof(A))
+```
+
+to infer the type of the coefficients of `A`. The element type of `A*x` is then assumed to
+be given by converting to floating-point the multiplication of two values of respective
+types `eltype(A)` and `eltype(x)`.
+
+This machinery is needed to support quantities with units in `LazyAlgebra`.
+
+As a second simplification, it is assumed in `LazyAlgebra` that the axes of `A*x` only
+depend on the operator `A` and on the axes of the input array `x`. Following this
+assumption, [`LazyAlgebra.create_output`](@ref) yields an array whose axes are given by:
+
+```julia
+LazyAlgebra.output_axes(A, axes(x))
+```
+
+and it is thus expected that a method with this signature exists for the operator `A`.
+
+!!! warning
+    The method [`LazyAlgebra.output_axes`](@ref) must throw an exception if the axes of
+    `x` are not valid in the expression `A*x` so that `@inbounds` can be safely assumed
+    when this method returns normally.
+
+!!! note
+    Since `new_array` (from [TypeUtils](https://github.com/emmt/TypeUtils.jl)) is called
+    to create the output `y`, if `LazyAlgebra.output_axes(A, x)` yields a tuple consisting
+    of `Base.OneTo` instances, `y` will be an array of type `Array` with 1-based indices;
+    otherwise, `y` will be an `OffsetArray`.
+
+For more flexibility, the method [`LazyAlgebra.create_output`](@ref) may be specialized in
+the operator type. In that case, implementing [`LazyAlgebra.output_eltype`](@ref) is not
+necessary. Implementing [`LazyAlgebra.output_axes`](@ref) is always needed as it is used
+to check the axes of an array `y` supplied by the user. If it is extended, it is critical
+that [`LazyAlgebra.create_output`](@ref) throws an exception when the axes of `x` are not
+valid in the expression `A*x`.
 
 
 ## The `identical` method
 
-The method `identical(A,B)` yields whether `A` and `B` are the same mappings in
+The method `identical(A,B)` yields whether `A` and `B` are the same operators in
 the sense that their effects will **always** be the same.  This method is used
 to perform some simplifications and optimizations and may have to be
-specialized for specific mapping types.  The default implementation is to
+specialized for specific operator types.  The default implementation is to
 return `A === B`.
 
 The returned result may be true although `A` and `B` are not necessarily the
@@ -111,7 +162,7 @@ to operate on multi-dimensional arrays (the so-called *variables*):
 ```julia
 # Use LazyAlgebra framework and import methods that need to be extended.
 using LazyAlgebra
-import LazyAlgebra: vcreate, apply!, input_size, output_size
+import LazyAlgebra: vcreate, vmul!, input_size, output_size
 
 struct SparseOperator{T<:AbstractFloat,M,N} <: Operator
     outdims::NTuple{M,Int}
@@ -140,7 +191,7 @@ function vcreate(::Type{Adjoint}, S::SparseOperator{Ts,M,N},
     return Array{Ty}(undef, input_size(S))
 end
 
-function apply!(α::Real,
+function vmul!(α::Real,
                 ::Type{Direct},
                 S::SparseOperator{Ts,M,N},
                 x::DenseArray{Tx,N},
@@ -162,7 +213,7 @@ function apply!(α::Real,
     return y
 end
 
-function apply!(α::Real,
+function vmul!(α::Real,
                 ::Type{Adjoint},
                 S::SparseOperator{Ts,M,N},
                 x::DenseArray{Tx,M},

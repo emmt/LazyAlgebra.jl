@@ -164,5 +164,5 @@ which can be compared to `inv(A*B*3C)` when all operands are linear mappings.
 `LazyAlgebra` provides a number of simple mappings. Creating new primitive mapping types
 (not by combining existing mappings as explained above) which benefit from the
 `LazyAlgebra` framework is as simple as declaring a new mapping sub-type of `Operator` (or
-one of its abstract sub-types) and extending two methods `vcreate` and `apply!`
+one of its abstract sub-types) and extending two methods `vcreate` and `vmul!`
 specialized for the new mapping type. For mode details, see [here](mappings.md).

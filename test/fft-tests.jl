@@ -106,37 +106,15 @@ end # testset
         @test x == xsav # check that input has been preserved
         @test y == ysav # check that input has been preserved
         @test y == ysav # check that input has been preserved
-        for α in alphas,
-            β in betas,
-            scratch in (false, true)
-            @test apply!(α, Direct, F, x, scratch, β, vcopy(y)) ≈
-                R(α)*z + R(β)*y atol=0 rtol=ϵ
-            if scratch
-                vcopy!(x, xsav)
-            else
-                @test x == xsav # check that input has been preserved
-            end
-            @test apply!(α, Adjoint, F, y, scratch, β, vcopy(x)) ≈
-                R(n*α)*w + R(β)*x atol=0 rtol=ϵ
-            if scratch
-                vcopy!(y, ysav)
-            else
-                @test y == ysav # check that input has been preserved
-            end
-            @test apply!(α, Inverse, F, y, scratch, β, vcopy(x)) ≈
-                R(α)*w + R(β)*x atol=0 rtol=ϵ
-            if scratch
-                vcopy!(y, ysav)
-            else
-                @test y == ysav # check that input has been preserved
-            end
-            @test apply!(α, InverseAdjoint, F, x, scratch, β, vcopy(y)) ≈
-                R(α/n)*z + R(β)*y atol=0 rtol=ϵ
-            if scratch
-                vcopy!(x, xsav)
-            else
-                @test x == xsav # check that input has been preserved
-            end
+        for α in alphas, β in betas
+            @test vmul!(α, F, x, β, vcopy(y)) ≈ R(α)*z + R(β)*y atol=0 rtol=ϵ
+            @test x == xsav # check that input has been preserved
+            @test vmul!(α, F', y, β, vcopy(x)) ≈ R(n*α)*w + R(β)*x atol=0 rtol=ϵ
+            @test y == ysav # check that input has been preserved
+            @test vmul!(α, inv(F), y, β, vcopy(x)) ≈ R(α)*w + R(β)*x atol=0 rtol=ϵ
+            @test y == ysav # check that input has been preserved
+            @test vmul!(α, inv(F'), x, β, vcopy(y)) ≈ R(α/n)*z + R(β)*y atol=0 rtol=ϵ
+            @test x == xsav # check that input has been preserved
         end
     end
 end # testset
@@ -165,7 +143,7 @@ end # testset
         @test ndims(H) == 2*length(dims)
         @test (size(H)..., 1) == ntuple(i->size(H, i), ndims(H)+1)
 
-        # Test apply! method.
+        # Test vmul! method.
         F = FFTOperator(x)
         G = F\Diag(F*h)*F
         y = rand(T, dims)
@@ -195,20 +173,10 @@ end # testset
         for α in alphas,
             β in betas,
             scratch in (false, true)
-            @test apply!(α, Direct, H, x, scratch, β, vcopy(y)) ≈
-                R(α)*y1 + R(β)*y atol=0 rtol=ϵ
-            if scratch
-                vcopy!(x, xsav)
-            else
-                @test x == xsav # check that input has been preserved
-            end
-            @test apply!(α, Adjoint, H, y, scratch, β, vcopy(x)) ≈
-                R(α)*z1 + R(β)*x atol=0 rtol=ϵ
-            if scratch
-                vcopy!(y, ysav)
-            else
-                @test y == ysav # check that input has been preserved
-            end
+            @test vmul!(α, H, x, β, vcopy(y)) ≈ R(α)*y1 + R(β)*y atol=0 rtol=ϵ
+            @test x == xsav # check that input has been preserved
+            @test vmul!(α, H', y, β, vcopy(x)) ≈ R(α)*z1 + R(β)*x atol=0 rtol=ϵ
+            @test y == ysav # check that input has been preserved
         end
     end
 end # testset
