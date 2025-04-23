@@ -1,17 +1,8 @@
-#
 # vectors.jl -
 #
 # Implement basic operations for *vectors*. In `LazyAlgebra`, arrays of any number of
 # dimensions are considered as *vectors*, the only requirements are that, when combining
 # *vectors*, they have the same axes (i.e., for most arrays, the same dimensions).
-#
-#-----------------------------------------------------------------------------------------
-#
-# This file is part of LazyAlgebra (https://github.com/emmt/LazyAlgebra.jl)
-# released under the MIT "Expat" license.
-#
-# Copyright (c) 2017-2025, Éric Thiébaut.
-#
 
 """
     vnorm1([T::Type,] x)
@@ -34,7 +25,7 @@ function vnorm1(x::AbstractArray)
     return s
 end
 
-vmorm1(x::Number) = abs(x)
+vnorm1(x::Number) = abs(x)
 
 """
     vnorm2([T::Type,] x)
@@ -58,7 +49,7 @@ function vnorm2(x::AbstractArray)
     return sqrt(s)
 end
 
-vmorm2(x::Number) = abs(x)
+vnorm2(x::Number) = abs(x)
 
 """
     vnorminf([T::Type,] x)
@@ -82,7 +73,7 @@ function vnorminf(x::AbstractArray)
     return s
 end
 
-vmorminf(x::Number) = abs(x)
+vnorminf(x::Number) = abs(x)
 
 # Versions with forced floating-point type of output result.
 for func in (:vnorm2, :vnorm1, :vnorminf)
@@ -126,8 +117,6 @@ is, `conj(x)*y` or, if `w` is specified, the `w*conj(x)*y` (`w` shall have real-
 elements). This method is intended to be called by [`LazyAlgebra.unsafe_vdot`](@ref) on
 the entries of its input *vectors*. This method may be extended for specific number types.
 
-See also [`LazyAlgebra.vdot`](@ref).
-
 """
 vdot(x::Real,    y::Real   ) = x*y
 vdot(x::Real,    y::Complex) = x*real(y)
@@ -142,9 +131,11 @@ vdot(w::Real, x::Complex, y::Complex) = w*conj(x)*y
 """
     LazyAlgebra.unsafe_vdot([w::AbstractArray,] x::AbstractArray, y::AbstractArray)
 
-yields the scalar product of `x` by `y` both treated as *vectors*. This method is called
-by [`LazyAlgebra.vdot`](@ref) when `axes(x) == axes(y)` holds. This method may be extended
-for specific array types.
+yields the scalar product of `x` by `y` both treated as *vectors*. This method shall only
+be called after having asserted that `axes(x) == axes(y)` holds. This method may be
+extended for specific array types.
+
+See also [`LazyAlgebra.vdot`](@ref).
 
 """
 function unsafe_vdot(x::AbstractArray, y::AbstractArray)
@@ -181,14 +172,14 @@ function unsafe_vdot(sel::AbstractVector{Int}, x::AbstractArray, y::AbstractArra
     # NOTE We cannot use `@simd` here due to scattering.
     s = 0*vdot(zero(eltype(x)), zero(eltype(y)))
     if IndexStyle(x, y) == IndexLinear()
-        @inbounds @fastmath for i in sel
+        @inbounds @fastmath for j in eachindex(sel)
             i = sel[j]
             s += vdot(x[i], y[i])
         end
     else
         I = CartesianIndices(axes(x))
-        @inbounds @fastmath for j in sel
-            i = I[j]
+        @inbounds @fastmath for j in eachindex(sel)
+            i = I[sel[j]]
             s += vdot(x[i], y[i])
         end
     end
@@ -201,20 +192,27 @@ end
 #-----------------------------------------------------------------------------------------
 
 """
-    vcopy!(dst, src) -> dst
+    vcopy(x::AbstractArray)
 
-copies the contents of `src` into `dst` and returns `dst`. This function checks that the
-copy makes sense (for instance, for array arguments, the `copyto!` operation does not
-check that the source and destination have the same axes).
+yields a fresh copy of `x`. Compared to `copy(x)`, the element type of the result is
+guaranteed to be floating-point.
 
-The method checks that its arguments have the same axes before calling
-[`LazyAlgebra.unsafe_vcopy!`](@ref) if `src` and `dst` are different objects. This latter
-method may be specialized for specific array types.
-
-See also [`copyto!`](@ref), [`vcopy`](@ref), [`vswap!`](@ref).
+See also [`vcopy!`](@ref), [`vcreate`](@ref), and [`LazyAlgebra.unsafe_vcopy!`](@ref).
 
 """
-function vcopy!(dst::AbstractArray, x::AbstractArray)
+vcopy(x) = unsafe_vcopy!(vcreate(x), x)
+
+"""
+    vcopy!(dst, src) -> dst
+
+copies the contents of `src` into `dst` and returns `dst`. An exception is thrown if `dst`
+and `src` do not have the same axes.
+
+See also [`copyto!`](@ref), [`vcopy`](@ref), [`vswap!`](@ref), and
+[`LazyAlgebra.unsafe_vcopy!`](@ref).
+
+"""
+function vcopy!(dst::AbstractArray, src::AbstractArray)
     if dst !== src
         @assert_same_axes dst src
         unsafe_vcopy!(dst, src)
@@ -225,35 +223,35 @@ end
 """
     LazyAlgebra.unsafe_vcopy!(dst::AbstractArray, src::AbstractArray)
 
-copies the values of `src` into `dst`. This function is only called by [`vcopy!](@ref) if
-`dst` and `src` are different objects and after having checked that `dst` and `src` do
-have the same axes.
+copies the values of `src` into `dst`.
+
+!!! warning
+    This function shall only be called if `dst` and `src` are different objects with the
+    the same axes.
+
+See also [`vcopy!](@ref).
 
 """
 unsafe_vcopy!(dst::AbstractArray, src::AbstractArray) =
     copyto!(dst, firstindex(dst), src, firstindex(src), length(dst))
 
 """
-    vcopy(x::AbstractArray)
+    vcreate(x::AbstractArray)
 
-yields a fresh copy of the *vector* `x`. Compared to `similar(x)`, the element type of the
-result is guaranteed to be floating-point.
+yields an array similar to `x` and with elements of floating-point type.
 
-See also [`copy`](@ref), [`vcopy!`](@ref).
+See also [`vcopy`](@ref).
 
 """
-vcopy(x) = unsafe_vcopy!(similar(x, float(eltype(x))), x)
+vcreate(x::AbstractArray) = similar(x, float(eltype(x)))
 
 """
     vswap!(x, y)
 
-exchanges the contents of `x` and `y`.
+exchanges the contents of `x` and `y`. An exception is thrown if `x` and `y` do not have
+the same axes.
 
-The method checks that its arguments have the same axes before calling
-[`LazyAlgebra.unsafe_vswap!`](@ref) if `x` and `y` are different objects. This latter
-method may be specialized for specific array types.
-
-See also [`vcopy!`](@ref).
+See also [`vcopy!`](@ref) and [`LazyAlgebra.unsafe_vswap!`](@ref).
 
 """
 function vswap!(x::AbstractArray, y::AbstractArray)
@@ -267,9 +265,13 @@ end
 """
     LazyAlgebra.unsafe_vswap!(x::AbstractArray, y::AbstractArray)
 
-swaps the values of `x` and `y`. This function is only called by [`vswap!](@ref) if `x`
-and `y` are different objects and after having checked that `x` and `y` do have the same
-axes.
+swaps the values of `x` and `y`.
+
+!!! warning
+    This function shall only be called by if `x` and `y` are different objects with the
+    same axes.
+
+See also [`vswap!](@ref).
 
 """
 function unsafe_vswap!(x::AbstractArray, y::AbstractArray)
@@ -286,13 +288,13 @@ end
     vfill!(x, α) -> x
 
 sets all elements of `x` with the scalar value `α` and return `x`. The default
-implementation just calls `fill!(x, α)` but this method may be specialized for specific
-types of variables `x`.
+implementation just calls `fill!` with `α` convereted to `eltype(x)` but this method may
+be specialized for specific types of variables `x`.
 
 See also [`vzero!`](@ref), and [`vzeros`](@ref).
 
 """
-vfill!(x, α::Number) = fill!(x, as(eltype(x), α))
+vfill!(x::AbstractArray, α::Number) = fill!(x, as(eltype(x), α))
 
 """
     vzero!(x) -> x
@@ -304,71 +306,108 @@ variables `x`.
 See also [`vfill!`](@ref).
 
 """
-vzero!(x) = vfill!(x, zero(eltype(x)))
+vzero!(x::AbstractArray) = vfill!(x, zero(eltype(x)))
 
 """
     vzeros(x)
 
-yields a *vector* like `x` filled with zeros.
+yields an array similar to `x` but filled with zeros and of floating-point type.
 
-See also [`vones`](@ref), [`vfill!`](@ref).
+See also [`vones`](@ref), [`vfill!`](@ref), and [`vcreate`](@ref).
 
 """
-vzeros(x) = vzero!(similar(x, float(eltype(x))))
+vzeros(x::AbstractArray) = vzero!(vcreate(x))
 
 """
     vones(x)
 
-yields a *vector* like `x` filled with ones.
+yields an array similar to `x` but filled with ones and of floating-point type.
 
 See also [`vzeros`](@ref) and [`vfill!`](@ref).
 
 """
-function vones(x)
+function vones(x::AbstractArray)
     T = float(eltype(x))
     return vfill!(similar(x, T), one(T))
 end
 
 #-----------------------------------------------------------------------------------------
+# SCALING
+
+"""
+    y = vscale(α::Number, x::AbstractArray)
+    y = vscale(x::AbstractArray, α::Number)
+
+yield a new *vector* `y` whose elements are those of `x` multiplied by the scalar `α`.
+
+See also [`vscale!`](@ref).
+
+"""
+vscale(x::AbstractArray, α::Number) = vscale(α, x)
+function vscale(α::Number, x::AbstractArray)
+    S = multiplier_type(α, x)
+    T = prod_type(S, eltype(x)) # element type of the result
+    return dispatch_vscale!(similar(x, T), as(S, α), x)
+end
 
 """
     vscale!(x, α) -> x
     vscale!(α, x) -> x
 
-overwrites `x` with `α*x` and returns `x`. The convention is that `x` is zero-filled if
+overwrite `x` with `α*x` and returns `x`. The convention is that `x` is zero-filled if
 `iszero(α)` holds (whatever the values of `x`) and that nothing is done if `isone(α)`
 holds. Multiplier `α` shall not have units.
 
-The method calls [`LazyAlgebra.unsafe_vscale!`](@ref) with `α` converted to a suitable
-floating-point type and only when neither `iszero(α)` nor `iszero(α)` hold.
-
-See also [`vscale`](@ref), [`vzero!`](@ref), and [`LinearAlgebra.rmul!](@ref).
+See also [`vscale`](@ref), [`vzero!`](@ref), [`LinearAlgebra.rmul!](@ref), and
+[`LazyAlgebra.dispatch_vscale!`](@ref).
 
 """
 vscale!(α::Number, x::AbstractArray) = vscale!(x, α)
-function vscale!(x::AbstractArray, α::Number)
-    alpha = convert_multiplier(α, x)
-    if iszero(alpha)
+
+vscale!(x::AbstractArray, α::Number) =
+    dispatch_vscale!(x, convert_multiplier(α, eltype(x)))
+
+"""
+    LazyAlgebra.dispatch_vscale!(x, α) -> x
+
+overwrites `x` with `α*x` and returns `x`.
+
+This method calls [`vzero!(x)`](@ref vzero!) if `iszero(α)` holds and [`unsafe_vscale!(x,
+α)`](@ref LazyAlgebra.unsafe_vscale!) if neither `iszero(α)` nor `isone(α)` hold.
+
+!!! warning
+    This method shall be called with the multiplier `α` converted to a suitable
+    floating-point type.
+
+See also [`vscale!`](@ref).
+
+"""
+function dispatch_vscale!(x::AbstractArray, α::Number)
+    if iszero(α)
         vzero!(x)
-    elseif !isone(alpha)
-        unsafe_vscale!(x, alpha)
+    elseif !isone(α)
+        unsafe_vscale!(x, α)
     end
     return x
 end
 
 """
-    LazyAlgebra.unsafe_vscale!(x::AbstractArray, α::Number)
+    LazyAlgebra.unsafe_vscale!(x::AbstractArray, α::Number) -> x
 
-scales in-place the values of `x` by the scalar `α`. This function is called by
-[`vscale!](@ref) with `α` converted to a suitable floating-point type and only when
-neither `iszero(α)` nor `isone(α)` hold.
+scales in-place the values of `x` by the scalar `α` and returns `x`.
+
+!!! warning
+    This function shall be called with `α` converted to a suitable floating-point type and
+    only when neither `iszero(α)` nor `isone(α)` hold.
+
+See also [`vscale!`](@ref) and [`LazyAlgebra.dispatch_vscale!`](@ref).
 
 """
 function unsafe_vscale!(x::AbstractArray, α::Number)
     @inbounds @simd for i in eachindex(x)
         x[i] *= α
     end
-    nothing
+    return x
 end
 
 """
@@ -377,58 +416,60 @@ end
 overwrites `dst` with `α*src` and returns `dst`.
 
 See also [`vscale`](@ref), [`vcopy!`](@ref), [`LinearAlgebra.rmul!](@ref), and
-[`LazyAlgebra.vscale!`](@ref).
+[`LazyAlgebra.dispatch_vscale!`](@ref).
 
 """
 function vscale!(dst::AbstractArray, α::Number, src::AbstractArray)
     dst === src && return vscale!(dst, α)
     @assert_same_axes dst src
-    alpha = convert_multiplier(α, src)
-    if iszero(alpha)
+    return dispatch_vscale!(dst, convert_multiplier(α, src), src)
+end
+
+"""
+    LazyAlgebra.dispatch_vscale!(dst, α, x) -> dst
+
+overwrites `dst` with `α*x` and returns `dst`.
+
+This method calls [`vzero!(x)`](@ref vzero!) if `iszero(α)` holds, [`unsafe_vcopy!(dst,
+src)`](@ref LazyAlgebra.unsafe_vcopy!) if `isone(α)` holds, and [`unsafe_vscale!(dst, α,
+src)`](@ref LazyAlgebra.unsafe_vscale!) if neither `iszero(α)` nor `isone(α)` hold.
+
+!!! warning
+    This method shall only be called after having checked that `dst` and `x` have the same
+    axes and with the multiplier `α` converted to a suitable floating-point type.
+
+See also [`vscale!`](@ref).
+
+"""
+function dispatch_vscale!(dst::AbstractArray, α::Number, src::AbstractArray)
+    if iszero(α)
         vzero!(dst)
-    elseif isone(alpha)
+    elseif isone(α)
         unsafe_vcopy!(dst, src)
     else
-        unsafe_vscale!(dst, alpha, src)
+        unsafe_vscale!(dst, α, src)
     end
     return dst
 end
 
 """
-    LazyAlgebra.unsafe_vscale!(dst::AbstractArray, α::Number, src::AbstractArray)
+    LazyAlgebra.unsafe_vscale!(dst::AbstractArray, α::Number, src::AbstractArray) -> dst
 
-overwrites `dst` with `α*src`. This function is called by [`vscale!](@ref) with `α`
-converted to a suitable floating-point type and only when neither `iszero(α)` nor
-`isone(α)` hold.
+overwrites `dst` with `α*src` and returns `dst`.
+
+!!! warning
+    This function shall only be called after having checked that `dst` and `x` have the
+    same axes, with the multiplier `α` converted to a suitable floating-point type, and if
+    neither `iszero(α)` nor `isone(α)` hold.
+
+See also [`vscale!`](@ref) and [`LazyAlgebra.dispatch_vscale!`](@ref)..
 
 """
 function unsafe_vscale!(dst::AbstractArray, α::Number, src::AbstractArray)
     @inbounds @simd for i in eachindex(dst, src)
         dst[i] = α*src[i]
     end
-    nothing
-end
-
-"""
-    vscale(α::Number, x::AbstractArray)
-    vscale(x::AbstractArray, α::Number)
-
-yield a new *vector* whose elements are those of `x` multiplied by the scalar `α`.
-
-See also [`vscale!`](@ref).
-
-"""
-vscale(x::AbstractArray, α::Number) = vscale(α, x)
-function vscale(α::Number, x::AbstractArray)
-    S = multiplier_type(typeof(α), eltype(x))
-    y = similar(x, prod_type(S, eltype(x)))
-    alpha = as(S, α)
-    if iszero(alpha)
-        vzero!(y)
-    else
-        unsafe_vscale!(y, alpha, x)
-    end
-    return y
+    return dst
 end
 
 #-----------------------------------------------------------------------------------------
@@ -531,36 +572,57 @@ without using `x`.
 Optional argument `sel` is a selection of indices to which apply the operation. Note that
 if an index is repeated, the operation will be performed several times at this location.
 
-See also [`vscale!`](@ref), [`vcombine!](@ref), and [`LazyAlgebra.unsafe_vupdate!](@ref).
+See also [`vscale!`](@ref), [`vcombine!](@ref), and [`LazyAlgebra.dispatch_vupdate!](@ref).
 
 """
 function vupdate!(y::AbstractArray{<:Any,N},
-                  α::Number,
-                  x::AbstractArray{Tx,N}) where {Tx,N}
+                  α::Number, x::AbstractArray{Tx,N}) where {Tx,N}
     @assert_same_axes x y
-    alpha = convert_multiplier(α, Tx)
-    iszero(alpha) || unsafe_vupdate!(y, sel, alpha, x)
+    dispatch_vupdate!(y, convert_multiplier(α, Tx), x)
     return y
 end
 
-function vupdate!(y::AbstractArray{<:Any,N},
-                  sel::AbstractVector{Int},
-                  α::Number,
-                  x::AbstractArray{Tx,N}) where {Tx,N}
+function vupdate!(y::AbstractArray{<:Any,N}, sel::AbstractVector{Int},
+                  α::Number, x::AbstractArray{Tx,N}) where {Tx,N}
     @assert_same_axes x y
     imin, imax = extrema(sel)
     ((firstindex(x) ≤ imin) & (imax ≤ lastindex(x))) || out_of_range_selection()
-    alpha = convert_multiplier(α, Tx)
-    iszero(alpha) || unsafe_vupdate!(y, sel, alpha, x)
+    dispatch_vupdate!(y, sel, convert_multiplier(α, Tx), x)
     return y
+end
+
+"""
+    LazyAlgebra.dispatch_vupdate!(y, [sel,] α, x)
+
+This method is called by [`vupdate!`](@ref) to overwrites `y` with `α*x + y` with checked
+arguments (so that `@inbounds` can be assumed) and converted multiplier. This method
+method calls [`LazyAlgebra.unsafe_vupdate!](@ref) if and only if `iszero(α)` does not
+hold.
+
+See also [`vscale!`](@ref), [`vcombine!](@ref), and [`LazyAlgebra.unsafe_vupdate!](@ref).
+
+"""
+function dispatch_vupdate!(y::AbstractArray{<:Any,N},
+                                  α::Number, x::AbstractArray{<:Any,N}) where {N}
+    iszero(α) || unsafe_vupdate!(y, α, x)
+    nothing
+end
+
+function dispatch_vupdate!(y::AbstractArray{<:Any,N}, sel::AbstractVector{Int},
+                                  α::Number, x::AbstractArray{<:Any,N}) where {N}
+    iszero(α) || unsafe_vupdate!(y, sel, α, x)
+    nothing
 end
 
 """
     LazyAlgebra.unsafe_vupdate!(y, [sel,] α, x)
 
-This method is called by [`vupdate!`](@ref) to overwrites `y` with `α*x + y` after
-checking that `@inbounds` can be assumed for this computation and only is `iszero(α)` does
-not hold.
+This method is called by [`dispatch_vupdate!`](@ref) to overwrites `y` with `α*x + y` if
+and only if `iszero(α)` does not hold. This method can assume `@inbounds` in its
+computations.
+
+
+See also [`vupdate!`](@ref), and [`LazyAlgebra.dispatch_vupdate!](@ref).
 
 """
 function unsafe_vupdate!(y::AbstractArray{<:Any,N},
@@ -624,88 +686,141 @@ function unsafe_vupdate!(y::AbstractArray{<:Any,N},
     nothing
 end
 
-
 #-----------------------------------------------------------------------------------------
 # LINEAR COMBINATION
 
 """
     vcombine(α, x, β, y) -> z
 
-yields the linear combination `z = α*x + β*y`.
+yields the linear combination `z = α*x + β*y` throwing an exception if `x` and `y` do mot
+have the same axes.
 
-See also [`vcombine!`](@ref), [`vscale!`](@ref), [`vupdate!](@ref), and
-[`LazyAlgebra.vcombine!](@ref).
+See also [`vcombine!`](@ref), [`vscale!`](@ref), [`vupdate!](@ref),
+[`LazyAlgebra.convert_multiplier](@ref), and [`LazyAlgebra.dispatch_vcombine!](@ref).
 
 """
 function vcombine(α::Number, x::AbstractArray{Tx,N},
                   β::Number, y::AbstractArray{Ty,N}) where {Tx,Ty,N}
     @assert_same_axes x y
-    a = convert_multiplier(α, Tx)
-    b = convert_multiplier(β, Ty)
-    T = sum_type(prod_type(typeof(a), Tx), prod_type(typeof(b), Ty))
-    return _vcombine!(similar(x, T), a, x, b, y)
+    α = convert_multiplier(α, Tx)
+    β = convert_multiplier(β, Ty)
+    T = sum_type(prod_type(typeof(α), Tx), prod_type(typeof(β), Ty))
+    return dispatch_vcombine!(similar(x, T), α, x, β, y)
 end
 
-
 """
-    vcombine!(dst, α, x, β, y) -> dst
+    vcombine!(dst=y, α, x, β, y) -> dst
 
-overwrites `dst` with the linear combination `α*x + β*y`.
+overwrites `dst` with the linear combination `α*x + β*y` and returns `dst`. An exception
+is thrown if `dst`, `x`, and `y` do mot have the same axes. If `dst` is omitted, `dst = y`
+is assumed.
 
 The code is optimized for some specific values of the multipliers `α` and `β`. For
 instance, if `α` (resp. `β`) is zero, then the prior contents of `x` (resp. `y`) is not
 used.
 
-The source(s) and the destination can be the same. For instance, the two following lines
-of code produce the same result:
+The source(s) and the destination can be the same. For instance, the following lines
+of code all produce the same result (stored in `y`):
 
-    vcombine!(dst, 1, dst, α, x)
-    vupdate!(dst, α, x)
+    vcombine!(y, α, x, 1, y)
+    vcombine!(α, x, 1, y)
+    vupdate!(y, α, x)
 
-See also [`vcombine`](@ref), [`vscale!`](@ref), [`vupdate!](@ref), and
-[`LazyAlgebra.vcombine!](@ref).
+See also [`vcombine`](@ref), [`vscale!`](@ref), [`vupdate!](@ref),
+[`LazyAlgebra.vcombine!](@ref), and [`LazyAlgebra.dispatch_vcombine!](@ref).
 
 """
 function vcombine!(dst::AbstractArray{<:Any,N},
                    α::Number, x::AbstractArray{Tx,N},
                    β::Number, y::AbstractArray{Ty,N}) where {Tx,Ty,N}
     @assert_same_axes dst x y
-    return _vcombine!(dst, convert_multiplier(α, Tx), x, convert_multiplier(β, Ty), y)
+    dispatch_vcombine!(dst, convert_multiplier(α, Tx), x, convert_multiplier(β, Ty), y)
+    return dst
 end
 
-function _vcombine!(dst::AbstractArray{<:Any,N},
-                    α::Number, x::AbstractArray{<:Any,N},
-                    β::Number, y::AbstractArray{<:Any,N}) where {N}
-    c = ifelse(iszero(α), 1, 0) | ifelse(iszero(β), 2, 0)
-    if c == 0 # neither of `α` and `β` is 0
+function vcombine!(α::Number, x::AbstractArray{Tx,N},
+                   β::Number, y::AbstractArray{Ty,N}) where {Tx,Ty,N}
+    @assert_same_axes x y
+    dispatch_vcombine!(convert_multiplier(α, Tx), x, convert_multiplier(β, Ty), y)
+    return y
+end
+
+"""
+    LazyAlgebra.dispatch_vcombine!(dst, α, x, β, y) -> dst
+
+overwrites `dst` with `α*x + β*y` and returns `dst`.
+
+This method calls [`LazyAlgebra.dispatch_vscale!(dst, α, x)`](@ref
+`LazyAlgebra.dispatch_vscale!) if `iszero(β)` holds, [`LazyAlgebra.dispatch_vscale!(dst,
+β, y)`](@ref `LazyAlgebra.dispatch_vscale!) if `iszero(α)` holds, and
+[`LazyAlgebra.unsafe_vcombine!(dst, α, x, β, y)`](@ref LazyAlgebra.unsafe_vcombine!)
+otherwise.
+
+!!! warning
+    This method shall only be called after having checked that `dst`, `x`, and `y` have
+    the same axes and with the multipliers `α` and `β` converted to suitable
+    floating-point types.
+
+See also [`vcombine`](@ref) and [`vcombine!`](@ref).
+
+"""
+function dispatch_vcombine!(dst::AbstractArray{<:Any,N},
+                                   α::Number, x::AbstractArray{<:Any,N},
+                                   β::Number, y::AbstractArray{<:Any,N}) where {N}
+    if iszero(β)
+        dispatch_vscale!(dst, α, x)
+    elseif iszero(α)
+        dispatch_vscale!(dst, β, y)
+    else
         unsafe_vcombine!(dst, α, x, β, y)
-    elseif c == 2 # `β = 0` and `α` is not 0
-        if isone(α)
-            unsafe_vcopy!(dst, x)
-        else
-            unsafe_vscale!(dst, α, x)
-        end
-    elseif c == 1 # `α = 0` and `β` is not 0
-        if isone(β)
-            unsafe_vcopy!(dst, y)
-        else
-            unsafe_vscale!(dst, β, y)
-        end
-    else # `α = 0` and `β = 0`
-        vzero!(dst)
     end
     return dst
 end
 
 """
-    LazyAlgebra.unsafe_vcombine!(dst::AbstractArray,
-                                 α::Number, x::AbstractArray,
-                                 β::Number, y::AbstractArray)
+    LazyAlgebra.dispatch_vcombine!(α, x, β, y) -> y
 
-overwrites `dst` with `α*x + β*y`. This function is called by [`vcombine](@ref) or
-[`vcombine!](@ref) after checking that `dst`, `x`, and `y` have the same axes, with `α`
-and `β` converted to suitable floating-point types and only when neither `iszero(α)` nor
-`iszero(β)` hold.
+overwrites `y` with `α*x + β*y` and returns `y`.
+
+This method calls [`LazyAlgebra.dispatch_vscale!(y, α, x)`](@ref
+`LazyAlgebra.dispatch_vscale!) if `iszero(β)` holds, else
+[`LazyAlgebra.dispatch_vscale!(y, β)`](@ref `LazyAlgebra.dispatch_vscale!) if `iszero(α)`
+holds, else [`LazyAlgebra.unsafe_vupdate!(y, α, x)`](@ref `LazyAlgebra.dispatch_vscale!)
+if `isone(β)` holds, and [`LazyAlgebra.unsafe_vcombine!(α, x, β, y)`](@ref
+LazyAlgebra.unsafe_vcombine!) otherwise.
+
+!!! warning
+    This method shall only be called after having checked that `x` and `y` have the same
+    axes and with the multipliers `α` and `β` converted to suitable floating-point types.
+
+See also [`vcombine`](@ref) and [`vcombine!`](@ref).
+
+"""
+function dispatch_vcombine!(α::Number, x::AbstractArray{<:Any,N},
+                                   β::Number, y::AbstractArray{<:Any,N}) where {N}
+    if iszero(β)
+        dispatch_vscale!(y, α, x)
+    elseif iszero(α)
+        dispatch_vscale!(y, β)
+    elseif isone(β)
+        unsafe_vupdate!(y, α, x)
+    else
+        unsafe_vcombine!(α, x, β, y)
+    end
+    return y
+end
+
+"""
+    LazyAlgebra.unsafe_vcombine!(dst, α, x, β, y) -> dst
+
+overwrites `dst` with `α*x + β*y` and returns `dst`.
+
+!!! warning
+    This function shall only be called after having checked that `dst`, `x`, and `y` have
+    the same axes, with `α` and `β` converted to suitable floating-point types, and if
+    neither `iszero(α)` nor `iszero(β)` hold.
+
+See also [`vcombine!`](@ref) and [`dispatch_vcombine!`](@ref).
 
 """
 function unsafe_vcombine!(dst::AbstractArray{<:Any,N},
@@ -751,5 +866,49 @@ function unsafe_vcombine!(dst::AbstractArray{<:Any,N},
             end
         end
     end
-    nothing
+    return dst
+end
+
+"""
+    LazyAlgebra.unsafe_vcombine!(α, x, β, y) -> y
+
+overwrites `y` with `α*x + β*y` and returns `y`.
+
+!!! warning
+    This function shall only be called after having checked that `x` and `y` have the same
+    axes, with `α` and `β` converted to suitable floating-point types, and if neither
+    `iszero(α)`, `iszero(β)`, nor `isone(β)` hold.
+
+See also [`vcombine!`](@ref) and [`dispatch_vcombine!`](@ref).
+
+"""
+function unsafe_vcombine!(α::Number, x::AbstractArray{Tx,N},
+                          β::Number, y::AbstractArray{Ty,N}) where {Tx,Ty,N}
+    # We know that neither `α` nor `β` is zero and that `β` is not one.
+    if α == one(α)
+        if β == -one(β)
+            @inbounds @fastmath @simd for i in eachindex(x, y)
+                y[i] = x[i] - y[i]
+            end
+        else
+            @inbounds @fastmath @simd for i in eachindex(x, y)
+                y[i] = β*y[i] + x[i]
+            end
+        end
+    elseif α == -one(α)
+        @inbounds @fastmath @simd for i in eachindex(x, y)
+            y[i] = β*y[i] - x[i]
+        end
+    else
+        if β == -one(β)
+            @inbounds @fastmath @simd for i in eachindex(x, y)
+                y[i] = α*x[i] - y[i]
+            end
+        else
+            @inbounds @fastmath @simd for i in eachindex(x, y)
+                y[i] = α*x[i] + β*y[i]
+            end
+        end
+    end
+    return y
 end
