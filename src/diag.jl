@@ -46,19 +46,19 @@ input_axes(A::Diag) = axes(diag(A))
 
 conj_mul(w, x) = conj(w)*x
 conj_ldiv(w, x) = conj(w)\x
-for (T, f) in ((:(                 Diag ), :(*)),
-               (:(Adjoint{       <:Diag}), :conj_mul),
-               (:(Inverse{       <:Diag}), :(\)),
-               (:(InverseAdjoint{<:Diag}), :conj_ldiv))
+for (T, B, f) in ((:(                 Diag ), :(              A),   :(*)),
+                  (:(Adjoint{       <:Diag}), :(       parent(A)),  :conj_mul),
+                  (:(Inverse{       <:Diag}), :(       parent(A)),  :(\)),
+                  (:(InverseAdjoint{<:Diag}), :(parent(parent(A))), :conj_ldiv))
     @eval begin
         # FIXME function unsafe_vmul!(y::AbstractArray, α::Number, A::$T, x::AbstractArray)
-        # FIXME     return dispatch_vmap!(y, α, $f, diag(unveil(A)), x)
+        # FIXME     return dispatch_vmap!(y, α, $f, diag($B), x)
         # FIXME end
         function unsafe_vmul!(α::Number, A::$T, x::AbstractArray,
                               β::Number, y::AbstractArray)
             # Call `dispatch_vmap!`, not `unsafe_vmap!` directly, because `β` may be zero
             # although `α` should be non-zero.
-            return dispatch_vmap!(α, $f, diag(unveil(A)), x, β, y)
+            return dispatch_vmap!(α, $f, diag($B), x, β, y)
         end
     end
 end

@@ -39,8 +39,8 @@ See also [`LazyAlgebra.InputEltype](@ref) and [`LazyAlgebra.OutputShape](@ref).
 """
 InputShape(A) = InputShape(typeof(A))
 InputShape(::Type) = InputShapeUnknown()
-InputShape(::Type{A}) where {A<:InverseAdjoint} = InputShape(unveil(A))
-InputShape(::Type{A}) where {A<:Union{Adjoint,Inverse}} = transpose(OutputShape(unveil(A)))
+InputShape(::Type{A}) where {A<:Union{Adjoint,Inverse}} =
+    transpose(OutputShape(parent(A)))
 
 """
     LazyAlgebra.OutputShape(typeof(A))
@@ -64,8 +64,8 @@ See also [`LazyAlgebra.OutputEltype](@ref), [`LazyAlgebra.InputShape](@ref), and
 """
 OutputShape(A) = OutputShape(typeof(A))
 OutputShape(::Type) = OutputShapeUnknown()
-OutputShape(::Type{A}) where {A<:InverseAdjoint} = OutputShape(unveil(A))
-OutputShape(::Type{A}) where {A<:Union{Adjoint,Inverse}} = transpose(InputShape(unveil(A)))
+OutputShape(::Type{A}) where {A<:Union{Adjoint,Inverse}} =
+    transpose(InputShape(parent(A)))
 
 """
     LazyAlgebra.InputEltype(typeof(A))
@@ -84,8 +84,8 @@ See also [`LazyAlgebra.InputShape](@ref), [`LazyAlgebra.OutputEltype](@ref), and
 """
 InputEltype(A) = InputEltype(typeof(A))
 InputEltype(::Type) = InputEltypeUnknown()
-InputEltype(::Type{A}) where {A<:Union{Adjoint,Inverse}} = OutputEltype(unveil(A))
-InputEltype(::Type{A}) where {A<:InverseAdjoint} = InputEltype(unveil(A))
+InputEltype(::Type{A}) where {A<:Union{Adjoint,Inverse}} =
+    transpose(OutputEltype(parent(A)))
 
 """
     LazyAlgebra.OutputEltype(typeof(A))
@@ -108,8 +108,8 @@ See also [`LazyAlgebra.OutputShape](@ref), [`LazyAlgebra.InputEltype](@ref), and
 """
 OutputEltype(A) = OutputEltype(typeof(A))
 OutputEltype(::Type) = OutputEltypeUnknown()
-OutputEltype(::Type{A}) where {A<:Union{Adjoint,Inverse}} = InputEltype(unveil(A))
-OutputEltype(::Type{A}) where {A<:InverseAdjoint} = OutputEltype(unveil(A))
+OutputEltype(::Type{A}) where {A<:InverseAdjoint} =
+    transpose(InputEltype(parent(A)))
 
 """
     LazyAlgebra.input_eltype(A) -> T
@@ -139,8 +139,7 @@ See also [`vmul`](@ref), [`vmul!`](@ref), [`LazyAlgebra.InputEltype`](@ref) and
 
 """
 input_eltype(A) = input_eltype(typeof(A))
-input_eltype(::Type{A}) where {A<:Union{Adjoint,Inverse}} = output_eltype(unveil(A))
-input_eltype(::Type{A}) where {A<:InverseAdjoint} = input_eltype(unveil(A))
+input_eltype(::Type{A}) where {A<:Union{Adjoint,Inverse}} = output_eltype(parent(A))
 @noinline input_eltype(::Type{T}) where {T} =
     error("`LazyAlgebra.input_eltype(T)` not defined for objects of type `T=$T`")
 
@@ -169,8 +168,7 @@ See also [`vmul`](@ref), [`vmul!`](@ref), [`LazyAlgebra.OutputEltype`](@ref) and
 
 """
 output_eltype(A) = output_eltype(typeof(A))
-output_eltype(::Type{A}) where {A<:Union{Adjoint,Inverse}} = input_eltype(unveil(A))
-output_eltype(::Type{A}) where {A<:InverseAdjoint} = output_eltype(unveil(A))
+output_eltype(::Type{A}) where {A<:Union{Adjoint,Inverse}} = input_eltype(parent(A))
 @noinline output_eltype(::Type{T}) where {T} =
     error("`LazyAlgebra.output_eltype(T)` not defined for objects of type `T=$T`")
 
@@ -310,7 +308,7 @@ See also [`LazyAlgebra.output_eltype`](@ref), [`LazyAlgebra.create_output`](@ref
 
 """
 output_axes(A::Operator, x::AbstractArray) = output_axes(A, axes(x))
-output_axes(A::InverseAdjoint, x::AbstractArray) = output_axes(unveil(A), axes(x))
+output_axes(A::InverseAdjoint, x::AbstractArray) = output_axes(parent(parent(A)), axes(x))
 
 # Fallback version of `output_axes(A, x)` assuming `input_axes(A)` and `input_axes(A)` are
 # defined for `A`.
@@ -501,30 +499,6 @@ function show_next_in_sum(io::IO, A::Prod)
     end
     show_in_prod(io, A[2])
 end
-
-"""
-    LazyAlgebra.unveil(A)
-
-unveils the operator embedded in operator `A` if it is an adjoint, inverse,
-inverse-adjoint, or Gram operator; otherwise, just returns `A`.
-
-This method is also applicable to instances of `LinearAlgebra.UniformScaling`.
-
-Argument may also be an operator type, i.e. `typeof(unveil(A)) === unveil(typeof(A))`
-holds.
-
-"""
-unveil(A::Union{Adjoint,Inverse,Gram}) = parent(A)
-unveil(A::InverseAdjoint) = parent(parent(A))
-unveil(A::Operator) = A
-unveil(A::UniformScaling) = Operator(A)
-
-unveil(::Type{Adjoint{A}}) where {A} = A
-unveil(::Type{Inverse{A}}) where {A} = A
-unveil(::Type{InverseAdjoint{A}}) where {A} = A
-unveil(::Type{Gram{A}}) where {A} = A
-unveil(::Type{A}) where {A<:Operator}  = A
-unveil(::Type{<:UniformScaling}) = typeof(Id)
 
 """
     LazyAlgebra.unscaled(A)

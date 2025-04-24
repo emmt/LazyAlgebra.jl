@@ -104,7 +104,6 @@ using TypeUtils: @public
 @public unsafe_vscale! dispatch_vscale! dispatch_vscale!
 @public unsafe_vswap!
 @public unsafe_vupdate!
-@public unveil
 
 #using Printf
 using ArrayTools

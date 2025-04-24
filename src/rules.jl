@@ -10,6 +10,12 @@
 Base.parent(A::Union{Adjoint,Inverse,Gram}) = getfield(A, :parent)
 Base.getindex(A::Union{Adjoint,Inverse,Gram}) = parent(A)
 Base.Tuple( A::Union{Sum,Prod}) = getfield(A, :operands)
+for Wrapper in (:Adjoint, :Inverse, :Gram)
+    @eval begin
+        # Make `parent` also applicable to types of wrapped operators.
+        Base.parent(::Type{$Wrapper{T}}) where {T} = T
+    end
+end
 
 # Make Sum and Prod iterable.
 Base.first(A::Union{Sum,Prod}) = @inbounds A[1]

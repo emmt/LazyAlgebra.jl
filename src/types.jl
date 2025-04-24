@@ -74,8 +74,7 @@ yield a linear operator `B` representing the *adjoint* (conjugate transpose) of 
 operator `A`.
 
 Taking the adjoint of `B` yields back `A`, that is `B' === A` holds. Calling
-`Base.parent(B)`, `B[]`, or [`LazyAlgebra.unveil(B)`](@ref LazyAlgebra.unveil) also reveal
-the linear operator `A` embedded in `B = A'`.
+`Base.parent(B)` or `B[]` also reveals the linear operator `A` embedded in `B = A'`.
 
 Also see [`LazyAlgebra.Inverse`](@ref).
 
@@ -96,8 +95,7 @@ yield a linear operator `B` representing the *inverse* of the linear operator `A
 regardless whether this inverse exists or not.
 
 Taking the inverse of `B` yields back `A`, that is `inv(B)' === A` holds. Calling
-`Base.parent(B)`, `B[]`, or [`LazyAlgebra.unveil(B)`](@ref LazyAlgebra.unveil) also reveal
-the linear operator `A` embedded in `B = inv(A)`.
+`Base.parent(B)` or `B[]` also reveals the linear operator `A` embedded in `B = inv(A)`.
 
 Also see [`LazyAlgebra.Adjoint`](@ref).
 
@@ -129,8 +127,7 @@ const AnyVariant{A} = Union{A,Adjoint{A},Inverse{A},InverseAdjoint{A}}
 yield a linear operator `B` representing the composition `A'*A` for the linear operator
 `A`.
 
-Calling `Base.parent(B)` or [`LazyAlgebra.unveil(B)`](@ref LazyAlgebra.unveil) reveal the
-bare linear operator `A` embedded in `B`.
+Calling `Base.parent(B)` or `B[]` reveals the bare linear operator `A` embedded in `B`.
 
 """
 struct Gram{T<:Operator} <: Operator

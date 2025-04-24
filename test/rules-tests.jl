@@ -143,7 +143,6 @@ using LinearAlgebra
         @test A' === adjoint(A)
         @test @inferred(adjoint(A')) === A
         @test @inferred(parent(A')) === A
-        @test @inferred(LazyAlgebra.unveil(A')) === A
         @test @inferred(getindex(A')) === A
         @test A'[] === A
         @test A'' === A
@@ -177,7 +176,6 @@ using LinearAlgebra
         @test inv(A) === A\Id
         @test @inferred(inv(inv(A))) === A
         @test @inferred(parent(inv(A))) === A
-        @test @inferred(LazyAlgebra.unveil(inv(A))) === A
         @test @inferred(getindex(inv(A))) === A
         @test inv(A)[] === A
         @test Id/inv(A) === A
@@ -205,8 +203,6 @@ using LinearAlgebra
         @test @inferred(parent(inv(A)')) === A'
         @test @inferred(parent(parent(inv(A')))) === A
         @test @inferred(parent(parent(inv(A)'))) === A
-        @test @inferred(LazyAlgebra.unveil(inv(A'))) === A
-        @test @inferred(LazyAlgebra.unveil(inv(A)')) === A
         @test @inferred(inv(inv(A'))) === A'
         @test @inferred(inv(inv(A)')) === A'
         @test @inferred(adjoint(inv(A'))) === inv(A)

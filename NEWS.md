@@ -28,6 +28,10 @@ This page describes the most important changes in `LazyAlgebra`. The format is b
   `jacobian`, `∇`, `primitive`, `variables`, and `is_linear` functions, and the
   `LinearType` trait and its sub-types `Linear`, and `NonLinear` have been suppressed.
 
+- The `unveil` function has been removed. Call `parent(A)` for adjoint, inverse, or Gram
+  operators and `parent(parent(A))` on inverse-adjoint operators.
+
+
 ### Changed
 
 - Abstract type `LinearMapping` renamed `Operator`.
