@@ -250,3 +250,18 @@ struct LazyMap{T,N,L,F,A<:AbstractArray{<:Any,N}} <: AbstractArray{T,N}
     LazyMap{T}(func::F, arr::A) where {T,N,F<:Function,A<:AbstractArray{<:Any,N}} =
         new{T,N,IndexStyle(A)==IndexLinear(),F,A}(func, arr)
 end
+
+abstract type AbstractRankOneOperator{U<:AbstractArray,V<:AbstractArray} <: Operator end
+
+struct RankOneOperator{U,V} <: AbstractRankOneOperator{U,V}
+    u::U
+    v::V
+end
+
+@callable RankOneOperator
+
+struct SymmetricRankOneOperator{U} <: AbstractRankOneOperator{U,U}
+    u::U
+end
+
+@callable SymmetricRankOneOperator

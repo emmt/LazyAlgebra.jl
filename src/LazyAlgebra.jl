@@ -28,14 +28,14 @@ export
     Id,
     Identity,
     Operator,
-    #RankOneOperator,
+    RankOneOperator,
     #SingularSystem,
     #SparseOperator,
     #SparseOperatorCOO,
     #SparseOperatorCSC,
     #SparseOperatorCSR,
     SymbolicOperator,
-    #SymmetricRankOneOperator,
+    SymmetricRankOneOperator,
     #ZeroPaddingOperator,
     #coefficients,
     #col_size,
@@ -106,9 +106,10 @@ using TypeUtils: @public
 @public unsafe_vupdate!
 @public unveil
 
-using Printf
+#using Printf
 using ArrayTools
 using TypeUtils
+#using FFTW
 
 using Base: OneTo, Fix1, Fix2, @propagate_inbounds
 
@@ -121,18 +122,19 @@ using LinearAlgebra
 #using SparseArrays: sparse
 
 include("types.jl")
-include("traits.jl")
+#include("traits.jl")
 include("utils.jl")
 include("multipliers.jl")
 include("vectors.jl")
 include("operators.jl")
-include("matrices.jl")
 include("rules.jl")
 include("symbolic.jl")
 include("identity.jl")
-include("cropping.jl")
 include("diag.jl")
 include("map.jl")
+include("rank1.jl")
+#include("matrices.jl")
+#include("cropping.jl")
 #include("genmult.jl")
 #import .GenMult: lgemm!, lgemm, lgemv!, lgemv
 #include("blas.jl")
