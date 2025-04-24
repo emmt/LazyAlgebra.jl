@@ -1,17 +1,12 @@
 #
 # rules.jl -
 #
-# Implement rules for building association (sum and composition) of linear operators.
+# Implement arithmetic rules for building associations (sum and composition) of linear
+# operators and their variants (adjoint, inverse, etc.).
 #
 #-----------------------------------------------------------------------------------------
-#
-# This file is part of LazyAlgebra (https://github.com/emmt/LazyAlgebra.jl) released under
-# the MIT "Expat" license.
-#
-# Copyright (c) 2017-2025, Éric Thiébaut.
-#
 
-# Accessors.
+# Accessors for Adjoint, Inverse, Gram, Sum, and Prod.
 Base.parent(A::Union{Adjoint,Inverse,Gram}) = getfield(A, :parent)
 Base.getindex(A::Union{Adjoint,Inverse,Gram}) = parent(A)
 Base.Tuple( A::Union{Sum,Prod}) = getfield(A, :operands)
@@ -103,14 +98,14 @@ Prod(A::Prod, B::Operator) = A[1] * (A[2] * B)
 
 # The neutral element ("zero") for the addition is zero times a mapping of the
 # proper type.
-zero(A::Operator) = 0 * A
-zero(A::Prod{<:Number}) = zero(A[2])
+Base.zero(A::Operator) = 0 * A
+Base.zero(A::Prod{<:Number}) = zero(A[2])
 
-iszero(A::Prod{<:Number}) = iszero(A[1])
-iszero(::Operator) = false
+Base.iszero(A::Prod{<:Number}) = iszero(A[1])
+Base.iszero(::Operator) = false
 
 # The neutral element ("one") for the composition is the identity.
-one(::Union{Operator,Type{<:Operator}}) = Id
+Base.one(::Union{Operator,Type{<:Operator}}) = Id
 
-isone(::Identity) = true
-isone(::Operator) = false
+Base.isone(::Identity) = true
+Base.isone(::Operator) = false

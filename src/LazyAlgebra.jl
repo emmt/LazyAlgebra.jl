@@ -17,56 +17,54 @@ module LazyAlgebra
 include("macros.jl")
 
 export
-    CirculantConvolution,
-    CompressedSparseOperator,
-    CroppingOperator,
+    #CirculantConvolution,
+    #CompressedSparseOperator,
+    #CroppingOperator,
     Diag,
-    Diff,
-    FFTOperator,
-    GeneralMatrix,
+    #Diff,
+    #FFTOperator,
+    #GeneralMatrix,
     Gram,
     Id,
+    Identity,
     Operator,
-    RankOneOperator,
-    SingularSystem,
-    SparseOperator,
-    SparseOperatorCOO,
-    SparseOperatorCSC,
-    SparseOperatorCSR,
+    #RankOneOperator,
+    #SingularSystem,
+    #SparseOperator,
+    #SparseOperatorCOO,
+    #SparseOperatorCSC,
+    #SparseOperatorCSR,
     SymbolicOperator,
-    SymmetricRankOneOperator,
-    ZeroPaddingOperator,
-    coefficients,
-    col_size,
-    conjgrad!,
-    conjgrad,
-    diag,
-    gram,
-    input_eltype,
-    input_ndims,
-    input_size,
-    input_type,
-    is_diagonal,
-    is_endomorphism,
-    is_selfadjoint,
-    lgemm!,
-    lgemm,
-    lgemv!,
-    lgemv,
-    multiplier,
-    ncols,
-    nnz,
-    nonzeros,
-    nrows,
-    row_size,
-    sparse,
-    terms,
-    unpack!,
-    unscaled,
+    #SymmetricRankOneOperator,
+    #ZeroPaddingOperator,
+    #coefficients,
+    #col_size,
+    #conjgrad!,
+    #conjgrad,
+    diag, # re-export from LinearAlgebra
+    #gram,
+    #is_diagonal,
+    #is_endomorphism,
+    #is_selfadjoint,
+    #lgemm!,
+    #lgemm,
+    #lgemv!,
+    #lgemv,
+    #multiplier,
+    #ncols,
+    #nnz,
+    #nonzeros,
+    #nrows,
+    #row_size,
+    #sparse,
+    #terms,
+    #unpack!,
+    #unscaled,
     vcombine!,
     vcombine,
     vcopy!,
     vcopy,
+    vcreate,
     vdot,
     vfill!,
     vmul!,
@@ -86,49 +84,41 @@ export
 
 using TypeUtils: @public
 @public @callable
-@public Adjoint
+@public Adjoint Inverse InverseAdjoint
 @public Identity
-@public Inverse
-@public InverseAdjoint
-@public Prod
-@public Sum
-@public convert_multiplier
-@public create_output
-@public default_cropping_offset
-@public default_zeropadding_offset
-@public input_axes
-@public multiplier_type
-@public output_axes
-@public output_eltype
-@public unsafe_vcombine!
+@public input_eltype InputEltype InputEltypeUnknown HasInputEltype
+@public input_axes input_ndims InputShape InputShapeUnknown HasInputShape
+#@public LazyMap
+@public output_eltype OutputEltype OutputEltypeUnknown HasOutputEltype
+@public output_axes output_ndims OutputShape OutputShapeUnknown HasOutputShape
+@public Sum Prod
+@public convert_multiplier multiplier_type
+#@public create_output
+#@public default_cropping_offset
+#@public default_zeropadding_offset
+@public unsafe_vcombine! dispatch_vcombine!
 @public unsafe_vcopy!
 @public unsafe_vdot
 @public unsafe_vmul!
 @public unsafe_vproduct!
-@public unsafe_vscale!
+@public unsafe_vscale! dispatch_vscale! dispatch_vscale!
 @public unsafe_vswap!
 @public unsafe_vupdate!
-
 @public unveil
 
 using Printf
 using ArrayTools
 using TypeUtils
 
-import Base: *, ∘, +, -, \, /, ==
-import Base: Tuple, adjoint, inv, axes,
-    showerror, convert, eltype, ndims, size, length, stride, strides,
-    getindex, setindex!, eachindex, first, last, firstindex, lastindex,
-    one, zero, isone, iszero, @propagate_inbounds
+using Base: OneTo, Fix1, Fix2, @propagate_inbounds
 
 # Import/using from LinearAlgebra, BLAS and SparseArrays.
 using LinearAlgebra
-import LinearAlgebra: UniformScaling, diag, ⋅, mul!, rmul!
-using LinearAlgebra.BLAS
-using LinearAlgebra.BLAS: libblas, @blasfunc,
-    BlasInt, BlasReal, BlasFloat, BlasComplex
-
-using SparseArrays: sparse
+#using LinearAlgebra.BLAS
+#using LinearAlgebra.BLAS: libblas, @blasfunc,
+#    BlasInt, BlasReal, BlasFloat, BlasComplex
+#
+#using SparseArrays: sparse
 
 include("types.jl")
 include("traits.jl")
@@ -137,10 +127,12 @@ include("multipliers.jl")
 include("vectors.jl")
 include("operators.jl")
 include("matrices.jl")
-include("methods.jl")
 include("rules.jl")
+include("symbolic.jl")
 include("identity.jl")
 include("cropping.jl")
+include("diag.jl")
+include("map.jl")
 #include("genmult.jl")
 #import .GenMult: lgemm!, lgemm, lgemv!, lgemv
 #include("blas.jl")

@@ -23,11 +23,15 @@ convert_multiplier(α::Number, x::AbstractArray) =
     convert_multiplier(α, eltype(x))
 
 convert_multiplier(α::Number, A::Operator, x::AbstractArray) =
-    convert_multiplier(α, output_type(A, x))
+    convert_multiplier(α, output_eltype(A, x))
 
 """
     LazyAlgebra.multiplier_type(α::Number, x::AbstractArray) -> T
+    LazyAlgebra.multiplier_type(typeof(α), typeof(x)) -> T
+    LazyAlgebra.multiplier_type(typeof(α), eltype(x)) -> T
     LazyAlgebra.multiplier_type(α::Number, A::Operator, x::AbstractArray) -> T
+    LazyAlgebra.multiplier_type(typeof(α), typeof(A), typeof(x)) -> T
+    LazyAlgebra.multiplier_type(typeof(α), output_eltype(A, x)) -> T
 
 yield the type of the multiplier `α` such that the operation `α*x` (if `A` is not
 specified) or `α*A*x` (if `A` is specified) has a numerical precision respectively driven
@@ -43,10 +47,13 @@ multiplier_type(α::Number, x::AbstractArray) =
     multiplier_type(typeof(α), typeof(x))
 
 multiplier_type(::Type{S}, ::Type{X}) where {S<:Number,X<:AbstractArray} =
-    convert_floating_point_type(eltype(X), S)
+    multiplier_type(S, eltype(X))
 
 multiplier_type(α::Number, A::Operator, x::AbstractArray) =
     multiplier_type(typeof(α), typeof(A), typeof(x))
 
 multiplier_type(::Type{S}, ::Type{A}, ::Type{X}) where {S<:Number,A<:Operator,X<:AbstractArray} =
-    convert_floating_point_type(output_eltype(A, X), S)
+    multiplier_type(S, output_eltype(A, X))
+
+multiplier_type(::Type{S}, ::Type{T}) where {S<:Number,T<:Number} =
+    convert_floating_point_type(T, S)

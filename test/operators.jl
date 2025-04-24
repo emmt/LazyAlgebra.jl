@@ -2,7 +2,7 @@ using LazyAlgebra
 using Test
 using LinearAlgebra
 
-@testset "Arithmetic rules" begin
+@testset "Operators in `LazyAlgebra`" begin
     @testset "Multipliers" begin
         let multiplier_type = LazyAlgebra.multiplier_type
             @test @inferred(multiplier_type(BigFloat, Vector{Float32})) === Float32
