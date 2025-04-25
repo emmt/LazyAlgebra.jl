@@ -1,7 +1,4 @@
-#
 # Implement generalized matrix and matrix-vector product in LazyAlgebra.
-#
-#-----------------------------------------------------------------------------------------
 
 """
     A = PseudoMatrix{T,M}(arr)
@@ -13,8 +10,9 @@ build a linear operator `A` whose coefficients are given by a multi-dimensional 
 
 Type parameter `T` is the element type of the stored coefficients. If `arr` has a
 different type of element than `T` it is automatically converted, otherwise the
-pseudo-matrix `A` shares its coefficients with `arr`. If `T` is unspecified, `T =
-eltype(arr)` is assumed.
+pseudo-matrix `A` shares its coefficients with `arr`. The array storing the coefficients
+of `A` can be retrieved by `parent(A)`. If `T` is unspecified, `T = eltype(arr)` is
+assumed.
 
 Type parameter `M` is the number of consecutive leading dimensions of `arr` corresponding
 to the *rows* of the pseudo-matrix `A`. An expression like `y = A*x` requires that the
@@ -53,8 +51,8 @@ of `arr`, such that `axes(arr) == (axes(y)..., axes(x)...)` holds. Applying the 
 
 Type parameter `T` is the element type of the stored coefficients. If `arr` has a
 different type of element than `T` it is automatically converted, otherwise the flexible
-matrix `A` shares its coefficients with `arr`. If `T` is unspecified, `T = eltype(arr)` is
-assumed.
+matrix `A` shares its coefficients with `arr`. The array storing the coefficients of `A`
+can be retrieved by `parent(A)`. If `T` is unspecified, `T = eltype(arr)` is assumed.
 
 `FlexibleMatrix{T}` is an alias for [`PseudoMatrix{T,Colon}`](@ref PseudoMatrix).
 
@@ -72,19 +70,19 @@ coefficients(A) = parent(A)
 Base.eltype(::Type{<:Union{A,Adjoint{A}}}) where {T,A<:PseudoMatrix{T}} = T
 Base.eltype(::Type{<:Union{Inverse{A},InverseAdjoint{A}}}) where {T,A<:PseudoMatrix{T}} = float(T)
 
-InputShape(::Type{<:PseudoMatrix{T,M,N}}) where {T,M,N} = HasInputShape{N-M}()
-input_axes(A::PseudoMatrix{T,M,N}) where {T,M,N} = axes(parent(A))[M+1:N]
+InputShape(::Type{<:PseudoMatrix{T,M,N}}) where {T,M,N} =
+    M !== Colon ? HasInputShape{N-M}() : InputShapeUnknown()
 
-OutputShape(::Type{<:PseudoMatrix{T,M,N}}) where {T,M,N} = HasOutputShape{M}()
-output_axes(A::PseudoMatrix{T,M,N}) where {T,M,N} = axes(parent(A))[1:M]
+input_axes(A::PseudoMatrix{T,M,N}) where {T,M,N} =
+    M !== Colon ? axes(parent(A))[M+1:N] : error(
+        "input axes are not known in advance for flexible general matrices")
 
-InputShape(::Type{<:FlexibleMatrix}) = InputShapeUnknown()
-input_axes(A::FlexibleMatrix) =
-    error("input axes are not known in advance for flexible general matrices")
+OutputShape(::Type{<:PseudoMatrix{T,M,N}}) where {T,M,N} =
+    M !== Colon ? HasOutputShape{M}() : OutputShapeUnknown()
 
-OutputShape(::Type{<:FlexibleMatrix}) = OutputShapeUnknown()
-output_axes(A::FlexibleMatrix) =
-    error("output axes are not known in advance for flexible general matrices")
+output_axes(A::PseudoMatrix{T,M,N}) where {T,M,N} =
+    M !== Colon ? axes(parent(A))[1:M] : error(
+        "output axes are not known in advance for flexible general matrices")
 
 # Only need to extend `output_axes` for flexible general matrices.
 function output_axes(A::Union{G,Adjoint{G},Inverse{G},InverseAdjoint{G}},
@@ -141,6 +139,4 @@ end
 
 # Set precision of pseudo-matrices and flexible matrices.
 set_precision(::Type{T}, A::PseudoMatrix{<:Any,M}) where {T<:AbstractFloat,M} =
-    PseudoMatrix(set_precision(T, parent(A)), Val(M))
-set_precision(::Type{T}, A::FlexibleMatrix) where {T<:AbstractFloat} =
-    FlexibleMatrix(set_precision(T, parent(A)))
+    PseudoMatrix(set_precision(T, parent(A)), M === Colon ? Colon() : Val(M))
