@@ -262,3 +262,23 @@ struct SymmetricRankOneOperator{U} <: AbstractRankOneOperator{U,U}
 end
 
 @callable SymmetricRankOneOperator
+
+struct PseudoMatrix{T, # element type
+                    M, # number of row dimensions or Colon
+                    N, # total number of dimensions (rows + columns)
+                    A<:AbstractArray{T,N}} <: Operator
+    parent::A
+
+    PseudoMatrix{T,Colon}(arr::A) where {T,N,A<:AbstractArray{T,N}} =
+        new{T,Colon,N,A}(arr)
+
+    function PseudoMatrix{T,M}(arr::A) where {T,M,N,A<:AbstractArray{T,N}}
+        M isa Int || throw(ArgumentError("number of row dimensions must be an `Int`"))
+        0 ≤ M ≤ N || throw(ArgumentError("out of range number of row dimensions"))
+        return new{T,M,N,A}(arr)
+    end
+end
+
+@callable PseudoMatrix
+
+const FlexibleMatrix{T,N,A} = PseudoMatrix{T,Colon,N,A}

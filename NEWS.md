@@ -31,6 +31,9 @@ This page describes the most important changes in `LazyAlgebra`. The format is b
 - The `unveil` function has been removed. Call `parent(A)` for adjoint, inverse, or Gram
   operators and `parent(parent(A))` on inverse-adjoint operators.
 
+- `GeneralMatrix` has been replaced by `FlexibleMatrix` which is a special case of
+  the `PseudoMatrix` operator.
+
 
 ### Changed
 
@@ -77,6 +80,13 @@ This page describes the most important changes in `LazyAlgebra`. The format is b
   `LazyAlgebra.convert_multiplier` may be used to infer the type of a scalar multiplier
   and to convert it to a given floating-point type. These methods replace
   `multiplier_floatingpoint_type` and `promote_multiplier`.
+
+- `GeneralMatrix{T,M}` is a generalization of a matrix built over a multi-dimensional
+  array of coefficients of type `T` and whose `M` leading dimensions are considered as the
+  *rows* of the pseudo-matrix.
+
+- `FlexibleMatrix` is a pseudo-matrix whose number of row dimensions depends on its
+  input argument.
 
 
 ## Version 0.2.7 (2024-03-08)

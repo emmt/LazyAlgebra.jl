@@ -23,11 +23,12 @@ export
     Diag,
     #Diff,
     #FFTOperator,
-    #GeneralMatrix,
+    FlexibleMatrix,
     Gram,
     Id,
     Identity,
     Operator,
+    PseudoMatrix,
     RankOneOperator,
     #SingularSystem,
     #SparseOperator,
@@ -134,6 +135,7 @@ include("identity.jl")
 include("diag.jl")
 include("map.jl")
 include("rank1.jl")
+include("pseudomatrices.jl")
 #include("matrices.jl")
 #include("cropping.jl")
 #include("genmult.jl")
