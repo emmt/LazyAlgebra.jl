@@ -21,6 +21,9 @@ to the *rows* of the pseudo-matrix `A`. An expression like `y = A*x` requires th
 axes of `x` match the `ndims(arr) - M` trailing axes of `arr` and yields a result `y`
 whose axes are the `M` leading axes of `arr`.
 
+If `arr` is a matrix (i.e., a 2-dimensional abstract array), then `Operator(arr)`
+is a shortcut to `PseudoMatrix(arr,Val(1))`.
+
 Replacing `Val(M)` by a colon `:` or type parameters `{T,M}` by `{T,Colon}` yields a
 *flexible* pseudo-matrix whose number of row dimensions is not fixed. See
 [`FlexibleMatrix`](@ref) for a more convenient constructor.

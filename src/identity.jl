@@ -75,12 +75,3 @@ Sum(A::typeof(Id),                B::typeof(Id)               ) = 2Id
 Sum(A::Prod{<:Number,typeof(Id)}, B::typeof(Id)               ) = (A[1] + 1) * Id
 Sum(A::typeof(Id),                B::Prod{<:Number,typeof(Id)}) = (B[1] + 1) * Id
 Sum(A::Prod{<:Number,typeof(Id)}, B::Prod{<:Number,typeof(Id)}) = (A[1] + B[1]) * Id
-
-# Rules to automatically convert `LinearAlgebra.UniformScaling` into `λ*Id` when combined
-# with any `LazyAlgebra` operator.
-for op in (:(+), :(-), :(*), :(∘), :(/), Symbol("\\"))
-    @eval begin
-        Base.$op(A::LinearAlgebra.UniformScaling, B::Operator) = $op(Operator(A), B)
-        Base.$op(A::Operator, B::LinearAlgebra.UniformScaling) = $op(A, Operator(B))
-    end
-end

@@ -5,12 +5,45 @@
 #
 #-----------------------------------------------------------------------------------------
 
-# Convert constructor.
+# Conversion constructors.
 Operator(A::Operator) = A
 Operator(A::LinearAlgebra.UniformScaling) = multiplier(A) * Id
+Operator(A::AbstractMatrix) = PseudoMatrix(A, Val(1))
 
 Base.convert(::Type{Operator}, A::Operator) = A
 Base.convert(::Type{Operator}, A) = Operator(A)
+
+# Rules to automatically convert `LinearAlgebra.UniformScaling` into `λ*Id` and abstract
+# matrix into `PseudoMatrix` when combined with any `LazyAlgebra` operator or when
+# specific constructors are applied.
+let NonMatrix = LinearAlgebra.UniformScaling, Other = Union{NonMatrix,AbstractMatrix}
+    for op in (:(*), :(∘), :(/), Symbol("\\"))
+        # For compositions, the left-hand operand must not be an array otherwise this
+        # contradicts the rule that `A*x` calls `vmul`.
+        @eval begin
+            Base.$op(A::$Other, B::Operator) = $op(Operator(A), B)
+            Base.$op(A::Operator, B::$NonMatrix) = $op(A, Operator(B))
+        end
+    end
+    for op in (:(+), :(-))
+        @eval begin
+            Base.$op(A::$Other, B::Operator) = $op(Operator(A), B)
+            Base.$op(A::Operator, B::$Other) = $op(A, Operator(B))
+        end
+    end
+    @eval begin
+        Sum(A::$Other,   B::$Other  ) = Sum(Operator(A), Operator(B))
+        Sum(A::$Other,   B::Operator) = Sum(Operator(A), B)
+        Sum(A::Operator, B::$Other  ) = Sum(A, Operator(B))
+
+        Prod(A::$Other,  B::$Other ) = Prod(Operator(A), Operator(B))
+        Prod(A::$Other,  B::Operand) = Prod(Operator(A), B)
+        Prod(A::Operand, B::$Other ) = Prod(A, Operator(B))
+    end
+    for constructor in (:Adjoint, :Inverse, :Gram)
+        @eval $constructor(A::$Other) = $constructor(Operator(A))
+    end
+end
 
 # Some traits need to be transposed.
 Base.transpose(trait::InputShapeUnknown) = OutputShapeUnknown()
