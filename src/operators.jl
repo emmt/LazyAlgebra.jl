@@ -622,21 +622,21 @@ to the argument `x`.
     Do not extend this method for specific operator types, but rather the
     [`LazyAlgebra.unsafe_vmul!`](@ref) method.
 
-See also [`vmul!`](@ref), [`LazyAlgebra.Operator`](@ref), and
-[`LazyAlgebra.unsafe_vmul!`](@ref).
+See also [`vmul!`](@ref), [`LazyAlgebra.Operator`](@ref),
+[`LazyAlgebra.dispatch_vmul!`](@ref), and [`LazyAlgebra.unsafe_vmul!`](@ref).
 
 """
 function vmul(A::Operator, x::AbstractArray)
     y = create_output(A, x)
     T = floating_point_type(eltype(y))
-    dispatch_vmul!(one(T), A, x, zero(T), y)
+    unsafe_vmul!(one(T), A, x, zero(T), y)# call unsafe_vmul! because α is not zero
 end
 
 function vmul(α::Number, A::Operator, x::AbstractArray)
     α = convert_multiplier(α, A, x)
     y = create_output(α, A, x)
     T = floating_point_type(eltype(y))
-    dispatch_vmul!(α, A, x, zero(T), y)
+    dispatch_vmul!(α, A, x, zero(T), y) # call dispatch_vmul! because α may be zero
 end
 
 Base.:(*)(A::Operator, x::AbstractArray) = vmul(A, x)
