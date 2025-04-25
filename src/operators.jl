@@ -243,11 +243,13 @@ output_eltype(α::Number, A::Operator, x::AbstractArray) =
 output_eltype(A::Operator, x::AbstractArray) =
     output_eltype(typeof(A), typeof(x))
 
-function output_eltype(::Type{α}, ::Type{A}, ::Type{x}) where {α<:Number, A<:Operator,
-                                                               x<:AbstractArray}
-    T = output_eltype(A, x) # element type of A*x
-    return prod_type(multiplier_type(α, T), T)
-end
+output_eltype(::Type{α}, ::Type{A}, ::Type{x}) where {α<:Number, A<:Operator, x<:AbstractArray} =
+    output_eltype(α, AbstractArray{output_eltype(A, x)})
+
+# Output element type for scaling a vector. NOTE This should be the same for `vscale`.
+output_eltype(α::Number, x::AbstractArray) = output_eltype(typeof(α), typeof(x))
+output_eltype(::Type{α}, ::Type{x}) where {α<:Number, x<:AbstractArray} =
+    prod_type(multiplier_type(α, x), eltype(x))
 
 # Fallback method, assumes that one of `output_eltype(A)` or `eltype(A)` is applicable.
 output_eltype(::Type{A}, ::Type{x}) where {A<:Operator, x<:AbstractArray} =
@@ -261,12 +263,16 @@ Base.eltype(::Type{<:Adjoint{A}}) where {A} = eltype(A)
 Base.eltype(::Type{<:Inverse{A}}) where {A} = float(eltype(A))
 Base.eltype(::Type{<:InverseAdjoint{A}}) where {A} = float(eltype(A))
 
-# Output element type for products and sums assuming right-associativity.
+# Output element type for sums and products assuming right-associativity.
+output_eltype(::Type{Sum{L,R}}, ::Type{x}) where {L,R,x<:AbstractArray} =
+    sum_type(output_eltype(L, x), output_eltype(R, x))
+
 output_eltype(::Type{Prod{L,R}}, ::Type{x}) where {L,R,x<:AbstractArray} =
     output_eltype(L, output_eltype(R, x))
 
-output_eltype(::Type{Sum{L,R}}, ::Type{x}) where {L,R,x<:AbstractArray} =
-    sum_type(output_eltype(L, x), output_eltype(R, x))
+# Output element type for scaled operators.
+output_eltype(::Type{Prod{L,R}}, ::Type{x}) where {L<:Number,R,x<:AbstractArray} =
+    output_eltype(L, R, x)
 
 """
     LazyAlgebra.output_ndims(A)

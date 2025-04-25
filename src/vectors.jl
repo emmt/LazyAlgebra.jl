@@ -345,9 +345,11 @@ See also [`vscale!`](@ref).
 """
 vscale(x::AbstractArray, α::Number) = vscale(α, x)
 function vscale(α::Number, x::AbstractArray)
-    S = multiplier_type(α, x)
-    T = prod_type(S, eltype(x)) # element type of the result
-    return dispatch_vscale!(similar(x, T), as(S, α), x)
+    # NOTE The following method to infer the element type `T` of the result should be
+    # inline with the one implemented by `output_eltype`.
+    α = convert_multiplier(α, x)
+    T = prod_type(typeof(α), eltype(x))
+    return dispatch_vscale!(similar(x, T), α, x)
 end
 
 """
