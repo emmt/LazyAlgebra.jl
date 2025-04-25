@@ -88,6 +88,9 @@ This page describes the most important changes in `LazyAlgebra`. The format is b
 - `FlexibleMatrix` is a pseudo-matrix whose number of row dimensions depends on its
   input argument.
 
+- Exported function `set_precision(T, A)` to set the numerical precision of the values
+  stored by `A` to be that of the floating-point type `T`.
+
 
 ## Version 0.2.7 (2024-03-08)
 

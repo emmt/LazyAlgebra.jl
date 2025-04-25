@@ -62,3 +62,7 @@ for (T, B, f) in ((:(                 Diag ), :(              A),   :(*)),
         end
     end
 end
+
+# Set precision for diagonal operators.
+set_precision(::Type{T}, A::Diag) where {T<:AbstractFloat} =
+    Diag(set_precision(T, diag(A)))

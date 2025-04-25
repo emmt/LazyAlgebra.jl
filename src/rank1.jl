@@ -80,9 +80,8 @@ function unsafe_vmul!(α::Number, A::Union{K,Adjoint{K}}, x::AbstractArray,
     dispatch_vcombine!(y, convert_multiplier(α*vdot(last(A), x), eltype(first(A))), first(A), β, y)
 end
 
-# Conversions.
-TypeUtils.convert_eltype(::Type{T}, A::RankOneOperator) where {T} =
-    RankOneOperator(convert_eltype(T, first(A)), convert_eltype(T, last(A)))
-
-TypeUtils.convert_eltype(::Type{T}, A::SymmetricRankOneOperator) where {T} =
-    SymmetricRankOneOperator(convert_eltype(T, first(A)))
+# Set precision for rank-1 operators.
+set_precision(::Type{T}, A::RankOneOperator) where {T<:AbstractFloat} =
+    RankOneOperator(set_precision(T, first(A)), set_precision(T, last(A)))
+set_precision(::Type{T}, A::SymmetricRankOneOperator) where {T<:AbstractFloat} =
+    SymmetricRankOneOperator(set_precision(T, first(A)))

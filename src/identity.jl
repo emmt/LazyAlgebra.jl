@@ -58,6 +58,9 @@ unsafe_vmul!(α::Number, A::Identity, x::AbstractArray, β::Number, y::AbstractA
 unsafe_vmul!(dst::AbstractArray, α::Number, A::typeof(Id), x::AbstractArray) =
     unsafe_scale!(dst, α, x)
 
+# Set precision for identity operators.
+set_precision(::Type{T}, A::Identity) where {T<:AbstractFloat} = A
+
 # Taking the adjoint or the inverse of the identity (whatever the i/o shape) does
 # nothing.
 Adjoint(A::Identity) = A
