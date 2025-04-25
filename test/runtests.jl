@@ -7,3 +7,4 @@ using LinearAlgebra
     include("rules-tests.jl")
     include("diag-tests.jl")
 end
+nothing
