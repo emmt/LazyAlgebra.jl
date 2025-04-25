@@ -314,8 +314,7 @@ output_axes(A::InverseAdjoint, x::AbstractArray) = output_axes(parent(parent(A))
 # defined for `A`.
 function output_axes(A::Operator, x_axes::ArrayAxes)
     InputShape(A) isa HasInputShape || throw_input_shape_not_implemented(typeof(A))
-    rngs = input_axes(A)
-    x_axes == rngs || throw_incompatible_axes("input", x_axes, rngs)
+    check_input_axes(x_axes, input_axes(A))
     OutputShape(A) isa HasOutputShape || throw_output_shape_not_implemented(typeof(A))
     return output_axes(A)
 end
@@ -597,16 +596,14 @@ See also [`vmul!`](@ref), [`LazyAlgebra.Operator`](@ref), and
 function vmul(A::Operator, x::AbstractArray)
     y = create_output(A, x)
     T = floating_point_type(eltype(y))
-    unsafe_vmul!(one(T), A, x, zero(T), y)
-    return y
+    dispatch_vmul!(one(T), A, x, zero(T), y)
 end
 
 function vmul(α::Number, A::Operator, x::AbstractArray)
     α = convert_multiplier(α, A, x)
     y = create_output(α, A, x)
     T = floating_point_type(eltype(y))
-    unsafe_vmul!(α, A, x, zero(T), y)
-    return y
+    dispatch_vmul!(α, A, x, zero(T), y)
 end
 
 Base.:(*)(A::Operator, x::AbstractArray) = vmul(A, x)
@@ -633,8 +630,8 @@ The `vmul!` method can be seen as a generalization of the `LinearAlgebra.mul!` m
     Do not extend this method for specific operator types, but rather the
     [`LazyAlgebra.unsafe_vmul!`](@ref) method.
 
-See also [`vmul`](@ref), [`LazyAlgebra.Operator`](@ref), and
-[`LazyAlgebra.unsafe_vmul!`](@ref).
+See also [`vmul`](@ref), [`LazyAlgebra.Operator`](@ref),
+[`LazyAlgebra.dispatch_vmul!`](@ref), and [`LazyAlgebra.unsafe_vmul!`](@ref).
 
 """
 vmul!(y::AbstractArray, A::Operator, x::AbstractArray) =
@@ -644,11 +641,30 @@ vmul!(y::AbstractArray, α::Number, A::Operator, x::AbstractArray) =
     vmul!(α, A, x, 0, y)
 
 function vmul!(α::Number, A::Operator, x::AbstractArray, β::Number, y::AbstractArray)
-    axes_Ax = output_axes(A, x)
-    axes_y = axes(y)
-    axes_y == axes_Ax || throw_incompatible_axes("`y`", axes_y, axes_Ax)
-    α = convert_multiplier(α, A, x)
-    β = convert_multiplier(β, y)
+    check_output_axes(y, output_axes(A, x))
+    dispatch_vmul!(convert_multiplier(α, A, x), A, x,
+                   convert_multiplier(β, y), y)
+end
+
+"""
+    LazyAlgebra.dispatch_vmul!(α, A, x, β, y) -> y
+
+overwrites `y` with `α*A⋅x + β*y` and returns `y`.
+
+If `iszero(α)` does not hold, this method calls [`LazyAlgebra.unsafe_vmul!(α, A, x, β,
+y)`](@ref LazyAlgebra.unsafe_vmul!); otherwise, if `iszero(β)` does not hold, this method
+calls [`LazyAlgebra.unsafe_vscale!(β, y)`](@ref LazyAlgebra.unsafe_vscale!)this method
+calls [`vzero!(y)`](@ref LazyAlgebra.vzero!).
+
+!!! warning
+    This method assumes that the axes of `x` and `y` have been checked to be correct as
+    the respective input and output for `A` and that the multipliers `α` and `β` have been
+    converted to suitable floating-point type.
+
+See also [`vmul`](@ref), [`vmul!`](@ref), and [`LazyAlgebra.unsafe_vmul!`](@ref).
+
+"""
+function dispatch_vmul!(α::Number, A::Operator, x::AbstractArray, β::Number, y::AbstractArray)
     if !iszero(α)
         unsafe_vmul!(α, A, x, β, y)
     elseif !iszero(β)
@@ -659,8 +675,50 @@ function vmul!(α::Number, A::Operator, x::AbstractArray, β::Number, y::Abstrac
     return y
 end
 
-@noinline throw_incompatible_axes(arg_name, arg_axes, ref_axes) =
-    throw(DimensionMismatch("axes of $(arg_name) should be `$(axes_to_string(ref_axes))`, got `$(axes_to_string(arg_axes))`"))
+"""
+    LazyAlgebra.check_input_axes(x, inp_axes) -> nothing
+    LazyAlgebra.check_input_axes(axes(x), inp_axes) -> nothing
+
+throw a `DimensionMismatch` exception if the axes of the input array `x` are not equal to
+the given `inp_axes`.
+
+See also [`vmul`](@ref), [`vmul!`](@ref), and [`LazyAlgebra.check_output_axes`](@ref).
+
+"""
+check_input_axes(x::AbstractArray, inp_axes::ArrayAxes) = check_input_axes(axes(x), inp_axes)
+check_input_axes(x_axes::ArrayAxes, inp_axes::ArrayAxes) =
+    x_axes == inp_axes ? nothing : throw_incompatible_input_axes(x_axes, inp_axes)
+
+@noinline throw_incompatible_input_axes(x_axes::ArrayAxes, inp_axes::ArrayAxes) =
+    throw(DimensionMismatch(incompatible_axes("input array", x_axes, inp_axes)))
+
+"""
+    LazyAlgebra.check_output_axes(y, out_axes) -> nothing
+    LazyAlgebra.check_output_axes(axes(y), out_axes) -> nothing
+
+throw a `DimensionMismatch` exception if the axes of the output array `y` are not equal to
+the given `out_axes`.
+
+See also [`vmul`](@ref), [`vmul!`](@ref), and [`LazyAlgebra.check_input_axes`](@ref).
+
+"""
+check_output_axes(y::AbstractArray, out_axes::ArrayAxes) = check_output_axes(axes(y), out_axes)
+check_output_axes(y_axes::ArrayAxes, out_axes::ArrayAxes) =
+    y_axes == out_axes ? nothing : throw_incompatible_axes("output array", y_axes, out_axes)
+
+@noinline throw_incompatible_output_axes(y_axes::ArrayAxes, out_axes::ArrayAxes) =
+    throw(DimensionMismatch(incompatible_axes("output array", y_axes, out_axes)))
+
+function incompatible_axes(arg_name::AbstractString, arg_axes::ArrayAxes, ref_axes::ArrayAxes)
+    io = IOBuffer()
+    write(io, "axes of ")
+    print(io, arg_name)
+    write(io, " should be ")
+    print_axes(io, arg_axes)
+    write(io, ", got ")
+    print_axes(io, ref_axes)
+    return String(take!(io))
+end
 
 function axes_to_string(rngs::Tuple{Vararg{AbstractUnitRange{<:Integer}}})
     io = IOBuffer()

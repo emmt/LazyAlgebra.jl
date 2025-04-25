@@ -86,6 +86,8 @@ using TypeUtils: @public
 @public @callable
 @public Adjoint Inverse InverseAdjoint
 @public Identity
+@public check_input_axes
+@public check_output_axes
 @public input_eltype InputEltype InputEltypeUnknown HasInputEltype
 @public input_axes input_ndims InputShape InputShapeUnknown HasInputShape
 #@public LazyMap
@@ -99,7 +101,7 @@ using TypeUtils: @public
 @public unsafe_vcombine! dispatch_vcombine!
 @public unsafe_vcopy!
 @public unsafe_vdot
-@public unsafe_vmul!
+@public unsafe_vmul! dispatch_vmul!
 @public unsafe_vproduct!
 @public unsafe_vscale! dispatch_vscale! dispatch_vscale!
 @public unsafe_vswap!

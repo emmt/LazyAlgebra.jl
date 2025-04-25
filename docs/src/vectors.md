@@ -97,20 +97,20 @@ Methods involving multipliers (scalar factors) like [`vscale!`](@ref), [`vupdate
 and [`vcombine!`](@ref) split their work in the following 3 stages:
 
 1. The top-level method checks whether array arguments have compatible indices (throwing a
-   `DimensionMismatch` or a `BoundsError` exception if this is not the case) and call the
+   `DimensionMismatch` or a `BoundsError` exception if this is not the case) and calls the
    corresponding *dispatch* method ( [`LazyAlgebra.dispatch_vscale!`](@ref),
    [`LazyAlgebra.dispatch_vupdate!`](@ref), or [`LazyAlgebra.dispatch_vcombine!`](@ref))
-   with the multipliers converted to suitable floating-point types (using
+   with the multipliers converted to suitable precision (using
    [`LazyAlgebra.convert_multiplier`](@ref) or [`LazyAlgebra.multiplier_type`](@ref)).
 
 2. Depending on the specific values of the multipliers, the *dispatch* method calls one of
-   the *unsafe* method ([`LazyAlgebra.unsafe_vscale!`](@ref),
+   the *unsafe* methods ([`LazyAlgebra.unsafe_vscale!`](@ref),
    [`LazyAlgebra.unsafe_vupdate!`](@ref), [`LazyAlgebra.unsafe_vcombine!`](@ref),
    [`LazyAlgebra.unsafe_vcopy!`](@ref) or [`vzero!`](ref)).
 
-3. The *unsafe* method computes the result assuming that `@inbounds` can be applied, that
-   multipliers do not need to be converted to more suitable types, and that specific
-   conditions hold for the values of the multipliers.
+3. The *unsafe* method computes the result assuming that checking of bounds can be
+   avoided, that multipliers do not need to be converted to more suitable types, and that
+   specific conditions hold for the values of the multipliers.
 
 To summarize, methods with the `dispatch_` prefix receive arguments whose indices are
 guaranteed to be compatible and multipliers converted to suitable type and are in charge
@@ -133,3 +133,4 @@ the *unsafe* version of the methods listed below:
 * [`unsafe_vscale!`](@ref)
 * [`unsafe_vswap!`](@ref)
 * [`unsafe_vupdate!`](@ref)
+* [`unsafe_vmul!`](@ref)
