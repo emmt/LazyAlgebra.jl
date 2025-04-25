@@ -40,8 +40,8 @@ export
     #ZeroPaddingOperator,
     #coefficients,
     #col_size,
-    #conjgrad!,
-    #conjgrad,
+    conjgrad!,
+    conjgrad,
     diag, # re-export from LinearAlgebra
     #gram,
     #is_diagonal,
@@ -108,7 +108,7 @@ using TypeUtils: @public
 @public unsafe_vswap!
 @public unsafe_vupdate!
 
-#using Printf
+using Printf
 using ArrayTools
 using TypeUtils
 #using FFTW
@@ -152,7 +152,7 @@ include("pseudomatrices.jl")
 #import .FiniteDifferences: Diff
 #include("fft.jl")
 #import .FFTs: CirculantConvolution, FFTOperator
-#include("conjgrad.jl")
+include("conjgrad.jl")
 #include("init.jl")
 
 end
