@@ -210,14 +210,12 @@ abstract type OutputEltype end
 struct OutputEltypeUnknown <: OutputEltype end
 struct HasOutputEltype     <: OutputEltype end
 
-struct Identity{I} <: Operator
+@callable struct Identity{I} <: Operator
     shape::I
     # A private constructor is needed to "filter" the input shape.
     global _Identity
     _Identity(shape::I) where {I<:Union{Colon,Dims,ArrayAxes}} = new{I}(shape)
 end
-
-@callable Identity
 
 """
     Id
@@ -235,11 +233,9 @@ const Id = _Identity(:)
 const UniversalIdentity = Identity{Colon}
 const ShapedIdentity{N} = Identity{<:Union{Dims{N},ArrayAxes{N}}}
 
-struct Diag{D<:AbstractArray} <: Operator
+@callable struct Diag{D<:AbstractArray} <: Operator
     diag::D
 end
-
-@callable Diag
 
 struct LazyMap{T,N,L,F,A<:AbstractArray{<:Any,N}} <: AbstractArray{T,N}
     func::F
@@ -250,23 +246,19 @@ end
 
 abstract type AbstractRankOneOperator{U<:AbstractArray,V<:AbstractArray} <: Operator end
 
-struct RankOneOperator{U,V} <: AbstractRankOneOperator{U,V}
+@callable struct RankOneOperator{U,V} <: AbstractRankOneOperator{U,V}
     u::U
     v::V
 end
 
-@callable RankOneOperator
-
-struct SymmetricRankOneOperator{U} <: AbstractRankOneOperator{U,U}
+@callable struct SymmetricRankOneOperator{U} <: AbstractRankOneOperator{U,U}
     u::U
 end
 
-@callable SymmetricRankOneOperator
-
-struct PseudoMatrix{T, # element type
-                    M, # number of row dimensions or Colon
-                    N, # total number of dimensions (rows + columns)
-                    A<:AbstractArray{T,N}} <: Operator
+@callable struct PseudoMatrix{T, # element type
+                              M, # number of row dimensions or Colon
+                              N, # total number of dimensions (rows + columns)
+                              A<:AbstractArray{T,N}} <: Operator
     parent::A
 
     PseudoMatrix{T,Colon}(arr::A) where {T,N,A<:AbstractArray{T,N}} =
@@ -278,7 +270,5 @@ struct PseudoMatrix{T, # element type
         return new{T,M,N,A}(arr)
     end
 end
-
-@callable PseudoMatrix
 
 const FlexibleMatrix{T,N,A} = PseudoMatrix{T,Colon,N,A}
