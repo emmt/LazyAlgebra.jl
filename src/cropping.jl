@@ -1,15 +1,4 @@
-#
-# cropping.jl -
-#
 # Implement cropping and zero-padding operators.
-#
-#-----------------------------------------------------------------------------------------
-#
-# This file is part of LazyAlgebra (https://github.com/emmt/LazyAlgebra.jl) released under
-# the MIT "Expat" license.
-#
-# Copyright (c), 2019-2025, Éric Thiébaut.
-#
 
 # FIXME: add simplifying rules:
 #   Z'*Z = Id (not Z*Z' = Id)  crop zero-padded array is identity
@@ -33,24 +22,77 @@ The adjoint and pseudo-inverse of a cropping operator is a zero-padding operator
 See also [`ZeroPaddingOperator`](@ref).
 
 """
-CroppingOperator(I::RelaxedArrayShape{N}, J::RelaxedArrayShape{N}) where {N} =
-    CroppingOperator(as_array_axes(I), as_array_axes(J))
+function CroppingOperator(I::RelaxedArrayShape{N}, J::RelaxedArrayShape{N}) where {N}
+    I = as_array_axes(I)
+    J = as_array_axes(J)
+    k = default_cropping_offset(I, J)
+    CroppingOperator(I, J, k)
+end
 
-CroppingOperator(I::ArrayAxes{N}, J::ArrayAxes{N}) where {N} =
-    CroppingOperator(I, J, default_cropping_offset(I, J))
+const CroppingOffset{N} = Union{Integer,NTuple{N,Integer},CartesianIndex{N}}
 
-CroppingOperator(I::RelaxedArrayShape{N}, J::RelaxedArrayShape{N}, k::CartesianIndex{N}) where {N} =
-    CroppingOperator(as_array_axes(I), as_array_axes(J), k)
+function CroppingOperator(I::RelaxedArrayShape{N}, J::RelaxedArrayShape{N},
+                          k::CroppingOffset{N}) where {N}
+    I = as_array_axes(I)
+    J = as_array_axes(J)
+    k = to_cropping_offset(Val(N), k)
+    CroppingOperator(I, J, k)
+end
 
-CroppingOperator(I::RelaxedArrayShape{N}, J::RelaxedArrayShape{N}, k::NTuple{N,Integer}) where {N} =
-    CroppingOperator(I, J, CartesianIndex(map(as(Int), k)))
+to_cropping_offset(::Val{N}, k::CartesianIndex{N}) where {N} = k
+to_cropping_offset(::Val{N}, k::NTuple{N,Integer}) where {N} =
+    CartesianIndex(map(as(Int), k))
+to_cropping_offset(::Val{N}, k::Integer) where {N} =
+    CartesianIndex(ntuple(Returns(Int(k)), Val(N)))
 
-# Accessors and operator API for the cropping operator.
-output_axes(A::CroppingOperator) = getfield(A, :I)
-input_axes( A::CroppingOperator) = getfield(A, :J)
+"""
+    A = ZeroPaddingOperator(I, J, k = default_zeropadding_offset(I, J))
+
+builds a linear operator which implements zero-padding of arrays of shape `J` to produce
+arrays of shape `I`. By default, the input array is centered with respect to the output
+array (using the same conventions as `fftshift`). Optional argument `k` is to specify a
+different relative position; `k` may be an integer (to assume the same offset in all
+dimensions), a tuple of integers, or a Cartesian index. For an array `x` of shape `J`, the
+result of `A*x` is an array `y` of shape `I` defined by:
+
+```julia
+∀ i ∈ I, y[i] = x[i - k]    if i - k ∈ J
+              = 0           else
+```
+
+A zero-padding operator is implemented as the adjoint of a cropping operator.
+
+See also [`CroppingOperator`](@ref).
+
+"""
+ZeroPaddingOperator(I, J) = Adjoint(CroppingOperator(J, I))
+ZeroPaddingOperator(I, J, k) = Adjoint(CroppingOperator(J, I, k))
+
+function check_cropping_axis(I::AbstractUnitRange{Int},
+                             J::AbstractUnitRange{Int},
+                             k::Int)
+    i_first = first(I)
+    i_last  = last(I)
+    j_first = first(J)
+    j_last  = last(J)
+    i_first ≤ i_last || throw(ArgumentError("inner region must not be empty"))
+    ((j_first ≤ i_first + k) & (i_last + k ≤ j_last)) || throw(ArgumentError(
+        "inner region is not within outer one"))
+    nothing
+end
+
+# Accessors and operator API for the cropping and zero-padding operators.
+output_axes(A::CroppingOperator) = getfield(A, :i)
+input_axes( A::CroppingOperator) = getfield(A, :j)
 offset(     A::CroppingOperator) = getfield(A, :k)
 
-output_eltype(::Type{<:CroppingOperator}, ::Type{T}) where {T} = T
+InputShape(::Type{<:CroppingOperator{N}}) where {N} = HasInputShape{N}()
+OutputShape(::Type{<:CroppingOperator{N}}) where {N} = HasOutputShape{N}()
+
+for S in (:CroppingOperator, :ZeroPaddingOperator)
+    @eval output_eltype(::Type{<:$S{N}}, ::Type{x}) where {T,N,x<:AbstractArray{T,N}} =
+        float(T)
+end
 
 function unsafe_vmul!(α::Number, A::CroppingOperator{N}, x::AbstractArray{<:Any,N},
                       β::Number, y::AbstractArray{<:Any,N}) where {N}
@@ -85,20 +127,15 @@ function unsafe_vmul!(α::Number, A::CroppingOperator{N}, x::AbstractArray{<:Any
             end
         end
     end
-    nothing
+    return y
 end
-
-# Accessors and operator API for the zero-padding operator which is stored as the adjoint
-# of the cropping operator.
-output_axes(A::ZeroPaddingOperator) = input_axes(A[])
-input_axes( A::ZeroPaddingOperator) = output_axes(A[])
-offset(     A::ZeroPaddingOperator) = offset(A[])
-
-output_eltype(::Type{<:ZeroPaddingOperator}, ::Type{T}) where {T} = T
 
 function unsafe_vmul!(α::Number, A::ZeroPaddingOperator{N}, x::AbstractArray{<:Any,N},
                       β::Number, y::AbstractArray{<:Any,N}) where {N}
-    fix_vmul_output!(y, β)
+    # Call dispatch_vscale! to pre-fill y depending on the value of β.
+    dispatch_vscale!(y, β)
+
+    # "Copy" x to inner region of y.
     k = offset(A)
     J = CartesianIndices(axes(x)) # also input_axes(A)
     if isone(α)
@@ -125,65 +162,19 @@ function unsafe_vmul!(α::Number, A::ZeroPaddingOperator{N}, x::AbstractArray{<:
     nothing
 end
 
-# Fix output `y` of `vmul!` so that it can be used as `y[i] += (α*A*x)[i]`
-fix_vmul_output!(y::AbstractArray, β::Number) = fix_vmul_output!(β, y)
-function fix_vmul_output!(β::Number, y::AbstractArray)
-    if !isone(β)
-        if iszero(β)
-            vzero!(y)
-        else
-            unsafe_vscale!(y, β)
-        end
-    end
-    return y
-end
-
-"""
-    A = ZeroPaddingOperator(I, J, k = default_zeropadding_offset(I, J))
-
-builds a linear operator which implements zero-padding of arrays of shape `J` to produce
-arrays of shape `I`. By default, the input array is centered with respect to the output
-array (using the same conventions as `fftshift`). Optional argument `k` is to specify a
-different relative position; `k` may be an integer (to assume the same offset in all
-dimensions), a tuple of integers, or a Cartesian index. For an array `x` of shape `J`, the
-result of `A*x` is an array `y` of shape `I` defined by:
-
-```julia
-∀ i ∈ I, y[i] = x[i - k]    if i - k ∈ J
-              = 0           else
-```
-
-A zero-padding operator is implemented as the adjoint of a cropping operator.
-
-See also [`CroppingOperator`](@ref).
-
-"""
-ZeroPaddingOperator(I, J) = Adjoint(CroppingOperator(J, I))
-ZeroPaddingOperator(I, J, k) = Adjoint(CroppingOperator(J, I, k))
-
 """
     LazyAlgebra.default_cropping_offset(I, J)
 
 yields the offset for the cropping operator such that the centers (in the same sense as
-assumed by `fftshift`) of the output and input arrays of respective shapes `I` and `J` are
+assumed by `fftshift`) of the inner and outer regions of respective shapes `I` and `J` are
 coincident in a cropping operation.
 
 """
-default_cropping_offset(out::eltype(ArrayShape), inp::eltype(ArrayShape)) =
-    offset_to_center(inp) - offset_to_center(out)
+default_cropping_offset(inner::eltype(ArrayShape), outer::eltype(ArrayShape)) =
+    offset_to_center(outer) - offset_to_center(inner)
 
-default_cropping_offset(out::ArrayShape{N}, inp::ArrayShape{N}) where {N} =
-    CartesianIndex(map(default_cropping_offset, out, inp))
-
-"""
-    LazyAlgebra.default_zeropadding_offset(I, J)
-
-yields the offset for the zero-padding operator such that the centers (in the same sense
-as assumed by `fftshift`) of the output and input arrays of respective shapes `I` and `J`
-are coincident in a zero-padding operation.
-
-"""
-default_zeropadding_offset(I, J) = default_cropping_offset(J, I)
+default_cropping_offset(inner::ArrayShape{N}, outer::ArrayShape{N}) where {N} =
+    CartesianIndex(map(default_cropping_offset, inner, outer))
 
 # `offset_to_center` yields the offset to the center relative to the first index and using
 # the same conventions as `fftshift`. It is assumed that the argument is a valid dimension

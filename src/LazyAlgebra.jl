@@ -19,7 +19,7 @@ include("macros.jl")
 export
     #CirculantConvolution,
     #CompressedSparseOperator,
-    #CroppingOperator,
+    CroppingOperator,
     Diag,
     #Diff,
     #FFTOperator,
@@ -37,7 +37,7 @@ export
     #SparseOperatorCSR,
     SymbolicOperator,
     SymmetricRankOneOperator,
-    #ZeroPaddingOperator,
+    ZeroPaddingOperator,
     #coefficients,
     #col_size,
     conjgrad!,
@@ -137,8 +137,8 @@ include("diag.jl")
 include("map.jl")
 include("rank1.jl")
 include("pseudomatrices.jl")
+include("cropping.jl")
 #include("matrices.jl")
-#include("cropping.jl")
 #include("genmult.jl")
 #import .GenMult: lgemm!, lgemm, lgemv!, lgemv
 #include("blas.jl")

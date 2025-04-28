@@ -272,3 +272,21 @@ end
 end
 
 const FlexibleMatrix{T,N,A} = PseudoMatrix{T,Colon,N,A}
+
+@callable struct CroppingOperator{N,I<:ArrayAxes{N},J<:ArrayAxes{N}} <: Operator
+    i::I # output (cropped) axes
+    j::J # input axes
+    k::CartesianIndex{N} # offset of cropped region w.r.t. input array
+    # Inner constructor to check arguments.
+    function CroppingOperator(i::I, j::J, k::CartesianIndex{N}) where {N,
+                                                                       I<:ArrayAxes{N},
+                                                                       J<:ArrayAxes{N}}
+        @inbounds for d in 1:N
+            check_cropping_axis(i[d], j[d], k[d])
+        end
+        return new{N,I,J}(i, j, k)
+    end
+end
+
+# A zero-padding operator is implemented as the adjoint of a cropping operator.
+const ZeroPaddingOperator{N,I,J} = Adjoint{CroppingOperator{N,J,I}}
