@@ -84,7 +84,11 @@ end
 # Accessors and operator API for the cropping and zero-padding operators.
 output_axes(A::CroppingOperator) = getfield(A, :i)
 input_axes( A::CroppingOperator) = getfield(A, :j)
-offset(     A::CroppingOperator) = getfield(A, :k)
+offset(A::CroppingOperator) = getfield(A, :k)
+offset(A::ZeroPaddingOperator) = offset(A')
+
+output_eltype(::Type{<:CroppingOperator}, ::Type{x}) where {x<:AbstractArray} = eltype(x)
+output_eltype(::Type{<:ZeroPaddingOperator}, ::Type{x}) where {x<:AbstractArray} = eltype(x)
 
 InputShape(::Type{<:CroppingOperator{N}}) where {N} = HasInputShape{N}()
 OutputShape(::Type{<:CroppingOperator{N}}) where {N} = HasOutputShape{N}()
@@ -137,7 +141,7 @@ function unsafe_vmul!(α::Number, A::ZeroPaddingOperator{N}, x::AbstractArray{<:
 
     # "Copy" x to inner region of y.
     k = offset(A)
-    J = CartesianIndices(axes(x)) # also input_axes(A)
+    J = CartesianIndices(axes(x)) # also input_axes(A')
     if isone(α)
         if iszero(β)
             @inbounds @fastmath @simd for j in J
@@ -159,7 +163,7 @@ function unsafe_vmul!(α::Number, A::ZeroPaddingOperator{N}, x::AbstractArray{<:
             end
         end
     end
-    nothing
+    return y
 end
 
 """

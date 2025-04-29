@@ -1,139 +1,157 @@
-#
-# crop-tests.jl -
-#
-# Tests for cropping and zero-padding.
-#
-module TestingLazyAlgebraCrop
+"""
 
-using Test
+Tests for cropping and zero-padding.
+
+"""
+module LazyAlgebraCropTests
+
 using LazyAlgebra
-using LazyAlgebra.Foundations
+using Random
+using Test
+using TypeUtils
 
-@testset "Cropping and zero-padding" begin
-    #
-    # Private methods for testing.
-    #
+include("common.jl")
 
-    offset(outer::NTuple{N,Int}, inner::NTuple{N,Int}) where {N} =
-        ntuple(i -> (outer[i]>>1) - (inner[i]>>1), Val(N))
+infer_output_eltype(::Type{<:CroppingOperator}, ::Type{x}) where {x<:AbstractArray} =
+    eltype(x)
+infer_output_eltype(::Type{<:ZeroPaddingOperator}, ::Type{x}) where {x<:AbstractArray} =
+    eltype(x)
 
-    function crop(x::AbstractArray{T,N}, siz::NTuple{N,Int}) where {T,N}
-        return crop!(Array{T,N}(undef, siz), x)
+# Private methods for testing.
+default_offset(inner::ArrayShape{N}, outer::ArrayShape{N}) where {N} =
+    ntuple(i -> (as_array_dim(outer[i]) ÷ 2) - (as_array_dim(inner[i]) ÷ 2), Val(N))
+
+function crop(A::AbstractArray{T,N}, shape::ArrayShape{N},
+              off::NTuple{N,Integer} = default_offset(shape, axes(A))) where {T,N}
+    return crop!(new_array(T, shape), A, off)
+end
+
+function zeropad(A::AbstractArray{T,N}, shape::ArrayShape{N},
+                 off::NTuple{N,Integer} = default_offset(axes(A), shape)) where {T,N}
+    return zeropad!(new_array(T, shape), A, off)
+end
+
+function subregionindices(inner::AbstractArray{<:Any,N},
+                          outer::AbstractArray{<:Any,N},
+                          off::NTuple{N,Integer}) where {N}
+    I = CartesianIndices(inner) # indices in smallest region
+    J = CartesianIndices(outer) # indices in largest region
+    k = CartesianIndex(off)     # offset index
+    (first(J) ≤ first(I) + k && last(I) + k ≤ last(J)) || error("out of range sub-region")
+    return I, J, k
+end
+
+function crop!(y::AbstractArray{T,N},
+               x::AbstractArray{<:Any,N},
+               off::NTuple{N,Integer} = default_offset(axes(x), axes(y))) where {T,N}
+    I, J, k = subregionindices(y, x, off)
+    @inbounds @simd for i ∈ I
+        y[i] = x[i + k]
     end
+    return y
+end
 
-    function crop(x::AbstractArray{T,N}, siz::NTuple{N,Int},
-                  off::NTuple{N,Int}) where {T,N}
-        return crop!(Array{T,N}(undef, siz), x, off)
+function zeropad!(y::AbstractArray{T,N},
+                  x::AbstractArray{<:Any,N},
+                  off::NTuple{N,Integer} = default_offset(axes(y), axes(x)),
+                  init::Bool = false) where {T,N}
+    I, J, k = subregionindices(x, y, off)
+    fill!(y, zero(eltype(y)))
+    @inbounds @simd for i ∈ I
+        y[i + k] = x[i]
     end
+    return y
+end
 
-    function zeropad(x::AbstractArray{T,N}, siz::NTuple{N,Int}) where {T,N}
-        return zeropad!(Array{T,N}(undef, siz), x)
-    end
+const DimsPair{N} = Tuple{Pair{Dims{N},Dims{N}}}
 
-    function zeropad(x::AbstractArray{T,N}, siz::NTuple{N,Int},
-                     off::NTuple{N,Int}) where {T,N}
-        return zeropad!(Array{T,N}(undef, siz), x, off)
-    end
+function runtests(; rng::AbstractRNG = MersenneTwister(314159),
+                  alphas::Tuple{Vararg{Number}} = (-1, 0, 1, 3, -2 + 1im),
+                  betas::Tuple{Vararg{Number}} = (-1, 0, 1, 2, π),
+                  sizes = ((4,) => (7,),
+                           (4,) => (8,),
+                           (5,) => (7,),
+                           (5,) => (8,),
+                           (3, 4) => (4, 9),
+                           (2, 3, 4) => (5, 3, 6)),
+                  eltypes::Tuple{Vararg{Type}} = (Float64, Complex{Float32}),
+                  # NOTE Tolerance must not be too tight if we mix single and double precision.
+                  rtol = 4e-7)
 
-    function subregionindices(sub::AbstractArray{<:Any,N},
-                              big::AbstractArray{<:Any,N},
-                              off::NTuple{N,Int}) where {N}
-        I = CartesianIndices(sub) # indices in smallest region
-        J = CartesianIndices(big) # indices in largest region
-        k = CartesianIndex(off)   # offset index
-        (first(J) ≤ first(I) + k && last(I) + k ≤ last(J)) ||
-            error("out of range sub-region")
-        return I, J, k
-    end
-
-    function crop!(y::AbstractArray{T,N},
-                   x::AbstractArray{<:Any,N},
-                   off::NTuple{N,Int} = offset(size(x), size(y))) where {T,N}
-        I, J, k = subregionindices(y, x, off)
-        @inbounds @simd for i ∈ I
-            y[i] = x[i + k]
-        end
-        return y
-    end
-
-    function zeropad!(y::AbstractArray{T,N},
-                      x::AbstractArray{<:Any,N},
-                      off::NTuple{N,Int} = offset(size(y), size(x)),
-                      init::Bool = false) where {T,N}
-        I, J, k = subregionindices(x, y, off)
-        init || fill!(y, zero(T))
-        @inbounds @simd for i ∈ I
-            y[i+k] = x[i]
-        end
-        return y
-    end
-
-    #
-    # Miscellaneous tests.
-    #
-    @test_throws ErrorException CroppingOperator((2,3,), (2,3,4,))
-    @test_throws ErrorException CroppingOperator((2,3,), (2,3,4,), (0,1,))
-
-    #
-    # Tests for different sizes and element types.
-    #
-    for (osz, isz) in (((3,), (8,)),
-                       ((4,), (8,)),
-                       ((3,), (7,)),
-                       ((4,), (7,)),
-                       ((4,5), (6,7))),
-        T in (Float64, Complex{Float32})
-
-        # Basics methods.
-        R = real(T)
-        C = CroppingOperator(osz, isz)
-        off = ntuple(i->Int16(isz[i] - osz[i])>>1, length(isz))
-        @test ZeroPaddingOperator(isz, osz) === Adjoint(C)
-        @test ZeroPaddingOperator(isz, osz, off) === Adjoint(CroppingOperator(osz, isz, off))
-        @test input_ndims(C) == length(isz)
-        @test input_size(C) == isz
-        @test all(i -> input_size(C,i) == isz[i], 1:length(isz))
-        @test output_ndims(C) == length(osz)
-        @test output_size(C) == osz
-        @test all(i -> output_size(C,i) == osz[i], 1:length(osz))
-
-        # Compare result of opertaor with reference implementation.
-        x = rand(T, isz)
-        xsav = vcopy(x)
-        Cx = C*x
-        @test x == xsav
-        @test Cx == crop(x, osz)
-        y = rand(T, osz)
-        ysav = vcopy(y)
-        Cty = C'*y
-        @test y == ysav
-        @test Cty == zeropad(y, isz)
-
-        # Test various possibilities for vmul!
-        atol = 0
-        rtol = eps(R)
-        for α in (0, 1, -1,  2.71, π),
-            β in (0, 1, -1, -1.33, Base.MathConstants.φ),
-            scratch in (false, true)
-            # Test operator.
-            @test vmul!(α, Direct, C, x, scratch, β, vcopy(y)) ≈
-                R(α)*Cx + R(β)*y  atol=atol rtol=rtol
-            if scratch
-                vcopy!(x, xsav)
-            else
+    @testset "Cropping and zero-padding" begin
+        @testset "dims=$(inner_dims)=>$(outer_dims)" for (inner_dims, outer_dims) in sizes
+            N = length(outer_dims)
+            off = default_offset(inner_dims, outer_dims)
+            C = @inferred CroppingOperator(inner_dims, outer_dims)
+            @test C === @inferred CroppingOperator(inner_dims, outer_dims, off)
+            Z = @inferred ZeroPaddingOperator(outer_dims, inner_dims)
+            @test Z === @inferred ZeroPaddingOperator(outer_dims, inner_dims, off)
+            @test Z === C'
+            @test C' === Z
+            @test LazyAlgebra.InputShape(C) === LazyAlgebra.HasInputShape{N}()
+            @test LazyAlgebra.OutputShape(C) === LazyAlgebra.HasOutputShape{N}()
+            @test LazyAlgebra.InputShape(Z) === LazyAlgebra.HasInputShape{N}()
+            @test LazyAlgebra.OutputShape(Z) === LazyAlgebra.HasOutputShape{N}()
+            @test LazyAlgebra.input_axes(C) == as_array_axes(outer_dims)
+            @test LazyAlgebra.output_axes(C) == as_array_axes(inner_dims)
+            @test LazyAlgebra.input_axes(Z) == as_array_axes(inner_dims)
+            @test LazyAlgebra.output_axes(Z) == as_array_axes(outer_dims)
+            off1 = map((inner,outer) -> inner < outer ? 1 : 0, inner_dims, outer_dims)
+            C1 = @inferred CroppingOperator(inner_dims, outer_dims, off1)
+            Z1 = @inferred ZeroPaddingOperator(outer_dims, inner_dims, off1)
+            @test Z1 === C1'
+            @test Z1' === C1
+            @testset "T=$T" for T in eltypes
+                x = rand(rng, T, outer_dims)
+                xsav = copy(x)
+                Cx = C*x
                 @test x == xsav
-            end
-            # Test  adjoint.
-            @test vmul!(α, Adjoint, C, y, scratch, β, vcopy(x)) ≈
-                R(α)*Cty + R(β)*x  atol=atol rtol=rtol
-            if scratch
-                vcopy!(y, ysav)
-            else
+                @test eltype(Cx) === eltype(x)
+                @test Cx == crop(x, inner_dims)
+                @test Cx == crop(x, inner_dims, off)
+                @test C1*x == crop(x, inner_dims, off1)
+                y = rand(rng, T, inner_dims)
+                ysav = copy(y)
+                Zy = Z*y
                 @test y == ysav
+                @test eltype(Zy) === eltype(y)
+                @test Zy == zeropad(y, outer_dims)
+                @test Zy == zeropad(y, outer_dims, off)
+                @test Z1*y == zeropad(y, outer_dims, off1)
+
+                @testset "α*C*x with α=$α" for α in alphas
+                    αCx = @inferred(vmul(α, C, x))
+                    @test x == xsav
+                    @test eltype(αCx) == infer_output_eltype(α,C,x)
+                    @test αCx ≈ α*Cx rtol=rtol
+                end
+
+                @testset "α*C*x + β*y with α=$α and β=$β" for α in alphas, β in betas
+                    z = similar(y, infer_output_eltype(α, C, x, β, y))
+                    iszero(β) ? vnans!(z) : vcopy!(z, y) # fill with NaNs if values not to be used
+                    @test @inferred(vmul!(α, C, x, β, z)) === z
+                    @test x == xsav
+                    @test z ≈ α*Cx + β*y rtol=rtol
+                end
+
+                @testset "α*C'*y with α=$α" for α in alphas
+                    αZy = @inferred(vmul(α, Z, y))
+                    @test y == ysav
+                    @test eltype(αZy) == infer_output_eltype(α, Z, y)
+                    @test αZy ≈ α*Zy rtol=rtol
+                end
+
+                @testset "α*C'*y + β*x with α=$α and β=$β" for α in alphas, β in betas
+                    z = similar(x, infer_output_eltype(α, Z, y, β, x))
+                    iszero(β) ? vnans!(z) : vcopy!(z, x) # fill with NaNs if values not to be used
+                    @test @inferred(vmul!(α, Z, y, β, z)) === z
+                    @test y == ysav
+                    @test z ≈ α*Zy + β*x rtol=rtol
+                end
+
             end
         end
     end
 end
-nothing
 
 end # module

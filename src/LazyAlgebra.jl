@@ -90,6 +90,7 @@ using TypeUtils: @public
 @public Identity
 @public check_input_axes
 @public check_output_axes
+@public default_cropping_offset
 @public input_eltype InputEltype InputEltypeUnknown HasInputEltype
 @public input_axes input_ndims InputShape InputShapeUnknown HasInputShape
 #@public LazyMap
