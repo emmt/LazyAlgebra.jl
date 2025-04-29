@@ -1,4 +1,4 @@
-module TestingLazyAlgebraDiag
+module LazyAlgebraDiagTests
 
 using LazyAlgebra
 using Test
@@ -184,4 +184,4 @@ function runtests(; rng::AbstractRNG = MersenneTwister(314159),
 end
 end # module
 
-#isinteractive() && TestingLazyAlgebraDiag.runtests()
+#isinteractive() && LazyAlgebraDiagTests.runtests()
