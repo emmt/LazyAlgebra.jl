@@ -268,7 +268,7 @@ output_eltype(::Type{Sum{L,R}}, ::Type{x}) where {L,R,x<:AbstractArray} =
     sum_type(output_eltype(L, x), output_eltype(R, x))
 
 output_eltype(::Type{Prod{L,R}}, ::Type{x}) where {L,R,x<:AbstractArray} =
-    output_eltype(L, output_eltype(R, x))
+    output_eltype(L, AbstractArray{output_eltype(R, x)})
 
 # Output element type for scaled operators.
 output_eltype(::Type{Prod{L,R}}, ::Type{x}) where {L<:Number,R,x<:AbstractArray} =
@@ -743,7 +743,7 @@ See also [`vmul`](@ref), [`vmul!`](@ref), and [`LazyAlgebra.check_input_axes`](@
 """
 check_output_axes(y::AbstractArray, out_axes::ArrayAxes) = check_output_axes(axes(y), out_axes)
 check_output_axes(y_axes::ArrayAxes, out_axes::ArrayAxes) =
-    y_axes == out_axes ? nothing : throw_incompatible_axes("output array", y_axes, out_axes)
+    y_axes == out_axes ? nothing : throw_incompatible_output_axes(y_axes, out_axes)
 
 @noinline throw_incompatible_output_axes(y_axes::ArrayAxes, out_axes::ArrayAxes) =
     throw(DimensionMismatch(incompatible_axes("output array", y_axes, out_axes)))
