@@ -54,9 +54,7 @@ for f in (:output_size, :input_size)
 end
 
 unsafe_vmul!(α::Number, A::Identity, x::AbstractArray, β::Number, y::AbstractArray) =
-    unsafe_vcombine!(y, α, x, β, y)
-unsafe_vmul!(dst::AbstractArray, α::Number, A::typeof(Id), x::AbstractArray) =
-    unsafe_scale!(dst, α, x)
+    dispatch_vcombine!(y, α, x, β, y)
 
 # Set precision for identity operators.
 set_precision(::Type{T}, A::Identity) where {T<:AbstractFloat} = A
