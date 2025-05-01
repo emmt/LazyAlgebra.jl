@@ -291,22 +291,22 @@ sets all elements of `x` with the scalar value `α` and return `x`. The default
 implementation just calls `fill!` with `α` convereted to `eltype(x)` but this method may
 be specialized for specific types of variables `x`.
 
-See also [`vzero!`](@ref), and [`vzeros`](@ref).
+See also [`vzeros!`](@ref), and [`vzeros`](@ref).
 
 """
 vfill!(x::AbstractArray, α::Number) = fill!(x, as(eltype(x), α))
 
 """
-    vzero!(x) -> x
+    vzeros!(x) -> x
 
 fills `x` with zeros and returns it. The default implementation just calls
 `fill!(x, zero(eltype(x)))` but this method may be specialized for specific types of
 variables `x`.
 
-See also [`vfill!`](@ref).
+See also [`vfill!`](@ref) and [`vzeros`](@ref).
 
 """
-vzero!(x::AbstractArray) = vfill!(x, zero(eltype(x)))
+vzeros!(x::AbstractArray) = vfill!(x, zero(eltype(x)))
 
 """
     vzeros(x)
@@ -316,7 +316,7 @@ yields an array similar to `x` but filled with zeros and of floating-point type.
 See also [`vones`](@ref), [`vfill!`](@ref), and [`vcreate`](@ref).
 
 """
-vzeros(x::AbstractArray) = vzero!(vcreate(x))
+vzeros(x::AbstractArray) = vzeros!(vcreate(x))
 
 """
     vones(x)
@@ -360,7 +360,7 @@ overwrite `x` with `α*x` and returns `x`. The convention is that `x` is zero-fi
 `iszero(α)` holds (whatever the values of `x`) and that nothing is done if `isone(α)`
 holds. Multiplier `α` shall not have units.
 
-See also [`vscale`](@ref), [`vzero!`](@ref), [`LinearAlgebra.rmul!](@ref), and
+See also [`vscale`](@ref), [`vzeros!`](@ref), [`LinearAlgebra.rmul!](@ref), and
 [`LazyAlgebra.dispatch_vscale!`](@ref).
 
 """
@@ -374,7 +374,7 @@ vscale!(x::AbstractArray, α::Number) =
 
 overwrites `x` with `α*x` and returns `x`.
 
-This method calls [`vzero!(x)`](@ref vzero!) if `iszero(α)` holds and [`unsafe_vscale!(x,
+This method calls [`vzeros!(x)`](@ref vzeros!) if `iszero(α)` holds and [`unsafe_vscale!(x,
 α)`](@ref LazyAlgebra.unsafe_vscale!) if neither `iszero(α)` nor `isone(α)` hold.
 
 !!! warning
@@ -386,7 +386,7 @@ See also [`vscale!`](@ref).
 """
 function dispatch_vscale!(x::AbstractArray, α::Number)
     if iszero(α)
-        vzero!(x)
+        vzeros!(x)
     elseif !isone(α)
         unsafe_vscale!(x, α)
     end
@@ -432,7 +432,7 @@ end
 
 overwrites `dst` with `α*x` and returns `dst`.
 
-This method calls [`vzero!(x)`](@ref vzero!) if `iszero(α)` holds, [`unsafe_vcopy!(dst,
+This method calls [`vzeros!(x)`](@ref vzeros!) if `iszero(α)` holds, [`unsafe_vcopy!(dst,
 src)`](@ref LazyAlgebra.unsafe_vcopy!) if `isone(α)` holds, and [`unsafe_vscale!(dst, α,
 src)`](@ref LazyAlgebra.unsafe_vscale!) if neither `iszero(α)` nor `isone(α)` hold.
 
@@ -445,7 +445,7 @@ See also [`vscale!`](@ref).
 """
 function dispatch_vscale!(dst::AbstractArray, α::Number, src::AbstractArray)
     if iszero(α)
-        vzero!(dst)
+        vzeros!(dst)
     elseif isone(α)
         unsafe_vcopy!(dst, src)
     else

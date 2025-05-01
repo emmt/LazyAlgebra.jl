@@ -27,7 +27,7 @@ function conjgrad(A, b; kwds...)
 end
 
 """
-    conjgrad!(x, A, b, [x0 = vzero!(x), p, q, r]) -> x
+    conjgrad!(x, A, b, [x0 = vzeros!(x), p, q, r]) -> x
 
 finds an approximate solution to the symmetric linear system `A*x = b` starting at `x0` by
 means of the iterative conjugate gradient method. The result is stored in `x` which is
@@ -118,7 +118,7 @@ end
 
 function conjgrad!(x::AbstractArray{<:Any,N}, A,
                    b::AbstractArray{<:Any,N},
-                   x0::AbstractArray{<:Any,N} = vzero!(x),
+                   x0::AbstractArray{<:Any,N} = vzeros!(x),
                    p::AbstractArray{<:Any,N} = vcreate(x),
                    q::AbstractArray{<:Any,N} = vcreate(x),
                    r::AbstractArray{<:Any,N} = vcreate(x);

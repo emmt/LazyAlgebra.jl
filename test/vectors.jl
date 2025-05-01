@@ -83,8 +83,8 @@ using LinearAlgebra
         @test @inferred(vfill!(z, 2.0)) === z
         @test all(z .== 2.0)
 
-        # Test vzero! and vzeros
-        @test @inferred(vzero!(z)) === z
+        # Test vzeros! and vzeros
+        @test @inferred(vzeros!(z)) === z
         @test all(iszero, z)
         let t = @inferred(vzeros(x))
             @test typeof(t) === typeof(x)

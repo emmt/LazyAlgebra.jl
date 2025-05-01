@@ -68,6 +68,8 @@ This page describes the most important changes in `LazyAlgebra`. The format is b
 - Extending vectorized methods to other *vector* types shall only require to specialize
   the *unsafe* version of the methods (the ones with the `unsafe_` prefix).
 
+- `vzero!` renamed `vzeros!`.
+
 ### Added
 
 - Most methods can be specialized for specific operator and/or array types by extending

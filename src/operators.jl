@@ -693,7 +693,7 @@ overwrites `y` with `α*A⋅x + β*y` and returns `y`.
 If `iszero(α)` does not hold, this method calls [`LazyAlgebra.unsafe_vmul!(α, A, x, β,
 y)`](@ref LazyAlgebra.unsafe_vmul!); otherwise, if `iszero(β)` does not hold, this method
 calls [`LazyAlgebra.unsafe_vscale!(β, y)`](@ref LazyAlgebra.unsafe_vscale!)this method
-calls [`vzero!(y)`](@ref LazyAlgebra.vzero!).
+calls [`vzeros!(y)`](@ref LazyAlgebra.vzeros!).
 
 !!! warning
     This method assumes that the axes of `x` and `y` have been checked to be correct as
@@ -709,7 +709,7 @@ function dispatch_vmul!(α::Number, A::Operator, x::AbstractArray, β::Number, y
     elseif !iszero(β)
         unsafe_vscale!(y, β)
     else
-        vzero!(y)
+        vzeros!(y)
     end
     return y
 end
@@ -815,12 +815,12 @@ if !iszero(α)
 elseif !iszero(β)
     LazyAlgebra.unsafe_vscale!(y, β)
 else
-    LazyAlgebra.vzero!(y)
+    LazyAlgebra.vzeros!(y)
 end
 ```
 
 See also [`vmul`](@ref), [`vmul!`](@ref), [`LazyAlgebra.Operator`](@ref),
-[`LazyAlgebra.unsafe_vscale!`](@ref), [`vzero!`](@ref),
+[`LazyAlgebra.unsafe_vscale!`](@ref), [`vzeros!`](@ref),
 [`LazyAlgebra.output_eltype`](@ref) [`LazyAlgebra.output_axes`](@ref), and
 [`LazyAlgebra.create_output`](@ref).
 

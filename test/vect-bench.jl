@@ -11,7 +11,7 @@ const Vn = LazyAlgebra
 module V1
 using ArrayTools
 using LazyAlgebra:
-    Floats, vscale!, vzero!,
+    Floats, vscale!, vzeros!,
     convert_multiplier, arguments_have_incompatible_axes
 
 function vupdate!(y::AbstractArray{<:Floats,N},

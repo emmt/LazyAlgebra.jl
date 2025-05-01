@@ -81,7 +81,7 @@ export
     vscale,
     vswap!,
     vupdate!,
-    vzero!,
+    vzeros!,
     vzeros
 
 using TypeUtils: @public

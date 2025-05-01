@@ -88,7 +88,7 @@ See also [`LazyAlgebra.vmap!`](@ref) and [`LazyAlgebra.unsafe_vmap!`](@ref).
 function dispatch_vmap!(dst::AbstractArray, α::Number, f::Function,
                         w::AbstractArray, x::AbstractArray)
     if iszero(α)
-        vzero!(dst)
+        vzeros!(dst)
     else
         unsafe_vmap!(dst, α, f, w, x)
     end

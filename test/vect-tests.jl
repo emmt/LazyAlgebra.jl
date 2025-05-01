@@ -60,7 +60,7 @@ end # testset
     a = randn(T, dims)
     @test distance(vfill!(a,0), zeros(T,dims)) == 0
     a = randn(T, dims)
-    @test distance(vfill!(a,0), vzero!(a)) == 0
+    @test distance(vfill!(a,0), vzeros!(a)) == 0
     a = randn(T, dims)
     @test distance(vfill!(a,1), ones(T,dims)) == 0
     a = randn(T, dims)

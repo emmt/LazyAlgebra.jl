@@ -44,7 +44,7 @@ small number of vectorized methods:
 
 * `vfill!(x,α)` sets all elements of `x` with the scalar value `α` and returns `x`.
 
-* `vzero!(x)`fills `x` with zeros and returns it.
+* `vzeros!(x)`fills `x` with zeros and returns it.
 
 * `vscale!(dst,α,src)` overwrites `dst` with `α*src` and returns `dst`. The convention is
   that, if `α = 0`, then `dst` is filled with zeros whatever the contents of `src`. A
@@ -106,7 +106,7 @@ and [`vcombine!`](@ref) split their work in the following 3 stages:
 2. Depending on the specific values of the multipliers, the *dispatch* method calls one of
    the *unsafe* methods ([`LazyAlgebra.unsafe_vscale!`](@ref),
    [`LazyAlgebra.unsafe_vupdate!`](@ref), [`LazyAlgebra.unsafe_vcombine!`](@ref),
-   [`LazyAlgebra.unsafe_vcopy!`](@ref) or [`vzero!`](ref)).
+   [`LazyAlgebra.unsafe_vcopy!`](@ref) or [`vzeros!`](ref)).
 
 3. The *unsafe* method computes the result assuming that checking of bounds can be
    avoided, that multipliers do not need to be converted to more suitable types, and that
