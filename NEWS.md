@@ -93,7 +93,11 @@ This page describes the most important changes in `LazyAlgebra`. The format is b
 - Exported function `set_precision(T, A)` to set the numerical precision of the values
   stored by `A` to be that of the floating-point type `T`.
 
-- New methods `vones!`, `vnans`, and `vnans!`.
+- New methods `vones!`, `vnans`, and `vnans!` to fill an array with ones or NaNs.
+
+- Non-exported public method `LazyAlgebra.test_API` to test the implementation of an
+  operator.
+
 
 ## Version 0.2.7 (2024-03-08)
 

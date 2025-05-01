@@ -13,6 +13,7 @@ Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 Requires = "ae029012-a4dd-5104-9daa-d747884805df"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 StructuredArrays = "2e8cd123-6858-488d-b42d-068777248635"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 TypeUtils = "c3b1956e-8857-4d84-9b79-890df85b1e67"
 ZippedArrays = "8051824b-fc5e-4603-89c4-0e6ea551cb88"
 

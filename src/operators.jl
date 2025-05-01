@@ -55,6 +55,9 @@ Base.transpose(trait::OutputEltypeUnknown) = InputEltypeUnknown()
 Base.transpose(trait::HasInputEltype) = HasOutputEltype()
 Base.transpose(trait::HasOutputEltype) = HasInputEltype()
 
+Base.ndims(x::Union{InputShape,OutputShape}) = ndims(typeof(x))
+Base.ndims(::Type{<:Union{HasInputShape{N},HasOutputShape{N}}}) where {N} = N
+
 """
     LazyAlgebra.InputShape(typeof(A))
 
@@ -866,4 +869,97 @@ function unsafe_vmul!(α::Number, G::Inverse{<:Gram}, x::AbstractArray,
                       β::Number, y::AbstractArray)
     A = G[][] # yields A such that G = inv(A'*A) = inv(A)*inv(A')
     unsafe_vmul!(α, inv(A), inv(A')*x, β, y)
+end
+
+"""
+    LazyAlgebra.test_API(A::Operator, x, y)
+
+tests that operator API is correctly implemented for `A`. `x` is a chosen input for `A`
+and `y` is the expected output. The shapes and element types of `x` and `y` must be
+correct. The returned value is that of a `@testset`.
+
+Keywords `alphas` and `betas` are tuples of values for `α` and `β` to test
+`LazyAgebra.vmul(α, A, x)`, `LazyAgebra.vmul!(dst, α, A, x)`, and `LazyAgebra.vmul!(α, A,
+x, β, y)`.
+
+Keywords `atol` and `rtol` are the absolute and relative tolerances for comparing `A*x`
+and `y`.
+
+"""
+function test_API(A::Operator, x::AbstractArray, y::AbstractArray;
+                  alphas::Tuple{Vararg{Number}} = (-1, 0, 1, 3, -2 + 1im),
+                  betas::Tuple{Vararg{Number}} = (-1, 0, 1, 2, π),
+                  rtol::Real = 4e-7, atol=0)
+
+    @testset "Operator API for $(typeof(A)), T=$(eltype(x)), and dims=$(size(x))" begin
+        # Output element type.
+        o = @inferred OutputEltype(A)
+        @test o === HasOutputEltype() || o === OutputEltypeUnknown()
+        if o === HasOutputEltype()
+            # `output_eltype(typeof(A))` must be implemented.
+            @test hasmethod(output_eltype, Tuple{typeof(A)})
+            @test @inferred(output_eltype(typeof(A))) === eltype(y)
+        elseif hasmethod(output_eltype, Tuple{typeof(A),typeof(x)})
+            # `output_eltype(typeof(A), typeof(x))` is implemented.
+            @test @inferred(output_eltype(typeof(A),typeof(x))) === eltype(y)
+        else
+            # `Base.eltype(typeof(A))` must not be the default implementation.
+            @test eltype(A) !== Any
+            @test float(sumprod_type(eltype(A), eltype(x))) === eltype(y)
+        end
+
+        # Input element type.
+        i = @inferred InputEltype(A)
+        @test i === HasInputEltype() || i === InputEltypeUnknown()
+        if i === HasInputEltype()
+            @test @inferred(input_eltype(A)) === eltype(x)
+        end
+
+        # Output axes.
+        o = @inferred OutputShape(A)
+        @test o isa HasOutputShape || o === OutputShapeUnknown()
+        if o isa HasOutputShape
+            @test ndims(o) == ndims(y)
+            @test @inferred(output_axes(A)) isa ArrayAxes{ndims(o)}
+            @test @inferred(output_axes(A)) == axes(y)
+        else
+            @test hasmethod(output_axes, Tuple{typeof(A), typeof(axes(x))})
+            @test output_axes(A, axes(x)) === axes(y)
+        end
+
+        # Input axes.
+        i = @inferred InputShape(A)
+        @test i isa HasInputShape || i === InputShapeUnknown()
+        if i isa HasInputShape
+            @test ndims(i) == ndims(x)
+            @test @inferred(input_axes(A)) isa ArrayAxes{ndims(i)}
+            @test @inferred(input_axes(A)) == axes(x)
+        end
+
+        xsav = copy(x)
+        Ax = A*x
+        @test x == xsav # x must be left unchanged
+        @test eltype(Ax) == eltype(y)
+        @test axes(Ax) == axes(y)
+        @test Ax ≈ y atol=atol rtol=rtol
+
+        @testset "α*A*x with α=$α" for α in alphas
+            α′ = convert_multiplier(α, Ax)
+            αAx = @inferred(vmul(α, A, x))
+            @test x == xsav
+            @test eltype(αAx) == typeof(zero(α′)*zero(eltype(Ax)))
+            @test αAx ≈ α′*y atol=atol rtol=rtol
+        end
+
+        @testset "α*A*x + β*y with α=$α and β=$β" for α in alphas, β in betas
+            α′ = convert_multiplier(α, Ax)
+            β′ = convert_multiplier(β, y)
+            T = typeof(zero(α′)*zero(eltype(Ax)) + zero(β′)*zero(eltype(y)))
+            z = similar(y, T)
+            iszero(β′) ? vnans!(z) : vcopy!(z, y) # fill with NaNs if values not to be used
+            @test @inferred(vmul!(α, A, x, β, z)) === z
+            @test x == xsav
+            @test z ≈ α′*Ax + β′*y atol=atol rtol=rtol
+        end
+    end
 end

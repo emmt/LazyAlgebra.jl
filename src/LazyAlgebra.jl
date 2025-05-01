@@ -104,6 +104,7 @@ using TypeUtils: @public
 #@public create_output
 #@public default_cropping_offset
 #@public default_zeropadding_offset
+@public test_API
 @public unsafe_vcombine! dispatch_vcombine!
 @public unsafe_vcopy!
 @public unsafe_vdot
@@ -115,6 +116,7 @@ using TypeUtils: @public
 
 using Printf
 using ArrayTools
+using Test
 using TypeUtils
 #using FFTW
 
