@@ -69,7 +69,6 @@ end
 
 #
 flat(A::AbstractArray) = reshape(A, length(A))
-vnans!(A::AbstractArray) = fill!(A, eltype(A) <: Complex ? Complex(NaN,NaN) : NaN)
 
 function shift_values!(by::Real, A::AbstractArray{T}) where {T}
     R = real(T)

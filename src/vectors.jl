@@ -319,6 +319,18 @@ See also [`vones`](@ref), [`vfill!`](@ref), and [`vcreate`](@ref).
 vzeros(x::AbstractArray) = vzeros!(vcreate(x))
 
 """
+    vones!(x) -> x
+
+fills `x` with ones and returns it. The default implementation just calls
+`fill!(x, one(eltype(x)))` but this method may be specialized for specific types of
+variables `x`.
+
+See also [`vfill!`](@ref) and [`vones`](@ref).
+
+"""
+vones!(x::AbstractArray) = vfill!(x, one(eltype(x)))
+
+"""
     vones(x)
 
 yields an array similar to `x` but filled with ones and of floating-point type.
@@ -326,10 +338,29 @@ yields an array similar to `x` but filled with ones and of floating-point type.
 See also [`vzeros`](@ref) and [`vfill!`](@ref).
 
 """
-function vones(x::AbstractArray)
-    T = float(eltype(x))
-    return vfill!(similar(x, T), one(T))
-end
+vones(x::AbstractArray) = vones!(vcreate(x))
+
+"""
+    vnans(x)
+
+yields an array similar to `x` but filled with NaNs and of floating-point type.
+
+See also [`vones`](@ref), [`vfill!`](@ref), and [`vcreate`](@ref).
+
+"""
+vnans(x::AbstractArray) = vnans!(vcreate(x))
+
+"""
+    vnans!(x) -> x
+
+fills `x` with NaNs and returns it. The default implementation just calls `fill!(x,
+NaN*zero(eltype(x)))` but this method may be specialized for specific types of variables
+`x`.
+
+See also [`vfill!`](@ref) and [`vnans`](@ref).
+
+"""
+vnans!(x::AbstractArray) = vfill!(x, NaN*zero(eltype(x)))
 
 #-----------------------------------------------------------------------------------------
 # SCALING
