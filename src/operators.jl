@@ -257,7 +257,7 @@ output_eltype(::Type{α}, ::Type{x}) where {α<:Number, x<:AbstractArray} =
 # Fallback method, assumes that one of `output_eltype(A)` or `eltype(A)` is applicable.
 output_eltype(::Type{A}, ::Type{x}) where {A<:Operator, x<:AbstractArray} =
     OutputEltype(A) === HasOutputEltype() ? float(output_eltype(A)) :
-    float(prod_type(eltype(A), eltype(x)))
+    float(sumprod_type(eltype(A), eltype(x)))
 
 # Extend `Base.eltype` for operators and their variants. NOTE This is not necessary for
 # `Sum` and `Prod` as they implement `output_eltype` properly.
