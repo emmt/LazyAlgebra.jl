@@ -889,7 +889,7 @@ and `y`.
 function test_API(A::Operator, x::AbstractArray, y::AbstractArray;
                   alphas::Tuple{Vararg{Number}} = (-1, 0, 1, 3, -2 + 1im),
                   betas::Tuple{Vararg{Number}} = (-1, 0, 1, 2, π),
-                  rtol::Real = 4e-7, atol=0,
+                  rtol::Real = 4e-7, atol=0, norm::Function=norm,
                   name::AbstractString = repr(typeof(A)))
 
     @testset "Operator API for $name, T=$(eltype(x)), and dims=$(size(x))" begin
@@ -942,14 +942,14 @@ function test_API(A::Operator, x::AbstractArray, y::AbstractArray;
         @test x == xsav # x must be left unchanged
         @test eltype(Ax) == eltype(y)
         @test axes(Ax) == axes(y)
-        @test Ax ≈ y atol=atol rtol=rtol
+        @test Ax ≈ y atol=atol rtol=rtol norm=norm
 
         @testset "α*A*x with α=$α" for α in alphas
             α′ = convert_multiplier(α, Ax)
             αAx = @inferred(vmul(α, A, x))
             @test x == xsav
             @test eltype(αAx) == typeof(zero(α′)*zero(eltype(Ax)))
-            @test αAx ≈ α′*y atol=atol rtol=rtol
+            @test αAx ≈ α′*y atol=atol rtol=rtol norm=norm
         end
 
         @testset "α*A*x + β*y with α=$α and β=$β" for α in alphas, β in betas
@@ -960,7 +960,12 @@ function test_API(A::Operator, x::AbstractArray, y::AbstractArray;
             iszero(β′) ? vnans!(z) : vcopy!(z, y) # fill with NaNs if values not to be used
             @test @inferred(vmul!(α, A, x, β, z)) === z
             @test x == xsav
-            @test z ≈ α′*Ax + β′*y atol=atol rtol=rtol
+            if atol == 0 && α == -β
+                # Result should be ≈ 0 which is a delicate case for tolerances.
+                @test z ≈ α′*Ax + β′*y atol=rtol*max(norm(α′*Ax), norm(β′*y)) rtol=0 norm=norm
+            else
+                @test z ≈ α′*Ax + β′*y atol=atol rtol=rtol norm=norm
+            end
         end
     end
 end
