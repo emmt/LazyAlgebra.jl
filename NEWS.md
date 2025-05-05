@@ -70,13 +70,19 @@ This page describes the most important changes in `LazyAlgebra`. The format is b
 
 - `vzero!` renamed `vzeros!`.
 
+- Constructor of finite difference operator has a different syntax (for type-stability).
+  It is called as `Diff{L,D}()` with `L` the order of differentiation and `D` the
+  dimension(s) along which to perform the differentiation. If unspecified, `L=1` and
+  `D=Colon` are assumed. The latter indicates to differentiate along all dimensions.
+
+
 ### Added
 
 - Most methods can be specialized for specific operator and/or array types by extending
   the `LazyAlgebra.unsafe_$f` method that is called by method `$f` after having checked
   that arguments have compatible axes and converted scalar multipliers (if any) to
-  suitable floating-point type without changing their units. This makes easier to
-  extend `LazyAlgebra`.
+  suitable floating-point type without changing their units. This makes easier to extend
+  `LazyAlgebra`.
 
 - Non-exported but public methods `LazyAlgebra.multiplier_type` and
   `LazyAlgebra.convert_multiplier` may be used to infer the type of a scalar multiplier

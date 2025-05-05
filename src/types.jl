@@ -1,9 +1,4 @@
-#
-# types.jl -
-#
-# Definition of types and constants for linear algebra.
-#
-#-----------------------------------------------------------------------------------------
+# Definition of types and constants for `LazyAlgebra`.
 
 """
     Operator
@@ -290,3 +285,16 @@ end
 
 # A zero-padding operator is implemented as the adjoint of a cropping operator.
 const ZeroPaddingOperator{N,I,J} = Adjoint{CroppingOperator{N,J,I}}
+
+# Finite difference operator with `L` the order of differentiation and `D` the list of
+# dimensions along which to compute the differences ( `Colon` for all, a tuple of `Int`s
+# or a single `Int`).
+@callable struct Diff{L,D} <: Operator
+    # Inner constructor to avoid building with unchecked parameters.
+    function Diff{L,D}() where {L,D}
+        L isa Int || throw(ArgumentError("finite difference order `L` must be an `Int`"))
+        D === Colon || D isa Int || D isa Tuple{Vararg{Int}} || D === :any || throw(
+            ArgumentError("invalid dimension(s) of differentiation"))
+        return new{L,D}()
+    end
+end

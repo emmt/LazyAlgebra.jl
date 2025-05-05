@@ -1,30 +1,110 @@
-#
-# diff.jl -
-#
-# Implement finite differences operators.
-#
-#-------------------------------------------------------------------------------
-#
-# This file is part of LazyAlgebra (https://github.com/emmt/LazyAlgebra.jl)
-# released under the MIT "Expat" license.
-#
-# Copyright (c) 2017-2021 Éric Thiébaut.
-#
+"""
 
+Module `LazyAlgebra.FiniteDifferences` implement finite differences operators.
+
+"""
 module FiniteDifferences
 
-export Diff
-
-using MayOptimize
-using LazyAlgebra
-using LazyAlgebra.Foundations
-import LazyAlgebra: vmul!, vcreate, identical
+using TypeUtils
 
 using Base: @propagate_inbounds
-import Base: show
 
-const ArrayAxis = AbstractUnitRange{Int}
-const ArrayAxes{N} = NTuple{N,ArrayAxis}
+using ..LazyAlgebra
+import ..LazyAlgebra:
+    Diff,
+    Prod,
+    output_axes,
+    output_eltype,
+    unsafe_vmul!
+using ..LazyAlgebra:
+    Adjoint,
+    Gram,
+    axpby_yields_x,
+    axpby_yields_xpy,
+    axpby_yields_xpby,
+    axpby_yields_ax,
+    axpby_yields_axpy,
+    axpby_yields_axpby
+
+"""
+    A = Diff{L=1,D=Colon}()
+
+yields a linear mapping that computes a finite difference approximation of the `L`-order
+derivative along the dimension(s) specified by `D`. Parameter `D` is an `Int`, a tuple of
+`Int`s, or `Colon` for differentiating along respectively a single dimension, several
+dimensions, or all dimensions.
+
+Currently, only `L=1` or `L=2` are implemented. If `L` is unspecified, `A` will compute
+1st order finite differences.
+
+If `D` is unspecified, `A` will compute finite differences along all dimensions.
+
+If `D` is a single `Int`, the result, say `y`, of applying the finite difference operator
+to an array, say `x`, has the same axes as `x`. Otherwise and even though `x` has a single
+dimension or `D` is a 1-tuple, `y` has one more dimension than `x`, the last dimension of
+`y` is used to store the finite differences along each dimensions specified by `D` and the
+leading dimensions of `y` are the same as the dimensions of `x`.
+
+If multiple dimensions are specified, the result is as if the operator is applied
+separately on the specified dimension(s).
+
+More specifically, the operator created by `Diff` implements **forward finite
+differences** with **flat boundary conditions**, that is to say extrapolated entries are
+assumed equal to the nearest entry.
+
+"""
+Diff() = Diff{1}()
+Diff{L}() where {L} = Diff{L,Colon}()
+
+# Two finite difference operators are identical if they have the same order of
+# differentiation and list of dimensions along which compute the differences.
+Base.:(==)(A::Diff{L,D}, B::Diff{L,D}) where {L,D} = true
+Base.:(isequal)(A::Diff{L,D}, B::Diff{L,D}) where {L,D} = true
+
+# Print operator in such a way that is similar to how the operator would be created in
+# Julia.
+Base.show(io::IO, ::Diff{L,D}) where {L,D} =
+    print(io, "Diff{", L, ',', (D === Colon ? "Colon" : D), "}()")
+
+Prod(A::Adjoint{Diff{L,D}}, B::Diff{L,D}) where {L,D} = Gram(B)
+
+# Output element type for any variant of the finite difference operator.
+function output_eltype(::Type{<:Union{D,Adjoint{D},Gram{D}}},
+                       ::Type{x}) where {D<:Diff,x<:AbstractArray}
+    return float(eltype(x))
+end
+
+# Output axes for D'*D with D a finite difference operator.
+output_axes(A::Gram{<:Diff}, axes_x::ArrayAxes) = axes_x
+
+# Output element type for other variant of the finite difference operator.
+function output_axes(A::Union{Diff{L,D},Adjoint{<:Diff{L,D}}},
+                     axes_x::ArrayAxes{N}) where {L,D,N}
+    if D isa Int || D isa Dims
+        # All dimensions of finite differentiation must be in range.
+        for d in D
+            1 ≤ d ≤ (A isa Adjoint ? N - 1 : N) || throw(ArgumentError(
+                "out of range dimension of finite differentiation"))
+        end
+    elseif D !== Colon
+        throw(AssertionError("unexpected dimension(s) of differentiation"))
+    end
+
+    # Unless `D` is a scalar `Int`, output of finite difference has one more trailing
+    # dimension equal to the number of dimensions along which to differentiate.
+    if D isa Int
+        return axes_x
+    elseif A isa Adjoint
+        N ≥ 1 || throw(DimensionMismatch("input array must have at least 1 dimension"))
+        nd = (D === Colon ? N-1 : length(D))
+        axes_x[N] == Base.OneTo(nd) || throw(DimensionMismatch(
+            "last axis of input array must be 1:$nd, got $(axes_x[N])"))
+        return axes_x[1:N-1]
+    else
+        nd = (D === Colon ? N : length(D))
+        return (axes_x..., Base.OneTo(nd))
+    end
+end
 
 """
     limits(r) -> (first(r), last(r))
@@ -34,472 +114,106 @@ yields the first and last value of the unit-range `r`.
 """
 limits(r::AbstractUnitRange) = (first(r), last(r))
 
-"""
-    Diff([opt::MayOptimize.Vectorize,] n=1, dims=:)
+# Apply the operation along all dimensions of interest but one dimension at a time and
+# knowing that α is not zero.
+@generated function unsafe_vmul!(α::Number,
+                                 A::Union{Diff{L,D},
+                                          Adjoint{<:Diff{L,D}},
+                                          Gram{<:Diff{L,D}}},
+                                 x::AbstractArray{Tx,Nx},
+                                 β::Number,
+                                 y::AbstractArray{Ty,Ny}) where {L,D,Tx,Nx,Ty,Ny}
+    # Minimal check to avoid compiling an invalid function.
+    D === Colon || D isa Int || D isa Tuple{Vararg{Int}} || throw(AssertionError(
+        "invalid list of dimension(s) of differentiation"))
 
-yields a linear mapping that computes a finite difference approximation of the
-`n`-order derivative along the dimension(s) specified by `dims`.  Arguments
-`dims` is an integer, a tuple or a vector of integers specifying along which
-dimension(s) to apply the operator or `:` to specify all dimensions.  If
-multiple dimensions are specified, the result is as if the operator is applied
-separately on the specified dimension(s).
+    # Start with empty vector of statements.
+    code = Expr[]
 
-Optional argument `opt` is the optimization level and may be specified as the
-first or last argument.  By default, `opt` is assumed to be `Vectorize`,
-however depending on the dimensions of the array, the dimensions of interest
-and on the machine, setting `opt` to `InBounds` may be more efficient.
+    # Make sure x[...] delivers a floating-point (FIXME: at least a signed) value.
+    T = float(Tx)
+    T === Tx || push!(code, :(x = as_eltype($T, x)))
 
-If `dims` is a scalar, the result, say `y`, of applying the finite difference
-operator to an array, say `x`, has the same axes as `x`.  Otherwise and even
-though `x` has a single dimension or `dims` is a 1-tuple, `y` has one more
-dimension than `x`, the last dimension of `y` is used to store the finite
-differences along each dimensions specified by `dims` and the leading
-dimensions of `y` are the same as the dimensions of `x`.
-
-More specifically, the operator created by `Diff` implements **forward finite
-differences** with **flat boundary conditions**, that is to say extrapolated
-entries are assumed equal to the nearest entry.
-
-"""
-struct Diff{L,D,O<:OptimLevel} <: Operator end
-# L = level of differentiation
-# D = list of dimensions along which compute the differences
-# O = optimization level
-
-# Constructors.
-function Diff(n::Integer = 1,
-              dims::Union{Colon,Integer,Tuple{Vararg{Integer}},
-                          AbstractVector{<:Integer}}=Colon(),
-              opt::Type{<:OptimLevel} = Vectorize)
-    return Diff{to_int(n), to_dims(dims), opt}()
-end
-
-function Diff(opt::Type{<:OptimLevel}, n::Integer = 1,
-              dims::Union{Colon,Integer,Tuple{Vararg{Integer}},
-                          AbstractVector{<:Integer}}=Colon())
-    return Diff{to_int(n), to_dims(dims), opt}()
-end
-
-function Diff(n::Integer, opt::Type{<:OptimLevel})
-    return Diff{to_int(n), Colon, opt}()
-end
-
-# Make a finite difference operator callable.
-@callable Diff
-
-# Two finite difference operators are identical if they have the same level of
-# differentiation and list of dimensions along which compute the differences.
-# Their optimization levels may be different.
-identical(::Diff{L,D}, ::Diff{L,D}) where {L,D} = true
-
-# Print operator in such a way that is similar to how the operator would be
-# created in Julia.
-show(io::IO, ::Diff{L,D,Opt}) where {L,D,Opt} =
-    print(io, "Diff(", L, ',', (D === Colon ? ":" : D),',',
-          (Opt === Debug ? "Debug" :
-           Opt === InBounds ? "InBounds" :
-           Opt === Vectorize ? "Vectorize" : Opt), ')')
-
-"""
-    differentiation_order(A)
-
-yields the differentiation order of finite difference operator `A` (argument
-can also be a type).
-
-"""
-differentiation_order(::Type{<:Diff{L,D,Opt}}) where {L,D,Opt} = L
-
-"""
-    dimensions_of_interest(A)
-
-yields the list of dimensions of interest of finite difference operator `A`
-(argument can also be a type).
-
-"""
-dimensions_of_interest(::Type{<:Diff{L,D,Opt}}) where {L,D,Opt} = D
-
-"""
-    optimization_level(A)
-
-yields the optimization level for applying finite difference operator `A`
-(argument can also be a type).
-
-"""
-optimization_level(::Type{<:Diff{L,D,Opt}}) where {L,D,Opt} = Opt
-
-for f in (:differentiation_order,
-          :dimensions_of_interest,
-          :optimization_level)
-    @eval begin
-        $f(A::Diff) = $f(typeof(A))
-        $f(A::Gram{<:Diff}) = $f(typeof(A))
-        $f(::Type{<:Gram{T}}) where {T<:Diff} = $f(T)
+    # Discard type parameter specifying the dimensions of interest to avoid specialization
+    # on this parameter.
+    if A <: Adjoint
+        push!(code, :(B = Adjoint(Diff{$L,:any}())))
+    elseif A <: Gram
+        push!(code, :(B = Gram(Diff{$L,:any}())))
+    else
+        push!(code, :(B = Diff{$L,:any}()))
     end
-end
 
-# Convert argument to `Int`.
-to_int(x::Int) = x
-to_int(x::Integer) = Int(x)
+    # Define `rngs` to be the axes of x or y (whichever is the longest list) and set `N`
+    # such that `rngs[1:N]` is the list of common axes while, except for Gram, `rngs[N+1]`
+    # is the axis storing the differences along the dimension(s) of interest.
+    if A <: Adjoint
+        push!(code, :(rngs = axes(x)))
+        N = Ny
+    else
+        push!(code, :(rngs = axes(y)))
+        N = Nx
+    end
 
-# Convert argument to the type parameter which specifies the list of dimensions
-# of interest.
-to_dims(::Colon) = Colon
-to_dims(x::Int) = x
-to_dims(x::Integer) = to_int(x)
-to_dims(x::Tuple{Vararg{Int}}) = x
-to_dims(x::Tuple{Vararg{Integer}}) = map(to_int, x)
-to_dims(x::AbstractVector{<:Integer}) = to_dims((x...,))
-
-# Drop list of dimensions from type to avoid unecessary specializations.
-anydims(::Diff{L,D,P}) where {L,D,P} = Diff{L,Any,P}()
-anydims(::Gram{Diff{L,D,P}}) where {L,D,P} = gram(Diff{L,Any,P}())
-
-# Applying a separable operator is split in several stages:
-#
-# 1. Check arguments (so that avoiding bound checking should be safe) and deal
-#    with the trivial cases α = 0 or no dimension of interest to apply the
-#    operation (to simplify subsequent stages).
-#
-# 2. If α is non-zero, dispatch on dimension(s) along which to apply the
-#    operation and on the specific values of the multipliers α and β.
-#
-# The second stage may be split in several sub-stages.
-
-# Declare all possible signatures (not using unions) to avoid ambiguities.
-for (P,A) in ((:Direct,  :Diff),
-              (:Adjoint, :Diff),
-              (:Direct,  :(Gram{<:Diff})))
-    @eval function vmul!(α::Number,
-                          P::Type{$P},
-                          A::$A,
-                          x::AbstractArray,
-                          scratch::Bool,
-                          β::Number,
-                          y::AbstractArray)
-        inds, ndims = check_arguments(P, A, x, y)
-        if α == 0 || ndims < 1
-            # Get rid of this stupid case!
-            vscale!(y, β)
-        else
-            # Call unsafe_vmul! to dispatch on the dimensions of interest and on
-            # the values of the multipliers.
-            unsafe_vmul!(α, P, A, x, β, y, inds)
+    # Dispatch on dimension(s) of interest.
+    for (i, d) in enumerate(D === Colon ? (1:N) : D)
+        # Checking that `d ∈ 1:N` has no extra cost at run-time and avoid compiling an
+        # invalid function. This is an assertion error because it should have been
+        # detected sooner.
+        d ∈ 1:N || return quote
+            throw(AssertionError("out of range dimension(s) of differentiation"))
         end
+        if A <: Gram
+            args = ()
+        elseif D isa Int
+            args = (:(CartesianIndex()),)
+        else
+            # One of x or y (depending on whether the direct or the adjoint operator
+            # is applied) has an extra leading dimension used to store the result
+            # computed along a given dimension.
+            args = (:(CartesianIndex(rngs[$(N+1)][$i])),)
+        end
+        push!(code, :(unsafe_vmul!(α, B, x,
+                                   $(i == 1 || A <: Diff ? :β : :(one(β))), y,
+                                   rngs[1:$(d-1)],
+                                   rngs[$d],
+                                   rngs[$(d+1):$N], $(args...))))
+    end
+
+    return quote
+        $(Expr(:meta, :inline))
+        $(code...)
         return y
     end
 end
 
-# FIXME: This should not be necessary.
-function vmul!(α::Number,
-                ::Type{<:Adjoint},
-                A::Gram{<:Diff},
-                x::AbstractArray,
-                scratch::Bool,
-                β::Number,
-                y::AbstractArray)
-    vmul!(α, Direct, A, x, scratch, β, y)
-end
-
-function vcreate(::Type{Direct},
-                 A::Diff{L,D,P},
-                 x::AbstractArray{T,N},
-                 scratch::Bool) where {L,D,P,T,N}
-    if D === Colon
-        return Array{T}(undef, size(x)..., N)
-    elseif isa(D, Tuple{Vararg{Int}})
-        return Array{T}(undef, size(x)..., length(D))
-    elseif isa(D, Int)
-        # if L === 1 && scratch && isa(x, Array)
-        #    # First order finite difference along a single dimension.
-        #    # Operation could be done in-place but we must preserve
-        #    # type-stability.
-        #    return x
-        #else
-        #    return Array{T}(undef, size(x))
-        #end
-        return Array{T}(undef, size(x))
-    else
-        error("invalid list of dimensions")
-    end
-end
-
-function vcreate(::Type{Adjoint},
-                 A::Diff{L,D,P},
-                 x::AbstractArray{T,N},
-                 scratch::Bool) where {L,D,P,T,N}
-    # Checking the validity of the argument dimensions is done by applying the
-    # opererator.  In-place operation never possible, so ignore the scratch
-    # flag.
-    if D === Colon || isa(D, Tuple{Vararg{Int}})
-        return Array{T}(undef, size(x)[1:N-1])
-    elseif isa(D, Int)
-        return Array{T}(undef, size(x))
-    else
-        error("invalid list of dimensions")
-    end
-end
-
-#------------------------------------------------------------------------------
-# CHECKING OF ARGUMENTS
-
-"""
-    check_arguments(P, A, x, y) -> inds, ndims
-
-checks that arguments `x` and `y` are valid for applying `P(A)`, with `A` a
-separable operator, to `x` and store the result in `y`.  The result is a
-2-tuple, `inds` is the axes that the arguments have in common and `ndims` is
-the number of dimensions of interest.
-
-If this function returns normally, the caller may safely assume that index
-bound checking is not needed; hence, this function must throw an exception if
-the dimensions/indices of `x` and `y` are not compatible or if the dimensions
-of interest in `A` are out of range.  This function may also throw an exception
-if the element types of `x` and `y` are not compatible.
-
-This method must be specialized for the different types of separable operators.
-
-"""
-function check_arguments(P::Type{<:Union{Direct,Adjoint}},
-                         A::Union{Diff{L,D},Gram{<:Diff{L,D}}},
-                         x::AbstractArray,
-                         y::AbstractArray) where {L,D}
-    inds = check_axes(P, A, axes(x), axes(y))
-    ndims = check_dimensions_of_interest(D, length(inds))
-    return inds, ndims
-end
-
-function check_axes(P::Type{<:Union{Direct,Adjoint}},
-                    A::Diff{L,D},
-                    xinds::ArrayAxes,
-                    yinds::ArrayAxes) where {L,D}
-    if D === Colon || isa(D, Dims)
-        if P === Direct
-            length(yinds) == length(xinds) + 1 ||
-                throw_dimension_mismatch("output array must have one more dimension than input array")
-            N = (D === Colon ? length(xinds) : length(D))
-            yinds[end] == 1:N ||
-                throw_dimension_mismatch("last axis of output array must be 1:", N)
-            yinds[1:end-1] == xinds ||
-                throw_dimension_mismatch("leading axes must be identical")
-            return xinds
-        else
-            length(yinds) == length(xinds) - 1 ||
-                throw_dimension_mismatch("output array must have one less dimension than input array")
-            N = (D === Colon ? length(yinds) : length(D))
-            xinds[end] == 1:N ||
-                throw_dimension_mismatch("last axis of input array must be 1:", N)
-            xinds[1:end-1] == yinds ||
-                throw_dimension_mismatch("leading axes must be identical")
-            return yinds
-        end
-    elseif isa(D, Int)
-        xinds == yinds || throw_dimension_mismatch("array axes must be identical")
-        return xinds
-    else
-        throw(ArgumentError("invalid dimensions of interest"))
-    end
-end
-
-function check_axes(P::Type{<:Operations},
-                    A::Gram{<:Diff},
-                    xinds::ArrayAxes,
-                    yinds::ArrayAxes)
-    xinds == yinds || throw_dimension_mismatch("array axes must be identical")
-    return xinds
-end
-
-check_dimensions_of_interest(::Type{Colon}, ndims::Int) = ndims
-
-check_dimensions_of_interest(dim::Int, ndims::Int) = begin
-    1 ≤ dim ≤ ndims ||
-        throw_dimension_mismatch("out of range dimension ", dim,
-                                 "for ", ndims,"-dimensional arrays")
-    return 1
-end
-
-check_dimensions_of_interest(dims::Dims{N}, ndims::Int) where {N} = begin
-    for dim in dims
-        1 ≤ dim ≤ ndims ||
-            throw_dimension_mismatch("out of range dimension ", dim,
-                                     "for ", ndims,"-dimensional arrays")
-    end
-    return N
-end
-
-throw_dimension_mismatch(str::String) = throw(DimensionMismatch(str))
-
-@noinline throw_dimension_mismatch(args...) =
-    throw_dimension_mismatch(string(args...))
-
-#------------------------------------------------------------------------------
-
-# Apply the operation along all dimensions of interest but one dimension at a
-# time and knowing that α is not zero.
-@generated function unsafe_vmul!(α::Number,
-                                  ::Type{P},
-                                  A::Diff{L,D},
-                                  x::AbstractArray,
-                                  β::Number,
-                                  y::AbstractArray,
-                                  inds::ArrayAxes{N}) where {L,D,N,
-                                                             P<:Union{Direct,
-                                                                      Adjoint}}
-    # Allocate empty vector of statements.
-    exprs = Expr[]
-
-    # Discard type parameter specifying the dimensions of interest to avoid
-    # specialization on this parameter.
-    push!(exprs, :(B = anydims(A)))
-
-    # Dispatch on dimensions of interest.
-    if isa(D, Int)
-        # Arrays x and y have the same dimensions.
-        push!(exprs, :(unsafe_vmul!(α, P, B, x, β, y,
-                                     inds[1:$(D-1)],
-                                     inds[$D],
-                                     inds[$(D+1):$N],
-                                     CartesianIndex())))
-    elseif D === Colon || isa(D, Dims)
-        # One of x or y (depending on whether the direct or the adjoint
-        # operator is applied) has an extra leading dimension used to store the
-        # result computed along a given dimension.
-        keep_beta = true # initially scale y by β
-        dims = (D === Colon ? (1:N) : D)
-        for l in 1:length(dims)
-            d = dims[l]
-            push!(exprs, :(unsafe_vmul!(α, P, B, x,
-                                         $(keep_beta ? :β : 1), y,
-                                         inds[1:$(d-1)],
-                                         inds[$d],
-                                         inds[$(d+1):$N],
-                                         CartesianIndex($l))))
-            keep_beta = (P === Direct && A <: Diff)
-        end
-    else
-        # This should never happen.
-        return quote
-            error("invalid list of dimensions of interest")
-        end
-    end
-
-    return quote
-        $(Expr(:meta, :inline))
-        $(exprs...)
-        nothing
-    end
-end
-
-@generated function unsafe_vmul!(α::Number,
-                                  ::Type{P},
-                                  A::Gram{<:Diff{L,D}},
-                                  x::AbstractArray,
-                                  β::Number,
-                                  y::AbstractArray,
-                                  inds::ArrayAxes{N}) where {L,D,N,
-                                                             P<:Direct}
-    # Allocate empty vector of statements.
-    exprs = Expr[]
-
-    # Discard type parameter specifying the dimensions of interest to avoid
-    # specialization on this parameter.
-    push!(exprs, :(B = anydims(A)))
-
-    # Dispatch on dimensions of interest.  Arrays x and y have the same
-    # dimensions and there is no last index `l` to specify.
-    if isa(D, Int)
-        push!(exprs, :(unsafe_vmul!(α, P, B, x, β, y,
-                                     inds[1:$(D-1)],
-                                     inds[$D],
-                                     inds[$(D+1):$N])))
-    elseif D === Colon || isa(D, Dims)
-        # β is set to 1 after first dimension of interest.
-        dims = (D === Colon ? (1:N) : D)
-        for l in 1:length(dims)
-            d = dims[l]
-            push!(exprs, :(unsafe_vmul!(α, P, B, x,
-                                         $(l == 1 ? :β : 1), y,
-                                         inds[1:$(d-1)],
-                                         inds[$d],
-                                         inds[$(d+1):$N])))
-        end
-    else
-        # This should never happen.
-        return quote
-            error("invalid list of dimensions of interest")
-        end
-    end
-
-    return quote
-        $(Expr(:meta, :inline))
-        $(exprs...)
-        nothing
-    end
-end
-
 # Dispatch on multipliers values (α is not zero).
-function unsafe_vmul!(alpha::Number,
-                       P::Type{<:Operations},
-                       A::Union{Diff{L,Any,Opt},
-                                Gram{Diff{L,Any,Opt}}},
-                       x::AbstractArray,
-                       beta::Number,
-                       y::AbstractArray,
-                       I::ArrayAxes,
-                       J::ArrayAxis,
-                       K::ArrayAxes,
-                       l::CartesianIndex) where {L,Opt}
-    if alpha == 1
-        if beta == 0
-            unsafe_vmul!(axpby_yields_x,     1, P, A, x, 0, y, I, J, K, l)
-        elseif beta == 1
-            unsafe_vmul!(axpby_yields_xpy,   1, P, A, x, 1, y, I, J, K, l)
+function unsafe_vmul!(α::Number,
+                      A::Union{Diff{L,:any},
+                               Adjoint{<:Diff{L,:any}},
+                               Gram{<:Diff{L,:any}}},
+                      x::AbstractArray,
+                      β::Number,
+                      y::AbstractArray,
+                      I::ArrayAxes,
+                      J::eltype(ArrayAxes),
+                      K::ArrayAxes,
+                      args...) where {L}
+    if α == 1
+        if β == 0
+            unsafe_vmul!(axpby_yields_x,     α, A, x, β, y, I, J, K, args...)
+        elseif β == 1
+            unsafe_vmul!(axpby_yields_xpy,   α, A, x, β, y, I, J, K, args...)
         else
-            β = convert_multiplier(beta, y)
-            unsafe_vmul!(axpby_yields_xpby,  1, P, A, x, β, y, I, J, K, l)
+            unsafe_vmul!(axpby_yields_xpby,  α, A, x, β, y, I, J, K, args...)
         end
     else
-        α = convert_multiplier(alpha, y)
-        if beta == 0
-            unsafe_vmul!(axpby_yields_ax,    α, P, A, x, 0, y, I, J, K, l)
-        elseif beta == 1
-            unsafe_vmul!(axpby_yields_axpy,  α, P, A, x, 1, y, I, J, K, l)
+        if β == 0
+            unsafe_vmul!(axpby_yields_ax,    α, A, x, β, y, I, J, K, args...)
+        elseif β == 1
+            unsafe_vmul!(axpby_yields_axpy,  α, A, x, β, y, I, J, K, args...)
         else
-            β = convert_multiplier(beta, y)
-            unsafe_vmul!(axpby_yields_axpby, α, P, A, x, β, y, I, J, K, l)
-        end
-    end
-    nothing
-end
-
-# Dispatch on multipliers values (α is not zero) for Gram compositions of a
-# finite difference operator.
-function unsafe_vmul!(alpha::Number,
-                       P::Type{<:Operations},
-                       A::Gram{<:Diff},
-                       x::AbstractArray,
-                       beta::Number,
-                       y::AbstractArray,
-                       I::ArrayAxes,
-                       J::ArrayAxis,
-                       K::ArrayAxes)
-    if alpha == 1
-        if beta == 0
-            unsafe_vmul!(axpby_yields_x,     1, P, A, x, 0, y, I, J, K)
-        elseif beta == 1
-            unsafe_vmul!(axpby_yields_xpy,   1, P, A, x, 1, y, I, J, K)
-        else
-            β = convert_multiplier(beta, y)
-            unsafe_vmul!(axpby_yields_xpby,  1, P, A, x, β, y, I, J, K)
-        end
-    else
-        α = convert_multiplier(alpha, y)
-        if beta == 0
-            unsafe_vmul!(axpby_yields_ax,    α, P, A, x, 0, y, I, J, K)
-        elseif beta == 1
-            unsafe_vmul!(axpby_yields_axpy,  α, P, A, x, 1, y, I, J, K)
-        else
-            β = convert_multiplier(beta, y)
-            unsafe_vmul!(axpby_yields_axpby, α, P, A, x, β, y, I, J, K)
+            unsafe_vmul!(axpby_yields_axpby, α, A, x, β, y, I, J, K, args...)
         end
     end
     nothing
@@ -507,8 +221,8 @@ end
 
 #------------------------------------------------------------------------------
 #
-# The operator D implementing 1st order forward finite difference with flat
-# boundary conditions and its adjoint D' are given by:
+# The operator D implementing 1st order forward finite difference with flat boundary
+# conditions and its adjoint D' are given by:
 #
 #     D = [ -1   1   0   0
 #            0  -1   1   0
@@ -520,154 +234,115 @@ end
 #             0   1  -1   0
 #             0   0   1   0];
 #
-# The row (for D) and column (for D') of zeros are to preserve the size.  This
-# is needed for multi-dimensional arrays when derivatives along each dimension
-# are stored into a single array.
-#
-# Apply 1st order finite differences along 1st dimension:
+# The row (for D) and column (for D') of zeros are to preserve the size. This is needed
+# for multi-dimensional arrays when derivatives along each dimension are stored into a
+# single array.
 #
 function unsafe_vmul!(f::Function,
-                       α::Number,
-                       ::Type{Direct},
-                       A::Diff{1,Any,Opt},
-                       x::AbstractArray,
-                       β::Number,
-                       y::AbstractArray,
-                       I::Tuple{},
-                       J::ArrayAxis,
-                       K::ArrayAxes,
-                       l::CartesianIndex) where {Opt}
-    T = real(eltype(x))
+                      α::Number,
+                      A::Diff{1,:any},
+                      x::AbstractArray,
+                      β::Number,
+                      y::AbstractArray,
+                      I::ArrayAxes,
+                      J::eltype(ArrayAxes),
+                      K::ArrayAxes,
+                      l::CartesianIndex)
+    # Assumptions:
+    # (1) `f` is chosen according to the specific values of multipliers `α` and `β`;
+    # (2) element type of `x` is such that expressions `x[i] - x[j]` and `-x[i]` yield
+    #     a correct result.
     jmin, jmax = limits(J)
     if jmin ≤ jmax
-        @maybe_inbounds Opt for k in CartesianIndices(K)
-            @maybe_vectorized Opt for j in jmin:jmax-1
-                z = x[j+1,k] - x[j,k]
-                y[j,k,l] = f(α, z, β, y[j,k,l])
-            end
-            let j = jmax, z = zero(T)
-                y[j,k,l] = f(α, z, β, y[j,k,l])
-            end
-        end
-    end
-    nothing
-end
-#
-# Apply 1st order finite differences along 2nd and subsequent dimensions:
-#
-function unsafe_vmul!(f::Function,
-                       α::Number,
-                       ::Type{Direct},
-                       A::Diff{1,Any,Opt},
-                       x::AbstractArray,
-                       β::Number,
-                       y::AbstractArray,
-                       I::ArrayAxes,
-                       J::ArrayAxis,
-                       K::ArrayAxes,
-                       l::CartesianIndex) where {Opt}
-    T = real(eltype(x))
-    jmin, jmax = limits(J)
-    if jmin ≤ jmax
-        @maybe_inbounds Opt for k in CartesianIndices(K)
-            for j in jmin:jmax-1
-                @maybe_vectorized Opt for i in CartesianIndices(I)
-                    z = x[i,j+1,k] - x[i,j,k]
-                    y[i,j,k,l] = f(α, z, β, y[i,j,k,l])
+        if I isa Tuple{} # apply along 1st dimension
+            @inbounds @fastmath for k in CartesianIndices(K)
+                @simd for j in jmin:jmax-1
+                    z = x[j+1,k] - x[j,k]
+                    y[j,k,l] = f(α, z, β, y[j,k,l])
+                end
+                let j = jmax, z = zero(real(eltype(x)))
+                    y[j,k,l] = f(α, z, β, y[j,k,l])
                 end
             end
-            let j = jmax, z = zero(T)
-                @maybe_vectorized Opt for i in CartesianIndices(I)
-                    y[i,j,k,l] = f(α, z, β, y[i,j,k,l])
+        else # apply along 2nd and subsequent dimensions
+            @inbounds @fastmath for k in CartesianIndices(K)
+                for j in jmin:jmax-1
+                    @simd for i in CartesianIndices(I)
+                        z = x[i,j+1,k] - x[i,j,k]
+                        y[i,j,k,l] = f(α, z, β, y[i,j,k,l])
+                    end
+                end
+                let j = jmax, z = zero(real(eltype(x)))
+                    @simd for i in CartesianIndices(I)
+                        y[i,j,k,l] = f(α, z, β, y[i,j,k,l])
+                    end
                 end
             end
         end
     end
     nothing
 end
-#
-# Apply adjoint of 1st order finite differences along 1st dimension:
-#
+
 function unsafe_vmul!(f::Function,
-                       α::Number,
-                       ::Type{Adjoint},
-                       A::Diff{1,Any,Opt},
-                       x::AbstractArray,
-                       β::Number,
-                       y::AbstractArray,
-                       I::Tuple{},
-                       J::ArrayAxis,
-                       K::ArrayAxes,
-                       l::CartesianIndex) where {Opt}
-    T = real(eltype(x))
+                      α::Number,
+                      A::Adjoint{<:Diff{1,:any}},
+                      x::AbstractArray,
+                      β::Number,
+                      y::AbstractArray,
+                      I::ArrayAxes,
+                      J::eltype(ArrayAxes),
+                      K::ArrayAxes,
+                      l::CartesianIndex)
     jmin, jmax = limits(J)
     if jmin < jmax
-        @maybe_inbounds Opt for k in CartesianIndices(K)
-            let j = jmin
-                z = -x[j,k,l]
-                y[j,k] = f(α, z, β, y[j,k])
-            end
-            @maybe_vectorized Opt for j in jmin+1:jmax-1
-                z = x[j-1,k,l] - x[j,k,l]
-                y[j,k] = f(α, z, β, y[j,k])
-            end
-            let j = jmax
-                z = x[j-1,k,l]
-                y[j,k] = f(α, z, β, y[j,k])
-            end
-        end
-    elseif jmin == jmax && β != 1
-        let j = jmin, z = zero(T)
-            @maybe_vectorized Opt for k in CartesianIndices(K)
-                y[j,k] = f(α, z, β, y[j,k])
-            end
-        end
-    end
-    nothing
-end
-#
-# Apply adjoint of 1st order finite differences along 2nd and subsequent
-# dimensions:
-#
-function unsafe_vmul!(f::Function,
-                       α::Number,
-                       ::Type{Adjoint},
-                       A::Diff{1,Any,Opt},
-                       x::AbstractArray,
-                       β::Number,
-                       y::AbstractArray,
-                       I::ArrayAxes,
-                       J::ArrayAxis,
-                       K::ArrayAxes,
-                       l::CartesianIndex) where {Opt}
-    T = real(eltype(x))
-    jmin, jmax = limits(J)
-    if jmin < jmax
-        @maybe_inbounds Opt for k in CartesianIndices(K)
-            let j = jmin
-                @maybe_vectorized Opt for i in CartesianIndices(I)
-                    z = -x[i,j,k,l]
-                    y[i,j,k] = f(α, z, β, y[i,j,k])
+        if I isa Tuple{} # apply along 1st dimension
+            @inbounds @fastmath for k in CartesianIndices(K)
+                let j = jmin
+                    z = -x[j,k,l]
+                    y[j,k] = f(α, z, β, y[j,k])
+                end
+                @simd for j in jmin+1:jmax-1
+                    z = x[j-1,k,l] - x[j,k,l]
+                    y[j,k] = f(α, z, β, y[j,k])
+                end
+                let j = jmax
+                    z = x[j-1,k,l]
+                    y[j,k] = f(α, z, β, y[j,k])
                 end
             end
-            for j in jmin+1:jmax-1
-                @maybe_vectorized Opt for i in CartesianIndices(I)
-                    z = x[i,j-1,k,l] - x[i,j,k,l]
-                    y[i,j,k] = f(α, z, β, y[i,j,k])
+        else # apply along 2nd and subsequent dimensions
+            @inbounds @fastmath for k in CartesianIndices(K)
+                let j = jmin
+                    @simd for i in CartesianIndices(I)
+                        z = -x[i,j,k,l]
+                        y[i,j,k] = f(α, z, β, y[i,j,k])
+                    end
                 end
-            end
-            let j = jmax
-                @maybe_vectorized Opt for i in CartesianIndices(I)
-                    z = x[i,j-1,k,l]
-                    y[i,j,k] = f(α, z, β, y[i,j,k])
+                for j in jmin+1:jmax-1
+                    @simd for i in CartesianIndices(I)
+                        z = x[i,j-1,k,l] - x[i,j,k,l]
+                        y[i,j,k] = f(α, z, β, y[i,j,k])
+                    end
+                end
+                let j = jmax
+                    @simd for i in CartesianIndices(I)
+                        z = x[i,j-1,k,l]
+                        y[i,j,k] = f(α, z, β, y[i,j,k])
+                    end
                 end
             end
         end
     elseif jmin == jmax && β != 1
-        let j = jmin, z = zero(T)
-            @maybe_inbounds Opt for k in CartesianIndices(K)
-                @maybe_vectorized Opt for i in CartesianIndices(I)
-                    y[i,j,k] = f(α, z, β, y[i,j,k])
+        let j = jmin, z = zero(real(eltype(x)))
+            if I isa Tuple{} # apply along 1st dimension
+                @inbounds @fastmath @simd for k in CartesianIndices(K)
+                    y[j,k] = f(α, z, β, y[j,k])
+                end
+            else # apply along 2nd and subsequent dimensions
+                @inbounds @fastmath for k in CartesianIndices(K)
+                    @simd for i in CartesianIndices(I)
+                        y[i,j,k] = f(α, z, β, y[i,j,k])
+                    end
                 end
             end
         end
@@ -675,8 +350,8 @@ function unsafe_vmul!(f::Function,
     nothing
 end
 #
-# The Gram composition D'*D of the 1st order forward finite differences D with
-# flat boundary conditions writes:
+# The Gram composition D'*D of the 1st order forward finite differences D with flat
+# boundary conditions writes:
 #
 #     D'*D = [  1  -1   0   0   0
 #              -1   2  -1   0   0
@@ -684,85 +359,65 @@ end
 #               0   0  -1   2  -1
 #               0   0   0  -1   1 ]
 #
-# Apply D'*D along 1st dimension:
-#
 function unsafe_vmul!(f::Function,
-                       α::Number,
-                       ::Type{<:Union{Direct,Adjoint}},
-                       A::Gram{Diff{1,Any,Opt}},
-                       x::AbstractArray,
-                       β::Number,
-                       y::AbstractArray,
-                       I::Tuple{},
-                       J::ArrayAxis,
-                       K::ArrayAxes) where {Opt}
-    T = real(eltype(x))
+                      α::Number,
+                      A::Gram{<:Diff{1,:any}},
+                      x::AbstractArray,
+                      β::Number,
+                      y::AbstractArray,
+                      I::ArrayAxes,
+                      J::eltype(ArrayAxes),
+                      K::ArrayAxes)
     jmin, jmax = limits(J)
     if jmin < jmax
-        @maybe_inbounds Opt for k in CartesianIndices(K)
-            let j = jmin
-                z = x[j,k] - x[j+1,k]
-                y[j,k] = f(α, z, β, y[j,k])
-            end
-            @maybe_vectorized Opt for j in jmin+1:jmax-1
-                z = T(2)*x[j,k] - (x[j-1,k] + x[j+1,k])
-                y[j,k] = f(α, z, β, y[j,k])
-            end
-            let j = jmax
-                z = x[j,k] - x[j-1,k]
-                y[j,k] = f(α, z, β, y[j,k])
-            end
-        end
-    elseif jmin == jmax && β != 1
-        let j = jmin, z = zero(T)
-            @maybe_vectorized Opt for k in CartesianIndices(K)
-                y[j,k] = f(α, z, β, y[j,k])
-            end
-        end
-    end
-    nothing
-end
-#
-# Apply  D'*D along 2nd and subsequent dimensions:
-#
-function unsafe_vmul!(f::Function,
-                       α::Number,
-                       ::Type{<:Union{Direct,Adjoint}},
-                       A::Gram{Diff{1,Any,Opt}},
-                       x::AbstractArray,
-                       β::Number,
-                       y::AbstractArray,
-                       I::ArrayAxes,
-                       J::ArrayAxis,
-                       K::ArrayAxes) where {Opt}
-    T = real(eltype(x))
-    jmin, jmax = limits(J)
-    if jmin < jmax
-        @maybe_inbounds Opt for k in CartesianIndices(K)
-            let j = jmin
-                @maybe_vectorized Opt for i in CartesianIndices(I)
-                    z = x[i,j,k] - x[i,j+1,k]
-                    y[i,j,k] = f(α, z, β, y[i,j,k])
+        T = real_type(eltype(x))
+        two = as(T, 2)
+        @inbounds @fastmath for k in CartesianIndices(K)
+            if I isa Tuple{} # apply D'*D along 1st dimension
+                let j = jmin
+                    z = x[j,k] - x[j+1,k]
+                    y[j,k] = f(α, z, β, y[j,k])
                 end
-            end
-            for j in jmin+1:jmax-1
-                @maybe_vectorized Opt for i in CartesianIndices(I)
-                    z = T(2)*x[i,j,k] - (x[i,j-1,k] + x[i,j+1,k])
-                    y[i,j,k] = f(α, z, β, y[i,j,k])
+                @simd for j in jmin+1:jmax-1
+                    z = two*x[j,k] - (x[j-1,k] + x[j+1,k])
+                    y[j,k] = f(α, z, β, y[j,k])
                 end
-            end
-            let j = jmax
-                @maybe_vectorized Opt for i in CartesianIndices(I)
-                    z = x[i,j,k] - x[i,j-1,k]
-                    y[i,j,k] = f(α, z, β, y[i,j,k])
+                let j = jmax
+                    z = x[j,k] - x[j-1,k]
+                    y[j,k] = f(α, z, β, y[j,k])
+                end
+            else # apply D'*D along 2nd and subsequent dimensions
+                let j = jmin
+                    @simd for i in CartesianIndices(I)
+                        z = x[i,j,k] - x[i,j+1,k]
+                        y[i,j,k] = f(α, z, β, y[i,j,k])
+                    end
+                end
+                for j in jmin+1:jmax-1
+                    @simd for i in CartesianIndices(I)
+                        z = two*x[i,j,k] - (x[i,j-1,k] + x[i,j+1,k])
+                        y[i,j,k] = f(α, z, β, y[i,j,k])
+                    end
+                end
+                let j = jmax
+                    @simd for i in CartesianIndices(I)
+                        z = x[i,j,k] - x[i,j-1,k]
+                        y[i,j,k] = f(α, z, β, y[i,j,k])
+                    end
                 end
             end
         end
     elseif jmin == jmax && β != 1
-        let j = jmin, z = zero(T)
-            @maybe_inbounds Opt for k in CartesianIndices(K)
-                @maybe_vectorized Opt for i in CartesianIndices(I)
-                    y[i,j,k] = f(α, z, β, y[i,j,k])
+        let j = jmin, z = zero(real(eltype(x)))
+            if I isa Tuple{}
+                @inbounds @fastmath @simd for k in CartesianIndices(K)
+                    y[j,k] = f(α, z, β, y[j,k])
+                end
+            else
+                @inbounds @fastmath for k in CartesianIndices(K)
+                    @simd for i in CartesianIndices(I)
+                        y[i,j,k] = f(α, z, β, y[i,j,k])
+                    end
                 end
             end
         end
@@ -788,89 +443,68 @@ end
 #  - For a single dimension, this operator is the opposite of the Gram
 #    composition of 1st order finite differences (backward or forward).
 #
-# Apply 2nd order finite differences along 1st dimension:
+# Apply 2nd order finite differences.
 #
 function unsafe_vmul!(f::Function,
-                       α::Number,
-                       ::Type{Direct},
-                       A::Diff{2,Any,Opt},
-                       x::AbstractArray,
-                       β::Number,
-                       y::AbstractArray,
-                       I::Tuple{},
-                       J::ArrayAxis,
-                       K::ArrayAxes,
-                       l::CartesianIndex) where {Opt}
-    T = real(eltype(x))
+                      α::Number,
+                      A::Diff{2,:any},
+                      x::AbstractArray,
+                      β::Number,
+                      y::AbstractArray,
+                      I::ArrayAxes,
+                      J::eltype(ArrayAxes),
+                      K::ArrayAxes,
+                      l::CartesianIndex)
     jmin, jmax = limits(J)
     if jmin < jmax
-        @maybe_inbounds Opt for k in CartesianIndices(K)
-            let j = jmin
-                z = x[j+1,k] - x[j,k]
-                y[j,k,l] = f(α, z, β, y[j,k,l])
-            end
-            @maybe_vectorized Opt for j in jmin+1:jmax-1
-                z = x[j-1,k] + x[j+1,k] - T(2)*x[j,k]
-                y[j,k,l] = f(α, z, β, y[j,k,l])
-            end
-            let j = jmax
-                z = x[j-1,k] - x[j,k]
-                y[j,k,l] = f(α, z, β, y[j,k,l])
-            end
-        end
-    elseif jmin == jmax && β != 1
-        let j = jmin, z = zero(T)
-            @maybe_vectorized Opt for k in CartesianIndices(K)
-                y[j,k,l] = f(α, z, β, y[j,k,l])
-            end
-        end
-    end
-    nothing
-end
-#
-# Apply 2nd order finite differences along 2nd and subsequent dimensions:
-#
-function unsafe_vmul!(f::Function,
-                       α::Number,
-                       ::Type{Direct},
-                       A::Diff{2,Any,Opt},
-                       x::AbstractArray,
-                       β::Number,
-                       y::AbstractArray,
-                       I::ArrayAxes,
-                       J::ArrayAxis,
-                       K::ArrayAxes,
-                       l::CartesianIndex) where {Opt}
-    T = real(eltype(x))
-    jmin, jmax = limits(J)
-    if jmin < jmax
-        @maybe_inbounds Opt for k in CartesianIndices(K)
-            let j = jmin
-                @maybe_vectorized Opt for i in CartesianIndices(I)
-                    z = x[i,j+1,k] - x[i,j,k]
-                    y[i,j,k,l] = f(α, z, β, y[i,j,k,l])
+        T = real_type(eltype(x))
+        two = as(T, 2)
+        @inbounds @fastmath for k in CartesianIndices(K)
+            if I isa Tuple{} # apply along 1st dimension
+                let j = jmin
+                    z = x[j+1,k] - x[j,k]
+                    y[j,k,l] = f(α, z, β, y[j,k,l])
                 end
-            end
-            for j in jmin+1:jmax-1
-                @maybe_vectorized Opt for i in CartesianIndices(I)
-                    # Other possibility:
-                    # z = (x[i,j-1,k] - x[i,j,k]) + (x[i,j+1,k] - x[i,j,k])
-                    z = x[i,j-1,k] + x[i,j+1,k] - T(2)*x[i,j,k]
-                    y[i,j,k,l] = f(α, z, β, y[i,j,k,l])
+                @simd for j in jmin+1:jmax-1
+                    z = x[j-1,k] + x[j+1,k] - two*x[j,k]
+                    y[j,k,l] = f(α, z, β, y[j,k,l])
                 end
-            end
-            let j = jmax
-                @maybe_vectorized Opt for i in CartesianIndices(I)
-                    z = x[i,j-1,k] - x[i,j,k]
-                    y[i,j,k,l] = f(α, z, β, y[i,j,k,l])
+                let j = jmax
+                    z = x[j-1,k] - x[j,k]
+                    y[j,k,l] = f(α, z, β, y[j,k,l])
+                end
+            else # apply along 2nd and subsequent dimensions
+                let j = jmin
+                    @simd for i in CartesianIndices(I)
+                        z = x[i,j+1,k] - x[i,j,k]
+                        y[i,j,k,l] = f(α, z, β, y[i,j,k,l])
+                    end
+                end
+                for j in jmin+1:jmax-1
+                    @simd for i in CartesianIndices(I)
+                        z = x[i,j-1,k] + x[i,j+1,k] - two*x[i,j,k]
+                        y[i,j,k,l] = f(α, z, β, y[i,j,k,l])
+                    end
+                end
+                let j = jmax
+                    @simd for i in CartesianIndices(I)
+                        z = x[i,j-1,k] - x[i,j,k]
+                        y[i,j,k,l] = f(α, z, β, y[i,j,k,l])
+                    end
                 end
             end
         end
     elseif jmin == jmax && β != 1
-        let j = jmin, z = zero(T)
-            @maybe_inbounds Opt for k in CartesianIndices(K)
-                @maybe_vectorized Opt for i in CartesianIndices(I)
-                    y[i,j,k,l] = f(α, z, β, y[i,j,k,l])
+        let j = jmin, z = zero(real(eltype(x)))
+            if I isa Tuple{} # apply along 1st dimension
+                @inbounds @fastmath @simd for k in CartesianIndices(K)
+                    y[j,k,l] = f(α, z, β, y[j,k,l])
+                end
+            else # apply along 2nd and subsequent dimensions
+                @inbounds @fastmath for k in CartesianIndices(K)
+                    @simd for i in CartesianIndices(I)
+                        y[i,j,k,l] = f(α, z, β, y[i,j,k,l])
+                    end
                 end
             end
         end
@@ -878,89 +512,68 @@ function unsafe_vmul!(f::Function,
     nothing
 end
 #
-# Apply adjoint of 2nd order finite differences along 1st dimension:
+# Apply adjoint of 2nd order finite differences.
 #
 function unsafe_vmul!(f::Function,
-                       α::Number,
-                       ::Type{Adjoint},
-                       A::Diff{2,Any,Opt},
-                       x::AbstractArray,
-                       β::Number,
-                       y::AbstractArray,
-                       I::Tuple{},
-                       J::ArrayAxis,
-                       K::ArrayAxes,
-                       l::CartesianIndex) where {Opt}
-    T = real(eltype(x))
+                      α::Number,
+                      A::Adjoint{<:Diff{2,:any}},
+                      x::AbstractArray,
+                      β::Number,
+                      y::AbstractArray,
+                      I::ArrayAxes,
+                      J::eltype(ArrayAxes),
+                      K::ArrayAxes,
+                      l::CartesianIndex)
     jmin, jmax = limits(J)
     if jmin < jmax
-        @maybe_inbounds Opt for k in CartesianIndices(K)
-            let j = jmin
-                z = x[j+1,k,l] - x[j,k,l]
-                y[j,k] = f(α, z, β, y[j,k])
-            end
-            @maybe_vectorized Opt for j in jmin+1:jmax-1
-                # Other possibility:
-                # z = (x[j-1,k,l] - x[j,k,l]) + (x[j+1,k,l] - x[j,k,l])
-                z = x[j-1,k,l] + x[j+1,k,l] - T(2)*x[j,k,l]
-                y[j,k] = f(α, z, β, y[j,k])
-            end
-            let j = jmax
-                z = x[j-1,k,l] - x[j,k,l]
-                y[j,k] = f(α, z, β, y[j,k])
-            end
-        end
-    elseif jmin == jmax && β != 1
-        let j = jmin, z = zero(T)
-            @maybe_vectorized Opt for k in CartesianIndices(K)
-                y[j,k] = f(α, z, β, y[j,k])
-            end
-        end
-    end
-    nothing
-end
-#
-# Apply 2nd order finite differences along 2nd and subsequent dimensions:
-#
-function unsafe_vmul!(f::Function,
-                       α::Number,
-                       ::Type{Adjoint},
-                       A::Diff{2,Any,Opt},
-                       x::AbstractArray,
-                       β::Number,
-                       y::AbstractArray,
-                       I::ArrayAxes,
-                       J::ArrayAxis,
-                       K::ArrayAxes,
-                       l::CartesianIndex) where {Opt}
-    T = real(eltype(x))
-    jmin, jmax = limits(J)
-    if jmin < jmax
-        @maybe_inbounds Opt for k in CartesianIndices(K)
-            let j = jmin
-                @maybe_vectorized Opt for i in CartesianIndices(I)
-                    z = x[i,j+1,k,l] - x[i,j,k,l]
-                    y[i,j,k] = f(α, z, β, y[i,j,k])
+        T = real_type(eltype(x))
+        two = as(T, 2)
+        @inbounds @fastmath for k in CartesianIndices(K)
+            if I isa Tuple{} # apply along 1st dimension
+                let j = jmin
+                    z = x[j+1,k,l] - x[j,k,l]
+                    y[j,k] = f(α, z, β, y[j,k])
                 end
-            end
-            for j in jmin+1:jmax-1
-                @maybe_vectorized Opt for i in CartesianIndices(I)
-                    z = x[i,j-1,k,l] + x[i,j+1,k,l] - T(2)*x[i,j,k,l]
-                    y[i,j,k] = f(α, z, β, y[i,j,k])
+                @simd for j in jmin+1:jmax-1
+                    z = x[j-1,k,l] + x[j+1,k,l] - two*x[j,k,l]
+                    y[j,k] = f(α, z, β, y[j,k])
                 end
-            end
-            let j = jmax
-                @maybe_vectorized Opt for i in CartesianIndices(I)
-                    z = x[i,j-1,k,l] - x[i,j,k,l]
-                    y[i,j,k] = f(α, z, β, y[i,j,k])
+                let j = jmax
+                    z = x[j-1,k,l] - x[j,k,l]
+                    y[j,k] = f(α, z, β, y[j,k])
+                end
+            else # apply along 2nd and subsequent dimensions
+                let j = jmin
+                    @simd for i in CartesianIndices(I)
+                        z = x[i,j+1,k,l] - x[i,j,k,l]
+                        y[i,j,k] = f(α, z, β, y[i,j,k])
+                    end
+                end
+                for j in jmin+1:jmax-1
+                    @simd for i in CartesianIndices(I)
+                        z = x[i,j-1,k,l] + x[i,j+1,k,l] - two*x[i,j,k,l]
+                        y[i,j,k] = f(α, z, β, y[i,j,k])
+                    end
+                end
+                let j = jmax
+                    @simd for i in CartesianIndices(I)
+                        z = x[i,j-1,k,l] - x[i,j,k,l]
+                        y[i,j,k] = f(α, z, β, y[i,j,k])
+                    end
                 end
             end
         end
     elseif jmin == jmax && β != 1
-        let j = jmin, z = zero(T)
-            @maybe_inbounds Opt for k in CartesianIndices(K)
-                @maybe_vectorized Opt for i in CartesianIndices(I)
-                    y[i,j,k] = f(α, z, β, y[i,j,k])
+        let j = jmin, z = zero(real(eltype(x)))
+            if I isa Tuple{} # apply along 1st dimension
+                @simd for k in CartesianIndices(K)
+                    y[j,k] = f(α, z, β, y[j,k])
+                end
+            else # apply along 2nd and subsequent dimensions
+                @inbounds @fastmath for k in CartesianIndices(K)
+                    @simd for i in CartesianIndices(I)
+                        y[i,j,k] = f(α, z, β, y[i,j,k])
+                    end
                 end
             end
         end
@@ -977,9 +590,9 @@ end
 #             0   0   1  -4   6  -3             (4)
 #             0   0   0   1  -3   2]            (5)
 #
-# The above is for len ≥ 4, with len is the length of the dimension of
-# interest, omitting the Eq. (5) for len = 4 and repeating Eq. (5) as necessary
-# for the central rows for n ≥ 5.  For len = 3:
+# The above is for `len ≥ 4`, with `len` the length of the dimension of interest, omitting
+# the Eq. (5) for `len = 4` and repeating Eq. (5) as necessary for the central rows for
+# `n ≥ 5`. For len = 3:
 #
 #    D'*D = [ 2  -3   1                         (1)
 #            -3   6  -3                         (6)
@@ -992,278 +605,250 @@ end
 #
 # For len = 1, D = 0 and D'*D = 0 (the null 1×1 operator).
 #
-# Methods to apply the rows of D'D ():
+# Methods to apply the rows of D'*D:
 #
 # - Eq. (1), first row when len ≥ 3:
 #
-@inline @propagate_inbounds D2tD2_1(x::AbstractArray, j::Int, k) = begin
-    T = real(eltype(x))
-    T(2)*x[j,k] - T(3)*x[j+1,k] + x[j+2,k]
-end
-@inline @propagate_inbounds D2tD2_1(x::AbstractArray, i, j::Int, k) = begin
-    T = real(eltype(x))
+@propagate_inbounds function D2tD2_1(x::AbstractArray,
+                                     i::CartesianIndex, j::Int, k::CartesianIndex)
+    T = real_type(eltype(x))
     T(2)*x[i,j,k] - T(3)*x[i,j+1,k] + x[i,j+2,k]
 end
 #
 # - Eq. (2), second row when len ≥ 4:
 #
-@inline @propagate_inbounds D2tD2_2(x::AbstractArray, j::Int, k) = begin
-    T = real(eltype(x))
-    T(6)*x[j,k] - T(3)*x[j-1,k] - T(4)*x[j+1,k] + x[j+2,k]
-end
-@inline @propagate_inbounds D2tD2_2(x::AbstractArray, i, j::Int, k) = begin
-    T = real(eltype(x))
+@propagate_inbounds function D2tD2_2(x::AbstractArray,
+                                     i::CartesianIndex, j::Int, k::CartesianIndex)
+    T = real_type(eltype(x))
     T(6)*x[i,j,k] - T(3)*x[i,j-1,k] - T(4)*x[i,j+1,k] + x[i,j+2,k]
 end
 #
 # - Eq. (3), central rows when len ≥ 5:
 #
-@inline @propagate_inbounds D2tD2_3(x::AbstractArray, j::Int, k) = begin
-    T = real(eltype(x))
-    (x[j-2,k] + x[j+2,k]) + T(6)*x[j,k] - T(4)*(x[j-1,k] + x[j+1,k])
-end
-@inline @propagate_inbounds D2tD2_3(x::AbstractArray, i, j::Int, k) = begin
-    T = real(eltype(x))
+@propagate_inbounds function D2tD2_3(x::AbstractArray,
+                                     i::CartesianIndex, j::Int, k::CartesianIndex)
+    T = real_type(eltype(x))
     (x[i,j-2,k] + x[i,j+2,k]) + T(6)*x[i,j,k] - T(4)*(x[i,j-1,k] + x[i,j+1,k])
 end
 #
 # - Eq. (4), before last row when len ≥ 4:
 #
-@inline @propagate_inbounds D2tD2_4(x::AbstractArray, j::Int, k) = begin
-    T = real(eltype(x))
-    T(6)*x[j,k] - T(3)*x[j+1,k] - T(4)*x[j-1,k] + x[j-2,k]
-end
-@inline @propagate_inbounds D2tD2_4(x::AbstractArray, i, j::Int, k) = begin
-    T = real(eltype(x))
+@propagate_inbounds function D2tD2_4(x::AbstractArray,
+                                     i::CartesianIndex, j::Int, k::CartesianIndex)
+    T = real_type(eltype(x))
     T(6)*x[i,j,k] - T(3)*x[i,j+1,k] - T(4)*x[i,j-1,k] + x[i,j-2,k]
 end
 #
 # - Eq. (5), last row when len ≥ 3:
 #
-@inline @propagate_inbounds D2tD2_5(x::AbstractArray, j::Int, k) = begin
-    T = real(eltype(x))
-    T(2)*x[j,k] - T(3)*x[j-1,k] + x[j-2,k]
-end
-@inline @propagate_inbounds D2tD2_5(x::AbstractArray, i, j::Int, k) = begin
-    T = real(eltype(x))
+@propagate_inbounds function D2tD2_5(x::AbstractArray,
+                                     i::CartesianIndex, j::Int, k::CartesianIndex)
+    T = real_type(eltype(x))
     T(2)*x[i,j,k] - T(3)*x[i,j-1,k] + x[i,j-2,k]
 end
 #
 # - Eq. (6), central row when len = 3:
 #
-@inline @propagate_inbounds D2tD2_6(x::AbstractArray, j::Int, k) = begin
-    T = real(eltype(x))
-    T(6)*x[j,k] - T(3)*(x[j-1,k] + x[j+1,k])
-end
-@inline @propagate_inbounds D2tD2_6(x::AbstractArray, i, j::Int, k) = begin
-    T = real(eltype(x))
+@propagate_inbounds function D2tD2_6(x::AbstractArray,
+                                     i::CartesianIndex, j::Int, k::CartesianIndex)
+    T = real_type(eltype(x))
     T(6)*x[i,j,k] - T(3)*(x[i,j-1,k] + x[i,j+1,k])
 end
 #
 # - Eq. (7), first row when len = 2:
 #
-@inline @propagate_inbounds D2tD2_7(x::AbstractArray, j::Int, k) = begin
-    z = x[j,k] - x[j+1,k]
-    return z + z
-end
-@inline @propagate_inbounds D2tD2_7(x::AbstractArray, i, j::Int, k) = begin
+@propagate_inbounds function D2tD2_7(x::AbstractArray,
+                                     i::CartesianIndex, j::Int, k::CartesianIndex)
     z = x[i,j,k] - x[i,j+1,k]
     return z + z
 end
 #
 # - Eq. (8), last row when len = 2:
 #
-@inline @propagate_inbounds D2tD2_8(x::AbstractArray, j::Int, k) = begin
-    z = x[j,k] - x[j-1,k]
-    return z + z
-end
-@inline @propagate_inbounds D2tD2_8(x::AbstractArray, i, j::Int, k) = begin
+@propagate_inbounds function D2tD2_8(x::AbstractArray,
+                                     i::CartesianIndex, j::Int, k::CartesianIndex)
     z = x[i,j,k] - x[i,j-1,k]
     return z + z
 end
 #
-# Apply Gram composition of 2nd order finite differences along 1st dimension:
+# Apply Gram composition of 2nd order finite differences.
 #
 function unsafe_vmul!(f::Function,
                        α::Number,
-                       ::Type{<:Union{Direct,Adjoint}},
-                       A::Gram{Diff{2,Any,Opt}},
-                       x::AbstractArray,
-                       β::Number,
-                       y::AbstractArray,
-                       I::Tuple{},
-                       J::ArrayAxis,
-                       K::ArrayAxes) where {Opt}
-    T = real(eltype(x))
-    jmin, jmax = limits(J)
-    len = length(J)
-    if len ≥ 5
-        @maybe_inbounds Opt for k in CartesianIndices(K)
-            let j = jmin
-                y[j,k] = f(α, D2tD2_1(x,j,k), β, y[j,k])
-            end
-            let j = jmin+1
-                y[j,k] = f(α, D2tD2_2(x,j,k), β, y[j,k])
-            end
-            @maybe_vectorized Opt for j in jmin+2:jmax-2
-                y[j,k] = f(α, D2tD2_3(x,j,k), β, y[j,k])
-            end
-            let j = jmax-1
-                y[j,k] = f(α, D2tD2_4(x,j,k), β, y[j,k])
-            end
-            let j = jmax
-                y[j,k] = f(α, D2tD2_5(x,j,k), β, y[j,k])
-            end
-        end
-    elseif len == 4
-        @maybe_vectorized Opt for k in CartesianIndices(K)
-            let j = jmin
-                y[j,k] = f(α, D2tD2_1(x,j,k), β, y[j,k])
-            end
-            let j = jmin+1
-                y[j,k] = f(α, D2tD2_2(x,j,k), β, y[j,k])
-            end
-            let j = jmax-1
-                y[j,k] = f(α, D2tD2_4(x,j,k), β, y[j,k])
-            end
-            let j = jmax
-                y[j,k] = f(α, D2tD2_5(x,j,k), β, y[j,k])
-            end
-        end
-    elseif len == 3
-        @maybe_vectorized Opt for k in CartesianIndices(K)
-            let j = jmin
-                y[j,k] = f(α, D2tD2_1(x,j,k), β, y[j,k])
-            end
-            let j = jmin+1
-                y[j,k] = f(α, D2tD2_6(x,j,k), β, y[j,k])
-            end
-            let j = jmax
-                y[j,k] = f(α, D2tD2_5(x,j,k), β, y[j,k])
-            end
-        end
-    elseif len == 2
-        @maybe_vectorized Opt for k in CartesianIndices(K)
-            let j = jmin
-                y[j,k] = f(α, D2tD2_7(x,j,k), β, y[j,k])
-            end
-            let j = jmax
-                y[j,k] = f(α, D2tD2_8(x,j,k), β, y[j,k])
-            end
-        end
-    elseif len == 1 && β != 1
-        let j = jmin, z = zero(T)
-            @maybe_vectorized Opt for k in CartesianIndices(K)
-                y[j,k] = f(α, z, β, y[j,k])
-            end
-        end
-    end
-    nothing
-end
-#
-# Apply Gram composition of 2nd order finite differences along 2nd and
-# subsequent dimensions:
-#
-function unsafe_vmul!(f::Function,
-                       α::Number,
-                       ::Type{<:Union{Direct,Adjoint}},
-                       A::Gram{Diff{2,Any,Opt}},
+                       A::Gram{Diff{2,:any}},
                        x::AbstractArray,
                        β::Number,
                        y::AbstractArray,
                        I::ArrayAxes,
-                       J::ArrayAxis,
-                       K::ArrayAxes) where {Opt}
-    T = real(eltype(x))
+                       J::eltype(ArrayAxes),
+                       K::ArrayAxes)
     jmin, jmax = limits(J)
     len = length(J)
     if len ≥ 5
-        @maybe_inbounds Opt for k in CartesianIndices(K)
-            let j = jmin
-                @maybe_vectorized Opt for i in CartesianIndices(I)
-                    y[i,j,k] = f(α, D2tD2_1(x,i,j,k), β, y[i,j,k])
+        if I isa Tuple{} # apply along 1st dimension
+            let i = CartesianIndex()
+                @inbounds @fastmath for k in CartesianIndices(K)
+                    let j = jmin
+                        y[i,j,k] = f(α, D2tD2_1(x,i,j,k), β, y[i,j,k])
+                    end
+                    let j = jmin+1
+                        y[i,j,k] = f(α, D2tD2_2(x,i,j,k), β, y[i,j,k])
+                    end
+                    @simd for j in jmin+2:jmax-2
+                        y[i,j,k] = f(α, D2tD2_3(x,i,j,k), β, y[i,j,k])
+                    end
+                    let j = jmax-1
+                        y[i,j,k] = f(α, D2tD2_4(x,i,j,k), β, y[i,j,k])
+                    end
+                    let j = jmax
+                        y[i,j,k] = f(α, D2tD2_5(x,i,j,k), β, y[i,j,k])
+                    end
                 end
             end
-            let j = jmin+1
-                @maybe_vectorized Opt for i in CartesianIndices(I)
-                    y[i,j,k] = f(α, D2tD2_2(x,i,j,k), β, y[i,j,k])
+        else # apply along 2nd and subsequent dimensions
+            @inbounds @fastmath for k in CartesianIndices(K)
+                let j = jmin
+                    @simd for i in CartesianIndices(I)
+                        y[i,j,k] = f(α, D2tD2_1(x,i,j,k), β, y[i,j,k])
+                    end
                 end
-            end
-            for j in jmin+2:jmax-2
-                @maybe_vectorized Opt for i in CartesianIndices(I)
-                    y[i,j,k] = f(α, D2tD2_3(x,i,j,k), β, y[i,j,k])
+                let j = jmin+1
+                    @simd for i in CartesianIndices(I)
+                        y[i,j,k] = f(α, D2tD2_2(x,i,j,k), β, y[i,j,k])
+                    end
                 end
-            end
-            let j = jmax-1
-                @maybe_vectorized Opt for i in CartesianIndices(I)
-                    y[i,j,k] = f(α, D2tD2_4(x,i,j,k), β, y[i,j,k])
+                for j in jmin+2:jmax-2
+                    @simd for i in CartesianIndices(I)
+                        y[i,j,k] = f(α, D2tD2_3(x,i,j,k), β, y[i,j,k])
+                    end
                 end
-            end
-            let j = jmax
-                @maybe_vectorized Opt for i in CartesianIndices(I)
-                    y[i,j,k] = f(α, D2tD2_5(x,i,j,k), β, y[i,j,k])
+                let j = jmax-1
+                    @simd for i in CartesianIndices(I)
+                        y[i,j,k] = f(α, D2tD2_4(x,i,j,k), β, y[i,j,k])
+                    end
+                end
+                let j = jmax
+                    @simd for i in CartesianIndices(I)
+                        y[i,j,k] = f(α, D2tD2_5(x,i,j,k), β, y[i,j,k])
+                    end
                 end
             end
         end
     elseif len == 4
-        @maybe_inbounds Opt for k in CartesianIndices(K)
-            let j = jmin
-                @maybe_vectorized Opt for i in CartesianIndices(I)
-                    y[i,j,k] = f(α, D2tD2_1(x,i,j,k), β, y[i,j,k])
+        if I isa Tuple{} # apply along 1st dimension
+            let i = CartesianIndex()
+                @inbounds @fastmath @simd for k in CartesianIndices(K)
+                    let j = jmin
+                        y[i,j,k] = f(α, D2tD2_1(x,i,j,k), β, y[i,j,k])
+                    end
+                    let j = jmin+1
+                        y[i,j,k] = f(α, D2tD2_2(x,i,j,k), β, y[i,j,k])
+                    end
+                    let j = jmax-1
+                        y[i,j,k] = f(α, D2tD2_4(x,i,j,k), β, y[i,j,k])
+                    end
+                    let j = jmax
+                        y[i,j,k] = f(α, D2tD2_5(x,i,j,k), β, y[i,j,k])
+                    end
                 end
             end
-            let j = jmin+1
-                @maybe_vectorized Opt for i in CartesianIndices(I)
-                    y[i,j,k] = f(α, D2tD2_2(x,i,j,k), β, y[i,j,k])
+        else # apply along 2nd and subsequent dimensions
+            @inbounds @fastmath for k in CartesianIndices(K)
+                let j = jmin
+                    @simd for i in CartesianIndices(I)
+                        y[i,j,k] = f(α, D2tD2_1(x,i,j,k), β, y[i,j,k])
+                    end
                 end
-            end
-            let j = jmax-1
-                @maybe_vectorized Opt for i in CartesianIndices(I)
-                    y[i,j,k] = f(α, D2tD2_4(x,i,j,k), β, y[i,j,k])
+                let j = jmin+1
+                    @simd for i in CartesianIndices(I)
+                        y[i,j,k] = f(α, D2tD2_2(x,i,j,k), β, y[i,j,k])
+                    end
                 end
-            end
-            let j = jmax
-                @maybe_vectorized Opt for i in CartesianIndices(I)
-                    y[i,j,k] = f(α, D2tD2_5(x,i,j,k), β, y[i,j,k])
+                let j = jmax-1
+                    @simd for i in CartesianIndices(I)
+                        y[i,j,k] = f(α, D2tD2_4(x,i,j,k), β, y[i,j,k])
+                    end
+                end
+                let j = jmax
+                    @simd for i in CartesianIndices(I)
+                        y[i,j,k] = f(α, D2tD2_5(x,i,j,k), β, y[i,j,k])
+                    end
                 end
             end
         end
-    elseif len == 3
-        @maybe_inbounds Opt for k in CartesianIndices(K)
-            let j = jmin
-                @maybe_vectorized Opt for i in CartesianIndices(I)
-                    y[i,j,k] = f(α, D2tD2_1(x,i,j,k), β, y[i,j,k])
+     elseif len == 3
+        if I isa Tuple{} # apply along 1st dimension
+            let i = CartesianIndex()
+                @simd for k in CartesianIndices(K)
+                    let j = jmin
+                        y[i,j,k] = f(α, D2tD2_1(x,i,j,k), β, y[i,j,k])
+                    end
+                    let j = jmin+1
+                        y[i,j,k] = f(α, D2tD2_6(x,i,j,k), β, y[i,j,k])
+                    end
+                    let j = jmax
+                        y[i,j,k] = f(α, D2tD2_5(x,i,j,k), β, y[i,j,k])
+                    end
                 end
             end
-            let j = jmin+1
-                @maybe_vectorized Opt for i in CartesianIndices(I)
-                    y[i,j,k] = f(α, D2tD2_6(x,i,j,k), β, y[i,j,k])
+        else # apply along 2nd and subsequent dimensions
+            @inbounds @fastmath for k in CartesianIndices(K)
+                let j = jmin
+                    @simd for i in CartesianIndices(I)
+                        y[i,j,k] = f(α, D2tD2_1(x,i,j,k), β, y[i,j,k])
+                    end
                 end
-            end
-            let j = jmax
-                @maybe_vectorized Opt for i in CartesianIndices(I)
-                    y[i,j,k] = f(α, D2tD2_5(x,i,j,k), β, y[i,j,k])
+                let j = jmin+1
+                    @simd for i in CartesianIndices(I)
+                        y[i,j,k] = f(α, D2tD2_6(x,i,j,k), β, y[i,j,k])
+                    end
+                end
+                let j = jmax
+                    @simd for i in CartesianIndices(I)
+                        y[i,j,k] = f(α, D2tD2_5(x,i,j,k), β, y[i,j,k])
+                    end
                 end
             end
         end
     elseif len == 2
-        @maybe_inbounds Opt for k in CartesianIndices(K)
-            let j = jmin
-                @maybe_vectorized Opt for i in CartesianIndices(I)
-                    y[i,j,k] = f(α, D2tD2_7(x,i,j,k), β, y[i,j,k])
+        if I isa Tuple{} # apply along 1st dimension
+            let i = CartesianIndex()
+                @inbounds @fastmath @simd for k in CartesianIndices(K)
+                    let j = jmin
+                        y[i,j,k] = f(α, D2tD2_7(x,i,j,k), β, y[i,j,k])
+                    end
+                    let j = jmax
+                        y[i,j,k] = f(α, D2tD2_8(x,i,j,k), β, y[i,j,k])
+                    end
                 end
             end
-            let j = jmax
-                @maybe_vectorized Opt for i in CartesianIndices(I)
-                    y[i,j,k] = f(α, D2tD2_8(x,i,j,k), β, y[i,j,k])
+        else # apply along 2nd and subsequent dimensions
+            @inbounds @fastmath for k in CartesianIndices(K)
+                let j = jmin
+                    @simd for i in CartesianIndices(I)
+                        y[i,j,k] = f(α, D2tD2_7(x,i,j,k), β, y[i,j,k])
+                    end
+                end
+                let j = jmax
+                    @simd for i in CartesianIndices(I)
+                        y[i,j,k] = f(α, D2tD2_8(x,i,j,k), β, y[i,j,k])
+                    end
                 end
             end
         end
     elseif len == 1 && β != 1
-        let j = jmin, z = zero(T)
-            @maybe_inbounds Opt for k in CartesianIndices(K)
-                @maybe_vectorized Opt for i in CartesianIndices(I)
+        if I isa Tuple{} # apply along 1st dimension
+            let i = CartesianIndex(), j = jmin, z = zero(real(eltype(x)))
+                @inbounds @fastmath @simd for k in CartesianIndices(K)
                     y[i,j,k] = f(α, z, β, y[i,j,k])
+                end
+            end
+        else # apply along 2nd and subsequent dimensions
+            let j = jmin, z = zero(real(eltype(x)))
+                @inbounds @fastmath for k in CartesianIndices(K)
+                    @simd for i in CartesianIndices(I)
+                        y[i,j,k] = f(α, z, β, y[i,j,k])
+                    end
                 end
             end
         end

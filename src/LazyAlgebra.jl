@@ -21,7 +21,7 @@ export
     #CompressedSparseOperator,
     CroppingOperator,
     Diag,
-    #Diff,
+    Diff,
     #FFTOperator,
     FlexibleMatrix,
     Gram,
@@ -144,6 +144,7 @@ include("map.jl")
 include("rank1.jl")
 include("pseudomatrices.jl")
 include("cropping.jl")
+include("diff.jl")
 #include("matrices.jl")
 #include("genmult.jl")
 #import .GenMult: lgemm!, lgemm, lgemv!, lgemv
@@ -153,10 +154,6 @@ include("cropping.jl")
 #include("sparse.jl")
 #using .SparseOperators
 #import .SparseOperators: unpack!
-#
-#import .Cropping: CroppingOperator, ZeroPaddingOperator, defaultoffset
-#include("diff.jl")
-#import .FiniteDifferences: Diff
 #include("fft.jl")
 #import .FFTs: CirculantConvolution, FFTOperator
 include("conjgrad.jl")
