@@ -86,11 +86,19 @@ Base.:(/)(α::Number,   B::Operator) = α * inv(B)
 # Equality.
 for cmp in (:(==), :isequal)
     @eval begin
-        # Equality for sums of operators. It is lazily assumed that operands are
-        # compatible in i/o sizes.
-        Base.$cmp(A::Sum, B::Sum) =
-            ($cmp(A[1], B[1]) && $cmp(A[2], B[2])) ||
-            ($cmp(A[1], B[2]) && $cmp(A[2], B[1]))
+        # Equality for sums of operators.
+        #
+        # For comparing two sums, due to commutativity of addition all possible
+        # permutations should be compared but would scale as O(n!) with n the number of
+        # terms or would require first sorting the terms of A and B. This is too long, so
+        # equality is only tested without permutations. This is sufficient if A and B have
+        # been "simplified" (and thus their terms sorted).
+        Base.$cmp(A::Sum, B::Sum) = ($cmp(A[1], B[1]) && $cmp(A[2], B[2]))
+        #
+        # For comparing a sum and another operator, it is lazily assumed that the i/o
+        # sizes of the terms of the sum are compatible. Again, the number of considered
+        # cases are not meant to be exhaustive, just to be sufficient if A and B have been
+        # simplified.
         Base.$cmp(A::Sum, B::Operator) =
             (iszero(A[1]) && $cmp(A[2], B)) || (iszero(A[2]) && $cmp(A[1], B))
         Base.$cmp(A::Operator, B::Sum) =
