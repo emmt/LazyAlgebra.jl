@@ -1,9 +1,4 @@
-#
-# rank1.jl -
-#
 # Implement rank-1 operators in LazyAlgebra.
-#
-#-----------------------------------------------------------------------------------------
 
 """
     LazyAlgebra.AbstractRankOneOperator{U,V}
@@ -75,9 +70,12 @@ input_axes(A::AbstractRankOneOperator) = axes(last(A))
 
 function unsafe_vmul!(α::Number, A::Union{K,Adjoint{K}}, x::AbstractArray,
                       β::Number, y::AbstractArray) where {K <: AbstractRankOneOperator}
-    # Call `dispatch_vcombine!`, not `unsafe_vcombine!` directly, because `α*vdot(v,x)`
+    # Call `dispatch_vcombine!`, not `unsafe_vcombine!` directly, because `λ = α*vdot(v,x)`
     # may be zero although `α` should be non-zero.
-    dispatch_vcombine!(y, convert_multiplier(α*vdot(last(A), x), eltype(first(A))), first(A), β, y)
+    v = last(A)
+    λ = α*vdot(v, x)
+    u = first(A)
+    dispatch_vcombine!(convert_multiplier(λ, u), u, β, y)
 end
 
 # Set precision for rank-1 operators.

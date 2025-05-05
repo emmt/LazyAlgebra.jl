@@ -3,6 +3,7 @@ using Test
 using LinearAlgebra
 
 include("identity-tests.jl")
+include("rank1-tests.jl")
 include("crop-tests.jl")
 include("diag-tests.jl")
 include("pseudo-tests.jl")
@@ -11,6 +12,7 @@ include("pseudo-tests.jl")
     include("vectors.jl")
     include("rules-tests.jl")
     LazyAlgebraIdentityTests.runtests()
+    LazyAlgebraRank1Tests.runtests()
     LazyAlgebraCropTests.runtests()
     LazyAlgebraDiagTests.runtests()
     TestingLazyAlgebraPseudoMatrices.runtests()
