@@ -83,6 +83,26 @@ Base.:(/)(A::Operator, β::Number) = β \ A
 Base.:(/)(A::Operator, B::Operator) = A * inv(B)
 Base.:(/)(α::Number,   B::Operator) = α * inv(B)
 
+# Equality.
+for cmp in (:(==), :isequal)
+    @eval begin
+        # Equality for sums of operators. It is lazily assumed that operands are
+        # compatible in i/o sizes.
+        Base.$cmp(A::Sum, B::Sum) =
+            ($cmp(A[1], B[1]) && $cmp(A[2], B[2])) ||
+            ($cmp(A[1], B[2]) && $cmp(A[2], B[1]))
+        Base.$cmp(A::Sum, B::Operator) =
+            (iszero(A[1]) && $cmp(A[2], B)) || (iszero(A[2]) && $cmp(A[1], B))
+        Base.$cmp(A::Operator, B::Sum) =
+            (iszero(B[1]) && $cmp(A, B[2])) || (iszero(B[2]) && $cmp(A, B[1]))
+
+        # Equality for scaled operators and compositions of operators.
+        Base.$cmp(A::Prod, B::Prod) = $cmp(A[1], B[1]) && $cmp(A[2], B[2])
+        Base.$cmp(A::Prod, B::Operator) = isone(A[1]) && $cmp(A[2], B)
+        Base.$cmp(A::Operator, B::Prod) = isone(B[1]) && $cmp(A, B[2])
+    end
+end
+
 # Simplification rules for products and sums.
 #
 # - Number operands are moved to the leftmost part of products and factorized.

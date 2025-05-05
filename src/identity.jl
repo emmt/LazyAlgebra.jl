@@ -1,19 +1,14 @@
-#
-# identity.jl -
-#
 # Implement identity and uniform scaling.
-#
-#------------------------------------------------------------------------------------------
 
 """
     Identity(shape = :)
 
 yields the identity operator for arrays of given `shape`. If `shape` is a colon (the
 default), any array shape is considered as compatible. The singleton `Identity(:)` is
-exported by `LazyAlgebra` as the `Id` alias.
+exported by `LazyAlgebra` as the [`Id`](@ref) alias.
 
 The `LinearAlgebra` module of the standard library exports a constant `I` which also
-corresponds to the identity (but in the sense of a matrix). When `I` is combined with any
+corresponds to the identity (but for usual matrices). When `I` is combined with any
 `LazyAlgebra` operator, it is recognized as an alias of `Id`. So that, for instance,
 `I/A`, `A\\I`, `Id/A` and `A\\Id` all yield `inv(A)` for any `LazyAlgebra` mapping `A`.
 
@@ -71,6 +66,8 @@ Inverse(A::Identity) = A
 Prod(A::typeof(Id), B::typeof(Id)) = Id
 Prod(A::Operator,   B::typeof(Id)) = A
 Prod(A::typeof(Id), B::Operator  ) = B
+Prod(A::Prod{<:Number}, B::typeof(Id)) = A
+Prod(A::typeof(Id), B::Prod{<:Number}) = B
 #
 Sum(A::typeof(Id),                B::typeof(Id)               ) = 2Id
 Sum(A::Prod{<:Number,typeof(Id)}, B::typeof(Id)               ) = (A[1] + 1) * Id

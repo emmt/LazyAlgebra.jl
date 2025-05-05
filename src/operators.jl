@@ -889,9 +889,10 @@ and `y`.
 function test_API(A::Operator, x::AbstractArray, y::AbstractArray;
                   alphas::Tuple{Vararg{Number}} = (-1, 0, 1, 3, -2 + 1im),
                   betas::Tuple{Vararg{Number}} = (-1, 0, 1, 2, π),
-                  rtol::Real = 4e-7, atol=0)
+                  rtol::Real = 4e-7, atol=0,
+                  name::AbstractString = repr(typeof(A)))
 
-    @testset "Operator API for $(typeof(A)), T=$(eltype(x)), and dims=$(size(x))" begin
+    @testset "Operator API for $name, T=$(eltype(x)), and dims=$(size(x))" begin
         # Output element type.
         o = @inferred OutputEltype(A)
         @test o === HasOutputEltype() || o === OutputEltypeUnknown()

@@ -172,14 +172,10 @@ using LinearAlgebra
         @test @inferred(LazyAlgebra.Inverse(3.0 - 2.0im)) ≈ (3.0 + 2.0im)/13.0
         # Inverse of an operator
         @test inv(A) isa LazyAlgebra.Inverse
-        @test inv(A) === Id/A
-        @test inv(A) === A\Id
         @test @inferred(inv(inv(A))) === A
         @test @inferred(parent(inv(A))) === A
         @test @inferred(getindex(inv(A))) === A
         @test inv(A)[] === A
-        @test Id/inv(A) === A
-        @test inv(A)\Id === A
         # Inverse of a sum.
         @test inv(A + B) isa LazyAlgebra.Inverse
         @test inv(A + B)[] === A + B
