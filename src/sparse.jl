@@ -94,7 +94,8 @@ to_size(siz::Tuple{Vararg{Integer}}) = map(to_int, siz)
 to_size(siz::Integer) = (to_int(siz),)
 
 as_matrix(A::AbstractMatrix, nrows::Int, ncols::Int) = begin
-    @certify size(A) == (nrows, ncols)
+    size(A) == (nrows, ncols) || throw(DimensionMismatch(
+        "argument has size $(size(A)), expecting ($nrows, $ncols)"))
     return A
 end
 as_matrix(A::AbstractArray, nrows::Int, ncols::Int) =
@@ -1656,7 +1657,7 @@ in non-increasing order an all in the range `1:n`.
 function compute_offsets(n::Int,
                          inds::AbstractVector{Int},
                          len::Int = length(inds))
-    @certify len ≤ length(inds)
+    @assert len ≤ length(inds)
     @inbounds begin
         offs = Vector{Int}(undef, n + 1)
         i = 0
@@ -1706,9 +1707,9 @@ leading dimensions while the *columns* account for the other `N` dimensions.
 """
 function get_equivalent_size(A::AbstractArray{T,L},
                              ::Val{M}, ::Val{N}) where {T,L,M,N}
-    @certify L == M + N
-    @certify M ≥ 1
-    @certify N ≥ 1
+    @assert L == M + N
+    @assert M ≥ 1
+    @assert N ≥ 1
     eachindex(A) == 1:length(A) ||
         throw_argument_error("array must have standard linear indexing")
     siz = size(A)
