@@ -338,23 +338,6 @@ Base.axes(A::SparseOperator) = map(Base.OneTo, size(A))
 Base.convert(::Type{T}, A::T) where {T<:SparseOperator} = A
 Base.convert(::Type{T}, A) where {T<:SparseOperator} = T(A)
 
-coefficients(A::SparseOperator) = get_vals(A)
-
-identical(A::T, B::T) where {T<:CompressedSparseOperator{:CSR}} =
-    (get_vals(A) === get_vals(B) && get_cols(A) === get_cols(B) &&
-     get_offs(A) === get_offs(B) &&
-     row_size(A) == row_size(B) && col_size(A) == col_size(B))
-
-identical(A::T, B::T) where {T<:CompressedSparseOperator{:CSC}} =
-    (get_vals(A) === get_vals(B) && get_rows(A) === get_rows(B) &&
-     get_offs(A) === get_offs(B) &&
-     row_size(A) == row_size(B) && col_size(A) == col_size(B))
-
-identical(A::T, B::T) where {T<:CompressedSparseOperator{:COO}} =
-    (get_vals(A) === get_vals(B) && get_rows(A) === get_rows(B) &&
-     get_cols(A) === get_cols(B) &&
-     row_size(A) == row_size(B) && col_size(A) == col_size(B))
-
 # Assume that a `copy` of a compressed sparse operator is to keep the same structure for
 # the structural non-zeros but possibly change the values. So only duplicate the value
 # part. For a `deepcopy` of a compressed sparse operator, all the fields are copied.
@@ -970,11 +953,6 @@ parameter `T` may also be specified to convert the type of the sparse
 coefficients.
 
 """ SparseOperatorCSR
-
-# Make sparse operators callable.
-@callable SparseOperatorCSR
-@callable SparseOperatorCSC
-@callable SparseOperatorCOO
 
 SparseOperator(A::SparseOperator) = A
 SparseOperator{T}(A::SparseOperator{T}) where {T} = A
