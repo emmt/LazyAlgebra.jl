@@ -218,20 +218,17 @@ abstract type CompressedSparseOperator{F,T,M,N} <: SparseOperator{T,M,N} end
     rowsiz::Dims{M} # dimensions of rows
     colsiz::Dims{N} # dimensions of columns
 
-    # An inner constructor is defined to prevent Julia from providing a simple outer
-    # constructor, it is not meant to be called directly as it does not check whether
-    # arguments are correct.
-    function SparseOperatorCSR{T,M,N,V,J,K}(m::Int,
-                                            n::Int,
-                                            vals::V,
-                                            cols::J,
-                                            offs::K,
-                                            rowsiz::Dims{M},
-                                            colsiz::Dims{N}) where {
-                                                T,M,N,
-                                                V<:AbstractVector{T},
-                                                J<:AbstractVector{Int},
-                                                K<:AbstractVector{Int}}
+    # A private inner constructor is defined to prevent Julia from providing a simple
+    # outer constructor, it is not meant to be called directly as it does not check
+    # whether arguments are correct.
+    global _SparseOperatorCSR
+    function _SparseOperatorCSR(m::Integer, n::Integer,
+                                vals::V, cols::J, offs::K,
+                                rowsiz::Dims{M},
+                                colsiz::Dims{N}) where {T,M,N,
+                                                        V<:AbstractVector{T},
+                                                        J<:AbstractVector{Int},
+                                                        K<:AbstractVector{Int}}
         new{T,M,N,V,J,K}(m, n, vals, cols, offs, rowsiz, colsiz)
     end
 end
@@ -249,20 +246,17 @@ end
     rowsiz::Dims{M} # dimensions of rows
     colsiz::Dims{N} # dimensions of columns
 
-    # An inner constructor is defined to prevent Julia from providing a simple outer
-    # constructor, it is not meant to be called directly as it does not check whether
-    # arguments are correct.
-    function SparseOperatorCSC{T,M,N,V,I,K}(m::Int,
-                                            n::Int,
-                                            vals::V,
-                                            rows::I,
-                                            offs::K,
-                                            rowsiz::Dims{M},
-                                            colsiz::Dims{N}) where {
-                                                T,M,N,
-                                                V<:AbstractVector{T},
-                                                I<:AbstractVector{Int},
-                                                K<:AbstractVector{Int}}
+    # A private inner constructor is defined to prevent Julia from providing a simple
+    # outer constructor, it is not meant to be called directly as it does not check
+    # whether arguments are correct.
+    global _SparseOperatorCSC
+    function _SparseOperatorCSC(m::Int, n::Int,
+                                vals::V, rows::I, offs::K,
+                                rowsiz::Dims{M},
+                                colsiz::Dims{N}) where {T,M,N,
+                                                        V<:AbstractVector{T},
+                                                        I<:AbstractVector{Int},
+                                                        K<:AbstractVector{Int}}
         new{T,M,N,V,I,K}(m, n, vals, rows, offs, rowsiz, colsiz)
     end
 end
@@ -280,20 +274,17 @@ end
     rowsiz::Dims{M} # dimensions of rows
     colsiz::Dims{N} # dimensions of columns
 
-    # An inner constructor is defined to prevent Julia from providing a simple outer
+    # A private inner constructor is defined to prevent Julia from providing a simple outer
     # constructor, it is not meant to be called directly as it does not check whether
     # arguments are correct.
-    function SparseOperatorCOO{T,M,N,V,I,J}(m::Int,
-                                            n::Int,
-                                            vals::V,
-                                            rows::I,
-                                            cols::J,
-                                            rowsiz::Dims{M},
-                                            colsiz::Dims{N}) where {
-                                                T,M,N,
-                                                V<:AbstractVector{T},
-                                                I<:AbstractVector{Int},
-                                                J<:AbstractVector{Int}}
+    global _SparseOperatorCOO
+    function _SparseOperatorCOO(m::Integer, n::Integer,
+                                vals::V, rows::I, cols::J,
+                                rowsiz::Dims{M},
+                                colsiz::Dims{N}) where {T,M,N,
+                                                        V<:AbstractVector{T},
+                                                        I<:AbstractVector{Int},
+                                                        J<:AbstractVector{Int}}
         new{T,M,N,V,I,J}(m, n, vals, rows, cols, rowsiz, colsiz)
     end
 end
@@ -346,16 +337,16 @@ for (func, rows, cols, offs) in ((:copy,      :get_rows,  :get_cols,  :get_offs)
                                  (:deepcopy, :copy_rows, :copy_cols, :copy_offs))
     @eval begin
         Base.$func(A::SparseOperatorCSR) =
-            unsafe_csr(nrows(A), ncols(A), copy_vals(A), $cols(A), $offs(A),
-                       row_size(A), col_size(A))
+            _SparseOperatorCSR(nrows(A), ncols(A), copy_vals(A), $cols(A), $offs(A),
+                               row_size(A), col_size(A))
 
         Base.$func(A::SparseOperatorCSC{T,M,N}) where {T,M,N} =
-            unsafe_csc(nrows(A), ncols(A), copy_vals(A), $rows(A), $offs(A),
-                       row_size(A), col_size(A))
+            _SparseOperatorCSC(nrows(A), ncols(A), copy_vals(A), $rows(A), $offs(A),
+                               row_size(A), col_size(A))
 
         Base.$func(A::SparseOperatorCOO{T,M,N}) where {T,M,N} =
-            unsafe_coo(nrows(A), ncols(A), copy_vals(A), $rows(A), $cols(A),
-                       row_size(A), col_size(A))
+            _SparseOperatorCOO(nrows(A), ncols(A), copy_vals(A), $rows(A), $cols(A),
+                               row_size(A), col_size(A))
     end
 end
 
@@ -1005,11 +996,11 @@ function SparseOperatorCSR(vals::AbstractVector,
                            offs::AbstractVector{<:Integer},
                            rowsiz::ArraySize,
                            colsiz::ArraySize)
-    check_structure(unsafe_csr(to_values(vals),
-                               to_indices(cols),
-                               to_indices(offs),
-                               to_size(rowsiz),
-                               to_size(colsiz)))
+    check_structure(_SparseOperatorCSR(to_values(vals),
+                                       to_indices(cols),
+                                       to_indices(offs),
+                                       to_size(rowsiz),
+                                       to_size(colsiz)))
 end
 
 function SparseOperatorCSC(vals::AbstractVector,
@@ -1017,11 +1008,11 @@ function SparseOperatorCSC(vals::AbstractVector,
                            offs::AbstractVector{<:Integer},
                            rowsiz::ArraySize,
                            colsiz::ArraySize)
-    check_structure(unsafe_csc(to_values(vals),
-                               to_indices(rows),
-                               to_indices(offs),
-                               to_size(rowsiz),
-                               to_size(colsiz)))
+    check_structure(_SparseOperatorCSC(to_values(vals),
+                                       to_indices(rows),
+                                       to_indices(offs),
+                                       to_size(rowsiz),
+                                       to_size(colsiz)))
 end
 
 function SparseOperatorCOO(vals::AbstractVector,
@@ -1029,11 +1020,11 @@ function SparseOperatorCOO(vals::AbstractVector,
                            cols::AbstractVector{<:Integer},
                            rowsiz::ArraySize,
                            colsiz::ArraySize)
-    check_structure(unsafe_coo(to_values(vals),
-                               to_indices(rows),
-                               to_indices(cols),
-                               to_size(rowsiz),
-                               to_size(colsiz)))
+    check_structure(_SparseOperatorCOO(to_values(vals),
+                                       to_indices(rows),
+                                       to_indices(cols),
+                                       to_size(rowsiz),
+                                       to_size(colsiz)))
 end
 
 @inline isnonzero(v::T, i::Integer, j::Integer) where {T} = (v != zero(T))
@@ -1081,16 +1072,16 @@ end
 # checked so do not check structure again.
 
 SparseOperatorCSR{T}(A::SparseOperatorCSR{S,M,N}) where {S,T,M,N} =
-    unsafe_csr(nrows(A), ncols(A), to_values(T, get_vals(A)),
-               get_cols(A), get_offs(A), row_size(A), col_size(A))
+    _SparseOperatorCSR(nrows(A), ncols(A), to_values(T, get_vals(A)),
+                       get_cols(A), get_offs(A), row_size(A), col_size(A))
 
 SparseOperatorCSC{T}(A::SparseOperatorCSC{S,M,N}) where {S,T,M,N} =
-    unsafe_csc(nrows(A), ncols(A), to_values(T, get_vals(A)),
-               get_rows(A), get_offs(A), row_size(A), col_size(A))
+    _SparseOperatorCSC(nrows(A), ncols(A), to_values(T, get_vals(A)),
+                       get_rows(A), get_offs(A), row_size(A), col_size(A))
 
 SparseOperatorCOO{T}(A::SparseOperatorCOO{S,M,N}) where {S,T,M,N} =
-    unsafe_coo(nrows(A), ncols(A), to_values(T, get_vals(A)),
-               get_rows(A), get_cols(A), row_size(A), col_size(A))
+    _SparseOperatorCOO(nrows(A), ncols(A), to_values(T, get_vals(A)),
+                       get_rows(A), get_cols(A), row_size(A), col_size(A))
 
 # Constructors for CSR format similar to the basic ones but have parameters
 # that may imply converting arguments.
@@ -1242,7 +1233,7 @@ function SparseOperatorCSR{T,M,N,V}(arr::AbstractArray{S,L},
 
     # By construction, the sparse structure should be correct so just call the "unsafe"
     # constructor.
-    return unsafe_csr(nrows, ncols, vals, cols, offs, rowsiz, colsiz)
+    return _SparseOperatorCSR(nrows, ncols, vals, cols, offs, rowsiz, colsiz)
 end
 
 function SparseOperatorCSC{T,M,N,V}(arr::AbstractArray{S,L},
@@ -1295,7 +1286,7 @@ function SparseOperatorCSC{T,M,N,V}(arr::AbstractArray{S,L},
 
     # By construction, the sparse structure should be correct so just call the
     # "unsafe" constructor.
-    return unsafe_csc(nrows, ncols, vals, rows, offs, rowsiz, colsiz)
+    return _SparseOperatorCSC(nrows, ncols, vals, rows, offs, rowsiz, colsiz)
 end
 
 function SparseOperatorCOO{T,M,N,V}(arr::AbstractArray{S,L},
@@ -1348,7 +1339,7 @@ function SparseOperatorCOO{T,M,N,V}(arr::AbstractArray{S,L},
 
     # By construction, the sparse structure should be correct so just call the
     # "unsafe" constructor.
-    return unsafe_coo(nrows, ncols, vals, rows, cols, rowsiz, colsiz)
+    return _SparseOperatorCOO(nrows, ncols, vals, rows, cols, rowsiz, colsiz)
 end
 
 """
@@ -1456,24 +1447,24 @@ function Base.reshape(A::SparseOperatorCSR,
                       rowsiz::Tuple{Vararg{Int}},
                       colsiz::Tuple{Vararg{Int}})
     check_new_shape(A, rowsiz, colsiz)
-    unsafe_csr(nrows(A), ncols(A), get_vals(A), get_cols(A), get_offs(A),
-               rowsiz, colsiz)
+    _SparseOperatorCSR(nrows(A), ncols(A), get_vals(A), get_cols(A), get_offs(A),
+                       rowsiz, colsiz)
 end
 
 function Base.reshape(A::SparseOperatorCSC,
                       rowsiz::Tuple{Vararg{Int}},
                       colsiz::Tuple{Vararg{Int}})
     check_new_shape(A, rowsiz, colsiz)
-    unsafe_csc(nrows(A), ncols(A), get_vals(A), get_rows(A), get_offs(A),
-               rowsiz, colsiz)
+    _SparseOperatorCSC(nrows(A), ncols(A), get_vals(A), get_rows(A), get_offs(A),
+                       rowsiz, colsiz)
 end
 
 function Base.reshape(A::SparseOperatorCOO,
                       rowsiz::Tuple{Vararg{Int}},
                       colsiz::Tuple{Vararg{Int}})
     check_new_shape(A, rowsiz, colsiz)
-    unsafe_coo(nrows(A), ncols(A), get_vals(A), get_rows(A), get_cols(A),
-               rowsiz, colsiz)
+    _SparseOperatorCOO(nrows(A), ncols(A), get_vals(A), get_rows(A), get_cols(A),
+                       rowsiz, colsiz)
 end
 
 # Convert from other compressed sparse formats. For compressed sparse row and column (CSR
@@ -1547,7 +1538,7 @@ function coo_to_csr!(vals::Vector{T},
 
     # Since everything will have
     # been checked, we can call the unsafe constructor.
-    return unsafe_csr(nrows, ncols, vals, cols, offs, rowsiz, colsiz)
+    return _SparseOperatorCSR(nrows, ncols, vals, cols, offs, rowsiz, colsiz)
 end
 
 """
@@ -1586,7 +1577,7 @@ function coo_to_csc!(vals::Vector{T},
 
     # Since everything will have
     # been checked, we can call the unsafe constructor.
-    return unsafe_csc(nrows, ncols, vals, rows, offs, rowsiz, colsiz)
+    return _SparseOperatorCSC(nrows, ncols, vals, rows, offs, rowsiz, colsiz)
 end
 
 # "less-than" method for sorting entries in order, arguments are 3-tuples
@@ -1904,7 +1895,7 @@ function check_offs(A::T) where {T<:Union{CompressedSparseOperator{:CSR},
 end
 
 """
-    unsafe_csr([m, n,] vals, cols, offs, rowsiz, colsiz)
+    _SparseOperatorCSR([m, n,] vals, cols, offs, rowsiz, colsiz)
 
 yields a compressed sparse operator in *Compressed Sparse Row* (CSR) format as an instance
 of `SparseOperatorCSR`. This method assumes that arguments are correct, it just calls the
@@ -1912,28 +1903,16 @@ inner constructor with suitable parameters. This method is mostly used by conver
 outer constructors.
 
 """
-function unsafe_csr(m::Integer, n::Integer,
-                    vals::V, cols::J, offs::K,
-                    rowsiz::Dims{M},
-                    colsiz::Dims{N}) where {T,M,N,
-                                            V<:AbstractVector{T},
-                                            J<:AbstractVector{Int},
-                                            K<:AbstractVector{Int}}
-    SparseOperatorCSR{T,M,N,V,J,K}(to_int(m), to_int(n),
-                                   vals, cols, offs,
-                                   rowsiz, colsiz)
-end
-
-function unsafe_csr(vals::AbstractVector,
+function _SparseOperatorCSR(vals::AbstractVector,
                     cols::AbstractVector{Int},
                     offs::AbstractVector{Int},
                     rowsiz::Dims{M},
                     colsiz::Dims{N}) where {M,N}
-    unsafe_csr(prod(rowsiz), prod(colsiz), vals, cols, offs, rowsiz, colsiz)
+    _SparseOperatorCSR(prod(rowsiz), prod(colsiz), vals, cols, offs, rowsiz, colsiz)
 end
 
 """
-    unsafe_csc([m, n,] vals, rows, offs, rowsiz, colsiz)
+    _SparseOperatorCSC([m, n,] vals, rows, offs, rowsiz, colsiz)
 
 yields a compressed sparse operator in *Compressed Sparse Column* (CSC) format as an
 instance of `SparseOperatorCSC`. This method assumes that arguments are correct, it just
@@ -1941,28 +1920,16 @@ calls the inner constructor with suitable parameters. This method is mostly used
 converters and outer constructors.
 
 """
-function unsafe_csc(m::Integer, n::Integer,
-                    vals::V, rows::I, offs::K,
-                    rowsiz::Dims{M},
-                    colsiz::Dims{N}) where {T,M,N,
-                                            V<:AbstractVector{T},
-                                            I<:AbstractVector{Int},
-                                            K<:AbstractVector{Int}}
-    SparseOperatorCSC{T,M,N,V,I,K}(to_int(m), to_int(n),
-                                   vals, rows, offs,
-                                   rowsiz, colsiz)
-end
-
-function unsafe_csc(vals::AbstractVector,
-                    rows::AbstractVector{Int},
-                    offs::AbstractVector{Int},
-                    rowsiz::Dims{M},
-                    colsiz::Dims{N}) where {M,N}
-    unsafe_csc(prod(rowsiz), prod(colsiz), vals, rows, offs, rowsiz, colsiz)
+function _SparseOperatorCSC(vals::AbstractVector,
+                            rows::AbstractVector{Int},
+                            offs::AbstractVector{Int},
+                            rowsiz::Dims{M},
+                            colsiz::Dims{N}) where {M,N}
+    _SparseOperatorCSC(prod(rowsiz), prod(colsiz), vals, rows, offs, rowsiz, colsiz)
 end
 
 """
-    unsafe_coo([m, n,] vals, rows, cols, rowsiz, colsiz)
+    _SparseOperatorCOO([m, n,] vals, rows, cols, rowsiz, colsiz)
 
 yields a compressed sparse operator in *Compressed Sparse Coordinate* (COO) format as an
 instance of `SparseOperatorCOO`. This method assumes that arguments are correct, it just
@@ -1970,24 +1937,12 @@ calls the inner constructor with suitable parameters. This method is mostly used
 converters and outer constructors.
 
 """
-function unsafe_coo(m::Integer, n::Integer,
-                    vals::V, rows::I, cols::J,
-                    rowsiz::Dims{M},
-                    colsiz::Dims{N}) where {T,M,N,
-                                            V<:AbstractVector{T},
-                                            I<:AbstractVector{Int},
-                                            J<:AbstractVector{Int}}
-    SparseOperatorCOO{T,M,N,V,I,J}(to_int(m), to_int(n),
-                                   vals, rows, cols,
-                                   rowsiz, colsiz)
-end
-
-function unsafe_coo(vals::AbstractVector,
-                    rows::AbstractVector{Int},
-                    cols::AbstractVector{Int},
-                    rowsiz::Dims{M},
-                    colsiz::Dims{N}) where {M,N}
-    unsafe_coo(prod(rowsiz), prod(colsiz), vals, rows, cols, rowsiz, colsiz)
+function _SparseOperatorCOO(vals::AbstractVector,
+                            rows::AbstractVector{Int},
+                            cols::AbstractVector{Int},
+                            rowsiz::Dims{M},
+                            colsiz::Dims{N}) where {M,N}
+    _SparseOperatorCOO(prod(rowsiz), prod(colsiz), vals, rows, cols, rowsiz, colsiz)
 end
 
 """
