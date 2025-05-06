@@ -37,33 +37,34 @@ using ZippedArrays
 import LinearAlgebra
 
 using ..LazyAlgebra
-using ..Foundations
-using ..LazyAlgebra: @certify
+using ..LazyAlgebra:
+    @callable,
+    Adjoint,
+    HasInputShape,
+    HasOutputShape
 
 import .LazyAlgebra:
-    MorphismType,
-    multiplier_type,
+    #MorphismType,
+    InputShape,
+    OutputShape,
+    unsafe_vmul!,
+    dispatch_vmul!,
     vmul!,
-    vcreate,
-    identical,
+    #identical,
     coefficients,
-    row_size,
-    col_size,
-    nrows,
-    ncols,
-    input_ndims,
-    input_size,
-    output_ndims,
-    output_size
+    #row_size,
+    #col_size,
+    #nrows,
+    #ncols,
+    #input_ndims,
+    #input_size,
+    #output_ndims,
+    #output_size,
+    output_axes,
+    output_eltype
 
 import SparseArrays
 using SparseArrays: SparseMatrixCSC, nonzeros, nnz
-if isdefined(SparseArrays, :AbstractSparseMatrixCSC)
-    const AbstractSparseMatrixCSC{Tv,Ti} =
-        SparseArrays.AbstractSparseMatrixCSC{Tv,Ti}
-else
-    const AbstractSparseMatrixCSC{Tv,Ti} = SparseArrays.SparseMatrixCSC{Tv,Ti}
-end
 
 import Base: getindex, setindex!, iterate
 using Base: @propagate_inbounds
@@ -166,28 +167,28 @@ for (Aij,i,j) in A # simple but slow for CSR and CSC
 end
 ```
 
-to retrieve the values `Aij` and respective row `i` and column `j` indices for
-all the entries stored in `A`.  It is however more efficient to access them
-according to their storage order which depends on the compressed format.
+to retrieve the values `Aij` and respective row `i` and column `j` indices for all the
+entries stored in `A`. It is however more efficient to access them according to their
+storage order which depends on the compressed format.
 
-- If `A` is in CSC format:
+- If `A` is in CSC format or is the adjoint of a sparse operator in CSR format:
 
   ```julia
   using LazyAlgebra.SparseMethods
   for j in each_col(A)        # loop over column index
-      for k in each_off(A, j) # loop over structural non-zeros in this column
+      for k in each_nz(A, j)  # loop over structural non-zeros in this column
           i   = get_row(A, k) # get row index of entry
           Aij = get_val(A, k) # get value of entry
        end
   end
   ```
 
-- If `A` is in CSR format:
+- If `A` is in CSR format or is the adjoint of a sparse operator in CSC format:
 
   ```julia
   using LazyAlgebra.SparseMethods
   for i in each_row(A)        # loop over row index
-      for k in each_off(A, i) # loop over structural non-zeros in this row
+      for k in each_nz(A, i)  # loop over structural non-zeros in this row
           j   = get_col(A, k) # get column index of entry
           Aij = get_val(A, k) # get value of entry
        end
@@ -198,16 +199,16 @@ according to their storage order which depends on the compressed format.
 
   ```julia
   using LazyAlgebra.SparseMethods
-  for k in each_off(A)
+  for k in each_nz(A)      # loop over all structural non-zeros
        i   = get_row(A, k) # get row index of entry
        j   = get_col(A, k) # get column index of entry
        Aij = get_val(A, k) # get value of entry
   end
   ```
 
-The low-level methods `each_row`, `each_col`, `each_off`, `get_row`, `get_col`
-and `get_val` are not automatically exported by `LazyAlgebra`, this is the
-purpose of the statement `using LazyAlgebra.SparseMethods`.
+The low-level methods `each_row`, `each_col`, `each_nz`, `get_row`, `get_col` and
+`get_val` are not automatically exported by `LazyAlgebra`, this is the purpose of the
+statement `using LazyAlgebra.SparseMethods`.
 
 """
 abstract type CompressedSparseOperator{F,T,M,N} <: SparseOperator{T,M,N} end
@@ -305,20 +306,27 @@ struct SparseOperatorCOO{T,M,N,
     end
 end
 
-# Unions of compressed sparse operators that can be considered as being in a
-# given storage format.
+# Unions of compressed sparse operators that can be considered as being in a given storage
+# format. Whatever the format, `T` is the element type, `M` is the number of output
+# dimensions, and `N` is the number of input dimensions.
 
 const AnyCSR{T,M,N} = Union{CompressedSparseOperator{:CSR,T,M,N},
-                            Adjoint{<:CompressedSparseOperator{:CSC,T,M,N}}}
+                            Adjoint{<:CompressedSparseOperator{:CSC,T,N,M}}}
 
 const AnyCSC{T,M,N} = Union{CompressedSparseOperator{:CSC,T,M,N},
-                            Adjoint{<:CompressedSparseOperator{:CSR,T,M,N}}}
+                            Adjoint{<:CompressedSparseOperator{:CSR,T,N,M}}}
 
 const AnyCOO{T,M,N} = Union{CompressedSparseOperator{:COO,T,M,N},
-                            Adjoint{<:CompressedSparseOperator{:COO,T,M,N}}}
+                            Adjoint{<:CompressedSparseOperator{:COO,T,N,M}}}
 
-#------------------------------------------------------------------------------
+const CSRorCSC = Union{AnyCSR,AnyCSC,SparseMatrixCSC}
+
+#-----------------------------------------------------------------------------------------
 # Accessors and basic methods.
+
+Base.eltype(::Type{<:SparseOperator{T,M,N}}) where {T,M,N} = T
+InputShape(::Type{<:SparseOperator{T,M,N}}) where {T,M,N} = HasInputShape{N}()
+OutputShape(::Type{<:SparseOperator{T,M,N}}) where {T,M,N} = HasOuputShape{M}()
 
 nrows(A::SparseOperator) = getfield(A, :m)
 ncols(A::SparseOperator) = getfield(A, :n)
@@ -333,6 +341,7 @@ Base.eltype(A::SparseOperator{T,M,N}) where {T,M,N} = T
 Base.ndims(A::SparseOperator{T,M,N}) where {T,M,N} = M+N
 Base.length(A::SparseOperator) = nrows(A)*ncols(A)
 Base.size(A::SparseOperator) = (row_size(A)..., col_size(A)...)
+Base.axes(A::SparseOperator) = map(Base.OneTo, size(A))
 
 # Use constructors to perform conversion (the first method is to resolve
 # ambiguities).
@@ -450,7 +459,7 @@ end
 function copy_rows(A::CompressedSparseOperator{:CSR})
     rows = Vector{Int}(undef, length(get_vals(A)))
     @inbounds for i in each_row(A)
-        @simd for k in each_off(A, i)
+        @simd for k in each_nz(A, i)
             rows[k] = i
         end
     end
@@ -486,7 +495,7 @@ end
 function copy_cols(A::Union{CompressedSparseOperator{:CSC},SparseMatrixCSC})
     cols = Vector{Int}(undef, length(get_vals(A)))
     @inbounds for j in each_col(A)
-        @simd for k in each_off(A, j)
+        @simd for k in each_nz(A, j)
             cols[k] = j
         end
     end
@@ -494,110 +503,102 @@ function copy_cols(A::Union{CompressedSparseOperator{:CSC},SparseMatrixCSC})
 end
 
 """
-    get_offs(A)
+    LazyAlgebra.get_offs(A)
 
-yields the table of offsets of the sparse operator `A`.  Not all operators
-extend this method.
+yields the table of offsets of the sparse operator `A`. Not all operators extend this
+method.
 
 !!! warning
-    The interpretation of offsets depend on the type of `A`.  For instance,
-    assuming `offs = get_offs(A)`, then the index range of the `j`-th column of
-    a `SparseMatrixCSC` is `offs[j]:(offs[j+1]-1)` while the index range is
-    `(offs[j]+1):offs[j+1]` for a `SparseOperatorCSC`.  For this reason,
-    it is recommended to call [`each_off`](@ref) instead or to call `get_offs`
-    with 2 arguments as shown below.
-
-For a transparent usage of the offsets, the method should be called with 2
-arguments:
-
-    get_offs(A, i) -> k1, k2
-
-which yields the offsets of the first and last elements in the arrays of values
-and linear column indices for the `i`-th row of the sparse operator `A` stored
-in a *Compressed Sparse Row* (CSR) format.  If `k2 < k1`, it means that the
-`i`-th row is empty.  Calling `each_off(A,i)` directly yields `k1:k2`.
-
-    get_offs(A, j) -> k1, k2
-
-yields the offsets of the first and last elements in the arrays of values and
-linear row indices for the `j`-th column of the sparse operator `A` stored in a
-*Compressed Sparse Column* (CSC) format.  If `k2 < k1`, it means that the
-`j`-th column is empty.  Calling `each_off(A,j)` directly yields `k1:k2`.
+    The interpretation of offsets depend on the type of `A`. For instance, assuming `offs
+    = LazyAlgebra.get_offs(A)`, then the index range of the `j`-th column of a
+    `SparseMatrixCSC` is `offs[j]:(offs[j+1]-1)` while the index range is
+    `(offs[j]+1):offs[j+1]` for a `SparseOperatorCSC`. For this reason, it is recommended
+    to call [`each_nz`](@ref) instead or to call `get_offs` with 2 arguments as shown
+    below.
 
 """
-get_offs(A::SparseOperatorCSR) = getfield(A, :offs)
-get_offs(A::SparseOperatorCSC) = getfield(A, :offs)
+get_offs(A::Union{SparseOperatorCSR,SparseOperatorCSC}) = getfield(A, :offs)
 get_offs(A::Adjoint{<:CompressedSparseOperator{:CSR}}) = get_offs(parent(A))
 get_offs(A::Adjoint{<:CompressedSparseOperator{:CSC}}) = get_offs(parent(A))
 
-@inline function get_offs(A::AnyCSR, i::Int)
-    offs = get_offs(A)
-    @boundscheck ((i < 1)|(i ≥ length(offs))) && out_of_range_row_index(A, i)
-    return ((@inbounds offs[i] + 1),
-            (@inbounds offs[i+1]))
+"""
+
+For a sparse operator `A` stored in a *Compressed Sparse Coordinate* (COO) format, the
+call:
+
+    each_nz(A)
+
+yields an iterator over the indices in the arrays of values and of linear row and column
+indices for the `k`-th entry of `A`.
+
+---
+
+For a sparse operator `A` stored in a *Compressed Sparse Column* (CSC) format, the call:
+
+    each_nz(A, j)
+
+yields an iterator over the indices in the arrays of values and linear row indices for the
+`j`-th column of `A`.
+
+---
+
+For a sparse operator `A` stored in a *Compressed Sparse Row* (CSR) format, the call:
+
+    each_nz(A, i)
+
+yields an iterator over the indices in the arrays of values and linear column indices for
+the `i`-th row of `A`.
+
+"""
+@inline each_nz(A::Union{SparseOperatorCOO,Adjoint{<:SparseOperatorCOO}}) =
+    Base.OneTo(nnz(A))
+
+@inline first_nz(A::Union{SparseOperatorCOO,Adjoint{<:SparseOperatorCOO}}) = 1
+
+@inline last_nz(A::Union{SparseOperatorCOO,Adjoint{<:SparseOperatorCOO}}) = nnz(A)
+
+@inline function first_nz(A::CSRorCSC, ij::Int)
+    @boundscheck check_offset_index(A, ij)
+    return unsafe_first_nz(A, ij)
 end
 
-@inline function get_offs(A::AnyCSC, j::Int)
-    offs = get_offs(A)
-    @boundscheck ((j < 1)|(j ≥ length(offs))) && out_of_range_column_index(A, j)
-    return ((@inbounds offs[j] + 1),
-            (@inbounds offs[j+1]))
+@inline function last_nz(A::CSRorCSC, ij::Int)
+    @boundscheck check_offset_index(A, ij)
+    return unsafe_last_nz(A, ij)
 end
+
+@inline function each_nz(A::CSRorCSC, ij::Int)
+    @boundscheck check_offset_index(A, ij)
+    return unsafe_each_nz(A, ij)
+end
+
+# Management of offsets in compressed sparse operator in CSC- or CSR-like formats.
+
+@inline check_offset_index(::Type{Bool}, A::CSRorCSC, ij::Int) =
+    1 ≤ ij < length(get_offs(A))
+
+@inline check_offset_index(A::AnyCSR, i::Int) =
+    check_offset_index(Bool, A, i) ? nothing : out_of_range_row_index(A, i)
+
+@inline check_offset_index(A::Union{AnyCSC,SparseMatrixCSC}, j::Int) =
+    check_offset_index(Bool, A, j) ? nothing : out_of_range_column_index(A, i)
+
+@inline unsafe_first_nz(A::Union{AnyCSR,AnyCSC}, ij::Int) = @inbounds get_offs(A)[ij] + 1
+
+@inline unsafe_last_nz(A::Union{AnyCSR,AnyCSC}, ij::Int) = @inbounds get_offs(A)[ij + 1]
+
+@inline unsafe_each_nz(A::Union{AnyCSR,AnyCSC}, ij::Int) =
+    UnitRange(unsafe_first_nz(A, ij), unsafe_last_nz(A, ij))
 
 @noinline out_of_range_row_index(A, i::Integer) =
     throw(ErrorException(string("out of range row index ", i,
-                                " for sparse operator with ", nrows(A),
-                                " rows")))
+                                " for compressed sparse operator with ",
+                                nrows(A), " rows")))
 
 @noinline out_of_range_column_index(A, j::Integer) =
     throw(ErrorException(string("out of range column index ", j,
-                                " for sparse operator with ", ncols(A),
-                                " columns")))
-
-"""
-
-For a sparse operator `A` stored in a *Compressed Sparse Coordinate* (COO)
-format, the call:
-
-    each_off(A)
-
-yields an iterator over the indices in the arrays of values and of linear row
-and column indices for the `k`-th entry of `A`.
-
----
-
-For a sparse operator `A` stored in a *Compressed Sparse Column* (CSC) format,
-the call:
-
-    each_off(A, j)
-
-yields an iterator over the indices in the arrays of values and linear row
-indices for the `j`-th column of `A`.
-
----
-
-For a sparse operator `A` stored in a *Compressed Sparse Row* (CSR) format, the
-call:
-
-    each_off(A, i)
-
-yields an iterator over the indices in the arrays of values and linear column
-indices for the `i`-th row of `A`.
-
-"""
-@inline each_off(A::CompressedSparseOperator{:COO}) = Base.OneTo(nnz(A))
-@inline each_off(A::Adjoint{<:CompressedSparseOperator{:COO}}) =
-    each_off(parent(A))
-
-@inline @propagate_inbounds function each_off(A::AnyCSR, i::Int)
-    k1, k2 = get_offs(A, i)
-    return k1:k2
-end
-
-@inline @propagate_inbounds function each_off(A::AnyCSC, j::Int)
-    k1, k2 = get_offs(A, j)
-    return k1:k2
-end
+                                " for compressed sparse operator with ",
+                                ncols(A), " columns")))
 
 """
     each_row(A)
@@ -688,16 +689,13 @@ end
 
 # Iterators to deliver (v,i,j).
 
-@inline function Base.iterate(A::AnyCSR, state::Tuple{Int,Int,Int} = (0,0,0))
-    i, k, kmax = state
+@inline function Base.iterate(A::AnyCSR, (i, k, kmax)::Tuple{Int,Int,Int} = (0,0,0))
     @inbounds begin
         k += 1
         while k > kmax
-            if i ≥ nrows(A)
-                return nothing
-            end
+            i < nrows(A) || return nothing
             i += 1
-            k, kmax = get_offs(A, i)
+            kmax = last_nz(A, i)
         end
         v = get_val(A, k)
         j = get_col(A, k)
@@ -705,16 +703,13 @@ end
     end
 end
 
-@inline function Base.iterate(A::AnyCSC, state::Tuple{Int,Int,Int} = (0,0,0))
-    j, k, kmax = state
+@inline function Base.iterate(A::AnyCSC, (j, k, kmax)::Tuple{Int,Int,Int} = (0,0,0))
     @inbounds begin
         k += 1
         while k > kmax
-            if j ≥ ncols(A)
-                return nothing
-            end
+            j < ncols(A) || return nothing
             j += 1
-            k, kmax = get_offs(A, j)
+            kmax = last_nz(A, j)
         end
         v = get_val(A, k)
         i = get_row(A, k)
@@ -722,20 +717,16 @@ end
     end
 end
 
-@inline function Base.iterate(A::AnyCOO, state::Tuple{Int,Int} = (0, nnz(A)))
-    k, kmax = state
+@inline function Base.iterate(A::AnyCOO, (k, kmax)::Tuple{Int,Int} = (0, nnz(A)))
     @inbounds begin
-        if k < kmax
-            k += 1
-            return ((get_val(A, k), get_row(A, k), get_col(A, k)), (k, kmax))
-        else
-            return nothing
-        end
+        k < kmax || return nothing
+        k += 1
+        return ((get_val(A, k), get_row(A, k), get_col(A, k)), (k, kmax))
     end
 end
 
-#------------------------------------------------------------------------------
-# Extend methods for SparseMatrixCSC defined in SparseArrays.
+#-----------------------------------------------------------------------------------------
+# Extend LzyAlgebra sparse operator API for SparseArrays.SparseMatrixCSC.
 
 nrows(A::SparseMatrixCSC) = getfield(A, :m)
 ncols(A::SparseMatrixCSC) = getfield(A, :n)
@@ -747,19 +738,15 @@ row_size(A::SparseMatrixCSC) = (nrows(A),)
 col_size(A::SparseMatrixCSC) = (ncols(A),)
 each_col(A::SparseMatrixCSC) = Base.OneTo(ncols(A))
 
-@inline @propagate_inbounds each_off(A::SparseMatrixCSC, j::Integer) =
-    ((k1, k2) = get_offs(A, j); k1:k2)
+# Provide a specific versions of `check_offset_index`, `unsafe_first_nz`, and
+# `unsafe_last_nz` because offsets have a slightly different definition for
+# `SparseMatrixCSC` than for our CSC format.
+@inline check_offset_index(::Type{Bool}, A::SparseMatrixCSC, j::Int) =
+     1 ≤ j < length(get_offs(A))
+@inline unsafe_first_nz(A::SparseMatrixCSC, j::Int) = @inbounds get_offs(A)[j]
+@inline unsafe_last_nz(A::SparseMatrixCSC, j::Int) = @inbounds get_offs(A)[j + 1] - 1
 
-# Provide a specific version of `get_offs(A,j)` because offsets have a slightly
-# different definition than our CSC format.
-@inline function get_offs(A::SparseMatrixCSC, j::Integer)
-    offs = get_offs(A)
-    @boundscheck ((j < 1)|(j ≥ length(offs))) && out_of_range_column_index(A, j)
-    return ((@inbounds offs[j]),
-            (@inbounds offs[j+1]-1))
-end
-
-#------------------------------------------------------------------------------
+#-----------------------------------------------------------------------------------------
 # Constructors.
 
 """
@@ -1452,7 +1439,7 @@ function unpack!(B::AbstractArray{T,L},
     prepare_unpack!(B, A, flatten)
     m = nrows(A) # used as the "stride" in B
     @inbounds for i in each_row(A)
-        for k in each_off(A, i)
+        for k in each_nz(A, i)
             j = get_col(A, k)
             v = get_val(A, k)
             B[i + m*(j - 1)] = v
@@ -1467,7 +1454,7 @@ function unpack!(B::AbstractArray{T,L},
     prepare_unpack!(B, A, flatten)
     m = nrows(A) # used as the "stride" in B
     @inbounds for j in each_col(A)
-        for k in each_off(A, j)
+        for k in each_nz(A, j)
             i = get_row(A, k)
             v = get_val(A, k)
             B[i + m*(j - 1)] = v
@@ -1487,7 +1474,7 @@ function unpack!(B::AbstractArray{T,L},
                  op::Function; flatten::Bool = false) where {T,L,M,N}
     prepare_unpack!(B, A, flatten)
     m = nrows(A) # used as the "stride" in B
-    @inbounds for k in each_off(A)
+    @inbounds for k in each_nz(A)
         i = get_row(A, k)
         j = get_col(A, k)
         v = get_val(A, k)
@@ -2167,211 +2154,166 @@ end
 #------------------------------------------------------------------------------
 # Apply operators.
 
-# Extend multiplier_type for sparse operators.
-multiplier_type(::SparseOperator{T}) where {T} = T
-
-"""
-    dispatch_multipliers!(α, f, A, x, β, y) -> y
-
-dispatch calls to function `f` as `f(α,A,x,β,axpy)` with `α`, `A`, `x`, `β` and
-`y` the other arguments and where `axpy` is a function called with 4 scalar
-arguments as `axpy(α,x,β,y)` to yield `α*x + β*y` but which is optimized
-depending on the values of the multipliers `α` and `β`.  For instance, if `α=1`
-and `β=0`, then `axpy(α,x,β,y)` just evaluates as `x`.
-
-The `dispatch_multipliers!` method is a helper to apply a mapping `A` to an
-argument `x` and store the result in `y`.  In pseudo-code, this amounts to
-performing `y <- α*op(A)(x) + β*y` where `op(A)` denotes a variant of `A` which
-usually depends on `f`.
-
-"""
-@inline function dispatch_multipliers!(α::Number, f::Function, A, x,
-                                       β::Number, y)
-    if α == 0
-        vscale!(y, β)
-    elseif α == 1
-        if β == 0
-            f(1, A, x, 0, y, axpby_yields_x)
-        elseif β == 1
-            f(1, A, x, 1, y, axpby_yields_xpy)
+# Directly extend the `dispatch_vmul!` method for sparse operators in compressed sparse
+# row format.
+function dispatch_vmul!(α::Number,
+                        A::AnyCSR{Ta,M,N},
+                        x::AbstractArray{Tx,N},
+                        β::Number,
+                        y::AbstractArray{Ty,M}) where {Ta,Tx,Ty,M,N}
+    # FIXME: check_argument(x, col_size(A))
+    # FIXME: check_argument(y, row_size(A))
+    if isone(α)
+        if iszero(β)
+            unsafe_vmul!(axpby_yields_x,     α, A, x, β, y)
+        elseif isone(β)
+            unsafe_vmul!(axpby_yields_xpy,   α, A, x, β, y)
         else
-            b = convert_multiplier(β, y)
-            f(1, A, x, b, y, axpby_yields_xpby)
+            unsafe_vmul!(axpby_yields_xpby,  α, A, x, β, y)
+        end
+    elseif !iszero(α)
+        if iszero(β)
+            unsafe_vmul!(axpby_yields_ax,    α, A, x, β, y)
+        elseif isone(β)
+            unsafe_vmul!(axpby_yields_axpy,  α, A, x, β, y)
+        else
+            unsafe_vmul!(axpby_yields_axpby, α, A, x, β, y)
         end
     else
-        a = convert_multiplier(α, A, x)
-        if β == 0
-            f(a, A, x, 0, y, axpby_yields_ax)
-        elseif β == 1
-            f(a, A, x, 1, y, axpby_yields_axpy)
-        else
-            b = convert_multiplier(β, y)
-            f(a, A, x, b, y, axpby_yields_axpby)
-        end
+        dispatch_vscale!(y, β)
     end
     return y
 end
 
-# Generic version of `vcreate` for most compressed sparse operators.
-#
-# We assume that in-place operation is not possible and thus simply ignore the
-# `scratch` flag.  Operators which can be applied in-place shall specialize
-# this method.  We do not check the dimensions and indexing of `x` as this will
-# be done when `vmul!` is called.
+# FIXME: Unify API so that the codes of the two following methods are
+#        identical (just the type of A change).
 
-function vcreate(::Type{P},
-                 A::SparseOperator{Ta,M,N},
-                 x::AbstractArray{Tx,N},
-                 scratch::Bool) where {Ta,Tx,M,N,P<:Union{Direct,InverseAdjoint}}
-    Ty = promote_type(Ta,Tx)
-    return Array{Ty}(undef, row_size(A))
-end
-
-function vcreate(::Type{P},
-                 A::SparseOperator{Ta,M,N},
-                 x::AbstractArray{Tx,M},
-                 scratch::Bool) where {Ta,Tx,M,N,P<:Union{Adjoint,Inverse}}
-    Ty = promote_type(Ta,Tx)
-    return Array{Ty}(undef, col_size(A))
-end
-
-# Apply a sparse linear mapping, and its adjoint, stored in Compressed Sparse
-# Row (CSR) format.
-
-function vmul!(α::Number,
-                ::Type{Direct},
-                A::CompressedSparseOperator{:CSR,Ta,M,N},
-                x::AbstractArray{Tx,N},
-                scratch::Bool,
-                β::Number,
-                y::AbstractArray{Ty,M}) where {Ta,Tx,Ty,M,N}
-    check_argument(x, col_size(A))
-    check_argument(y, row_size(A))
-    dispatch_multipliers!(α, unsafe_apply_direct!, A, x, β, y)
-end
-
-function unsafe_apply_direct!(α::Number,
-                              A::CompressedSparseOperator{:CSR,Ta,M,N},
-                              x::AbstractArray{Tx,N},
-                              β::Number,
-                              y::AbstractArray{Ty,M},
-                              axpby::Function) where {Ta,Tx,Ty,M,N}
+function unsafe_vmul!(f::Function,
+                      α::Number,
+                      A::CompressedSparseOperator{:CSR,Ta,M,N},
+                      x::AbstractArray{Tx,N},
+                      β::Number,
+                      y::AbstractArray{Ty,M}) where {Ta,Tx,Ty,M,N}
+    T = sumprod_type(Ta, Tx)
     @inbounds for i in each_row(A)
-        s = zero(promote_type(Ta, Tx))
-        for k in each_off(A, i)
+        s = zero(T)
+        for k in each_nz(A, i)
             j = get_col(A, k)
             v = get_val(A, k)
             s += v*x[j]
         end
-        y[i] = axpby(α, s, β, y[i])
+        y[i] = f(α, s, β, y[i])
     end
+    nothing
 end
 
-function vmul!(α::Number,
-                ::Type{Adjoint},
-                A::CompressedSparseOperator{:CSR,Ta,M,N},
-                x::AbstractArray{Tx,M},
-                scratch::Bool,
-                β::Number,
-                y::AbstractArray{Ty,N}) where {Ta,Tx,Ty,M,N}
-    check_argument(x, row_size(A))
-    check_argument(y, col_size(A))
-    Tm = promote_type(Ta, Tx) # to promote multipliers
-    β == 1 || vscale!(y, β)
-    if α == 1
-        @inbounds for i in each_row(A)
-            q = convert_multiplier(x[i], Tm)
-            if q != 0
-                for k in each_off(A, i)
-                    j = get_col(A, k)
-                    v = get_val(A, k)
-                    y[j] += q*conj(v)
-                end
-            end
-        end
-    elseif α != 0
-        a = convert_multiplier(α, Tm)
-        @inbounds for i in each_row(A)
-            q = a*convert_multiplier(x[i], Tm)
-            if q != 0
-                for k in each_off(A, i)
-                    j = get_col(A, k)
-                    v = get_val(A, k)
-                    y[j] += q*conj(v)
-                end
-            end
-        end
-    end
-    return y
-end
-
-# Apply a sparse operator, and its adjoint, stored in Compressed Sparse Column
-# (CSC) format.
-
-function vmul!(α::Number,
-                ::Type{Direct},
-                A::CompressedSparseOperator{:CSC,Ta,M,N},
-                x::AbstractArray{Tx,N},
-                scratch::Bool,
-                β::Number,
-                y::AbstractArray{Ty,M}) where {Ta,Tx,Ty,M,N}
-    check_argument(x, col_size(A))
-    check_argument(y, row_size(A))
-    Tm = promote_type(Ta, Tx) # to promote multipliers
-    β == 1 || vscale!(y, β)
-    if α == 1
-        @inbounds for j in each_col(A)
-            q = convert_multiplier(x[j], Tm)
-            if q != 0
-                for k in each_off(A, j)
-                    i = get_row(A, k)
-                    v = get_val(A, k)
-                    y[i] += q*v
-                end
-            end
-        end
-    elseif α != 0
-        a = convert_multiplier(α, Tm)
-        @inbounds for j in each_col(A)
-            q = a*convert_multiplier(x[j], Tm)
-            if q != 0
-                for k in each_off(A, j)
-                    i = get_row(A, k)
-                    v = get_val(A, k)
-                    y[i] += q*v
-                end
-            end
-        end
-    end
-    return y
-end
-
-function vmul!(α::Number,
-                ::Type{Adjoint},
-                A::CompressedSparseOperator{:CSC,Ta,M,N},
-                x::AbstractArray{Tx,M},
-                scratch::Bool,
-                β::Number,
-                y::AbstractArray{Ty,N}) where {Ta,Tx,Ty,M,N}
-    check_argument(x, row_size(A))
-    check_argument(y, col_size(A))
-    dispatch_multipliers!(α, unsafe_apply_adjoint!, A, x, β, y)
-end
-
-function unsafe_apply_adjoint!(α::Number,
-                               A::CompressedSparseOperator{:CSC,Ta,M,N},
-                               x::AbstractArray{Tx,M},
-                               β::Number,
-                               y::AbstractArray{Ty,N},
-                               axpby::Function) where {Ta,Tx,Ty,M,N}
+function unsafe_vmul!(f::Function,
+                      α::Number,
+                      A′::Adjoint{<:CompressedSparseOperator{:CSC,Ta,M,N}},
+                      x::AbstractArray{Tx,M},
+                      β::Number,
+                      y::AbstractArray{Ty,N}) where {Ta,Tx,Ty,M,N}
+    A = parent(A′)
+    T = sumprod_type(Ta, Tx)
     @inbounds for j in each_col(A)
-        s = zero(promote_type(Ta, Tx))
-        for k in each_off(A, j)
+        s = zero(T)
+        for k in each_nz(A, j)
             i = get_row(A, k)
             v = get_val(A, k)
             s += conj(v)*x[i]
         end
-        y[j] = axpby(α, s, β, y[j])
+        y[j] = f(α, s, β, y[j])
+    end
+    nothing
+end
+
+function unsafe_vmul!(α::Number,
+                      A′::Adjoint{<:CompressedSparseOperator{:CSR,Ta,M,N}},
+                      x::AbstractArray{Tx,M},
+                      β::Number,
+                      y::AbstractArray{Ty,N}) where {Ta,Tx,Ty,M,N}
+    # Assumptions: (1) all sizes have been checked, (ii) α and β have been converted to a
+    # suitable precision, and (iii) α is not zero.
+    A = parent(A′)
+    # FIXME check_argument(x, row_size(A))
+    # FIXME check_argument(y, col_size(A))
+    isone(β) || dispatch_vscale!(y, β)
+    if isone(α)
+        T = real_type(α) # NOTE α has the precision of α*A[i,j]*x[i]
+        @inbounds for i in each_row(A)
+            q = set_precision(T, x[i])
+            if !iszero(q)
+                for k in each_nz(A, i)
+                    j = get_col(A, k)
+                    v = get_val(A, k)
+                    y[j] += q*conj(v)
+                end
+            end
+        end
+    else
+        @inbounds for i in each_row(A)
+            q = α*x[i]
+            if !iszero(q)
+                for k in each_nz(A, i)
+                    j = get_col(A, k)
+                    v = get_val(A, k)
+                    y[j] += q*conj(v)
+                end
+            end
+        end
+    end
+    return y
+end
+
+update!(y::AbstractArray, A::CompressedSparseOperator{:CSR}, i::Int, x_i) =
+    @inbounds for k in each_nz(A, i)
+        j = get_col(A, k)
+        v = get_val(A, k)
+        y[j] += conj(v)*x_i
+    end
+
+update!(y::AbstractArray, A::CompressedSparseOperator{:CSC}, j::Int, x_j) =
+    @inbounds for k in each_nz(A, j)
+        i = get_col(A, k)
+        v = get_val(A, k)
+        y[i] += conj(v)*x_j
+    end
+
+# Apply a sparse operator, and its adjoint, stored in Compressed Sparse Column (CSC)
+# format.
+
+function unsafe_vmul!(α::Number,
+                      A::CompressedSparseOperator{:CSC,Ta,M,N},
+                      x::AbstractArray{Tx,N},
+                      β::Number,
+                      y::AbstractArray{Ty,M}) where {Ta,Tx,Ty,M,N}
+    # Assumptions: (1) all sizes have been checked, (ii) α and β have been converted to a
+    # suitable precision, and (iii) α is not zero.
+    # FIXME check_argument(x, col_size(A))
+    # FIXME check_argument(y, row_size(A))
+    isone(β) || dispatch_vscale!(y, β)
+    if isnone(α)
+        @inbounds for j in each_col(A)
+            q = x[j] # FIXME set precision
+            if !iszero(q)
+                for k in each_nz(A, j)
+                    i = get_row(A, k)
+                    v = get_val(A, k)
+                    y[i] += q*v
+                end
+            end
+        end
+    else
+        @inbounds for j in each_col(A)
+            q = α*x[j] # FIXME set precision
+            if !iszero(q)
+                for k in each_nz(A, j)
+                    i = get_row(A, k)
+                    v = get_val(A, k)
+                    y[i] += q*v
+                end
+            end
+        end
     end
     return y
 end
@@ -2379,71 +2321,62 @@ end
 # Apply a sparse operator, and its adjoint, stored in Compressed Sparse
 # Coordinate (COO) format.
 
-function vmul!(α::Number,
-                ::Type{Direct},
-                A::CompressedSparseOperator{:COO,Ta,M,N},
-                x::AbstractArray{Tx,N},
-                scratch::Bool,
-                β::Number,
-                y::AbstractArray{Ty,M}) where {Ta,Tx,Ty,M,N}
-    check_argument(x, col_size(A))
-    check_argument(y, row_size(A))
-    β == 1 || vscale!(y, β)
-    if α != 0
-        V, I, J = get_vals(A), get_rows(A), get_cols(A)
-        if α == 1
-            @inbounds for k in eachindex(V, I, J)
-                v, i, j = V[k], I[k], J[k]
-                y[i] += x[j]*v
-            end
-        elseif α == -1
-            @inbounds for k in eachindex(V, I, J)
-                v, i, j = V[k], I[k], J[k]
-                y[i] -= x[j]*v
-            end
-        else
-            # The ordering of operations is to minimize the number of
-            # operations in case `v` is complex while `α` and `x` are reals.
-            alpha = convert_multiplier(α, Ta, Tx)
-            @inbounds for k in eachindex(V, I, J)
-                v, i, j = V[k], I[k], J[k]
-                y[i] += (alpha*x[j])*v
-            end
+function unsafe_vmul!(α::Number,
+                      A::CompressedSparseOperator{:COO,Ta,M,N},
+                      x::AbstractArray{Tx,N},
+                      β::Number,
+                      y::AbstractArray{Ty,M}) where {Ta,Tx,Ty,M,N}
+    # Assumptions: (1) all sizes have been checked, (ii) α and β have been converted to a
+    # suitable precision, and (iii) α is not zero.
+    # FIXME check_argument(x, col_size(A))
+    # FIXME check_argument(y, row_size(A))
+    isone(β) || dispatch_vscale!(y, β)
+    V, I, J = get_vals(A), get_rows(A), get_cols(A)
+    if isone(α)
+        @inbounds for k in eachindex(V, I, J)
+            v, i, j = V[k], I[k], J[k]
+            y[i] += x[j]*v
+        end
+    elseif α == -one(α)
+        @inbounds for k in eachindex(V, I, J)
+            v, i, j = V[k], I[k], J[k]
+            y[i] -= x[j]*v
+        end
+    else
+        @inbounds for k in eachindex(V, I, J)
+            v, i, j = V[k], I[k], J[k]
+            y[i] += α*x[j]*v
         end
     end
     return y
 end
 
-function vmul!(α::Number,
-                ::Type{Adjoint},
-                A::CompressedSparseOperator{:COO,Ta,M,N},
-                x::AbstractArray{Tx,M},
-                scratch::Bool,
-                β::Number,
-                y::AbstractArray{Ty,N}) where {Ta,Tx,Ty,M,N}
-    check_argument(x, row_size(A))
-    check_argument(y, col_size(A))
-    β == 1 || vscale!(y, β)
-    if α != 0
-        V, I, J = get_vals(A), get_rows(A), get_cols(A)
-        if α == 1
-            @inbounds for k in eachindex(V, I, J)
-                v, i, j = V[k], I[k], J[k]
-                y[j] += x[i]*conj(v)
-            end
-        elseif α == -1
-            @inbounds for k in eachindex(V, I, J)
-                v, i, j = V[k], I[k], J[k]
-                y[j] -= x[i]*conj(v)
-            end
-        else
-            # The ordering of operations is to minimize the number of
-            # operations in case `v` is complex while `α` and `x` are reals.
-            alpha = convert_multiplier(α, Ta, Tx)
-            @inbounds for k in eachindex(V, I, J)
-                v, i, j = V[k], I[k], J[k]
-                y[j] += (alpha*x[i])*conj(v)
-            end
+function unsafe_vmul!(α::Number,
+                      A′::Adjoint{<:CompressedSparseOperator{:COO,Ta,M,N}},
+                      x::AbstractArray{Tx,M},
+                      β::Number,
+                      y::AbstractArray{Ty,N}) where {Ta,Tx,Ty,M,N}
+    # Assumptions: (1) all sizes have been checked, (ii) α and β have been converted
+    # to a suitable precision, and (iii) α is not zero.
+    # FIXME: check_argument(x, row_size(A))
+    # FIXME: check_argument(y, col_size(A))
+    isone(β) || dispatch_vscale!(y, β)
+    A = parent(A′) # FIXME use generic API
+    V, I, J = get_vals(A), get_rows(A), get_cols(A)
+    if isone(α)
+        @inbounds for k in eachindex(V, I, J)
+            v, i, j = V[k], I[k], J[k]
+            y[j] += x[i]*conj(v)
+        end
+    elseif α == -one(α)
+        @inbounds for k in eachindex(V, I, J)
+            v, i, j = V[k], I[k], J[k]
+            y[j] -= x[i]*conj(v)
+        end
+    else
+        @inbounds for k in eachindex(V, I, J)
+            v, i, j = V[k], I[k], J[k]
+            y[j] += α*x[i]*conj(v)
         end
     end
     return y
@@ -2466,7 +2399,7 @@ export
     copy_rows,
     copy_vals,
     each_col,
-    each_off,
+    each_nz,
     each_row,
     get_col,
     get_cols,
@@ -2493,7 +2426,7 @@ import ..SparseOperators:
     copy_rows,
     copy_vals,
     each_col,
-    each_off,
+    each_nz,
     each_row,
     get_col,
     get_cols,
