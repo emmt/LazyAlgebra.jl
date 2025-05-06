@@ -368,6 +368,7 @@ SparseArrays.findnz(A::SparseOperator) = (get_rows(A), get_cols(A), get_vals(A))
 # considered as being strictly equal to zero.
 SparseArrays.nonzeros(A::SparseOperator) = get_vals(A)
 SparseArrays.nnz(A::SparseOperator) = length(nonzeros(A))
+SparseArrays.nnz(A::Adjoint{<:SparseOperator}) = length(nonzeros(parent(A)))
 
 """
     LazyAlgebra.get_vals(A)
@@ -392,7 +393,7 @@ thus modify its contents with no side effects on `A`.
 copy_vals(A::SparseOperator{T}) where {T} = copy_vals(T, A)
 function copy_vals(::Type{T}, A::SparseOperator) where {T}
     vals = get_vals(A)
-    copyto!(Vector{T}(undef, size(vals)), vals)
+    unsafe_vcopy!(similar(vals, T), vals)
 end
 
 """
@@ -404,10 +405,8 @@ LazyAlgebra.copy_rows) instead if you want to modify the contents of the returne
 with no side effects on `A`.
 
 """
-get_rows(A::SparseOperatorCSC) = getfield(A, :rows)
-get_rows(A::SparseOperatorCOO) = getfield(A, :rows)
-get_rows(A::CompressedSparseOperator{:CSR}) =
-    copy_rows(A) # FIXME: yield an iterator
+get_rows(A::Union{SparseOperatorCSC,SparseOperatorCOO}) = getfield(A, :rows)
+get_rows(A::CompressedSparseOperator{:CSR}) = copy_rows(A) # FIXME: yield an iterator
 get_rows(A::Adjoint{<:SparseOperator}) = get_cols(parent(A))
 
 """
@@ -420,7 +419,7 @@ contents with no side effects on `A`.
 """
 function copy_rows(A::SparseOperator)
     rows = get_rows(A)
-    copyto!(Vector{Int}(undef, size(rows)), rows)
+    unsafe_vcopy!(Vector{Int}(undef, size(rows)), rows)
 end
 function copy_rows(A::CompressedSparseOperator{:CSR})
     rows = Vector{Int}(undef, length(get_vals(A)))
@@ -441,8 +440,7 @@ LazyAlgebra.copy_cols) instead if you want to modify the contents of the returne
 with no side effects on `A`.
 
 """
-get_cols(A::SparseOperatorCSR) = getfield(A, :cols)
-get_cols(A::SparseOperatorCOO) = getfield(A, :cols)
+get_cols(A::Union{SparseOperatorCSR,SparseOperatorCOO}) = getfield(A, :cols)
 get_cols(A::Union{CompressedSparseOperator{:CSC},SparseMatrixCSC}) =
     copy_cols(A) # FIXME: yield an iterator
 get_cols(A::Adjoint{<:SparseOperator}) = get_rows(parent(A))
@@ -457,7 +455,7 @@ its contents with no side effects on `A`.
 """
 function copy_cols(A::SparseOperator)
     cols = get_cols(A)
-    copyto!(Vector{Int}(undef, size(cols)), cols)
+    unsafe_vcopy!(Vector{Int}(undef, size(cols)), cols)
 end
 function copy_cols(A::Union{CompressedSparseOperator{:CSC},SparseMatrixCSC})
     cols = Vector{Int}(undef, length(get_vals(A)))
@@ -597,12 +595,7 @@ yields the linear row index of the `k`-th entry of the sparse operator `A` store
 sparse operators in CSR format).
 
 """
-@inline @propagate_inbounds function get_row(
-    A::Union{CompressedSparseOperator{:COO},
-             CompressedSparseOperator{:CSC},
-             Adjoint{<:CompressedSparseOperator{:CSR}}}, k::Integer)
-    get_rows(A)[k]
-end
+@propagate_inbounds get_row(A::Union{AnyCOO,AnyCSC}, k::Int) = get_rows(A)[k]
 
 """
     get_col(A, k) -> j
@@ -612,13 +605,7 @@ yields the linear column index of the `k`-th entry of the sparse operator `A` st
 sparse operators in CSC format).
 
 """
-@inline @propagate_inbounds function get_col(
-    A::Union{
-    CompressedSparseOperator{:COO},
-        CompressedSparseOperator{:CSR},
-        Adjoint{<:CompressedSparseOperator{:CSC}}}, k::Integer)
-    get_cols(A)[k]
-end
+@propagate_inbounds get_col(A::Union{AnyCOO,AnyCSR}, k::Int) = get_cols(A)[k]
 
 """
     get_val(A, k) -> v
