@@ -99,6 +99,13 @@ set_precision(::Type{T}) where {T<:AbstractFloat} = TypeUtils.Converter(set_prec
 @noinline set_precision(::Type{T}) where {T} = throw(ArgumentError(
     "type `$T` is not a floating-point type"))
 
+# Yield whether a number has integer storage.
+is_rationalizable(x::Number) = is_rationalizable(typeof(x))
+is_rationalizable(::Type{T}) where {T<:Number} = real_type(T) <: Union{Integer, Rational}
+
+divide(num::Number, den::Number) =
+    is_rationalizable(num) && is_rationalizable(den) ? num//den : num/den
+
 # Inlined functions called to perform `α*x + β*y` for specific values of the
 # multipliers `α` and `β`.  Passing these (simple) functions to another method
 # is to simplify the coding of vectorized methods and of the the `vmul!`
