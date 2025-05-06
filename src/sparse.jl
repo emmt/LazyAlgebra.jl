@@ -354,21 +354,25 @@ identical(A::T, B::T) where {T<:CompressedSparseOperator{:COO}} =
      get_cols(A) === get_cols(B) &&
      row_size(A) == row_size(B) && col_size(A) == col_size(B))
 
-# Assume that a copy of a compressed sparse operator is to keep the same
-# structure for the structural non-zeros but possibly change the values.  So
-# only duplicate the value part.
+# Assume that a `copy` of a compressed sparse operator is to keep the same structure for
+# the structural non-zeros but possibly change the values. So only duplicate the value
+# part. For a `deepcopy` of a compressed sparse operator, all the fields are copied.
+for (func, rows, cols, offs) in ((:copy,      :get_rows,  :get_cols,  :get_offs),
+                                 (:deepcopy, :copy_rows, :copy_cols, :copy_offs))
+    @eval begin
+        Base.$func(A::SparseOperatorCSR) =
+            unsafe_csr(nrows(A), ncols(A), copy_vals(A), $cols(A), $offs(A),
+                       row_size(A), col_size(A))
 
-Base.copy(A::SparseOperatorCSR{T,M,N}) where {T,M,N} =
-    unsafe_csr(nrows(A), ncols(A), copy_vals(A), get_cols(A), get_offs(A),
-               row_size(A), col_size(A))
+        Base.$func(A::SparseOperatorCSC{T,M,N}) where {T,M,N} =
+            unsafe_csc(nrows(A), ncols(A), copy_vals(A), $rows(A), $offs(A),
+                       row_size(A), col_size(A))
 
-Base.copy(A::SparseOperatorCSC{T,M,N}) where {T,M,N} =
-    unsafe_csc(nrows(A), ncols(A), copy_vals(A), get_rows(A), get_offs(A),
-               row_size(A), col_size(A))
-
-Base.copy(A::SparseOperatorCOO{T,M,N}) where {T,M,N} =
-    unsafe_coo(nrows(A), ncols(A), copy_vals(A), get_rows(A), get_cols(A),
-               row_size(A), col_size(A))
+        Base.$func(A::SparseOperatorCOO{T,M,N}) where {T,M,N} =
+            unsafe_coo(nrows(A), ncols(A), copy_vals(A), $rows(A), $cols(A),
+                       row_size(A), col_size(A))
+    end
+end
 
 # `findnz(A) -> I,J,V` yields the row and column indices and the values of the stored
 # values in `A`.
