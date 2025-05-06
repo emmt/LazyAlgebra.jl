@@ -86,6 +86,7 @@ This page describes the most important changes in `LazyAlgebra`. The format is b
     `LazyAlgebra.check_offset_index(Bool,A,ij)`, `LazyAlgebra.unsafe_first_nz(A,ij)`, and
     `LazyAlgebra.unsafe_last_nz(A,ij)` may be specialized in the type of `A` and with `ij`
     the row or column index depending on whether `A` is in row- or in column-wise format.
+  - `LazyAlgebra.get_vals(A')` yields a lazily conjugated array.
 
 
 ### Added

@@ -33,7 +33,8 @@ using ..LazyAlgebra:
     @callable,
     Adjoint,
     HasInputShape,
-    HasOutputShape
+    HasOutputShape,
+    LazyMap
 
 import .LazyAlgebra:
     #MorphismType,
@@ -378,7 +379,7 @@ with no side effects on `A`.
 
 """
 get_vals(A::SparseOperator) = getfield(A, :vals)
-get_vals(A::Adjoint{<:SparseOperator}) = get_vals(parent(A))
+get_vals(A::Adjoint{<:SparseOperator}) = LazyMap{eltype(A)}(conj, get_vals(parent(A)))
 
 """
     LazyAlgebra.copy_vals([T = eltype(A),] A) -> vals
@@ -626,10 +627,19 @@ yields the value of the `k`-th structural non-zero of the sparse operator `A` st
 compressed format. Argument `A` may also be the adjoint of a compressed sparse operator.
 
 """
-@inline @propagate_inbounds get_val(A, k::Int) = get_vals(A)[k]
-@inline @propagate_inbounds get_val(A, k::Integer) = get_val(A, Int(k)::Int)
-@inline @propagate_inbounds get_val(A::Adjoint, k::Integer) =
-    conj(get_val(A, k))
+@inline function get_val(A::CompressedSparseOperator, k::Int)
+    vals = get_vals(A)
+    @boundscheck checkbounds(vals, k)
+    v = @inbounds vals[k]
+    return v
+end
+
+@inline function get_val(A::Adjoint{<:CompressedSparseOperator}, k::Int)
+    vals = get_vals(parent(A))
+    @boundscheck checkbounds(vals, k)
+    v = @inbounds vals[k]
+    return conj(v)
+end
 
 """
     set_val!(A, k, v) -> A
@@ -639,14 +649,19 @@ stored in a compressed format. Argument `A` may also be the adjoint of a compres
 operator in which case the call is similar to `set_val!(A', k, conj(v))`.
 
 """
-@inline function set_val!(A, k::Int, v)
-    get_vals(A)[k] = v
+@inline function set_val!(A::CompressedSparseOperator, k::Int, v)
+    vals = get_vals(A)
+    @boundscheck checkbounds(vals, k)
+    @inbounds vals[k] = v
     return A
 end
-@inline @propagate_inbounds set_val!(A, k::Integer, v) =
-    set_val!(A, Int(k)::Int, v)
-@inline @propagate_inbounds set_val!(A::Adjoint, k::Integer, v) =
-    set_val!(A, k, conj(v))
+
+@inline function set_val!(A::Adjoint{<:CompressedSparseOperator}, k::Int, v)
+    vals = get_vals(parent(A))
+    @boundscheck checkbounds(vals, k)
+    @inbounds vals[k] = conj(v)
+    return A
+end
 
 # Iterators to deliver (v,i,j).
 
