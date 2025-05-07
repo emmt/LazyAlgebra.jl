@@ -1194,7 +1194,6 @@ function SparseOperatorCOO{T,M,N,V}(arr::AbstractArray{S,L},
             for i in 1:nrows
                 if f(A[i,j], i, j)
                     (k += 1) ≤ nvals || bad_selector()
-                    vals[k] = v
                     rows[k] = i
                     cols[k] = j
                 end
