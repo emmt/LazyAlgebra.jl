@@ -945,8 +945,7 @@ SparseOperator{T,M}(A::SparseOperator{<:Any,M,N}) where {T,M,N} =
     SparseOperator{T,M,N}(A)
 for F in (:SparseOperatorCSC, :SparseOperatorCSR, :SparseOperatorCOO)
     @eval begin
-        SparseOperator{T,M,N}(A::$F{<:Any,M,N}) where {T,M,N} =
-            $F{T,M,N}(A)
+        SparseOperator{T,M,N}(A::$F{<:Any,M,N}) where {T,M,N} = $F{T,M,N}(A)
     end
 end
 
@@ -975,63 +974,28 @@ CompressedSparseOperator{Any,T,M}(A::CompressedSparseOperator{F}) where {F,T,M} 
 CompressedSparseOperator{Any,T,M,N}(A::CompressedSparseOperator{F}) where {F,T,M,N} =
     CompressedSparseOperator{F,T,M,N}(A)
 
-# Basic outer constructors return a fully checked structure.
-
-function SparseOperatorCSR(vals::AbstractVector,
-                           cols::AbstractVector{<:Integer},
-                           offs::AbstractVector{<:Integer},
-                           rowsiz::ArraySize,
-                           colsiz::ArraySize)
-    check_structure(_SparseOperatorCSR(to_values(vals),
-                                       to_indices(cols),
-                                       to_indices(offs),
-                                       to_size(rowsiz),
-                                       to_size(colsiz)))
-end
-
-function SparseOperatorCSC(vals::AbstractVector,
-                           rows::AbstractVector{<:Integer},
-                           offs::AbstractVector{<:Integer},
-                           rowsiz::ArraySize,
-                           colsiz::ArraySize)
-    check_structure(_SparseOperatorCSC(to_values(vals),
-                                       to_indices(rows),
-                                       to_indices(offs),
-                                       to_size(rowsiz),
-                                       to_size(colsiz)))
-end
-
-function SparseOperatorCOO(vals::AbstractVector,
-                           rows::AbstractVector{<:Integer},
-                           cols::AbstractVector{<:Integer},
-                           rowsiz::ArraySize,
-                           colsiz::ArraySize)
-    check_structure(_SparseOperatorCOO(to_values(vals),
-                                       to_indices(rows),
-                                       to_indices(cols),
-                                       to_size(rowsiz),
-                                       to_size(colsiz)))
-end
-
 @inline isnonzero(v::T, i::Integer, j::Integer) where {T} = (v != zero(T))
 
-for CS in (:SparseOperatorCSR,
-           :SparseOperatorCSC,
-           :SparseOperatorCOO)
+# Many constructors have similar code whatever the compressed sparse storage format. We
+# therefore use meta-programming to define them.
+for (CS, other_args) in ((:SparseOperatorCSR, (:cols, :offs)),
+                         (:SparseOperatorCSC, (:rows, :offs)),
+                         (:SparseOperatorCOO, (:rows, :cols)))
+    # All other arguments are integer-valued vectors.
+    other_decl = map(s -> :($s::AbstractVector{<:Integer}), other_args)
+    _CS = Symbol("_",CS)
     @eval begin
-        # Get rid of the M,N parameters, but keep/set T for conversion of
-        # values.
+        # Get rid of the M,N parameters, but keep/set T for conversion of values.
         $CS{T,M,N}(A::SparseOperator{<:Any,M,N}) where {T,M,N} = $CS{T}(A)
         $CS{T,M}(A::SparseOperator{<:Any,M}) where {T,M} = $CS{T}(A)
         $CS(A::SparseOperator{T}) where {T} = $CS{T}(A)
 
-        # Cases which do nothing (it makes sense that a constructor of an
-        # immutable type be able to just return its argument if it is already
-        # of the correct type).
+        # Cases which do nothing (it makes sense that a constructor of an immutable type
+        # be able to just return its argument if it is already of the correct type).
         $CS{T}(A::$CS{T}) where {T} = A
 
-        # Manage to call constructors of compressed sparse operator given a
-        # regular Julia array with correct parameters and selector.
+        # Manage to call constructors of compressed sparse operator given a regular Julia
+        # array with correct parameters and selector.
         $CS(A::AbstractMatrix{T}, args...; kwds...) where {T} =
             $CS{T,1,1}(A, args...; kwds...)
         $CS{Any}(A::AbstractMatrix{T}, args...; kwds...) where {T} =
@@ -1045,125 +1009,55 @@ for CS in (:SparseOperatorCSR,
         $CS{Any,M,N,V}(A::AbstractArray{T}, args...; kwds...) where {T,M,N,V} =
             $CS{T,M,N,V}(A, args...; kwds...)
         function $CS{T,M}(A::AbstractArray{S,L}, args...; kwds...) where {S,T,L,M}
-            1 ≤ M < L ||
-                error("parameters M=$M and L=$L are not such that 1 ≤ M < L")
+            1 ≤ M < L || error("parameters M=$M and L=$L are not such that 1 ≤ M < L")
             $CS{T,M,L-M}(A, args...; kwds...)
         end
         $CS{T,M,N}(A::AbstractArray, args...; kwds...) where {T,M,N} =
             $CS{T,M,N,Vector{T}}(A, args...; kwds...)
-    end
+
+        # Constructors that convert array of values. Other fields have already been
+        # checked so do not check structure again.
+        $CS{T}(A::$CS{S,M,N}) where {S,T,M,N} =
+            $_CS(nrows(A), ncols(A), to_values(T, get_vals(A)),
+                 $(map(s -> :($(Symbol("get_",s))(A)), other_args)...),
+                 row_size(A), col_size(A))
+
+        # Basic outer constructors return a fully checked structure.
+        function $CS(vals::AbstractVector, $(other_decl...),
+                     rowsiz::Tuple{Vararg{Integer}}, colsiz::Tuple{Vararg{Integer}})
+            check_structure($_CS(to_values(vals),
+                                 $(map(s -> :(to_indices($s)), other_args)...),
+                                 to_size(rowsiz), to_size(colsiz)))
+        end
+
+        # Constructors for any compressed format similar to the basic ones but with type
+        # parameters that may imply converting arguments.
+        function $CS{T,M,N}(vals::AbstractVector, $(other_decl...),
+                              rowsiz::Tuple{Vararg{Integer}},
+                              colsiz::Tuple{Vararg{Integer}}) where {T,M,N}
+            N isa Int || throw(AssertionError("type parameter `N` must be an `Int`"))
+            length(colsiz) == N || throw(DimensionMismatch(
+                "number of column dimensions is not equal to type parameter `N = $N`"))
+            $CS{T,M}(vals, $(other_args...), rowsiz, colsiz)
+        end
+        function $CS{T,M}(vals::AbstractVector, $(other_decl...),
+                            rowsiz::Tuple{Vararg{Integer}},
+                            colsiz::Tuple{Vararg{Integer}}) where {T,M}
+            M isa Int || throw(AssertionError("type parameter `M` must be an `Int`"))
+            length(rowsiz) == M || throw(DimensionMismatch(
+                "number of row dimensions is not equal to type parameter `M = $M`"))
+            $CS{T}(vals, $(other_args...), rowsiz, colsiz)
+        end
+        function $CS{T}(vals::AbstractVector, $(other_decl...),
+                          rowsiz::Tuple{Vararg{Integer}},
+                          colsiz::Tuple{Vararg{Integer}}) where {T}
+            M isa Int || throw(AssertionError("type parameter `M` must be an `Int`"))
+            length(rowsiz) == M || throw(DimensionMismatch(
+                "number of row dimensions must be equal to type parameter `M`"))
+            $CS(to_values(T, vals), $(other_args...), rowsiz, colsiz)
+        end
+   end
 end
-
-# Constructors that convert array of values. Other fields have already been checked so do
-# not check structure again.
-
-SparseOperatorCSR{T}(A::SparseOperatorCSR{S,M,N}) where {S,T,M,N} =
-    _SparseOperatorCSR(nrows(A), ncols(A), to_values(T, get_vals(A)),
-                       get_cols(A), get_offs(A), row_size(A), col_size(A))
-
-SparseOperatorCSC{T}(A::SparseOperatorCSC{S,M,N}) where {S,T,M,N} =
-    _SparseOperatorCSC(nrows(A), ncols(A), to_values(T, get_vals(A)),
-                       get_rows(A), get_offs(A), row_size(A), col_size(A))
-
-SparseOperatorCOO{T}(A::SparseOperatorCOO{S,M,N}) where {S,T,M,N} =
-    _SparseOperatorCOO(nrows(A), ncols(A), to_values(T, get_vals(A)),
-                       get_rows(A), get_cols(A), row_size(A), col_size(A))
-
-# Constructors for CSR format similar to the basic ones but have parameters that may imply
-# converting arguments.
-
-function SparseOperatorCSR{T,M,N}(vals::AbstractVector,
-                                  cols::AbstractVector{<:Integer},
-                                  offs::AbstractVector{<:Integer},
-                                  rowsiz::ArraySize,
-                                  colsiz::ArraySize) where {T,M,N}
-    check_row_ndims(rowsiz, M)
-    check_column_ndims(colsiz, N)
-    SparseOperatorCSR{T}(vals, cols, offs, rowsiz, colsiz)
-end
-
-function SparseOperatorCSR{T,M}(vals::AbstractVector,
-                                cols::AbstractVector{<:Integer},
-                                offs::AbstractVector{<:Integer},
-                                rowsiz::ArraySize,
-                                colsiz::ArraySize) where {T,M}
-    check_row_ndims(rowsiz, M)
-    SparseOperatorCSR{T}(vals, cols, offs, rowsiz, colsiz)
-end
-
-function SparseOperatorCSR{T}(vals::AbstractVector,
-                              cols::AbstractVector{<:Integer},
-                              offs::AbstractVector{<:Integer},
-                              rowsiz::ArraySize,
-                              colsiz::ArraySize) where {T}
-    SparseOperatorCSR(to_values(T, vals), cols, offs, rowsiz, colsiz)
-end
-
-# Idem for CSC format.
-
-function SparseOperatorCSC{T,M,N}(vals::AbstractVector,
-                                  rows::AbstractVector{<:Integer},
-                                  offs::AbstractVector{<:Integer},
-                                  rowsiz::ArraySize,
-                                  colsiz::ArraySize) where {T,M,N}
-    check_row_ndims(rowsiz, M)
-    check_column_ndims(colsiz, N)
-    SparseOperatorCSC{T}(vals, rows, offs, rowsiz, colsiz)
-end
-
-function SparseOperatorCSC{T,M}(vals::AbstractVector,
-                                rows::AbstractVector{<:Integer},
-                                offs::AbstractVector{<:Integer},
-                                rowsiz::ArraySize,
-                                colsiz::ArraySize) where {T,M}
-    check_row_ndims(rowsiz, M)
-    SparseOperatorCSC{T}(vals, rows, offs, rowsiz, colsiz)
-end
-
-function SparseOperatorCSC{T}(vals::AbstractVector,
-                              rows::AbstractVector{<:Integer},
-                              offs::AbstractVector{<:Integer},
-                              rowsiz::ArraySize,
-                              colsiz::ArraySize) where {T}
-    SparseOperatorCSC(to_values(T, vals), rows, offs, rowsiz, colsiz)
-end
-
-# Idem for COO format.
-
-function SparseOperatorCOO{T,M,N}(vals::AbstractVector,
-                                  rows::AbstractVector{<:Integer},
-                                  cols::AbstractVector{<:Integer},
-                                  rowsiz::ArraySize,
-                                  colsiz::ArraySize) where {T,M,N}
-    check_row_ndims(rowsiz, M)
-    check_column_ndims(colsiz, N)
-    SparseOperatorCOO{T}(vals, rows, cols, rowsiz, colsiz)
-end
-
-function SparseOperatorCOO{T,M}(vals::AbstractVector,
-                                rows::AbstractVector{<:Integer},
-                                cols::AbstractVector{<:Integer},
-                                rowsiz::ArraySize,
-                                colsiz::ArraySize) where {T,M}
-    check_row_ndims(rowsiz, M)
-    SparseOperatorCOO{T}(vals, rows, cols, rowsiz, colsiz)
-end
-
-function SparseOperatorCOO{T}(vals::AbstractVector,
-                              rows::AbstractVector{<:Integer},
-                              cols::AbstractVector{<:Integer},
-                              rowsiz::ArraySize,
-                              colsiz::ArraySize) where {T}
-    SparseOperatorCOO(to_values(T, vals), rows, cols, rowsiz, colsiz)
-end
-
-check_row_ndims(rowsiz::ArraySize, M::Integer) =
-    length(rowsiz) == M ||
-        throw_dimension_mismatch("number of row dimensions is not M=$M")
-
-check_column_ndims(colsiz::ArraySize, N::Integer) =
-    length(colsiz) == N ||
-        throw_dimension_mismatch("number of columns dimensions is not N=$N")
 
 # Constructors of a sparse operator in various format given a regular Julia array and a
 # selector function. Julia arrays are usually in column-major order but this is not always
