@@ -2164,8 +2164,9 @@ function unsafe_vmul!(α::Number,
     # FIXME check_argument(y, row_size(A))
     isone(β) || dispatch_vscale!(y, β)
     if isnone(α)
+        T = real_type(α) # NOTE α has the precision of α*A[i,j]*x[i]
         @inbounds for j in each_col(A)
-            q = x[j] # FIXME set precision
+            q = set_precision(T, x[j])
             if !iszero(q)
                 for k in each_nz(A, j)
                     i = get_row(A, k)
@@ -2176,7 +2177,7 @@ function unsafe_vmul!(α::Number,
         end
     else
         @inbounds for j in each_col(A)
-            q = α*x[j] # FIXME set precision
+            q = α*x[j]
             if !iszero(q)
                 for k in each_nz(A, j)
                     i = get_row(A, k)
