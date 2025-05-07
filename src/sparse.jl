@@ -1488,15 +1488,14 @@ SparseOperatorCOO{T}(A::SparseOperator{T}) where {T} =
                       col_size(A))
 
 """
-    coo_to_csr!(vals, rows, cols, rowsiz, colsiz [, mrg]) -> A
+    coo_to_csr!(vals, rows, cols, rowsiz, colsiz [, op]) -> A
 
 yields the a compressed sparse operator in a CSR format given the components `vals`,
 `rows` and `cols` in the COO format and the sizes `rowsiz` and `colsiz` of the row and
-column dimensions. Input arrays are modified in-place. Optional argument `mrg` is a
-function called to merge values of entries with the same row and column indices.
+column dimensions. Input arrays are modified in-place. Optional argument `op` is a binary
+operator to reduce the values of entries having the same row and column indices.
 
-Input arrays must be regular Julia vectors to ensure type stability in case of
-duplicates.
+Input arrays must be regular Julia vectors to ensure type stability in case of duplicates.
 
 """
 function coo_to_csr!(vals::Vector{T},
@@ -1504,7 +1503,7 @@ function coo_to_csr!(vals::Vector{T},
                      cols::Vector{Int},
                      rowsiz::Dims{M},
                      colsiz::Dims{N},
-                     mrg::Function = (T <: Bool ? (|) : (+))) where {T,M,N}
+                     op::Function = (T <: Bool ? (|) : (+))) where {T,M,N}
     # Check row and column sizes.
     nrows = check_size(rowsiz, "row")
     ncols = check_size(colsiz, "column")
@@ -1513,27 +1512,26 @@ function coo_to_csr!(vals::Vector{T},
     check_rows(rows, nrows)
     check_cols(cols, ncols)
 
-    # Sort and merge entries in row-major order, resize arrays if needed and
-    # compute offsets.
-    nvals = sort_and_merge!(vals, rows, cols, mrg)
+    # Sort and reduce entries in row-major order, resize arrays used in the result if
+    # needed, and compute offsets.
+    nvals = sort_and_reduce!(vals, rows, cols, op)
     if nvals < length(vals)
-        vals = vals[1:nvals]
-        cols = cols[1:nvals]
+        vals = vals[1:nvals]::Vector{T}
+        cols = cols[1:nvals]::Vector{Int}
     end
     offs = sparse_compressed_offsets(nrows, view(rows, 1:nvals))
 
-    # Since everything will have
-    # been checked, we can call the unsafe constructor.
+    # Since everything will have been checked, we can call the unsafe constructor.
     return _SparseOperatorCSR(nrows, ncols, vals, cols, offs, rowsiz, colsiz)
 end
 
 """
-    coo_to_csc!(vals, rows, cols, rowsiz, colsiz [, mrg]) -> A
+    coo_to_csc!(vals, rows, cols, rowsiz, colsiz [, op]) -> A
 
 yields the a compressed sparse operator in a CSC format given the components `vals`,
 `rows` and `cols` in the COO format and the sizes `rowsiz` and `colsiz` of the row and
-column dimensions. Input arrays are modified in-place. Optional argument `mrg` is a
-function called to merge values of entries with the same row and column indices.
+column dimensions. Input arrays are modified in-place. Optional argument `op` is a binary
+operator to reduce the values of entries having the same row and column indices.
 
 Input arrays must be regular Julia vectors to ensure type stability in case of duplicates.
 
@@ -1543,7 +1541,7 @@ function coo_to_csc!(vals::Vector{T},
                      cols::Vector{Int},
                      rowsiz::Dims{M},
                      colsiz::Dims{N},
-                     mrg::Function = (T <: Bool ? (|) : (+))) where {T,M,N}
+                     op::Function = (T <: Bool ? (|) : (+))) where {T,M,N}
     # Check row and column sizes.
     nrows = check_size(rowsiz, "row")
     ncols = check_size(colsiz, "column")
@@ -1552,56 +1550,58 @@ function coo_to_csc!(vals::Vector{T},
     check_rows(rows, nrows)
     check_cols(cols, ncols)
 
-    # Sort and merge entries in column-major order, resize arrays if needed and
-    # compute offsets.
-    nvals = sort_and_merge!(vals, cols, rows, mrg)
+    # Sort and reduce entries in column-major order, resize arrays used in the result if
+    # needed, and compute offsets.
+    nvals = sort_and_reduce!(vals, cols, rows, op)
     if nvals < length(vals)
-        vals = vals[1:nvals]
-        rows = rows[1:nvals]
+        vals = vals[1:nvals]::Vector{T}
+        rows = rows[1:nvals]::Vector{Int}
     end
     offs = sparse_compressed_offsets(ncols, view(cols, 1:nvals))
 
-    # Since everything will have
-    # been checked, we can call the unsafe constructor.
+    # Since everything will have been checked, we can call the unsafe constructor.
     return _SparseOperatorCSC(nrows, ncols, vals, rows, offs, rowsiz, colsiz)
 end
 
-# "less-than" method for sorting entries in order, arguments are 3-tuples
-# `(v,major,minor)` with `v` the entry value, `major` the major index and
-# `minir` the minor index.
-@inline major_order(a::Tuple{T,Int,Int},b::Tuple{T,Int,Int}) where {T} =
-    ifelse(a[2] == b[2], a[3] < b[3], a[2] < b[2])
+"""
+    sort_and_reduce!(vals, major, minor, op) -> nvals
+
+sorts entries and reduces duplicates in input arrays `vals`, `major` and `minor`. Entries
+consist in the 3-tuples `(vals[k],major[k],minor[k])`. The sorting order of the `k`-th
+entry is based the value of `major[k]` and, if equal, on the value of `minor[k]`. After
+sorting, duplicate entries, that is those which have the same minor and major indices, are
+replaced by a single entry whose value is obtained by reducing the values in `vals` with
+the binary operator `op`. All operations are done in-place, the number of unique entries
+is returned but inputs arrays are not resized, only the `nvals` first entries are valid.
 
 """
-    sort_and_merge!(vals, major, minor, mrg) -> nvals
+function sort_and_reduce!(vals::AbstractVector,
+                          major::AbstractVector{Int},
+                          minor::AbstractVector{Int},
+                          op::Function)
+    # Check dimensions.
+    axes(vals) == axes(major) == axes(minor) || throw(DimensionMismatch(
+        "arguments must have the same axes"))
+    isempty(vals) && return 0
 
-sorts entries and merges duplicates in input arrays `vals`, `major` and `minor`. Entries
-consist in the 3-tuples `(vals[i],major[i],minor[i])`. The sorting order of the `i`-th
-entry is based the value of `major[i]` and, if equal, on the value of `minor[i]`. After
-sorting, duplicates entries, that is those which have the same `(major[i],minor[i])`, are
-removed merging the associated values in `vals` with the `mrg` function. All operations
-are done in-place, the number of unique entries is returned but inputs arrays are not
-resized, only the `nvals` first entries are valid.
+    # Sort entries in order (this also ensures that all arrays have the same dimensions).
+    sort!(ZippedArray(vals, major, minor);
+          # In the provided "less-than" method, arguments are 3-tuples `(v,maj,min)` with
+          # `v` the structural non-zero value, `maj` the major index, and `min` the minor
+          # index. The order only depends on the two latter.
+          lt = (x, y) -> (x[2] < y[2]) | ((x[2] == y[2]) & (x[3] < y[3])))
 
-"""
-function sort_and_merge!(vals::AbstractVector,
-                         major::AbstractVector{Int},
-                         minor::AbstractVector{Int},
-                         mrg::Function)
-    # Sort entries in order (this also ensures that all arrays have the same
-    # dimensions).
-    sort!(ZippedArray(vals, major, minor); lt=major_order)
-
-    # Merge duplicates.
-    j = 1
-    @inbounds for k in 2:length(vals)
-        if major[k] == major[j] && minor[k] == minor[j]
-            vals[j] = mrg(vals[j], vals[k])
+    # Reduce duplicates.
+    r = eachindex(IndexLinear(), vals, major, minor)
+    j = first(r)
+    @inbounds for k in first(r)+1:last(r)
+        if (major[k] == major[j]) & (minor[k] == minor[j])
+            vals[j] = op(vals[j], vals[k]) # reduce value of duplicate entry
         elseif (j += 1) < k
             vals[j], major[j], minor[j] = vals[k], major[k], minor[k]
         end
     end
-    return j
+    return j - first(r) + 1
 end
 
 """
