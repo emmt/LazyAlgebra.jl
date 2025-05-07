@@ -2150,20 +2150,6 @@ function unsafe_vmul!(α::Number,
     return y
 end
 
-update!(y::AbstractArray, A::CompressedSparseOperator{:CSR}, i::Int, x_i) =
-    @inbounds for k in each_nz(A, i)
-        j = get_col(A, k)
-        v = get_val(A, k)
-        y[j] += conj(v)*x_i
-    end
-
-update!(y::AbstractArray, A::CompressedSparseOperator{:CSC}, j::Int, x_j) =
-    @inbounds for k in each_nz(A, j)
-        i = get_col(A, k)
-        v = get_val(A, k)
-        y[i] += conj(v)*x_j
-    end
-
 # Apply a sparse operator, and its adjoint, stored in Compressed Sparse Column (CSC)
 # format.
 
