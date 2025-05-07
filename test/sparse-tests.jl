@@ -11,7 +11,7 @@ using LazyAlgebra
 using LazyAlgebra: identical
 using LazyAlgebra.Foundations
 using LazyAlgebra.SparseMethods
-using LazyAlgebra.SparseOperators: check_structure, compute_offsets
+using LazyAlgebra.SparseOperators: check_structure, sparse_compressed_offsets
 using Test
 using Random
 
@@ -61,14 +61,14 @@ function unpack_with_iterator!(dest::Array{T},
 end
 
 @testset "Low level sparse utilities" begin
-    @test compute_offsets(2, Int[]) == [0,0,0]
-    @test compute_offsets(5, [2,2,3,5]) == [0,0,2,3,3,4]
-    @test compute_offsets(5, [1,3,3]) == [0,1,1,3,3,3]
+    @test sparse_compressed_offsets(2, Int[]) == [0,0,0]
+    @test sparse_compressed_offsets(5, [2,2,3,5]) == [0,0,2,3,3,4]
+    @test sparse_compressed_offsets(5, [1,3,3]) == [0,1,1,3,3,3]
     # Check for non-increasing order.
-    @test_throws ErrorException compute_offsets(5, [1,3,2])
+    @test_throws AssertionError sparse_compressed_offsets(5, [1,3,2])
     # Check for out-of-bounds.
-    @test_throws ErrorException compute_offsets(5, [0,3,3,7])
-    @test_throws ErrorException compute_offsets(5, [1,3,7])
+    @test_throws AssertionError sparse_compressed_offsets(5, [0,3,3])
+    @test_throws AssertionError sparse_compressed_offsets(5, [1,3,7])
 end
 
 @testset "Compressed sparse formats " begin

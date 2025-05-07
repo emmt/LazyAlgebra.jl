@@ -1520,7 +1520,7 @@ function coo_to_csr!(vals::Vector{T},
         vals = vals[1:nvals]
         cols = cols[1:nvals]
     end
-    offs = compute_offsets(nrows, rows, nvals)
+    offs = sparse_compressed_offsets(nrows, view(rows, 1:nvals))
 
     # Since everything will have
     # been checked, we can call the unsafe constructor.
@@ -1559,7 +1559,7 @@ function coo_to_csc!(vals::Vector{T},
         vals = vals[1:nvals]
         rows = rows[1:nvals]
     end
-    offs = compute_offsets(ncols, cols, nvals)
+    offs = sparse_compressed_offsets(ncols, view(cols, 1:nvals))
 
     # Since everything will have
     # been checked, we can call the unsafe constructor.
@@ -1605,36 +1605,41 @@ function sort_and_merge!(vals::AbstractVector,
 end
 
 """
-    compute_offsets(n, inds, len=length(inds)) -> offs
+    sparse_compressed_offsets(n, inds) -> offs
 
-yields the `n+1` offsets computed from the list of indices `inds[1:len]`. Indices must be
-in non-increasing order an all in the range `1:n`.
+yields a vector of `n+1` offsets for sparse compressed storage and computed from the list
+of indices `inds`. Indices in `inds` must be in non-increasing order and in the range
+`1:n`.
 
 """
-function compute_offsets(n::Int,
-                         inds::AbstractVector{Int},
-                         len::Int = length(inds))
-    @assert len ≤ length(inds)
-    @inbounds begin
-        offs = Vector{Int}(undef, n + 1)
-        i = 0
-        for k in 1:len
-            j = inds[k]
-            j == i && continue
-            ((j < i)|(j > n)) &&
-                error(1 ≤ j ≤ n ?
-                      "indices must be in non-increasing order" :
-                      "out of bound indices")
-            off = k - 1
+sparse_compressed_offsets(n::Int, inds::AbstractVector{Int}) =
+    sparse_compressed_offsets!(Vector{Int}(undef, n + 1), inds)
+
+function sparse_compressed_offsets!(offs::AbstractVector{Int}, inds::AbstractVector{Int})
+    firstindex(offs) == 1 || throw(AssertionError(
+        "vector of offsets must have 1-based indices"))
+    n = length(offs) - 1
+    k1 = firstindex(inds)
+    k2 = lastindex(inds)
+    i = 0
+    @inbounds for k in k1:k2
+        j = inds[k]
+        if 1 ≤ i == j
+            nothing
+        elseif i < j ≤ n
+            off = k - k1
             while i < j
                 i += 1
                 offs[i] = off
             end
+        else
+            throw(AssertionError(1 ≤ j ≤ n ? "indices must be in non-increasing order" :
+                "out of bound indices"))
         end
-        while i ≤ n
-            i += 1
-            offs[i] = len
-        end
+    end
+    @inbounds while i ≤ n
+        i += 1
+        offs[i] = length(inds)
     end
     return offs
 end
