@@ -613,13 +613,13 @@ See also [`vscale!`](@ref), [`vcombine!](@ref), and [`LazyAlgebra.unsafe_vupdate
 
 """ vupdate!
 
-# Stage 0: check axes.
+# Stage 0: Check axes.
 
 function vupdate!(y::AbstractArray{Ty,N},
                   α::Number, x::AbstractArray{Tx,N},
                   ::Stage{0} = _Stage(0)) where {Tx,Ty,N}
     @assert_same_axes x y
-    return vupdate!(y, convert_multiplier(α, Tx), x, _Stage(1))
+    return vupdate!(y, α, x, _Stage(1))
 end
 
 function vupdate!(y::AbstractArray{Ty,N}, sel::AbstractVector{Int},
@@ -628,22 +628,38 @@ function vupdate!(y::AbstractArray{Ty,N}, sel::AbstractVector{Int},
     @assert_same_axes x y
     imin, imax = extrema(sel)
     ((firstindex(x) ≤ imin) & (imax ≤ lastindex(x))) || out_of_range_selection()
-    return vupdate!(y, sel, convert_multiplier(α, Tx), x, _Stage(1))
+    return vupdate!(y, sel, α, x, _Stage(1))
 end
 
-# Stage 1: dispatch on the value of `α`.
+# Stage 1: Dispatch on the value of `α`.
 
 function vupdate!(y::AbstractArray{Ty,N},
                   α::Number, x::AbstractArray{Tx,N},
                   ::Stage{1}) where {Tx,Ty,N}
-    α == ZERO || unsafe_vupdate!(y, convert_multiplier(α, Tx), x)
+    @dispatch_on_multiplier α eltype(x) vupdate!(y, α, x, _Stage(2))
     return y
 end
 
 function vupdate!(y::AbstractArray{Ty,N}, sel::AbstractVector{Int},
                   α::Number, x::AbstractArray{Tx,N},
                   ::Stage{1}) where {Ty,Tx,N}
-    α == ZERO || unsafe_vupdate!(y, sel, convert_multiplier(α, Tx), x)
+    @dispatch_on_multiplier α eltype(x) vupdate!(y, sel, α, x, _Stage(2))
+    return y
+end
+
+# Stage 2: Call `unsafe_vupdate!` if needed.
+
+function vupdate!(y::AbstractArray{Ty,N},
+                  α::Number, x::AbstractArray{Tx,N},
+                  ::Stage{2}) where {Tx,Ty,N}
+    α isa StaticMultiplier{0} || unsafe_vupdate!(y, α, x)
+    return y
+end
+
+function vupdate!(y::AbstractArray{Ty,N}, sel::AbstractVector{Int},
+                  α::Number, x::AbstractArray{Tx,N},
+                  ::Stage{2}) where {Tx,Ty,N}
+    α isa StaticMultiplier{0} || unsafe_vupdate!(y, sel, α, x)
     return y
 end
 
@@ -664,17 +680,17 @@ See also [`vupdate!`](@ref).
 
 """
 function unsafe_vupdate!(y::AbstractArray{Ty,N},
-                         α::Number, x::AbstractArray{Ty,N}) where {Ty,Tx,N}
+                         α::Number, x::AbstractArray{Tx,N}) where {Ty,Tx,N}
     @inbounds @inbounds @simd for i in eachindex(x, y)
         y[i] += α*x[i]
     end
     return y
 end
 
-function unsafe_vupdate!(y::AbstractArray{<:Any,N},
+function unsafe_vupdate!(y::AbstractArray{Ty,N},
                          sel::AbstractVector{Int},
                          α::Number,
-                         x::AbstractArray{<:Any,N}) where {N}
+                         x::AbstractArray{Tx,N}) where {Tx,Ty,N}
     # NOTE We cannot use `@simd` here due to scattering.
     if IndexStyle(x, y) == IndexLinear()
         @inbounds @fastmath for i in sel
@@ -747,7 +763,7 @@ See also [`vcombine`](@ref), [`vscale!`](@ref), [`vupdate!](@ref),
 
 """ vcombine!
 
-# Stage 0: check axes.
+# Stage 0: Check axes.
 
 function vcombine!(α::Number, x::AbstractArray{Tx,N},
                    β::Number, y::AbstractArray{Ty,N},
@@ -764,22 +780,12 @@ function vcombine!(z::AbstractArray{Tz,N},
     return vcombine!(z, α, x, β, y, _Stage(1))
 end
 
-# Stage 1: dispatch on the value of `α`.
+# Stage 1: Dispatch on the value of `α`.
 
 function vcombine!(α::Number, x::AbstractArray{Tx,N},
                    β::Number, y::AbstractArray{Ty,N},
                    ::Stage{1}) where {Tx,Ty,N}
-    if α isa StaticMultiplier
-        vcombine!(α, x, β, y, _Stage(2))
-    elseif iszero(α)
-        vcombine!(ZERO*unit(α), x, β, y, _Stage(2))
-    elseif α == oneunit(α)
-        vcombine!(ONE*unit(α), x, β, y, _Stage(2))
-    elseif is_signed(α) && α == -oneunit(α)
-        vcombine!(-ONE*unit(α), x, β, y, _Stage(2))
-    else
-        vcombine!(convert_multiplier(α, Tx), x, β, y, _Stage(2))
-    end
+    @dispatch_on_multiplier α eltype(x) vcombine!(α, x, β, y, _Stage(2))
     return y
 end
 
@@ -787,36 +793,16 @@ function vcombine!(z::AbstractArray{Tz,N},
                    α::Number, x::AbstractArray{Tx,N},
                    β::Number, y::AbstractArray{Ty,N},
                    ::Stage{1}) where {Tz,Tx,Ty,N}
-    if α isa StaticMultiplier
-        vcombine!(z, α, x, β, y, _Stage(2))
-    elseif iszero(α)
-        vcombine!(z, ZERO*unit(α), x, β, y, _Stage(2))
-    elseif α == oneunit(α)
-        vcombine!(z, ONE*unit(α), x, β, y, _Stage(2))
-    elseif is_signed(α) && α == -oneunit(α)
-        vcombine!(z, -ONE*unit(α), x, β, y, _Stage(2))
-    else
-        vcombine!(z, convert_multiplier(α, Tx), x, β, y, _Stage(2))
-    end
+    @dispatch_on_multiplier α eltype(x) vcombine!(z, α, x, β, y, _Stage(2))
     return z
 end
 
-# Stage 2: dispatch on the value of `β`.
+# Stage 2: Dispatch on the value of `β`.
 
 function vcombine!(α::Number, x::AbstractArray{Tx,N},
                    β::Number, y::AbstractArray{Ty,N},
                    ::Stage{2}) where {Tx,Ty,N}
-    if β isa StaticMultiplier
-        unsafe_vcombine!(α, x, β, y)
-    elseif iszero(β)
-        unsafe_vcombine!(α, x, ZERO*unit(β), y)
-    elseif β == oneunit(β)
-        unsafe_vcombine!(α, x, ONE*unit(β), y)
-    elseif is_signed(β) && β == -oneunit(β)
-        unsafe_vcombine!(α, x, -ONE*unit(β), y)
-    else
-        unsafe_vcombine!(α, x, convert_multiplier(β, Ty), y)
-    end
+    @dispatch_on_multiplier β eltype(y) unsafe_vcombine!(α, x, β, y)
     return y
 end
 
@@ -824,21 +810,11 @@ function vcombine!(z::AbstractArray{Tz,N},
                    α::Number, x::AbstractArray{Tx,N},
                    β::Number, y::AbstractArray{Ty,N},
                    ::Stage{2}) where {Tz,Tx,Ty,N}
-    if β isa StaticMultiplier
-        unsafe_vcombine!(z, α, x, β, y)
-    elseif iszero(β)
-        unsafe_vcombine!(z, α, x, ZERO*unit(β), y)
-    elseif β == oneunit(β)
-        unsafe_vcombine!(z, α, x, ONE*unit(β), y)
-    elseif is_signed(β) && β == -oneunit(β)
-        unsafe_vcombine!(z, α, x, -ONE*unit(β), y)
-    else
-        unsafe_vcombine!(z, α, x, convert_multiplier(β, Ty), y)
-    end
+    @dispatch_on_multiplier β eltype(y) unsafe_vcombine!(z, α, x, β, y)
     return z
 end
 
-# Last stage: the unsafe one.
+# Last stage: The unsafe one.
 
 """
     LazyAlgebra.unsafe_vcombine!(α, x, β, y) -> y

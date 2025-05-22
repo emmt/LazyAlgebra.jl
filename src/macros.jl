@@ -49,3 +49,68 @@ function try_get_struct_name_from_definition(ex::Expr)
     end
     return nothing
 end
+
+"""
+     LazyAlgebra.@dispatch_on_multiplier var T expr
+
+This macro expands to code dispatching expression `expr` depending on the value and type
+of the multiplier in variable named `var` and with `T` the type argument in
+[`convert_multiplier`](@ref LazyAlgebra.convert_multiplier).
+
+For example:
+
+```julia
+@dispatch_on_multiplier β eltype(y) unsafe_vcombine!(α, x, β, y)
+```
+
+expands to (with comments removed):
+
+```julia
+if β isa StaticMultiplier
+    unsafe_vcombine!(α, x, β, y)
+elseif iszero(β)
+    unsafe_vcombine!(α, x, 𝟘*unit(β), y)
+elseif β == oneunit(β)
+    unsafe_vcombine!(α, x, 𝟙*unit(β), y)
+elseif is_signed(β) && β == -(oneunit(β))
+    unsafe_vcombine!(α, x, -𝟙*unit(β), y)
+else
+    unsafe_vcombine!(α, x, LazyAlgebra.convert_multiplier(β, eltype(y)), y)
+end
+```
+
+This can be checked thanks to `@macroexpand`:
+
+```julia
+@macroexpand LazyAlgebra.@dispatch_on_multiplier β eltype(y) unsafe_vcombine!(α, x, β, y)
+```
+
+"""
+macro dispatch_on_multiplier(var::Union{Symbol,QuoteNode},
+                             T::Union{Symbol,QuoteNode,Expr},
+                             expr::Expr)
+    esc(:(if $var isa StaticMultiplier
+              $expr
+          elseif iszero($var)
+              $(substitute(expr, var => :(𝟘*unit($var))))
+          elseif $var == oneunit($var)
+              $(substitute(expr, var => :(𝟙*unit($var))))
+          elseif is_signed($var) && $var == -oneunit($var)
+              $(substitute(expr, var => :(-𝟙*unit($var))))
+          else
+              $(substitute(expr, var => :(LazyAlgebra.convert_multiplier($var, $T))))
+          end))
+end
+
+substitute(ex::Expr, old_new::Pair{Symbol}) = substitute!(deepcopy(ex), old_new)
+
+function substitute!(ex::Expr, old_new::Pair{Symbol})
+    for i in eachindex(ex.args)
+        if ex.args[i] isa Expr
+            substitute!(ex.args[i], old_new)
+        elseif ex.args[i] === first(old_new)
+            ex.args[i] = last(old_new)
+        end
+    end
+    return ex
+end

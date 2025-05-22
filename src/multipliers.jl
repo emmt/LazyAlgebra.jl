@@ -11,7 +11,7 @@ convert_multiplier(α::Number, ::Type{T}) where {T<:Number} =
     with_precision(get_precision(T), α)
 
 # Leave "static multipliers" unchanged.
-convert_multiplier(α::StaticMultiplier, ::Type{T}) where {T<:Number} = α
+convert_multiplier(α::StaticMultiplier, ::Type{<:Number}) = α
 
 """
     LazyAlgebra.convert_multiplier(α::Number, [A::Operator,] x::AbstractArray)

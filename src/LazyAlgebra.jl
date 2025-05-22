@@ -89,7 +89,7 @@ export
     vzeros
 
 using TypeUtils: @public
-@public @callable
+@public @callable @dispatch_on_multiplier
 @public Adjoint Inverse InverseAdjoint
 @public Identity
 @public check_input_axes
