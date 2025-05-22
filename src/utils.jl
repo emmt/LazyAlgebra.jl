@@ -143,6 +143,8 @@ _with_precision(::Type{T}, ::Type{S}) where {T<:AbstractFloat,S<:Number} =
 #    isiterable(x) ? maybe_unroll_map(_with_precision(T), x) : x
 
 # Set precision for tuples.
+_with_precision(::Type{T}, x::NamedTuple) where {T<:AbstractFloat} =
+    map(_with_precision(T), x)
 _with_precision(::Type{T}, x::Tuple) where {T<:AbstractFloat} =
     maybe_unroll_map(_with_precision(T), x)
 
