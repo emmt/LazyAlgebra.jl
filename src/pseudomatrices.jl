@@ -138,5 +138,5 @@ function unsafe_vmul!(α::Number, A::Adjoint{<:PseudoMatrix}, x::AbstractArray,
 end
 
 # Set precision of pseudo-matrices and flexible matrices.
-with_precision(::Type{T}, A::PseudoMatrix{<:Any,M}) where {T<:AbstractFloat,M} =
-    PseudoMatrix(with_precision(T, parent(A)), M === Colon ? Colon() : Val(M))
+_with_precision(::Type{T}, A::PseudoMatrix{<:Any,M}) where {T<:AbstractFloat,M} =
+    PseudoMatrix(_with_precision(T, parent(A)), M === Colon ? Colon() : Val(M))

@@ -54,7 +54,7 @@ unsafe_vmul!(α::Number, A::Identity, x::AbstractArray, β::Number, y::AbstractA
     vcombine!(y, α, x, β, y, _Stage(1))
 
 # Set precision for identity operators.
-with_precision(::Type{T}, A::Identity) where {T<:AbstractFloat} = A
+_with_precision(::Type{T}, A::Identity) where {T<:AbstractFloat} = A
 
 # Taking the adjoint or the inverse of the identity (whatever the i/o shape) does
 # nothing.
