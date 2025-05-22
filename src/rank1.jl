@@ -70,12 +70,12 @@ input_axes(A::AbstractRankOneOperator) = axes(last(A))
 
 function unsafe_vmul!(α::Number, A::Union{K,Adjoint{K}}, x::AbstractArray,
                       β::Number, y::AbstractArray) where {K <: AbstractRankOneOperator}
-    # Call `dispatch_vcombine!`, not `unsafe_vcombine!` directly, because `λ = α*vdot(v,x)`
-    # may be zero although `α` should be non-zero.
+    # Call `vcombine!` at stage 1 to dispatch on the values of `α` and `β` because array
+    # axes have already been checked.
     v = last(A)
     λ = α*vdot(v, x)
     u = first(A)
-    dispatch_vcombine!(convert_multiplier(λ, u), u, β, y)
+    vcombine!(λ, u, β, y, _Stage(1))
 end
 
 # Set precision for rank-1 operators.

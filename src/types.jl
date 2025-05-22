@@ -11,6 +11,18 @@ is the floating-point type used by defauts in `LazyAlgebra`.
 """
 const default_precision = Float64
 
+# Private structure to keep track of dispatch stage.
+#
+# For example:
+# • 0 -> 1 check indices;
+# • 1 -> 2 dispatch on 1st multiplier;
+# • 2 -> 3 dispatch on 2nd multiplier;
+# • etc. and eventually call the `unsafe_*` method.
+struct Stage{N}
+    global _Stage
+    _Stage(N::Int) = new{N}()
+end
+
 """
     Operator
 

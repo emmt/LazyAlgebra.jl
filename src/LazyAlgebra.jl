@@ -106,7 +106,7 @@ using TypeUtils: @public
 #@public default_cropping_offset
 #@public default_zeropadding_offset
 @public test_API
-@public unsafe_vcombine! dispatch_vcombine!
+@public unsafe_vcombine!
 @public unsafe_vcopy!
 @public unsafe_vdot
 @public unsafe_vmul! dispatch_vmul!
@@ -117,8 +117,10 @@ using TypeUtils: @public
 
 using Printf
 using ArrayTools
+using Neutrals
 using Test
 using TypeUtils
+using Unitful: AbstractQuantity, Quantity, NoDims, unit, ustrip
 #using FFTW
 
 using Base: OneTo, Fix1, Fix2, @propagate_inbounds

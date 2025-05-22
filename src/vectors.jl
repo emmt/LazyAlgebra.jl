@@ -369,7 +369,7 @@ See also [`vfill!`](@ref) and [`vnans`](@ref).
 """
 vnans!(x::AbstractArray) = vfill!(x, NaN*zero(eltype(x)))
 
-#---------------------------------------------------------------------------------VSCALE -
+#-------------------------------------------------------------------------------- VSCALE -
 
 """
     y = vscale(α::Number, x::AbstractArray)
@@ -728,28 +728,38 @@ end
 """
     vcombine(α, x, β, y) -> z
 
-yields the linear combination `z = α*x + β*y` throwing an exception if `x` and `y` do mot
+yields the linear combination `z = α*x + β*y` throwing an exception if `x` and `y` do not
 have the same axes.
 
-See also [`vcombine!`](@ref), [`vscale!`](@ref), [`vupdate!](@ref),
-[`LazyAlgebra.convert_multiplier](@ref), and [`LazyAlgebra.dispatch_vcombine!](@ref).
+See also [`vcombine!`](@ref), [`vscale!`](@ref), [`vupdate!](@ref), and
+[`LazyAlgebra.convert_multiplier](@ref).
 
 """
 function vcombine(α::Number, x::AbstractArray{Tx,N},
                   β::Number, y::AbstractArray{Ty,N}) where {Tx,Ty,N}
+    # Array arguments must have the same axes.
     @assert_same_axes x y
+
+    # Convert multipliers to infer the element type of the result. The extra cost of
+    # converting the multipliers twice (if any, since further conversions should leave the
+    # multipliers unchanged) is certainly negligible compared to the allocation and
+    # computation times.
     α = convert_multiplier(α, Tx)
     β = convert_multiplier(β, Ty)
-    T = sum_type(prod_type(typeof(α), Tx), prod_type(typeof(β), Ty))
-    return dispatch_vcombine!(similar(x, T), α, x, β, y)
+    Tz = sum_type(prod_type(typeof(α), Tx), prod_type(typeof(β), Ty))
+    z = similar(x, Tz) # FIXME type of array does not depend on y
+
+    # Call in-place method at stage 1 to dispatch on the values of `α` and `β` because
+    # array axes have already been checked.
+    return vcombine!(z, α, x, β, y, _Stage(1))
 end
 
 """
-    vcombine!(dst=y, α, x, β, y) -> dst
+    vcombine!(z=y, α, x, β, y) -> z
 
-overwrites `dst` with the linear combination `α*x + β*y` and returns `dst`. An exception
-is thrown if `dst`, `x`, and `y` do mot have the same axes. If `dst` is omitted, `dst = y`
-is assumed.
+overwrites `z` with the linear combination `α*x + β*y` and returns `z`. An exception is
+thrown if `x`, `y`, and `z`, do mot have the same axes. If `z` is omitted, `z = y` is
+assumed.
 
 The code is optimized for some specific values of the multipliers `α` and `β`. For
 instance, if `α` (resp. `β`) is zero, then the prior contents of `x` (resp. `y`) is not
@@ -762,162 +772,154 @@ of code all produce the same result (stored in `y`):
     vcombine!(α, x, 1, y)
     vupdate!(y, α, x)
 
-See also [`vcombine`](@ref), [`vscale!`](@ref), [`vupdate!](@ref),
-[`LazyAlgebra.vcombine!](@ref), and [`LazyAlgebra.dispatch_vcombine!](@ref).
+The [`LazyAlgebra.unsafe_vcombine!](@ref) may be extended to implement specific array
+types.
 
-"""
-function vcombine!(dst::AbstractArray{<:Any,N},
-                   α::Number, x::AbstractArray{Tx,N},
-                   β::Number, y::AbstractArray{Ty,N}) where {Tx,Ty,N}
-    @assert_same_axes dst x y
-    dispatch_vcombine!(dst, convert_multiplier(α, Tx), x, convert_multiplier(β, Ty), y)
-    return dst
-end
+See also [`vcombine`](@ref), [`vscale!`](@ref), [`vupdate!](@ref),
+[`LazyAlgebra.vcombine!](@ref), and [`LazyAlgebra.unsafe_vcombine!](@ref).
+
+""" vcombine!
+
+# Stage 0: check indices.
 
 function vcombine!(α::Number, x::AbstractArray{Tx,N},
-                   β::Number, y::AbstractArray{Ty,N}) where {Tx,Ty,N}
+                   β::Number, y::AbstractArray{Ty,N},
+                   ::Stage{0} = _Stage(0)) where {Tx,Ty,N}
     @assert_same_axes x y
-    dispatch_vcombine!(convert_multiplier(α, Tx), x, convert_multiplier(β, Ty), y)
+    return vcombine!(α, x, β, y, _Stage(1))
+end
+
+function vcombine!(z::AbstractArray{Tz,N},
+                   α::Number, x::AbstractArray{Tx,N},
+                   β::Number, y::AbstractArray{Ty,N},
+                   ::Stage{0} = _Stage(0)) where {Tz,Tx,Ty,N}
+    @assert_same_axes x y z
+    return vcombine!(z, α, x, β, y, _Stage(1))
+end
+
+# Stage 1: dispatch on the value of `α`.
+
+function vcombine!(α::Number, x::AbstractArray{Tx,N},
+                   β::Number, y::AbstractArray{Ty,N},
+                   ::Stage{1}) where {Tx,Ty,N}
+    if α isa StaticMultiplier
+        vcombine!(α, x, β, y, _Stage(2))
+    elseif iszero(α)
+        vcombine!(ZERO*unit(α), x, β, y, _Stage(2))
+    elseif α == oneunit(α)
+        vcombine!(ONE*unit(α), x, β, y, _Stage(2))
+    elseif is_signed(α) && α == -oneunit(α)
+        vcombine!(-ONE*unit(α), x, β, y, _Stage(2))
+    else
+        vcombine!(convert_multiplier(α, Tx), x, β, y, _Stage(2))
+    end
     return y
 end
 
-"""
-    LazyAlgebra.dispatch_vcombine!(dst, α, x, β, y) -> dst
-
-overwrites `dst` with `α*x + β*y` and returns `dst`.
-
-This method calls [`LazyAlgebra.dispatch_vscale!(dst, α, x)`](@ref
-`LazyAlgebra.dispatch_vscale!) if `iszero(β)` holds, [`LazyAlgebra.dispatch_vscale!(dst,
-β, y)`](@ref `LazyAlgebra.dispatch_vscale!) if `iszero(α)` holds, and
-[`LazyAlgebra.unsafe_vcombine!(dst, α, x, β, y)`](@ref LazyAlgebra.unsafe_vcombine!)
-otherwise.
-
-!!! warning
-    This method shall only be called after having checked that `dst`, `x`, and `y` have
-    the same axes and with the multipliers `α` and `β` converted to suitable
-    floating-point types.
-
-See also [`vcombine`](@ref) and [`vcombine!`](@ref).
-
-"""
-function dispatch_vcombine!(dst::AbstractArray{<:Any,N},
-                            α::Number, x::AbstractArray{<:Any,N},
-                            β::Number, y::AbstractArray{<:Any,N}) where {N}
-    if iszero(β)
-        dispatch_vscale!(dst, α, x)
+function vcombine!(z::AbstractArray{Tz,N},
+                   α::Number, x::AbstractArray{Tx,N},
+                   β::Number, y::AbstractArray{Ty,N},
+                   ::Stage{1}) where {Tz,Tx,Ty,N}
+    if α isa StaticMultiplier
+        vcombine!(z, α, x, β, y, _Stage(2))
     elseif iszero(α)
-        dispatch_vscale!(dst, β, y)
+        vcombine!(z, ZERO*unit(α), x, β, y, _Stage(2))
+    elseif α == oneunit(α)
+        vcombine!(z, ONE*unit(α), x, β, y, _Stage(2))
+    elseif is_signed(α) && α == -oneunit(α)
+        vcombine!(z, -ONE*unit(α), x, β, y, _Stage(2))
     else
-        unsafe_vcombine!(dst, α, x, β, y)
+        vcombine!(z, convert_multiplier(α, Tx), x, β, y, _Stage(2))
     end
-    return dst
+    return z
 end
 
-"""
-    LazyAlgebra.dispatch_vcombine!(α, x, β, y) -> y
+# Stage 2: dispatch on the value of `β`.
 
-overwrites `y` with `α*x + β*y` and returns `y`.
-
-This method calls [`LazyAlgebra.dispatch_vscale!(y, α, x)`](@ref
-`LazyAlgebra.dispatch_vscale!) if `iszero(β)` holds, else
-[`LazyAlgebra.dispatch_vscale!(y, β)`](@ref `LazyAlgebra.dispatch_vscale!) if `iszero(α)`
-holds, else [`LazyAlgebra.unsafe_vupdate!(y, α, x)`](@ref `LazyAlgebra.dispatch_vscale!)
-if `isone(β)` holds, and [`LazyAlgebra.unsafe_vcombine!(α, x, β, y)`](@ref
-LazyAlgebra.unsafe_vcombine!) otherwise.
-
-!!! warning
-    This method shall only be called after having checked that `x` and `y` have the same
-    axes and with the multipliers `α` and `β` converted to suitable floating-point types.
-
-See also [`vcombine`](@ref) and [`vcombine!`](@ref).
-
-"""
-function dispatch_vcombine!(α::Number, x::AbstractArray{<:Any,N},
-                            β::Number, y::AbstractArray{<:Any,N}) where {N}
-    if iszero(β)
-        dispatch_vscale!(y, α, x)
-    elseif iszero(α)
-        dispatch_vscale!(y, β)
-    elseif isone(β)
-        unsafe_vupdate!(y, α, x)
-    else
+function vcombine!(α::Number, x::AbstractArray{Tx,N},
+                   β::Number, y::AbstractArray{Ty,N},
+                   ::Stage{2}) where {Tx,Ty,N}
+    if β isa StaticMultiplier
         unsafe_vcombine!(α, x, β, y)
+    elseif iszero(β)
+        unsafe_vcombine!(α, x, ZERO*unit(β), y)
+    elseif β == oneunit(β)
+        unsafe_vcombine!(α, x, ONE*unit(β), y)
+    elseif is_signed(β) && β == -oneunit(β)
+        unsafe_vcombine!(α, x, -ONE*unit(β), y)
+    else
+        unsafe_vcombine!(α, x, convert_multiplier(β, Ty), y)
     end
     return y
 end
 
-"""
-    LazyAlgebra.unsafe_vcombine!(dst, α, x, β, y) -> dst
-
-overwrites `dst` with `α*x + β*y` and returns `dst`.
-
-!!! warning
-    This function shall only be called after having checked that `dst`, `x`, and `y` have
-    the same axes, with `α` and `β` converted to suitable floating-point types, and if
-    neither `iszero(α)` nor `iszero(β)` hold.
-
-See also [`vcombine!`](@ref) and [`dispatch_vcombine!`](@ref).
-
-"""
-function unsafe_vcombine!(dst::AbstractArray{<:Any,N},
-                          α::Number, x::AbstractArray{Tx,N},
-                          β::Number, y::AbstractArray{Ty,N}) where {Tx,Ty,N}
-    # We know that neither `α` nor `β` is zero.
-    if α == one(α)
-        if β == one(β)
-            @inbounds @fastmath @simd for i in eachindex(dst, x, y)
-                dst[i] = x[i] + y[i]
-            end
-        elseif β == -one(β)
-            @inbounds @fastmath @simd for i in eachindex(dst, x, y)
-                dst[i] = x[i] - y[i]
-            end
-        else
-            @inbounds @fastmath @simd for i in eachindex(dst, x, y)
-                dst[i] = β*y[i] + x[i]
-            end
-        end
-    elseif α == -one(α)
-        if β == one(β)
-            @inbounds @fastmath @simd for i in eachindex(dst, x, y)
-                dst[i] = y[i] - x[i]
-            end
-        else
-            @inbounds @fastmath @simd for i in eachindex(dst, x, y)
-                dst[i] = β*y[i] - x[i]
-            end
-        end
+function vcombine!(z::AbstractArray{Tz,N},
+                   α::Number, x::AbstractArray{Tx,N},
+                   β::Number, y::AbstractArray{Ty,N},
+                   ::Stage{2}) where {Tz,Tx,Ty,N}
+    if β isa StaticMultiplier
+        unsafe_vcombine!(z, α, x, β, y)
+    elseif iszero(β)
+        unsafe_vcombine!(z, α, x, ZERO*unit(β), y)
+    elseif β == oneunit(β)
+        unsafe_vcombine!(z, α, x, ONE*unit(β), y)
+    elseif is_signed(β) && β == -oneunit(β)
+        unsafe_vcombine!(z, α, x, -ONE*unit(β), y)
     else
-        if β == one(β)
-            @inbounds @fastmath @simd for i in eachindex(dst, x, y)
-                dst[i] = α*x[i] + y[i]
-            end
-        elseif β == -one(β)
-            @inbounds @fastmath @simd for i in eachindex(dst, x, y)
-                dst[i] = α*x[i] - y[i]
-            end
-        else
-            @inbounds @fastmath @simd for i in eachindex(dst, x, y)
-                dst[i] = α*x[i] + β*y[i]
-            end
-        end
+        unsafe_vcombine!(z, α, x, convert_multiplier(β, Ty), y)
     end
-    return dst
+    return z
 end
+
+# Last stage: the unsafe one.
 
 """
     LazyAlgebra.unsafe_vcombine!(α, x, β, y) -> y
 
 overwrites `y` with `α*x + β*y` and returns `y`.
 
+!!! note
+    This function may be extended to support specific array types.
+
 !!! warning
     This function shall only be called after having checked that `x` and `y` have the same
-    axes, with `α` and `β` converted to suitable floating-point types, and if neither
-    `iszero(α)`, `iszero(β)`, nor `isone(β)` hold.
+    axes and with `α` and `β` converted to suitable types.
 
-See also [`vcombine!`](@ref) and [`dispatch_vcombine!`](@ref).
+See also [`vcombine!`](@ref).
 
 """
+function unsafe_vcombine!(α::Number, x::AbstractArray,
+                          β::Number, y::AbstractArray)
+    @inbounds @fastmath @simd for i in eachindex(x, y)
+        y[i] = α*x[i] + β*y[i]
+    end
+    return y
+end
+
+"""
+    LazyAlgebra.unsafe_vcombine!(z, α, x, β, y) -> z
+
+overwrites `z` with `α*x + β*y` and returns `z`.
+
+!!! note
+    This function may be extended to support specific array types.
+
+!!! warning
+    This function shall only be called after having checked that `x`, `y`, and `z` have
+    the same axes and with `α` and `β` converted to suitable types.
+
+See also [`vcombine!`](@ref).
+
+"""
+function unsafe_vcombine!(z::AbstractArray,
+                          α::Number, x::AbstractArray,
+                          β::Number, y::AbstractArray)
+    @inbounds @fastmath @simd for i in eachindex(x, y, z)
+        z[i] = α*x[i] + β*y[i]
+    end
+    return z
+end
+
 function unsafe_vcombine!(α::Number, x::AbstractArray{Tx,N},
                           β::Number, y::AbstractArray{Ty,N}) where {Tx,Ty,N}
     # We know that neither `α` nor `β` is zero and that `β` is not one.
