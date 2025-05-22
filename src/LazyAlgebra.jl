@@ -152,7 +152,6 @@ import .SparseOperators: unpack!
 #include("genmult.jl")
 #import .GenMult: lgemm!, lgemm, lgemv!, lgemv
 #include("blas.jl")
-#include("foundations.jl")
 #include("fft.jl")
 #import .FFTs: CirculantConvolution, FFTOperator
 include("conjgrad.jl")
