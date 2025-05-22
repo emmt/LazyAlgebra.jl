@@ -5,9 +5,10 @@
 #
 module TestingLazyAlgebraUtilities
 
+using LazyAlgebra
+using Neutrals
 using Random
 using Test
-using LazyAlgebra
 
 @testset "Multipliers  " begin
     #
@@ -71,6 +72,9 @@ using LazyAlgebra
         for T in (AbstractFloat, Real, Complex, Integer, Number, Unsigned)[randperm(6)]
             @test_throws ErrorException convert_multiplier(1, T)
         end
+        @test LazyAlgebra.convert_multiplier(ZERO, Float16) === ZERO
+        @test LazyAlgebra.convert_multiplier(ONE, Float32) === ONE
+        @test LazyAlgebra.convert_multiplier(-ONE, Float64) === -ONE
     end
 end # testset
 

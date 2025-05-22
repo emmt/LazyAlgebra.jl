@@ -9,6 +9,9 @@ See also [`LazyAlgebra.multiplier_type`](@ref) and [`LazyAlgebra.output_eltype`]
 convert_multiplier(α::Number, ::Type{T}) where {T<:Number} =
     with_precision(get_precision(T), α)
 
+# Leave "static multipliers" unchanged.
+convert_multiplier(α::StaticMultiplier, ::Type{T}) where {T<:Number} = α
+
 """
     LazyAlgebra.convert_multiplier(α::Number, [A::Operator,] x::AbstractArray)
 
