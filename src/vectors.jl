@@ -636,13 +636,13 @@ See also [`vscale!`](@ref), [`vcombine!](@ref), and [`LazyAlgebra.unsafe_vupdate
 
 """
 function dispatch_vupdate!(y::AbstractArray{<:Any,N},
-                                  α::Number, x::AbstractArray{<:Any,N}) where {N}
+                           α::Number, x::AbstractArray{<:Any,N}) where {N}
     iszero(α) || unsafe_vupdate!(y, α, x)
     nothing
 end
 
 function dispatch_vupdate!(y::AbstractArray{<:Any,N}, sel::AbstractVector{Int},
-                                  α::Number, x::AbstractArray{<:Any,N}) where {N}
+                           α::Number, x::AbstractArray{<:Any,N}) where {N}
     iszero(α) || unsafe_vupdate!(y, sel, α, x)
     nothing
 end
@@ -798,8 +798,8 @@ See also [`vcombine`](@ref) and [`vcombine!`](@ref).
 
 """
 function dispatch_vcombine!(dst::AbstractArray{<:Any,N},
-                                   α::Number, x::AbstractArray{<:Any,N},
-                                   β::Number, y::AbstractArray{<:Any,N}) where {N}
+                            α::Number, x::AbstractArray{<:Any,N},
+                            β::Number, y::AbstractArray{<:Any,N}) where {N}
     if iszero(β)
         dispatch_vscale!(dst, α, x)
     elseif iszero(α)
@@ -830,7 +830,7 @@ See also [`vcombine`](@ref) and [`vcombine!`](@ref).
 
 """
 function dispatch_vcombine!(α::Number, x::AbstractArray{<:Any,N},
-                                   β::Number, y::AbstractArray{<:Any,N}) where {N}
+                            β::Number, y::AbstractArray{<:Any,N}) where {N}
     if iszero(β)
         dispatch_vscale!(y, α, x)
     elseif iszero(α)

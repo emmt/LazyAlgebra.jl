@@ -21,7 +21,8 @@ for (L, S, Idecl, Icall) in ((false, :IndexCartesian, :(I::Vararg{Int,N}), :(I..
         Base.IndexStyle(::Type{<:LazyMap{T,N,$L}}) where {T,N} = $S()
         @inline function Base.getindex(A::LazyMap{T,N,$L}, $Idecl) where {T,N}
             @boundscheck checkbounds(A, $Icall)
-            return as(T, A.func(@inbounds(getindex(A.arr, $Icall))))
+            x = @inbounds getindex(A.arr, $Icall)
+            return as(T, A.func(x))
         end
         @inline function Base.setindex!(A::LazyMap{T,N,$L}, x, $Idecl) where {T,N}
             @boundscheck checkbounds(A, $Icall)
