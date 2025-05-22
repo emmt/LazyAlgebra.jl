@@ -75,8 +75,10 @@ end
 yields an object `y` similar to `x` but with numerical precision specified by the
 floating-point type `T`. If `x` has already the required precision or if setting its
 precision is irrelevant or not implemented, `x` is returned unchanged. Setting the
-precision shall not change the units if any. If `T` is `AbstractFloat`, `T =
-$default_precision` is assumed.
+precision shall not change the units if any. If `T` is `AbstractFloat`, the default
+floating-point type `$default_precision` is assumed.
+
+Argument `x` may also be a type to infer the type with precision `T`.
 
 Example:
 
@@ -102,7 +104,8 @@ with_precision(::Type{T}, x::Any) where {T} = throw_not_floating_point(T)
 """
     f = with_precision(T)
 
-builds a callable object `f` such that `f(x)` is equivalent to `with_precision(T, x)`.
+builds a callable object `f` such that `f(x)` is equivalent to `with_precision(T, x)`. If
+`T` is `AbstractFloat`, the default floating-point type `$default_precision` is assumed.
 
 """
 with_precision(::Type{AbstractFloat}) = with_precision(default_precision)
