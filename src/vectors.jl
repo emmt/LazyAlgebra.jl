@@ -588,16 +588,13 @@ See also [`vscale!`](@ref), [`vcombine!](@ref), and [`LazyAlgebra.unsafe_vupdate
 
 # Stage 0: Check axes.
 
-function vupdate!(y::AbstractArray{Ty,N},
-                  α::Number, x::AbstractArray{Tx,N},
-                  ::Stage{0} = _Stage(0)) where {Tx,Ty,N}
+function vupdate!(y::AbstractArray, α::Number, x::AbstractArray, ::Stage{0} = _Stage(0))
     @assert_same_axes x y
     return vupdate!(y, α, x, _Stage(1))
 end
 
-function vupdate!(y::AbstractArray{Ty,N}, sel::AbstractVector{Int},
-                  α::Number, x::AbstractArray{Tx,N},
-                  ::Stage{0} = _Stage(0)) where {Tx,Ty,N}
+function vupdate!(y::AbstractArray, sel::AbstractVector{Int},
+                  α::Number, x::AbstractArray, ::Stage{0} = _Stage(0))
     @assert_same_axes x y
     imin, imax = extrema(sel)
     ((firstindex(x) ≤ imin) & (imax ≤ lastindex(x))) || out_of_range_selection()
@@ -607,15 +604,13 @@ end
 # Stage 1: Dispatch on the value of `α`.
 
 function vupdate!(y::AbstractArray{Ty,N},
-                  α::Number, x::AbstractArray{Tx,N},
-                  ::Stage{1}) where {Tx,Ty,N}
+                  α::Number, x::AbstractArray{Tx,N}, ::Stage{1}) where {Tx,Ty,N}
     @dispatch_on_multiplier α eltype(x) vupdate!(y, α, x, _Stage(2))
     return y
 end
 
 function vupdate!(y::AbstractArray{Ty,N}, sel::AbstractVector{Int},
-                  α::Number, x::AbstractArray{Tx,N},
-                  ::Stage{1}) where {Ty,Tx,N}
+                  α::Number, x::AbstractArray{Tx,N}, ::Stage{1}) where {Tx,Ty,N}
     @dispatch_on_multiplier α eltype(x) vupdate!(y, sel, α, x, _Stage(2))
     return y
 end
@@ -623,15 +618,13 @@ end
 # Stage 2: Call `unsafe_vupdate!` if needed.
 
 function vupdate!(y::AbstractArray{Ty,N},
-                  α::Number, x::AbstractArray{Tx,N},
-                  ::Stage{2}) where {Tx,Ty,N}
+                  α::Number, x::AbstractArray{Tx,N}, ::Stage{2}) where {Tx,Ty,N}
     α isa StaticMultiplier{0} || unsafe_vupdate!(y, α, x)
     return y
 end
 
 function vupdate!(y::AbstractArray{Ty,N}, sel::AbstractVector{Int},
-                  α::Number, x::AbstractArray{Tx,N},
-                  ::Stage{2}) where {Tx,Ty,N}
+                  α::Number, x::AbstractArray{Tx,N}, ::Stage{2}) where {Tx,Ty,N}
     α isa StaticMultiplier{0} || unsafe_vupdate!(y, sel, α, x)
     return y
 end
@@ -653,17 +646,15 @@ See also [`vupdate!`](@ref).
 
 """
 function unsafe_vupdate!(y::AbstractArray{Ty,N},
-                         α::Number, x::AbstractArray{Tx,N}) where {Ty,Tx,N}
+                         α::Number, x::AbstractArray{Tx,N}) where {Tx,Ty,N}
     @inbounds @inbounds @simd for i in eachindex(x, y)
         y[i] += α*x[i]
     end
     return y
 end
 
-function unsafe_vupdate!(y::AbstractArray{Ty,N},
-                         sel::AbstractVector{Int},
-                         α::Number,
-                         x::AbstractArray{Tx,N}) where {Tx,Ty,N}
+function unsafe_vupdate!(y::AbstractArray{Ty,N}, sel::AbstractVector{Int},
+                         α::Number, x::AbstractArray{Tx,N}) where {Tx,Ty,N}
     # NOTE We cannot use `@simd` here due to scattering.
     if IndexStyle(x, y) == IndexLinear()
         @inbounds @fastmath for i in sel
@@ -691,8 +682,7 @@ See also [`vcombine!`](@ref), [`vscale!`](@ref), [`vupdate!](@ref), and
 [`LazyAlgebra.convert_multiplier](@ref).
 
 """
-function vcombine(α::Number, x::AbstractArray{Tx,N},
-                  β::Number, y::AbstractArray{Ty,N}) where {Tx,Ty,N}
+function vcombine(α::Number, x::AbstractArray, β::Number, y::AbstractArray)
     # Array arguments must have the same axes.
     @assert_same_axes x y
 
@@ -700,9 +690,9 @@ function vcombine(α::Number, x::AbstractArray{Tx,N},
     # converting the multipliers twice (if any, since further conversions should leave the
     # multipliers unchanged) is certainly negligible compared to the allocation and
     # computation times.
-    α = convert_multiplier(α, Tx)
-    β = convert_multiplier(β, Ty)
-    Tz = sum_type(prod_type(typeof(α), Tx), prod_type(typeof(β), Ty))
+    α = convert_multiplier(α, eltype(x))
+    β = convert_multiplier(β, eltype(y))
+    Tz = sum_type(prod_type(typeof(α), eltype(x)), prod_type(typeof(β), eltype(y)))
     z = similar(x, Tz) # FIXME type of array does not depend on y
 
     # Call in-place method at stage 1 to dispatch on the values of `α` and `β` because
@@ -738,17 +728,17 @@ See also [`vcombine`](@ref), [`vscale!`](@ref), [`vupdate!](@ref),
 
 # Stage 0: Check axes.
 
-function vcombine!(α::Number, x::AbstractArray{Tx,N},
-                   β::Number, y::AbstractArray{Ty,N},
-                   ::Stage{0} = _Stage(0)) where {Tx,Ty,N}
+function vcombine!(α::Number, x::AbstractArray,
+                   β::Number, y::AbstractArray,
+                   ::Stage{0} = _Stage(0))
     @assert_same_axes x y
     return vcombine!(α, x, β, y, _Stage(1))
 end
 
-function vcombine!(z::AbstractArray{Tz,N},
-                   α::Number, x::AbstractArray{Tx,N},
-                   β::Number, y::AbstractArray{Ty,N},
-                   ::Stage{0} = _Stage(0)) where {Tz,Tx,Ty,N}
+function vcombine!(z::AbstractArray,
+                   α::Number, x::AbstractArray,
+                   β::Number, y::AbstractArray,
+                   ::Stage{0} = _Stage(0))
     @assert_same_axes x y z
     return vcombine!(z, α, x, β, y, _Stage(1))
 end
@@ -765,7 +755,7 @@ end
 function vcombine!(z::AbstractArray{Tz,N},
                    α::Number, x::AbstractArray{Tx,N},
                    β::Number, y::AbstractArray{Ty,N},
-                   ::Stage{1}) where {Tz,Tx,Ty,N}
+                   ::Stage{1}) where {Tx,Ty,Tz,N}
     @dispatch_on_multiplier α eltype(x) vcombine!(z, α, x, β, y, _Stage(2))
     return z
 end
@@ -782,7 +772,7 @@ end
 function vcombine!(z::AbstractArray{Tz,N},
                    α::Number, x::AbstractArray{Tx,N},
                    β::Number, y::AbstractArray{Ty,N},
-                   ::Stage{2}) where {Tz,Tx,Ty,N}
+                   ::Stage{2}) where {Tx,Ty,Tz,N}
     @dispatch_on_multiplier β eltype(y) unsafe_vcombine!(z, α, x, β, y)
     return z
 end
@@ -804,8 +794,8 @@ overwrites `y` with `α*x + β*y` and returns `y`.
 See also [`vcombine!`](@ref).
 
 """
-function unsafe_vcombine!(α::Number, x::AbstractArray,
-                          β::Number, y::AbstractArray)
+function unsafe_vcombine!(α::Number, x::AbstractArray{Tx,N},
+                          β::Number, y::AbstractArray{Ty,N}) where {Tx,Ty,N}
     @inbounds @fastmath @simd for i in eachindex(x, y)
         y[i] = α*x[i] + β*y[i]
     end
@@ -827,9 +817,9 @@ overwrites `z` with `α*x + β*y` and returns `z`.
 See also [`vcombine!`](@ref).
 
 """
-function unsafe_vcombine!(z::AbstractArray,
-                          α::Number, x::AbstractArray,
-                          β::Number, y::AbstractArray)
+function unsafe_vcombine!(z::AbstractArray{Tz,N},
+                          α::Number, x::AbstractArray{Tx,N},
+                          β::Number, y::AbstractArray{Ty,N}) where {Tx,Ty,Tz,N}
     @inbounds @fastmath @simd for i in eachindex(x, y, z)
         z[i] = α*x[i] + β*y[i]
     end
