@@ -51,7 +51,7 @@ get_precision(::Type{<:AbstractIrrational}) = AbstractFloat
 get_precision(::Type{<:Real}) = AbstractFloat
 get_precision(::Type{<:Complex{T}}) where {T} = get_precision(T)
 get_precision(::Type{<:AbstractArray{T}}) where {T} = get_precision(T)
-#get_precision(::Type{<:AbstractQuantity{T}}) where {T} = get_precision(T)
+get_precision(::Type{<:AbstractQuantity{T}}) where {T} = get_precision(T)
 
 @generated function get_precision(::Type{T}) where {T<:Union{Tuple,NamedTuple}}
     # NOTE Using a `Ref` for `r` or `t` here is significantly slower.
@@ -140,6 +140,11 @@ _with_precision(::Type{T}, ::Type{Array{S,N}}) where {T<:AbstractFloat,S,N} =
     Array{_with_precision{T, S}, N}
 _with_precision(::Type{T}, ::Type{S}) where {T<:AbstractFloat,S<:Number} =
     convert_real_type(T, S)
+_with_precision(::Type{T}, ::Type{Quantity{S,D,U}}) where {T<:AbstractFloat,S,D,U} =
+    Quantity{_with_precision(T, S), D, U}
+_with_precision(::Type{T}, x::Quantity{T,D,U}) where {T<:AbstractFloat,D,U} = x
+_with_precision(::Type{T}, x::Quantity{S,D,U}) where {T<:AbstractFloat,S,D,U} =
+    Quantity{_with_precision(T, S), D, U}(x)
 
 ## In other cases, map converter if object is an iterator and return the object otherwise.
 #_with_precision(::Type{T}, x::Any) where {T<:AbstractFloat} =
