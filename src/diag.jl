@@ -51,14 +51,11 @@ for (T, B, f) in ((:(                 Diag ), :(              A),   :(*)),
                   (:(Inverse{       <:Diag}), :(       parent(A)),  :(\)),
                   (:(InverseAdjoint{<:Diag}), :(parent(parent(A))), :conj_ldiv))
     @eval begin
-        # FIXME function unsafe_vmul!(y::AbstractArray, α::Number, A::$T, x::AbstractArray)
-        # FIXME     return dispatch_vmap!(y, α, $f, diag($B), x)
-        # FIXME end
         function unsafe_vmul!(α::Number, A::$T, x::AbstractArray,
                               β::Number, y::AbstractArray)
-            # Call `dispatch_vmap!`, not `unsafe_vmap!` directly, because `β` may be zero
-            # although `α` should be non-zero.
-            return dispatch_vmap!(α, $f, diag($B), x, β, y)
+            # Call `vmap!` at stage 1 to dispatch on the multipliers because
+            # axes of array arguments have already been checked.
+            return vmap!(α, $f, diag($B), x, β, y, _Stage(1))
         end
     end
 end
