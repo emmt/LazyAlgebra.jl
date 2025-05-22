@@ -825,34 +825,3 @@ function unsafe_vcombine!(z::AbstractArray{Tz,N},
     end
     return z
 end
-
-function unsafe_vcombine!(α::Number, x::AbstractArray{Tx,N},
-                          β::Number, y::AbstractArray{Ty,N}) where {Tx,Ty,N}
-    # We know that neither `α` nor `β` is zero and that `β` is not one.
-    if α == one(α)
-        if β == -one(β)
-            @inbounds @fastmath @simd for i in eachindex(x, y)
-                y[i] = x[i] - y[i]
-            end
-        else
-            @inbounds @fastmath @simd for i in eachindex(x, y)
-                y[i] = β*y[i] + x[i]
-            end
-        end
-    elseif α == -one(α)
-        @inbounds @fastmath @simd for i in eachindex(x, y)
-            y[i] = β*y[i] - x[i]
-        end
-    else
-        if β == -one(β)
-            @inbounds @fastmath @simd for i in eachindex(x, y)
-                y[i] = α*x[i] - y[i]
-            end
-        else
-            @inbounds @fastmath @simd for i in eachindex(x, y)
-                y[i] = α*x[i] + β*y[i]
-            end
-        end
-    end
-    return y
-end
