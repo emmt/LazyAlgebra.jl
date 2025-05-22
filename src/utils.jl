@@ -86,39 +86,65 @@ julia> with_precision(Float32, (1, 0x7, ("hello", 1.0, 1im)))
 ```
 
 !!! note
-    Not all types of object implement `with_precision`.
+    For new object types, extend `_with_precision` (not directly `with_precision`). This
+    auxiliary function shall only be called with a concrete floating-point type.
 
 See also [`get_precision`](@ref).
 
 """
 with_precision(::Type{AbstractFloat}, x::Any) = with_precision(default_precision, x)
-with_precision(::Type{T}, x::Any) where {T<:AbstractFloat} = x # pass-through by default
+with_precision(::Type{T}, x::Any) where{T<:AbstractFloat} = _with_precision(T, x)
+with_precision(::Type{T}, x::Any) where {T} = throw_not_floating_point(T)
 
-# Error catcher.
-@noinline with_precision(::Type{T}, x::Any) where {T} = throw(ArgumentError(
+@noinline throw_not_floating_point(::Type{T}) where {T} = throw(ArgumentError(
     "type `$T` is not a floating-point type"))
 
+"""
+    f = with_precision(T)
+
+builds a callable object `f` such that `f(x)` is equivalent to `with_precision(T, x)`.
+
+"""
+with_precision(::Type{AbstractFloat}) = with_precision(default_precision)
+with_precision(::Type{T}) where {T<:AbstractFloat} = _with_precision(T)
+with_precision(::Type{T}) where {T} = throw_not_floating_point(T)
+
+# NOTE Auxiliary function `_with_precision` is needed to avoid ambiguities. This auxiliary
+#      function shall only be called with a concrete floating-point type. This auxiliary
+#      function is the one to extend.
+_with_precision(::Type{T}, x::Any) where {T<:AbstractFloat} = x # pass-through by default
+
+# Converter.
+_with_precision(::Type{T}) where {T<:AbstractFloat} = TypeUtils.Converter(_with_precision, T)
+
 # Set precision of numbers.
-with_precision(::Type{T}, α::Number) where {T<:AbstractFloat} = convert_real_type(T, α)
+_with_precision(::Type{T}, x::T) where {T<:AbstractFloat} = x
+_with_precision(::Type{T}, x::Real) where {T<:AbstractFloat} = T(x)
+_with_precision(::Type{T}, x::Complex{T}) where {T<:AbstractFloat} = x
+_with_precision(::Type{T}, x::Complex) where {T<:AbstractFloat} = Complex{T}(real(x), imag(x))
+_with_precision(::Type{T}, x::Number) where {T<:AbstractFloat} = convert_real_type(T, x)
 
 # Set precision of numeric arrays.
-with_precision(::Type{T}, A::AbstractArray{<:T}) where {T<:AbstractFloat} = A
-with_precision(::Type{T}, A::AbstractArray) where {T<:AbstractFloat} =
-    convert_eltype(with_precision(T, eltype(A)), A)
+_with_precision(::Type{T}, A::AbstractArray{T}) where {T<:AbstractFloat} = A
+_with_precision(::Type{T}, A::AbstractArray{S}) where {T<:AbstractFloat,S} =
+    convert_eltype(_with_precision(T, S), A)
 
-# Set precision of numerical types.
-with_precision(::Type{T}, ::Type{S}) where {T<:AbstractFloat,S} = S
-with_precision(::Type{T}, ::Type{S}) where {T<:AbstractFloat,S<:T} = S
-with_precision(::Type{T}, ::Type{S}) where {T<:AbstractFloat,S<:Number} =
+# Set precision of types.
+_with_precision(::Type{T}, ::Type{S}) where {T<:AbstractFloat,S} = S # pass-through by default
+_with_precision(::Type{T}, ::Type{<:Real}) where {T<:AbstractFloat} = T
+_with_precision(::Type{T}, ::Type{<:Complex}) where {T<:AbstractFloat} = Complex{T}
+_with_precision(::Type{T}, ::Type{Array{S,N}}) where {T<:AbstractFloat,S,N} =
+    Array{_with_precision{T, S}, N}
+_with_precision(::Type{T}, ::Type{S}) where {T<:AbstractFloat,S<:Number} =
     convert_real_type(T, S)
 
 ## In other cases, map converter if object is an iterator and return the object otherwise.
-#with_precision(::Type{T}, x::Any) where {T<:AbstractFloat} =
-#    isiterable(x) ? maybe_unroll_map(with_precision(T), x) : x
+#_with_precision(::Type{T}, x::Any) where {T<:AbstractFloat} =
+#    isiterable(x) ? maybe_unroll_map(_with_precision(T), x) : x
 
 # Set precision for tuples.
-with_precision(::Type{T}, x::Tuple) where {T<:AbstractFloat} =
-    maybe_unroll_map(with_precision(T), x)
+_with_precision(::Type{T}, x::Tuple) where {T<:AbstractFloat} =
+    maybe_unroll_map(_with_precision(T), x)
 
 maybe_unroll_map(f, x::Any) = map(f, x)
 @inline maybe_unroll_map(f, x::Tuple) = length(x) ≤ 20 ? unroll_map(f, x) : map(f, x)
@@ -131,28 +157,18 @@ unroll_map(f, x::Tuple{Any}) = (f(first(x)),)
 # works for InverseAdjoint.
 for W in (:Adjoint, :Inverse, :Gram)
     @eval begin
-        with_precision(::Type{T}, A::$W) where {T<:AbstractFloat} =
-            $W(with_precision(T, parent(A)))
+        _with_precision(::Type{T}, A::$W) where {T<:AbstractFloat} =
+            $W(_with_precision(T, parent(A)))
     end
 end
 
 # Set precision for Sum.
-with_precision(::Type{T}, (A,B)::Prod) where {T<:AbstractFloat} =
-    with_precision(T, A) * with_precision(T, B)
+_with_precision(::Type{T}, (A,B)::Prod) where {T<:AbstractFloat} =
+    _with_precision(T, A) * _with_precision(T, B)
 
 # Set precision for Prod.
-with_precision(::Type{T}, (A,B)::Sum) where {T<:AbstractFloat} =
-    with_precision(T, A) + with_precision(T, B)
-
-"""
-    f = with_precision(T)
-
-builds a callable object `f` such that `f(x)` is equivalent to `with_precision(T, x)`.
-
-"""
-with_precision(::Type{T}) where {T<:AbstractFloat} = TypeUtils.Converter(with_precision, T)
-@noinline with_precision(::Type{T}) where {T} = throw(ArgumentError(
-    "type `$T` is not a floating-point type"))
+_with_precision(::Type{T}, (A,B)::Sum) where {T<:AbstractFloat} =
+    _with_precision(T, A) + _with_precision(T, B)
 
 #-----------------------------------------------------------------------------------------
 
