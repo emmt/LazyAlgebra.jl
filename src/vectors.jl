@@ -4,6 +4,8 @@
 # dimensions are considered as *vectors*, the only requirements are that, when combining
 # *vectors*, they have the same axes (i.e., for most arrays, the same dimensions).
 
+#--------------------------------------------------------------------------------- VNORM -
+
 """
     vnorm1([T::Type,] x)
 
@@ -81,8 +83,7 @@ for func in (:vnorm2, :vnorm1, :vnorminf)
         convert_floating_point_type(T, $func(x))
 end
 
-#-----------------------------------------------------------------------------------------
-# INNER PRODUCT
+#---------------------------------------------------------------------------------- VDOT -
 
 """
      vdot([T::Type,] [w::AbstractArray,] x::AbstractArray, y::AbstractArray)
@@ -189,7 +190,7 @@ end
 @noinline out_of_range_selection() =
     bad_argument("some selected indices are out of range")
 
-#-----------------------------------------------------------------------------------------
+#--------------------------------------------------------------------------------- VCOPY -
 
 """
     vcopy(x::AbstractArray)
@@ -235,6 +236,8 @@ See also [`vcopy!](@ref).
 unsafe_vcopy!(dst::AbstractArray, src::AbstractArray) =
     copyto!(dst, firstindex(dst), src, firstindex(src), length(dst))
 
+#------------------------------------------------------------------------------- VCREATE -
+
 """
     vcreate(x::AbstractArray)
 
@@ -244,6 +247,8 @@ See also [`vcopy`](@ref).
 
 """
 vcreate(x::AbstractArray) = similar(x, float(eltype(x)))
+
+#--------------------------------------------------------------------------------- VSWAP -
 
 """
     vswap!(x, y)
@@ -282,7 +287,7 @@ function unsafe_vswap!(x::AbstractArray, y::AbstractArray)
     end
 end
 
-#-----------------------------------------------------------------------------------------
+#--------------------------------------------------------------------------------- VFILL -
 
 """
     vfill!(x, α) -> x
@@ -295,6 +300,8 @@ See also [`vzeros!`](@ref), and [`vzeros`](@ref).
 
 """
 vfill!(x::AbstractArray, α::Number) = fill!(x, as(eltype(x), α))
+
+#------------------------------------------------------------------ VZEROS, VONES, VNANS -
 
 """
     vzeros!(x) -> x
@@ -362,8 +369,7 @@ See also [`vfill!`](@ref) and [`vnans`](@ref).
 """
 vnans!(x::AbstractArray) = vfill!(x, NaN*zero(eltype(x)))
 
-#-----------------------------------------------------------------------------------------
-# SCALING
+#---------------------------------------------------------------------------------VSCALE -
 
 """
     y = vscale(α::Number, x::AbstractArray)
@@ -505,8 +511,7 @@ function unsafe_vscale!(dst::AbstractArray, α::Number, src::AbstractArray)
     return dst
 end
 
-#-----------------------------------------------------------------------------------------
-# ELEMENT-WISE MULTIPLICATION
+#------------------------------------------------------------------------------ VPRODUCT -
 
 """
     vproduct(x, y) -> z
@@ -592,8 +597,7 @@ function unsafe_vproduct!(dst::AbstractArray{<:Any,N},
     nothing
 end
 
-#-----------------------------------------------------------------------------------------
-# VECTOR UPDATE
+#------------------------------------------------------------------------------- VUPDATE -
 
 """
     vupdate!(y, [sel,] α, x) -> y
@@ -719,8 +723,7 @@ function unsafe_vupdate!(y::AbstractArray{<:Any,N},
     nothing
 end
 
-#-----------------------------------------------------------------------------------------
-# LINEAR COMBINATION
+#------------------------------------------------------------------------------ VCOMBINE -
 
 """
     vcombine(α, x, β, y) -> z
