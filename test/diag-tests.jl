@@ -40,10 +40,10 @@ function runtests(; rng::AbstractRNG = MersenneTwister(314159),
             # FIXME @test LazyAlgebra.output_size(D) === size(w)
 
             # Set precision.
-            @test @inferred(set_precision(AbstractFloat, D)) === D
-            @test @inferred(set_precision(real(eltype(D)), D)) === D
+            @test @inferred(with_precision(AbstractFloat, D)) === D
+            @test @inferred(with_precision(real(eltype(D)), D)) === D
             Tp = real(eltype(D)) === Float32 ? Float64 : Float32
-            Dp = @inferred(set_precision(Tp, D))
+            Dp = @inferred(with_precision(Tp, D))
             @test real(eltype(Dp)) === Tp
             @test diag(Dp) ≈ diag(D) rtol=rtol
 

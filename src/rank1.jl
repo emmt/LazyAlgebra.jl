@@ -79,7 +79,7 @@ function unsafe_vmul!(α::Number, A::Union{K,Adjoint{K}}, x::AbstractArray,
 end
 
 # Set precision for rank-1 operators.
-set_precision(::Type{T}, A::RankOneOperator) where {T<:AbstractFloat} =
-    RankOneOperator(set_precision(T, first(A)), set_precision(T, last(A)))
-set_precision(::Type{T}, A::SymmetricRankOneOperator) where {T<:AbstractFloat} =
-    SymmetricRankOneOperator(set_precision(T, first(A)))
+with_precision(::Type{T}, A::RankOneOperator) where {T<:AbstractFloat} =
+    RankOneOperator(with_precision(T, first(A)), with_precision(T, last(A)))
+with_precision(::Type{T}, A::SymmetricRankOneOperator) where {T<:AbstractFloat} =
+    SymmetricRankOneOperator(with_precision(T, first(A)))

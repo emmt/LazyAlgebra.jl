@@ -47,10 +47,10 @@ function runtests(; rng::AbstractRNG = MersenneTwister(314159),
             end
 
             # Set precision.
-            @test @inferred(set_precision(AbstractFloat, A)) === A
-            @test @inferred(set_precision(real(eltype(A)), A)) === A
+            @test @inferred(with_precision(AbstractFloat, A)) === A
+            @test @inferred(with_precision(real(eltype(A)), A)) === A
             Tp = real(eltype(A)) === Float32 ? Float64 : Float32
-            Ap = @inferred(set_precision(Tp, A))
+            Ap = @inferred(with_precision(Tp, A))
             @test real(eltype(Ap)) === Tp
             @test parent(Ap) ≈ parent(A) rtol=rtol
 

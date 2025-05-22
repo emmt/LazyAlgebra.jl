@@ -61,7 +61,7 @@ export
     #terms,
     #unpack!,
     #unscaled,
-    set_precision,
+    with_precision,
     vcombine!,
     vcombine,
     vcopy!,

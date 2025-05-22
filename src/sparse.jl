@@ -1928,7 +1928,7 @@ function unsafe_vmul!(α::Number,
     if isone(α)
         T = real_type(α) # NOTE α has the precision of α*A[i,j]*x[i]
         @inbounds for i in each_row(A)
-            q = set_precision(T, x[i])
+            q = with_precision(T, x[i])
             if !iszero(q)
                 for k in each_nz(A, i)
                     j = get_col(A, k)
@@ -1968,7 +1968,7 @@ function unsafe_vmul!(α::Number,
     if isnone(α)
         T = real_type(α) # NOTE α has the precision of α*A[i,j]*x[i]
         @inbounds for j in each_col(A)
-            q = set_precision(T, x[j])
+            q = with_precision(T, x[j])
             if !iszero(q)
                 for k in each_nz(A, j)
                     i = get_row(A, k)
