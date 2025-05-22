@@ -4,6 +4,14 @@
 const StaticMultiplier{v} = Union{Neutral{v},AbstractQuantity{Neutral{v}}}
 
 """
+    LazyAlgebra.default_precision
+
+is the floating-point type used by defauts in `LazyAlgebra`.
+
+"""
+const default_precision = Float64
+
+"""
     Operator
 
 is the abstract type representing any linear function between two variables spaces in
