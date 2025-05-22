@@ -43,6 +43,7 @@ export
     conjgrad!,
     conjgrad,
     diag, # re-export from LinearAlgebra
+    get_precision,
     #gram,
     #is_diagonal,
     #is_endomorphism,

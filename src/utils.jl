@@ -25,14 +25,58 @@ yield whether `x` is iterable, i.e. `iterate(x)` can be used to start iterating 
 isiterable(x) = isiterable(typeof(x))
 isiterable(::Type{T}) where {T} = hasmethod(Base.iterate, (T,))
 
+#----------------------------------------------------------------------------- PRECISION -
+
+const default_precision = Float64
+
+"""
+    get_precision(x) -> T<:AbstractFloat
+    get_precision(typeof(x)) -> T<:AbstractFloat
+
+yield the numerical precision of number/object `x`. If `x` is a floating-point value, its
+floating-point type is returned; if `x` stores floating-point values, their promoted
+floating-point type is returned; otherwise, `AbstractFloat` is returned.
+
+!!! note
+    Not all types of object implement `get_precision`.
+
+See also [`with_precision`](@ref).
+
+"""
+get_precision(x::Any) = get_precision(typeof(x))
+get_precision(::Type) = AbstractFloat # pass-through
+get_precision(::Type{T}) where {T<:AbstractFloat} = T
+get_precision(::Type{AbstractFloat}) = AbstractFloat
+get_precision(::Type{<:AbstractIrrational}) = AbstractFloat
+get_precision(::Type{<:Real}) = AbstractFloat
+get_precision(::Type{<:Complex{T}}) where {T} = get_precision(T)
+get_precision(::Type{<:AbstractArray{T}}) where {T} = get_precision(T)
+#get_precision(::Type{<:AbstractQuantity{T}}) where {T} = get_precision(T)
+
+@generated function get_precision(::Type{T}) where {T<:Union{Tuple,NamedTuple}}
+    # NOTE Using a `Ref` for `r` or `t` here is significantly slower.
+    r = AbstractFloat
+    for s in T.types
+        t = get_precision(s)::AbstractFloat
+        if isconcretetype(t)
+            if r == AbstractFloat
+                r = t
+            else
+                r = promote_type(r, t)
+            end
+        end
+    end
+    return r
+end
+
 """
     with_precision(T::Type{<:AbstractFloat}, x) -> y
 
 yields an object `y` similar to `x` but with numerical precision specified by the
 floating-point type `T`. If `x` has already the required precision or if setting its
 precision is irrelevant or not implemented, `x` is returned unchanged. Setting the
-precision shall not change the units if any. If `T` is `AbstractFloat`, the effect is as
-if applying `float` recursively to the numeric values stored by `x`.
+precision shall not change the units if any. If `T` is `AbstractFloat`, `T =
+$default_precision` is assumed.
 
 Example:
 
@@ -44,8 +88,11 @@ julia> with_precision(Float32, (1, 0x7, ("hello", 1.0, 1im)))
 !!! note
     Not all types of object implement `with_precision`.
 
+See also [`get_precision`](@ref).
+
 """
-with_precision(::Type{T}, x::Any) where {T<:AbstractFloat} = x # pass-through is the default
+with_precision(::Type{AbstractFloat}, x::Any) = with_precision(default_precision, x)
+with_precision(::Type{T}, x::Any) where {T<:AbstractFloat} = x # pass-through by default
 
 # Error catcher.
 @noinline with_precision(::Type{T}, x::Any) where {T} = throw(ArgumentError(
@@ -53,7 +100,6 @@ with_precision(::Type{T}, x::Any) where {T<:AbstractFloat} = x # pass-through is
 
 # Set precision of numbers.
 with_precision(::Type{T}, α::Number) where {T<:AbstractFloat} = convert_real_type(T, α)
-with_precision(::Type{AbstractFloat}, α::Number) = float(α)
 
 # Set precision of numeric arrays.
 with_precision(::Type{T}, A::AbstractArray{<:T}) where {T<:AbstractFloat} = A
@@ -63,7 +109,6 @@ with_precision(::Type{T}, A::AbstractArray) where {T<:AbstractFloat} =
 # Set precision of numerical types.
 with_precision(::Type{T}, ::Type{S}) where {T<:AbstractFloat,S} = S
 with_precision(::Type{T}, ::Type{S}) where {T<:AbstractFloat,S<:T} = S
-with_precision(::Type{AbstractFloat}, ::Type{S}) where {S<:Number} = float(S)
 with_precision(::Type{T}, ::Type{S}) where {T<:AbstractFloat,S<:Number} =
     convert_real_type(T, S)
 
