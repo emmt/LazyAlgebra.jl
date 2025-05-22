@@ -21,36 +21,37 @@ LinearAlgebra.mul!(c::AbstractArray, A::Operator, b::AbstractArray, α::Number, 
 LinearAlgebra.mul!(y::AbstractArray, A::Operator, b::AbstractArray) =
     vmul!(y, A, b)
 
+output_axes(A::AbstractMatrix) = (axes(A, 1),)
+input_axes( A::AbstractMatrix) = (axes(A, 2),)
+
 """
     LazyAlgebra.output_size(A)
 
 yields the dimensions of the result of applying the linear operator `A` or multiplying by
-the matrix `A`. This is equivalent to `LazyAlgebra.row_size(A)`. Not all operators extend
-this method.
+the matrix `A`. This method relies on [`LazyAlgebra.output_axes(A)`](@ref
+LazyAlgebra.output_axes) which may not be implemented for all operators.
 
 """
 output_size(A::Operator) = map(length, output_axes(A))
 output_size(A::AbstractMatrix) = (size(A, 1),)
-output_axes(A::AbstractMatrix) = (axes(A, 1),)
 
 """
     LazyAlgebra.input_size(A)
 
 yields the dimensions of the input argument `x` to compute `A*x` with the matrix or linear
-operator `A`. This is equivalent to `LazyAlgebra.col_size(A)`. Not all operators extend
-this method.
+operator `A`. This method relies on [`LazyAlgebra.input_axes(A)`](@ref
+LazyAlgebra.input_axes) which may not be implemented for all operators.
 
 """
 input_size(A::Operator) = map(length, input_axes(A))
 input_size(A::AbstractMatrix) = (size(A, 2),)
-input_axes( A::AbstractMatrix) = (axes(A, 2),)
 
 """
     LazyAlgebra.row_axes(A)
 
 yields the axes of the result of applying the linear operator `A` or multiplying by the
-matrix `A`. This is equivalent to `LazyAlgebra.output_axes(A)`. Not all operators extend
-this method.
+matrix `A`. This is equivalent to [`LazyAlgebra.output_axes(A)`](@ref
+LazyAlgebra.output_axes).
 
 """
 row_axes(A::Union{Operator,AbstractMatrix}) = output_axes(A)
@@ -59,8 +60,8 @@ row_axes(A::Union{Operator,AbstractMatrix}) = output_axes(A)
     LazyAlgebra.col_axes(A)
 
 yields the axes of the input argument `x` to compute `A*x` with the matrix or linear
-operator `A`. This is equivalent to `LazyAlgebra.input_axes(A)`. Not all operators extend
-this method.
+operator `A`. This is equivalent to [`LazyAlgebra.input_axes(A)`](@ref
+LazyAlgebra.input_axes).
 
 """
 col_axes(A::Union{Operator,AbstractMatrix}) = input_axes(A)
@@ -69,8 +70,8 @@ col_axes(A::Union{Operator,AbstractMatrix}) = input_axes(A)
     LazyAlgebra.row_size(A)
 
 yields the dimensions of the result of applying the linear operator `A` or multiplying by
-the matrix `A`. This is equivalent to `LazyAlgebra.output_size(A)`. Not all operators extend
-this method.
+the matrix `A`. This is equivalent to [`LazyAlgebra.output_size(A)`](@ref
+LazyAlgebra.output_size).
 
 """
 row_size(A::Union{Operator,AbstractMatrix}) = output_size(A)
@@ -79,8 +80,8 @@ row_size(A::Union{Operator,AbstractMatrix}) = output_size(A)
     LazyAlgebra.col_size(A)
 
 yields the dimensions of the input argument `x` to compute `A*x` with the matrix or linear
-operator `A`. This is equivalent to `LazyAlgebra.input_size(A)`. Not all operators extend
-this method.
+operator `A`. This is equivalent to [`LazyAlgebra.input_size(A)`](@ref
+LazyAlgebra.input_size).
 
 """
 col_size(A::Union{Operator,AbstractMatrix}) = input_size(A)
