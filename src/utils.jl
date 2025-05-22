@@ -27,8 +27,6 @@ isiterable(::Type{T}) where {T} = hasmethod(Base.iterate, (T,))
 
 #----------------------------------------------------------------------------- PRECISION -
 
-const default_precision = Float64
-
 """
     get_precision(x) -> T<:AbstractFloat
     get_precision(typeof(x)) -> T<:AbstractFloat
