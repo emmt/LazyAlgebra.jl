@@ -609,77 +609,66 @@ without using `x`.
 Optional argument `sel` is a selection of indices to which apply the operation. Note that
 if an index is repeated, the operation will be performed several times at this location.
 
-See also [`vscale!`](@ref), [`vcombine!](@ref), and [`LazyAlgebra.dispatch_vupdate!](@ref).
+See also [`vscale!`](@ref), [`vcombine!](@ref), and [`LazyAlgebra.unsafe_vupdate!](@ref).
 
-"""
-function vupdate!(y::AbstractArray{<:Any,N},
-                  α::Number, x::AbstractArray{Tx,N}) where {Tx,N}
+""" vupdate!
+
+# Stage 0: check axes.
+
+function vupdate!(y::AbstractArray{Ty,N},
+                  α::Number, x::AbstractArray{Tx,N},
+                  ::Stage{0} = _Stage(0)) where {Tx,Ty,N}
     @assert_same_axes x y
-    dispatch_vupdate!(y, convert_multiplier(α, Tx), x)
-    return y
+    return vupdate!(y, convert_multiplier(α, Tx), x, _Stage(1))
 end
 
-function vupdate!(y::AbstractArray{<:Any,N}, sel::AbstractVector{Int},
-                  α::Number, x::AbstractArray{Tx,N}) where {Tx,N}
+function vupdate!(y::AbstractArray{Ty,N}, sel::AbstractVector{Int},
+                  α::Number, x::AbstractArray{Tx,N},
+                  ::Stage{0} = _Stage(0)) where {Tx,Ty,N}
     @assert_same_axes x y
     imin, imax = extrema(sel)
     ((firstindex(x) ≤ imin) & (imax ≤ lastindex(x))) || out_of_range_selection()
-    dispatch_vupdate!(y, sel, convert_multiplier(α, Tx), x)
+    return vupdate!(y, sel, convert_multiplier(α, Tx), x, _Stage(1))
+end
+
+# Stage 1: dispatch on the value of `α`.
+
+function vupdate!(y::AbstractArray{Ty,N},
+                  α::Number, x::AbstractArray{Tx,N},
+                  ::Stage{1}) where {Tx,Ty,N}
+    α == ZERO || unsafe_vupdate!(y, convert_multiplier(α, Tx), x)
+    return y
+end
+
+function vupdate!(y::AbstractArray{Ty,N}, sel::AbstractVector{Int},
+                  α::Number, x::AbstractArray{Tx,N},
+                  ::Stage{1}) where {Ty,Tx,N}
+    α == ZERO || unsafe_vupdate!(y, sel, convert_multiplier(α, Tx), x)
     return y
 end
 
 """
-    LazyAlgebra.dispatch_vupdate!(y, [sel,] α, x)
+    LazyAlgebra.unsafe_vupdate!(y, [sel,] α, x) -> y
 
-This method is called by [`vupdate!`](@ref) to overwrites `y` with `α*x + y` with checked
-arguments (so that `@inbounds` can be assumed) and converted multiplier. This method
-method calls [`LazyAlgebra.unsafe_vupdate!](@ref) if and only if `iszero(α)` does not
-hold.
+This method is called by [`vupdate!`](@ref) to overwrites `y` with `α*x + y` if and only
+if `iszero(α)` does not hold. This method can assume `@inbounds` in its computations.
 
-See also [`vscale!`](@ref), [`vcombine!](@ref), and [`LazyAlgebra.unsafe_vupdate!](@ref).
+!!! note
+    This function may be extended to support specific array types.
 
-"""
-function dispatch_vupdate!(y::AbstractArray{<:Any,N},
-                           α::Number, x::AbstractArray{<:Any,N}) where {N}
-    iszero(α) || unsafe_vupdate!(y, α, x)
-    nothing
-end
+!!! warning
+    This function shall only be called after having checked that `x` and `y` have the same
+    axes and with `α` converted to a suitable type.
 
-function dispatch_vupdate!(y::AbstractArray{<:Any,N}, sel::AbstractVector{Int},
-                           α::Number, x::AbstractArray{<:Any,N}) where {N}
-    iszero(α) || unsafe_vupdate!(y, sel, α, x)
-    nothing
-end
+See also [`vupdate!`](@ref).
 
 """
-    LazyAlgebra.unsafe_vupdate!(y, [sel,] α, x)
-
-This method is called by [`dispatch_vupdate!`](@ref) to overwrites `y` with `α*x + y` if
-and only if `iszero(α)` does not hold. This method can assume `@inbounds` in its
-computations.
-
-
-See also [`vupdate!`](@ref), and [`LazyAlgebra.dispatch_vupdate!](@ref).
-
-"""
-function unsafe_vupdate!(y::AbstractArray{<:Any,N},
-                         α::Number,
-                         x::AbstractArray{<:Any,N}) where {N}
-
-    if α == one(α)
-        @inbounds @fastmath @simd for i in eachindex(x, y)
-            y[i] += x[i]
-        end
-    elseif α == -one(α)
-        @inbounds @fastmath @simd for i in eachindex(x, y)
-            y[i] -= x[i]
-        end
-    else # we know that `α != zero(α)`
-        @inbounds @inbounds @simd for i in eachindex(x, y)
-            y[i] += α*x[i]
-        end
+function unsafe_vupdate!(y::AbstractArray{Ty,N},
+                         α::Number, x::AbstractArray{Ty,N}) where {Ty,Tx,N}
+    @inbounds @inbounds @simd for i in eachindex(x, y)
+        y[i] += α*x[i]
     end
-    nothing
+    return y
 end
 
 function unsafe_vupdate!(y::AbstractArray{<:Any,N},
@@ -688,39 +677,17 @@ function unsafe_vupdate!(y::AbstractArray{<:Any,N},
                          x::AbstractArray{<:Any,N}) where {N}
     # NOTE We cannot use `@simd` here due to scattering.
     if IndexStyle(x, y) == IndexLinear()
-        if α == one(α)
-            @inbounds @fastmath for i in sel
-                y[i] += x[i]
-            end
-        elseif α == -one(α)
-            @inbounds @fastmath for i in sel
-                y[i] -= x[i]
-            end
-        else # we know that `α != zero(α)`
-            @inbounds @fastmath for i in sel
-                y[i] += α*x[i]
-            end
+        @inbounds @fastmath for i in sel
+            y[i] += α*x[i]
         end
     else
         I = CartesianIndices(axes(x))
-        if α == one(α)
-            @inbounds @fastmath for j in sel
-                i = I[j]
-                y[i] += x[i]
-            end
-        elseif α == -one(α)
-            @inbounds @fastmath for j in sel
-                i = I[j]
-                y[i] -= x[i]
-            end
-        else # we know that `α != zero(α)`
-            @inbounds @fastmath for j in sel
-                i = I[j]
-                y[i] += α*x[i]
-            end
+        @inbounds @fastmath for j in sel
+            i = I[j]
+            y[i] += α*x[i]
         end
     end
-    nothing
+    return y
 end
 
 #------------------------------------------------------------------------------ VCOMBINE -
@@ -780,7 +747,7 @@ See also [`vcombine`](@ref), [`vscale!`](@ref), [`vupdate!](@ref),
 
 """ vcombine!
 
-# Stage 0: check indices.
+# Stage 0: check axes.
 
 function vcombine!(α::Number, x::AbstractArray{Tx,N},
                    β::Number, y::AbstractArray{Ty,N},
