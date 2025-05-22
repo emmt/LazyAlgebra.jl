@@ -1,16 +1,5 @@
-#
-# matrices.jl -
-#
 # Extend LazyAlgebra to regular matrices and vectors and provide methods that generalize
 # the usual API for matrices and vectors.
-#
-#-----------------------------------------------------------------------------------------
-#
-# This file is part of LazyAlgebra (https://github.com/emmt/LazyAlgebra.jl) released under
-# the MIT "Expat" license.
-#
-# Copyright (c) 2017-2025, Éric Thiébaut.
-#
 
 # Extend `vmul!` for regular matrices.
 vmul!(y::AbstractVector, A::AbstractMatrix, x::AbstractVector) =

@@ -3,13 +3,13 @@
 #
 # Implementation of FFT and circulant convolution operators.
 #
-#------------------------------------------------------------------------------
+#-----------------------------------------------------------------------------------------
 #
 # This file is part of LazyAlgebra (https://github.com/emmt/LazyAlgebra.jl)
 # released under the MIT "Expat" license.
 #
-# Copyright (C) 2017-2021, Éric Thiébaut.
-# Copyright (C) 2015-2016, Éric Thiébaut, Jonathan Léger & Matthew Ozon.
+# Copyright (c) 2017-2025, Éric Thiébaut.
+# Copyright (c) 2015-2016, Éric Thiébaut, Jonathan Léger & Matthew Ozon.
 #
 
 module FFTs
