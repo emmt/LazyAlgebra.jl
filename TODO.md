@@ -1,3 +1,10 @@
+* To simplify implementations, multiplier `β` can only be `0` or `1` in `unsafe_vmul!` or
+  extend `unsafe_vmul!(dst, α, A, x)` (only called with `α` non-zero) and, optionally,
+  `unsafe_vupdate!(dst, α, A, x)`. Other possibility extend `unsafe_vmul!(dst, α, A, x,
+  incr::Bool)` only called with `α` non-zero and with `incr` indicating whether to update
+  (increment) the destination. In the first case (i.e., `vmul!` and `vupdate!`),
+  `vscale!(dst, α, x)` simply becomes `vmul!(dst, α, x)`.
+
 * Define `const RealComplex{T<:Real} = Union{T,Complex{T}}` and use better
   names for `Reals`, `Floats` and `Complexes`.
 

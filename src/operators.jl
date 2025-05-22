@@ -885,6 +885,8 @@ x, β, y)`.
 Keywords `atol` and `rtol` are the absolute and relative tolerances for comparing `A*x`
 and `y`.
 
+The `norm` keyword defaults to `LinearAlgebra.norm` for arrays.
+
 """
 function test_API(A::Operator, x::AbstractArray, y::AbstractArray;
                   alphas::Tuple{Vararg{Number}} = (-1, 0, 1, 3, -2 + 1im),

@@ -120,7 +120,8 @@ const AnyVariant{A} = Union{A,Adjoint{A},Inverse{A},InverseAdjoint{A}}
     B = simplify(A'*A)
 
 yield a linear operator `B` representing the composition `A'*A` for the linear operator
-`A`.
+`A`. Applying this construction may be optimized for some kind of operators like the
+finite difference [`Diff`](@ref).
 
 Calling `Base.parent(B)` or `B[]` reveals the bare linear operator `A` embedded in `B`.
 
@@ -153,12 +154,13 @@ end
 const Operand = Union{Number,Operator}
 
 """
-    C = A*B # if at least one of A or B is an Operator
+    C = A*B
     C = LazyAlgebra.Prod(A::Union{Number,Operator}, B::Union{Number,Operator})
 
-yield the result of multiplying operand `A` by operand `B`. If both operands are scalars
-the result is a scalar; otherwise an instance of `Prod` is returned. If any operand is an
-operator, `A*B` yields the same thing as `Prod(A, B)`.
+yield the result of multiplying operand `A` by operand `B`. If both operands are numbers,
+the result is a number; otherwise, if at least one of `A` or `B` is a linear operator, an
+instance of `Prod` is returned. If both operands are linear operators, `A∘B` and `A*B`
+yield the same result.
 
 If `C` is an instance of `LazyAlgebra.Prod`, then `C[1]` and `C[2]` respectively yield the
 left and right operands of `C`. However, due to simplifications that may occur, these are

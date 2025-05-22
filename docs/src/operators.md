@@ -6,18 +6,17 @@ infrastructure, you have to:
 
 * Create a new type derived from `Operator`.
 
+* In order to create the array `y` to store the result of `A*x` or of `α*A*x` or to check
+  the validity of `y` when it is provided by the user, methods `LazyAlgebra.output_axes(A,
+  axes(x))`, and at least one of `Base.eltype(typeof(A))` or
+  `LazyAlgebra.output_eltype(typeof(A), eltype(x))` must be specialized for the operator `A`.
+
 * In order to apply the operator `A`, the method `LazyAlgebra.unsafe_vmul!(α, A, x, β, y)`
   must be implemented to overwrite `y` with `α*A*x + β*y`. The same method may also be
   extended for `A'`, `inv(A)` and/or `inv(A')` to apply the adjoint, inverse, and/or
   inverse-adjoint of `A`.
 
-* In order to create the array `y` to store the result of `A*x` or of `α*A*x` or to check
-  the validity of `y` when it is provided by the user, methods `LazyAlgebra.output_axes(A,
-  axes(x))`, and at least one of `Base.eltype(typeof(A))` or
-  `LazyAlgebra.output_eltype(typeof(A), eltype(x))` specialized for the operator `A`.
-
-* Optionally specialize method `LazyAlgebra.identical` for two arguments of the new
-  operator type.
+* Optionally specialize method `Base.similar` for two arguments of the new operator type.
 
 
 ## The `LazyAlgebra.unsafe_vmul!` method
