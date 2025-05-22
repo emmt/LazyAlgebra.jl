@@ -7,7 +7,7 @@ See also [`LazyAlgebra.multiplier_type`](@ref) and [`LazyAlgebra.output_eltype`]
 
 """
 convert_multiplier(α::Number, ::Type{T}) where {T<:Number} =
-    convert_floating_point_type(T, α)
+    with_precision(get_precision(T), α)
 
 """
     LazyAlgebra.convert_multiplier(α::Number, [A::Operator,] x::AbstractArray)
