@@ -24,6 +24,7 @@ export
     nnz
 
 using StructuredArrays
+using TypeUtils
 using ZippedArrays
 
 import LinearAlgebra
@@ -68,7 +69,7 @@ to_int(i::Int) = i
 to_int(i::Integer) = Int(i)
 
 # Convert to vector of indices.
-to_indices(inds::AbstractVector{<:Integer}) = to_values(Int, inds)
+to_indices(inds::AbstractVector{<:Integer}) = convert_eltype(Int, inds)
 
 # Convert to vector of values with given element type and make sure it is a
 # fast vector.
@@ -94,24 +95,16 @@ to_size(siz::Tuple{Vararg{Int}}) = siz
 to_size(siz::Tuple{Vararg{Integer}}) = map(to_int, siz)
 to_size(siz::Integer) = (to_int(siz),)
 
-as_matrix(A::AbstractMatrix, nrows::Int, ncols::Int) = begin
-    size(A) == (nrows, ncols) || throw(DimensionMismatch(
-        "argument has size $(size(A)), expecting ($nrows, $ncols)"))
-    return A
-end
-as_matrix(A::AbstractArray, nrows::Int, ncols::Int) =
-    reshape(A, (nrows, ncols))
-
 #------------------------------------------------------------------------------
 
 """
     SparseOperator{T,M,N}
 
 is the abstract type inherited by sparse operator types. Parameter `T` is the type of the
-elements. Parameters `M` and `N` are the number of dimensions of the *rows* and of the
-*columns* respectively. Sparse operators are a generalization of sparse matrices in the
-sense that they implement linear operators which can be applied to `N`-dimensional
-arguments to produce `M`-dimensional results (as explained below). See
+structural non-zeros. Parameters `M` and `N` are the number of dimensions of the *rows*
+and of the *columns* respectively. Sparse operators are a generalization of sparse
+matrices in the sense that they implement linear operators which can be applied to
+`N`-dimensional arguments to produce `M`-dimensional results (as explained below). See
 [`PseudoMatrix`](@ref) for a similar generalization but for *dense* matrices.
 
 See [`CompressedSparseOperator`](@ref) for usage of sparse operators implementing
@@ -854,7 +847,8 @@ The `SparseOperatorCSC` constructor can also be used to convert a sparse operato
 another storage format into the CSC format. In that case, parameter `T` may also be
 specified to convert the type of the sparse coefficients.
 
-""" SparseOperatorCSC
+"""
+SparseOperatorCSC
 
 """
 
@@ -983,6 +977,7 @@ for (CS, other_args) in ((:SparseOperatorCSR, (:cols, :offs)),
                          (:SparseOperatorCOO, (:rows, :cols)))
     # All other arguments are integer-valued vectors.
     other_decl = map(s -> :($s::AbstractVector{<:Integer}), other_args)
+    f_decl = :(f::Function = isnonzero)
     _CS = Symbol("_",CS)
     @eval begin
         # Get rid of the M,N parameters, but keep/set T for conversion of values.
@@ -995,7 +990,7 @@ for (CS, other_args) in ((:SparseOperatorCSR, (:cols, :offs)),
         $CS{T}(A::$CS{T}) where {T} = A
 
         # Manage to call constructors of compressed sparse operator given a regular Julia
-        # array with correct parameters and selector.
+        # array with correct parameters and predicate.
         $CS(A::AbstractMatrix{T}, args...; kwds...) where {T} =
             $CS{T,1,1}(A, args...; kwds...)
         $CS{Any}(A::AbstractMatrix{T}, args...; kwds...) where {T} =
@@ -1014,6 +1009,13 @@ for (CS, other_args) in ((:SparseOperatorCSR, (:cols, :offs)),
         end
         $CS{T,M,N}(A::AbstractArray, args...; kwds...) where {T,M,N} =
             $CS{T,M,N,Vector{T}}(A, args...; kwds...)
+
+        # Call generic constructor.
+        function $CS{T,M,N,V}(A::AbstractArray{S,L},
+                              f::Function = isnonzero) where {S,T,L,M,N,
+                                                              V<:AbstractVector{T}}
+            return build($CS{T,M,N,V}, A, f)
+        end
 
         # Constructors that convert array of values. Other fields have already been
         # checked so do not check structure again.
@@ -1059,166 +1061,121 @@ for (CS, other_args) in ((:SparseOperatorCSR, (:cols, :offs)),
    end
 end
 
-# Constructors of a sparse operator in various format given a regular Julia array and a
-# selector function. Julia arrays are usually in column-major order but this is not always
-# the case, to handle various storage orders when extracting selected entries, we convert
-# the input array into a equivalent "matrix", that is a 2-dimensional array.
-
-function SparseOperatorCSR{T,M,N,V}(arr::AbstractArray{S,L},
-                                    f::Function = isnonzero) where {
-                                        S,T,L,M,N,V<:AbstractVector{T}}
+# Generic constructor of a sparse operator in various format given a regular Julia array
+# and a predicate function. Julia arrays are usually in column-major order but this is not
+# always the case, to handle various storage orders when extracting selected entries, we
+# convert the input array into a equivalent "matrix", that is a 2-dimensional array.
+function build(::Type{W}, arr::AbstractArray{S,L},
+               f::Function = isnonzero) where {S,T,L,M,N,V<:AbstractVector{T},
+                                               W<:Union{SparseOperatorCOO{T,M,N,V},
+                                                        SparseOperatorCSC{T,M,N,V},
+                                                        SparseOperatorCSR{T,M,N,V}}}
     # Get equivalent matrix dimensions.
-    nrows, ncols, rowsiz, colsiz = get_equivalent_size(arr, Val(M), Val(N))
+    M isa Int || throw_argument_error(
+        "number of row dimensions `M` must be an `Int`, got an `$(typeof(M))`")
+    N isa Int || throw_argument_error(
+        "number of column dimensions `N` must be an `Int`, got an `$(typeof(N))`")
+    M ≥ 1 || throw_argument_error(
+        "number of row dimensions must be ≥ 1, got `M = $M`")
+    N ≥ 1 || throw_argument_error(
+        "number of column dimensions must be ≥ 1, got `N = $N`")
+    M + N == L || throw_argument_error(
+        "sum of numbers of row and column dimensions must be $L, got `M + N = $(M + N)`")
+    siz = size(A)
+    rowsiz = siz[1:M]
+    colsiz = siz[M+1:end]
+    nrows = prod(rowsiz)
+    ncols = prod(colsiz)
 
-    # Convert into equivalent matrix.
-    A = as_matrix(arr, nrows, ncols)
+    # Reshape input array into a matrix if needed.
+    A = !(arr isa AbstractMatrix) ? reshape(arr, (nrows, ncols)) :
+        size(arr) == (nrows, ncols) ? arr : throw(DimensionMismatch(
+            "argument has size $(size(arr)), expecting ($nrows, $ncols)"))
 
-    # Count the number of selected entries.
-    nvals = count_selection(A, f)
+    # Count the number of selected entries assuming column-major storage order which is
+    # the most common in Julia (this only has a consequence on the speed).
+    nvals = 0
+    @inbounds for j in 1:ncols, i in 1:nrows
+        # Using `ifelse` here asserts that the predicate yields a Boolean and avoid
+        # branching.
+        nvals += ifelse(f(A[i,j], i, j), 1, 0)
+    end
 
-    # Extract the selected entries and their column indices and count the number of
-    # selected entries per row. The pseudo-matrix is walked in row-major order.
-    cols = Vector{Int}(undef, nvals)
-    offs = Vector{Int}(undef, nrows + 1)
-    k = 0
+    # Extract the selected entries and, depending on the format, their row and/or column
+    # indices and/or offsets.
+    if W <: Union{SparseOperatorCOO,SparseOperatorCSC}
+        rows = Vector{Int}(undef, nvals)
+    end
+    if W <: Union{SparseOperatorCOO,SparseOperatorCSR}
+        cols = Vector{Int}(undef, nvals)
+    end
+    if W <: SparseOperatorCSC
+        offs = Vector{Int}(undef, ncols + 1)
+    end
+    if W <: SparseOperatorCSR
+        offs = Vector{Int}(undef, nrows + 1)
+    end
     if V <: UniformVector{Bool}
-        # Just extract the structure, not the values.
         vals = V(true, nvals)
+    else
+        vals = V(undef, nvals)
+    end
+    k = 0
+    if  W <: SparseOperatorCSR
+        # For a row-wise compressed storage, the pseudo-matrix is walked in row-major
+        # order.
         @inbounds for i in 1:nrows
             offs[i] = k
             for j in 1:ncols
-                if f(A[i,j], i, j)
-                    (k += 1) ≤ nvals || bad_selector()
+                Aij = A[i,j]
+                if f(Aij, i, j)
+                    (k += 1) ≤ nvals || bad_predicate()
+                    if !(V <: UniformVector{Bool})
+                        vals[k] = Aij
+                    end
                     cols[k] = j
                 end
             end
         end
     else
-        # Extract the structure and the values.
-        vals = V(undef, nvals)
-        @inbounds for i in 1:nrows
-            offs[i] = k
-            for j in 1:ncols
-                v = A[i,j]
-                if f(v, i, j)
-                    (k += 1) ≤ nvals || bad_selector()
-                    vals[k] = v
-                    cols[k] = j
+        # For a column-wise compressed storage, the pseudo-matrix is walked in
+        # column-major order. This is also suitable for the COO format since most Julia
+        # arrays are stored in that order.
+        @inbounds for j in 1:ncols
+            if W <: SparseOperatorCSC
+                offs[j] = k
+            end
+            for i in 1:nrows
+                Aij = A[i,j]
+                if f(Aij, i, j)
+                    (k += 1) ≤ nvals || bad_predicate()
+                    if !(V <: UniformVector{Bool})
+                        vals[k] = Aij
+                    end
+                    rows[k] = i
+                    if W <: SparseOperatorCOO
+                        cols[k] = j
+                    end
                 end
             end
         end
     end
-    k == nvals || bad_selector()
-    offs[end] = nvals
-
-    # By construction, the sparse structure should be correct so just call the "unsafe"
-    # constructor.
-    return _SparseOperatorCSR(nrows, ncols, vals, cols, offs, rowsiz, colsiz)
-end
-
-function SparseOperatorCSC{T,M,N,V}(arr::AbstractArray{S,L},
-                                    f::Function = isnonzero) where {
-                                        S,T,L,M,N,V<:AbstractVector{T}}
-    # Get equivalent matrix dimensions.
-    nrows, ncols, rowsiz, colsiz = get_equivalent_size(arr, Val(M), Val(N))
-
-    # Convert into equivalent matrix.
-    A = as_matrix(arr, nrows, ncols)
-
-    # Count the number of selected entries.
-    nvals = count_selection(A, f)
-
-    # Extract the selected entries and their row indices and count the numver
-    # of selected entries per column.  The pseudo-matrix is walked in
-    # column-major order.
-    rows = Vector{Int}(undef, nvals)
-    offs = Vector{Int}(undef, ncols + 1)
-    k = 0
-    if V <: UniformVector{Bool}
-        # Just extract the structure, not the values.
-        vals = V(true, nvals)
-        @inbounds for j in 1:ncols
-            offs[j] = k
-            for i in 1:nrows
-                if f(A[i,j], i, j)
-                    (k += 1) ≤ nvals || bad_selector()
-                    rows[k] = i
-                end
-            end
-        end
-    else
-        # Extract the structure and the values.
-        vals = V(undef, nvals)
-        @inbounds for j in 1:ncols
-            offs[j] = k
-            for i in 1:nrows
-                v = A[i,j]
-                if f(v, i, j)
-                    (k += 1) ≤ nvals || bad_selector()
-                    vals[k] = v
-                    rows[k] = i
-                end
-            end
-        end
+    k == nvals || bad_predicate()
+    if W <: Union{SparseOperatorCSC,SparseOperatorCSR}
+        offs[end] = nvals
     end
-    k == nvals || bad_selector()
-    offs[end] = nvals
 
     # By construction, the sparse structure should be correct so just call the
     # "unsafe" constructor.
-    return _SparseOperatorCSC(nrows, ncols, vals, rows, offs, rowsiz, colsiz)
-end
-
-function SparseOperatorCOO{T,M,N,V}(arr::AbstractArray{S,L},
-                                    f::Function = isnonzero) where {
-                                        S,T,L,M,N,V<:AbstractVector{T}}
-    # Get equivalent matrix dimensions.
-    nrows, ncols, rowsiz, colsiz = get_equivalent_size(arr, Val(M), Val(N))
-
-    # Convert into equivalent matrix.
-    A = as_matrix(arr, nrows, ncols)
-
-    # Count the number of selected entries.
-    nvals = count_selection(A, f)
-
-    # Extract the selected entries and their row and column indices.  The
-    # pseudo-matrix is walked in column-major order since most Julia arrays are
-    # stored in that order.
-    rows = Vector{Int}(undef, nvals)
-    cols = Vector{Int}(undef, nvals)
-    k = 0
-    if V <: UniformVector{Bool}
-        # Just extract the structure, not the values.
-        vals = V(true, nvals)
-        @inbounds for j in 1:ncols
-            for i in 1:nrows
-                if f(A[i,j], i, j)
-                    (k += 1) ≤ nvals || bad_selector()
-                    rows[k] = i
-                    cols[k] = j
-                end
-            end
-        end
-    else
-        # Extract the structure and the values.
-        vals = V(undef, nvals)
-        @inbounds for j in 1:ncols
-            for i in 1:nrows
-                v = A[i,j]
-                if f(v, i, j)
-                    (k += 1) ≤ nvals || bad_selector()
-                    vals[k] = v
-                    rows[k] = i
-                    cols[k] = j
-                end
-            end
-        end
+    if W <: SparseOperatorCOO
+        return _SparseOperatorCOO(nrows, ncols, vals, rows, cols, rowsiz, colsiz)
     end
-    k == nvals || bad_selector()
-
-    # By construction, the sparse structure should be correct so just call the
-    # "unsafe" constructor.
-    return _SparseOperatorCOO(nrows, ncols, vals, rows, cols, rowsiz, colsiz)
+    if W <: SparseOperatorCSC
+        return _SparseOperatorCSC(nrows, ncols, vals, rows, offs, rowsiz, colsiz)
+    end
+    if W <: SparseOperatorCSR
+        return _SparseOperatorCSR(nrows, ncols, vals, cols, offs, rowsiz, colsiz)
+    end
 end
 
 """
@@ -1537,9 +1494,9 @@ function sparse_compressed_offsets!(offs::AbstractVector{Int}, inds::AbstractVec
     return offs
 end
 
-# This error is due to the non-zeros selector not returning the same results in
+# This error is due to the non-zeros predicate not returning the same results in
 # the two selection passes.
-bad_selector() = throw_argument_error("inconsistent selector function")
+bad_predicate() = throw_argument_error("inconsistent predicate function")
 
 @inline select_non_zeros(v::Bool, i::Int, j::Int) = v
 @inline select_non_zeros(v::T, i::Int, j::Int) where {T} = (v != zero(T))
@@ -1552,59 +1509,6 @@ bad_selector() = throw_argument_error("inconsistent selector function")
 
 @inline select_non_zeros_in_upper_part(v::T, i::Int, j::Int) where {T} =
     ((i ≤ j)&(v != zero(T)))
-
-"""
-    get_equivalent_size(A, Val(M), Val(N)) -> nrows, ncols, rowsiz, colsiz
-
-yields equivalent matrix dimensions of array `A` assuming the *rows* account for the `M`
-leading dimensions while the *columns* account for the other `N` dimensions.
-
-"""
-function get_equivalent_size(A::AbstractArray{T,L},
-                             ::Val{M}, ::Val{N}) where {T,L,M,N}
-    @assert L == M + N
-    @assert M ≥ 1
-    @assert N ≥ 1
-    eachindex(A) == 1:length(A) ||
-        throw_argument_error("array must have standard linear indexing")
-    siz = size(A)
-    rowsiz = siz[1:M]
-    colsiz = siz[M+1:end]
-    nrows = prod(rowsiz)
-    ncols = prod(colsiz)
-    return nrows, ncols, rowsiz, colsiz
-end
-
-"""
-    count_selection(A, f, rowmajor=false) -> nvals
-
-yields the number of selected entries in matrix `A` such that `f(A[i,j],i,j)` is `true`
-and with `i` and `j` the row and column indices. if optinal argument `rowmajor` is true,
-the array is walked in row-major order; otherwise (the default), the array is walked in
-column-major order.
-
-"""
-function count_selection(A::AbstractMatrix, f::Function,
-                         rowmajor::Bool = false)
-    nrows, ncols = size(A)
-    nvals = 0
-    if rowmajor
-        # Walk the coefficients in row-major order.
-        @inbounds for i in 1:nrows, j in 1:ncols
-            if f(A[i,j], i, j)
-                nvals += 1
-            end
-        end
-    else
-        # Walk the coefficients in column-major order.
-        @inbounds for j in 1:ncols, i in 1:nrows
-            if f(A[i,j], i, j)
-                nvals += 1
-            end
-        end
-    end
-    return nvals
-end
 
 """
     check_structure(A) -> A
@@ -1841,7 +1745,7 @@ yields whether `inds` is an iterator for *fast indices* that is linear indices s
 `1`.
 
 """
-is_fast_indices(inds::AbstractUnitRange{Int}) = (first(inds) == 1)
+is_fast_indices(inds::AbstractUnitRange{Int}) = (first(inds) == 1) # FIXME always true for multi-dimensional arrays
 is_fast_indices(inds) = false
 
 """

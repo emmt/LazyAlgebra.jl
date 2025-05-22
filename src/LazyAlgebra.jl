@@ -18,7 +18,7 @@ include("macros.jl")
 
 export
     #CirculantConvolution,
-    #CompressedSparseOperator,
+    CompressedSparseOperator,
     CroppingOperator,
     Diag,
     Diff,
@@ -31,10 +31,10 @@ export
     PseudoMatrix,
     RankOneOperator,
     #SingularSystem,
-    #SparseOperator,
-    #SparseOperatorCOO,
-    #SparseOperatorCSC,
-    #SparseOperatorCSR,
+    SparseOperator,
+    SparseOperatorCOO,
+    SparseOperatorCSC,
+    SparseOperatorCSR,
     SymbolicOperator,
     SymmetricRankOneOperator,
     ZeroPaddingOperator,
@@ -145,15 +145,14 @@ include("rank1.jl")
 include("pseudomatrices.jl")
 include("cropping.jl")
 include("diff.jl")
+include("sparse.jl")
+using .SparseOperators
+import .SparseOperators: unpack!
 #include("matrices.jl")
 #include("genmult.jl")
 #import .GenMult: lgemm!, lgemm, lgemv!, lgemv
 #include("blas.jl")
 #include("foundations.jl")
-
-#include("sparse.jl")
-#using .SparseOperators
-#import .SparseOperators: unpack!
 #include("fft.jl")
 #import .FFTs: CirculantConvolution, FFTOperator
 include("conjgrad.jl")
