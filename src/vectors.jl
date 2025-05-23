@@ -464,11 +464,19 @@ is:
 
     LazyAlgebra.unsafe_vscale!(y::AbstractArray, α::Number, x::AbstractArray) -> y
 
-to overwrite `y` with `α*x` and returns `y`.
+to overwrite `y` with `α*x`.
+
+The statement:
+
+    isone(β) || unsafe_vscale!(y, β)
+
+may be used in an *unsafe method* like [`LazyAlgebraunsafe_vmul!`](@ref) to pre-scale an
+output array `y` by its multiplier `β` provided `β` has been converted to an efficient
+type as should be the case at this stage.
 
 !!! warning
-    This function shall be called with `α` converted to a suitable floating-point type
-    and, if `y` is specified, after having checked that `y` and `x` have the same axes.
+    This function shall be called with `α` converted to a efficient type and, if `y` is
+    specified, after having checked that `y` and `x` have the same axes.
 
 See also [`vscale!`](@ref).
 
@@ -651,7 +659,7 @@ if `iszero(α)` does not hold. This method can assume `@inbounds` in its computa
 
 !!! warning
     This function shall only be called after having checked that `x` and `y` have the same
-    axes and with `α` converted to a suitable type.
+    axes and with `α` converted to an efficient type.
 
 See also [`vupdate!`](@ref).
 
@@ -823,7 +831,7 @@ overwrites `y` with `α*x + β*y` and returns `y`.
 
 !!! warning
     This function shall only be called after having checked that `x` and `y` have the same
-    axes and with `α` and `β` converted to suitable types.
+    axes and with `α` and `β` converted to efficient types.
 
 See also [`vcombine!`](@ref).
 
@@ -846,7 +854,7 @@ overwrites `z` with `α*x + β*y` and returns `z`.
 
 !!! warning
     This function shall only be called after having checked that `x`, `y`, and `z` have
-    the same axes and with `α` and `β` converted to suitable types.
+    the same axes and with `α` and `β` converted to efficient types.
 
 See also [`vcombine!`](@ref).
 

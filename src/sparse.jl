@@ -1890,7 +1890,7 @@ function unsafe_vmul!(α::Number,
     A = parent(A′)
     # FIXME check_argument(x, row_size(A))
     # FIXME check_argument(y, col_size(A))
-    isone(β) || vscale!(y, β) # FIXME unsafe_vscale! or which stage?
+    isone(β) || unsafe_vscale!(y, β)
     @inbounds for i in each_row(A)
         q = α*x[i]
         if !iszero(q)
@@ -1916,7 +1916,7 @@ function unsafe_vmul!(α::Number,
     # suitable precision, and (iii) α is not zero.
     # FIXME check_argument(x, col_size(A))
     # FIXME check_argument(y, row_size(A))
-    isone(β) || vscale!(y, β) # FIXME unsafe_vscale! or which stage?
+    isone(β) || unsafe_vscale!(y, β)
     @inbounds for j in each_col(A)
         q = α*x[j]
         if !iszero(q)
@@ -1942,7 +1942,7 @@ function unsafe_vmul!(α::Number,
     # suitable precision, and (iii) α is not zero.
     # FIXME check_argument(x, col_size(A))
     # FIXME check_argument(y, row_size(A))
-    isone(β) || vscale!(y, β) # FIXME unsafe_vscale! or which stage?
+    isone(β) || unsafe_vscale!(y, β)
     V, I, J = get_vals(A), get_rows(A), get_cols(A)
     @inbounds for k in eachindex(V, I, J)
         v, i, j = V[k], I[k], J[k]
@@ -1960,7 +1960,7 @@ function unsafe_vmul!(α::Number,
     # to a suitable precision, and (iii) α is not zero.
     # FIXME: check_argument(x, row_size(A))
     # FIXME: check_argument(y, col_size(A))
-    isone(β) || vscale!(y, β) # FIXME unsafe_vscale! or which stage?
+    isone(β) || unsafe_vscale!(y, β)
     A = parent(A′) # FIXME use generic API
     V, I, J = get_vals(A), get_rows(A), get_cols(A)
     @inbounds for k in eachindex(V, I, J)

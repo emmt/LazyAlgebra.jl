@@ -340,21 +340,17 @@ function unsafe_vmul!(α::Number, A::FFTW.cFFTWPlan{Complex{T},K,inplace,N},
     if y isa DenseArray{Complex{T},N} && iszero(β)
         # `y` can be used as the output of the transform.
         if inplace
-            x === y || unsafe_vscale!(y, α, x) # copy with scaling
+            x === y || unsafe_vscale!(y, α, x) # copy and scale without checking axes nor dispatching
             mul!(y, A, y) # in-place transform
-            x === y || isone(α) || unsafe_vscale!(y, α) # scale if needed
+            x === y || isone(α) || unsafe_vscale!(y, α) # scale without dispatching if needed
         elseif x isa DenseArray{Complex{T},N} && (scratch || does_not_destroy_input(A)) && !Base.mightalias(x, y)
             # `x` can be used as the input of the out-of-place transform.
             mul!(y, A, x) # out-of-place transform
-            isone(α) || unsafe_vscale!(y, α) # scale if needed
+            isone(α) || unsafe_vscale!(y, α) # scale without dispatching if needed
         else
             # `x` is copied (and scaled) in a temporary array.
             w = Array{Complex{T}}(undef, size(x))
-            if isone(α)
-                unsafe_vcopy!(w, x)
-            else
-                unsafe_vscale!(w, α, x)
-            end
+            unsafe_vscale!(w, α, x) # copy and scale without checking axes nor dispatching
             mul!(y, A, w)
         end
     else
@@ -372,9 +368,9 @@ function unsafe_vmul!(α::Number, A::FFTW.cFFTWPlan{Complex{T},K,inplace,N},
             unsafe_vcopy!(w, x)
             mul!(z, A, w)
         end
-        unsafe_vcombine!(y, α, z, β, y)
+        unsafe_vcombine!(y, α, z, β, y) # combine without checking axes nor dispatching
     end
-    nothing
+    return y
 end
 #
 # For a real-to-complex (r2c) and complex-to-real (c2r) transforms, the types of plan
@@ -409,7 +405,7 @@ function unsafe_vmul!(α::Number, A::FFTW.rFFTWPlan{<:Any,K,false,N},
         unsafe_vcopy!(w, x)
         unsafe_vmul!(α, A, w, β, y, true)
     end
-    nothing
+    return y
 end
 
 #------------------------------------------------------------------------------
@@ -575,14 +571,13 @@ function vcreate(H::Union{F,Adjoint{<:F},Inverse{<:F},InverseAdjoint{<:F}},
     return Array{T,N}(undef, H.dims)
 end
 
-function vmul!(α::Number,
-                H::Union{F,Adjoint{<:F}},
-                x::AbstractArray{Complex{T},N},
-                scratch::Bool,
-                β::Number,
-                y::AbstractArray{Complex{T},N}) where {T<:fftwReal,N,
-                                                       F<:CirculantConvolution{
-                                                           Complex{T},Complex{T},N}}
+function unsafe_vmul!(α::Number,
+                      H::Union{F,Adjoint{<:F}},
+                      x::AbstractArray{Complex{T},N},
+                      β::Number,
+                      y::AbstractArray{Complex{T},N}) where {T<:fftwReal,N,
+                                                             F<:CirculantConvolution{
+                                                                 Complex{T},Complex{T},N}}
     @certify !Base.has_offset_axes(x, y)
     if α == 0
         @certify size(y) == H.dims

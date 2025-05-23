@@ -103,13 +103,13 @@ end
 
 function unsafe_vmul!(α::Number, A::PseudoMatrix, x::AbstractArray,
                       β::Number, y::AbstractArray)
-    C = parent(A)
+    C = parent(A) # array storing the coefficients
     I = CartesianIndices(axes(y))
     J = CartesianIndices(axes(x))
-    dispatch_vscale!(y, β)
+    isone(β) || unsafe_vscale!(y, β)
     @inbounds for j in J
         αxⱼ = α*x[j]
-        if αxⱼ != zero(αxⱼ)
+        if !iszero(αxⱼ)
             @inbounds @fastmath @simd for i in I
                 y[i] += C[i,j]*αxⱼ
             end
@@ -120,7 +120,7 @@ end
 
 function unsafe_vmul!(α::Number, A::Adjoint{<:PseudoMatrix}, x::AbstractArray,
                       β::Number, y::AbstractArray)
-    C = parent(parent(A))
+    C = parent(A') # array storing the coefficients
     I = CartesianIndices(axes(x))
     J = CartesianIndices(axes(y))
     @inbounds for j in J
@@ -128,11 +128,7 @@ function unsafe_vmul!(α::Number, A::Adjoint{<:PseudoMatrix}, x::AbstractArray,
         @inbounds @fastmath @simd for i in I
             s += conj(C[i,j])*x[i]
         end
-        if β == zero(β)
-            y[j] = α*s
-        else
-            y[j] = β*y[j] + α*s
-        end
+        y[j] = α*s + β*y[j]
     end
     return y
 end

@@ -190,46 +190,30 @@ function vcreate(::Type{Adjoint}, S::SparseOperator{Ts,M,N},
     return Array{Ty}(undef, input_size(S))
 end
 
-function vmul!(α::Real,
-                ::Type{Direct},
-                S::SparseOperator{Ts,M,N},
-                x::DenseArray{Tx,N},
-                scratch::Bool,
-                β::Real,
-                y::DenseArray{Ty,M}) where {Ts<:Real,Tx<:Real,Ty<:Real,M,N}
-    @assert size(x) == input_size(S)
-    @assert size(y) == output_size(S)
-    β == 1 || vscale!(y, β)
-    if α != 0
-        A, I, J = S.A, S.I, S.J
-        alpha = convert(promote_type(Ts,Tx,Ty), α)
-        @assert length(I) == length(J) == length(A)
-        for k in 1:length(A)
-            i, j = I[k], J[k]
-            y[i] += alpha*A[k]*x[j]
-        end
+function unsafe_vmul!(α::Number,
+                      S::SparseOperator{Ts,M,N},
+                      x::DenseArray{Tx,N},
+                      β::Number,
+                      y::DenseArray{Ty,M}) where {Ts<:Real,Tx<:Real,Ty<:Real,M,N}
+    isone(β) || unsafe_vscale!(y, β)
+    A, I, J = S.A, S.I, S.J
+    for k in 1:length(A)
+        i, j = I[k], J[k]
+        y[i] += α*A[k]*x[j]
     end
     return y
 end
 
-function vmul!(α::Real,
-                ::Type{Adjoint},
-                S::SparseOperator{Ts,M,N},
-                x::DenseArray{Tx,M},
-                scratch::Bool,
-                β::Real,
-                y::DenseArray{Ty,N}) where {Ts<:Real,Tx<:Real,Ty<:Real,M,N}
-    @assert size(x) == output_size(S)
-    @assert size(y) == input_size(S)
-    β == 1 || vscale!(y, β)
-    if α != 0
-        A, I, J = S.A, S.I, S.J
-        alpha = convert(promote_type(Ts,Tx,Ty), α)
-        @assert length(I) == length(J) == length(A)
-        for k in 1:length(A)
-            i, j = I[k], J[k]
-            y[j] += alpha*A[k]*x[i]
-        end
+function unsafe_vmul!(α::Number,
+                      S::Adjoint{<:SparseOperator{Ts,M,N}},
+                      x::DenseArray{Tx,M},
+                      β::Number,
+                      y::DenseArray{Ty,N}) where {Ts<:Real,Tx<:Real,Ty<:Real,M,N}
+    isone(β) || unsafe_vscale!(y, β)
+    A, I, J = S.A, S.I, S.J
+    for k in 1:length(A)
+        i, j = I[k], J[k]
+        y[j] += α*A[k]*x[i]
     end
     return y
 end

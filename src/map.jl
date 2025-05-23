@@ -43,8 +43,8 @@ overwrites `y` with `α*f.(w, x)` and returns `y`. Other possibility:
 
     LazyAlgebra.vmap!(α, f, w, x, β, y) -> y
 
-to overwrite `y` with `α*f.(w, x) + β*y` and return `y`. An exception is thrown if `w`,
-`x`, and `y` do not have the same axes.
+to overwrite `y` with `α*f.(w, x) + β*y`. An exception is thrown if `w`, `x`, and `y` do
+not have the same axes.
 
 See also [`LazyAlgebra.unsafe_vmap!`](@ref).
 

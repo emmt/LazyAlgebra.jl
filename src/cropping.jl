@@ -111,7 +111,7 @@ end
 function unsafe_vmul!(α::Number, A::ZeroPaddingOperator{N}, x::AbstractArray{<:Any,N},
                       β::Number, y::AbstractArray{<:Any,N}) where {N}
     # Scale or zero-fill y depending on the value of β.
-    β == 𝟙 || vscale!(y, β) # FIXME check β is dimensionless
+    isone(β) || unsafe_vscale!(y, β)
 
     # "Copy" x to inner region of y.
     k = offset(A)

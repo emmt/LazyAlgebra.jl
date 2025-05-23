@@ -72,9 +72,9 @@ function unsafe_vmul!(α::Number, A::Union{K,Adjoint{K}}, x::AbstractArray,
                       β::Number, y::AbstractArray) where {K <: AbstractRankOneOperator}
     # Call `vcombine!` at stage 1 to dispatch on the values of `α` and `β` because array
     # axes have already been checked.
+    u = first(A)
     v = last(A)
     λ = α*vdot(v, x)
-    u = first(A)
     vcombine!(λ, u, β, y, _Stage(1))
 end
 
