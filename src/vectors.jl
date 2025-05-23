@@ -386,14 +386,14 @@ See also [`vscale!`](@ref).
 
 """
 vscale(x::AbstractArray, α::Number) = vscale(α, x)
-function vscale(α::Number, x::AbstractArray{Tx,N}) where {Tx,N}
+function vscale(α::Number, x::AbstractArray)
     # Convert the multiplier to infer the element type of the result. The extra cost of
     # converting the multiplier twice (if any, since further conversions should leave the
     # multiplier unchanged) is certainly negligible compared to the allocation and
     # computation times.
-    α = convert_multiplier(α, Tx)
-    Ty = prod_type(typeof(α), Tx)
-    y = similar(x, Ty)
+    α = convert_multiplier(α, eltype(x))
+    T = prod_type(typeof(α), eltype(x))
+    y = similar(x, T)
 
     # Call in-place method at stage 1 to dispatch on the value of `α` because array axes
     # are guaranteed to be the same.
@@ -420,36 +420,39 @@ See also [`vscale`](@ref), [`vzeros!`](@ref), [`LinearAlgebra.rmul!](@ref), and
 """
 vscale!(α::Number, x::AbstractArray) = vscale!(x, α)
 
-# Stage 0: Check axes.
+# Stages of in-place scaling:
+#   0. Convert multiplier.
+#   1. Dispatch on multiplier.
+#   2. Call `unsafe_vscale!` if necessary.
+function vscale!(x::AbstractArray, α::Number)
+    α′ = convert_inplace_multiplier(α, eltype(x))
+    return vscale!(x, α′, _Stage(1))
+end
+function vscale!(x::AbstractArray, α::Number, ::Stage{1})
+    @dispatch_on_multiplier α vscale!(x, α, _Stage(2))
+    return x
+end
+function vscale!(x::AbstractArray, α::Number, ::Stage{2})
+    α == 𝟙 || unsafe_vscale!(x, α)
+    return x
+end
 
-function vscale!(y::AbstractArray, α::Number, x::AbstractArray,
-                 ::Stage{0} = _Stage(0))
+# Stages of out-of-place scaling:
+#   0. Call in-place scaling if `x` and `y` are the same thing; otherwise, check axes and
+#      proceed with stage 1.
+#   1. Convert multiplier.
+#   2. Dispatch on multiplier to call `unsafe_vscale!`.
+function vscale!(y::AbstractArray, α::Number, x::AbstractArray)
     y === x && return vscale!(x, α)
     @assert_same_axes x y
     return vscale!(y, α, x, _Stage(1))
 end
-
-# Stage 1: Dispatch on `α`.
-
-function vscale!(x::AbstractArray, α::Number, ::Stage{1} = _Stage(1))
-    @dispatch_on_multiplier α eltype(x) vscale!(x, α, _Stage(2))
-    return x
-end
-
 function vscale!(y::AbstractArray, α::Number, x::AbstractArray, ::Stage{1})
-    @dispatch_on_multiplier α eltype(x) vscale!(y, α, x, _Stage(2))
-    return y
+    α′ = convert_multiplier(α, eltype(x))
+    return vscale!(y, α′, x, _Stage(2))
 end
-
-# Stage 2: Call `unsafe_vscale!` if needed.
-
-function vscale!(x::AbstractArray, α::Number, ::Stage{2})
-    α isa StaticMultiplier{1} || unsafe_vscale!(x, α)
-    return x
-end
-
 function vscale!(y::AbstractArray, α::Number, x::AbstractArray, ::Stage{2})
-    unsafe_vscale!(y, α, x)
+    @dispatch_on_multiplier α unsafe_vscale!(y, α, x)
     return y
 end
 
@@ -586,45 +589,53 @@ See also [`vscale!`](@ref), [`vcombine!](@ref), and [`LazyAlgebra.unsafe_vupdate
 
 """ vupdate!
 
-# Stage 0: Check axes.
+# Stages of updating:
+#   0. Check axes.
+#   1. Convert multiplier `α`.
+#   2. Dispatch on the value of the multiplier `α`.
+#   3. Call unsafe method if multiplier `α` is non-zero.
 
-function vupdate!(y::AbstractArray, α::Number, x::AbstractArray, ::Stage{0} = _Stage(0))
+function vupdate!(y::AbstractArray, α::Number, x::AbstractArray)
     @assert_same_axes x y
     return vupdate!(y, α, x, _Stage(1))
 end
+function vupdate!(y::AbstractArray{Ty,N}, α::Number, x::AbstractArray{Tx,N},
+                  ::Stage{1}) where {Tx,Ty,N}
+    α′ = convert_multiplier(α, eltype(x))
+    return vupdate!(y, α′, x, _Stage(2))
+end
+function vupdate!(y::AbstractArray{Ty,N}, α::Number, x::AbstractArray{Tx,N},
+                  ::Stage{2}) where {Tx,Ty,N}
+    @dispatch_on_multiplier α vupdate!(y, α, x, _Stage(3))
+    return y
+end
+function vupdate!(y::AbstractArray{Ty,N}, α::Number, x::AbstractArray{Tx,N},
+                  ::Stage{3}) where {Tx,Ty,N}
+    α isa StaticMultiplier{0} || unsafe_vupdate!(y, α, x)
+    return y
+end
+
+# Idem with a selection of indices.
 
 function vupdate!(y::AbstractArray, sel::AbstractVector{Int},
-                  α::Number, x::AbstractArray, ::Stage{0} = _Stage(0))
+                  α::Number, x::AbstractArray)
     @assert_same_axes x y
     imin, imax = extrema(sel)
     ((firstindex(x) ≤ imin) & (imax ≤ lastindex(x))) || out_of_range_selection()
     return vupdate!(y, sel, α, x, _Stage(1))
 end
-
-# Stage 1: Dispatch on the value of `α`.
-
-function vupdate!(y::AbstractArray{Ty,N},
-                  α::Number, x::AbstractArray{Tx,N}, ::Stage{1}) where {Tx,Ty,N}
-    @dispatch_on_multiplier α eltype(x) vupdate!(y, α, x, _Stage(2))
-    return y
-end
-
 function vupdate!(y::AbstractArray{Ty,N}, sel::AbstractVector{Int},
                   α::Number, x::AbstractArray{Tx,N}, ::Stage{1}) where {Tx,Ty,N}
-    @dispatch_on_multiplier α eltype(x) vupdate!(y, sel, α, x, _Stage(2))
-    return y
+    α′ = convert_multiplier(α, eltype(x))
+    return vupdate!(y, sel, α′, x, _Stage(2))
 end
-
-# Stage 2: Call `unsafe_vupdate!` if needed.
-
-function vupdate!(y::AbstractArray{Ty,N},
-                  α::Number, x::AbstractArray{Tx,N}, ::Stage{2}) where {Tx,Ty,N}
-    α isa StaticMultiplier{0} || unsafe_vupdate!(y, α, x)
-    return y
-end
-
 function vupdate!(y::AbstractArray{Ty,N}, sel::AbstractVector{Int},
                   α::Number, x::AbstractArray{Tx,N}, ::Stage{2}) where {Tx,Ty,N}
+    @dispatch_on_multiplier α vupdate!(y, sel, α, x, _Stage(3))
+    return y
+end
+function vupdate!(y::AbstractArray{Ty,N}, sel::AbstractVector{Int},
+                  α::Number, x::AbstractArray{Tx,N}, ::Stage{3}) where {Tx,Ty,N}
     α isa StaticMultiplier{0} || unsafe_vupdate!(y, sel, α, x)
     return y
 end
@@ -726,58 +737,81 @@ See also [`vcombine`](@ref), [`vscale!`](@ref), [`vupdate!](@ref),
 
 """ vcombine!
 
-# Stage 0: Check axes.
+# Stages for `vcombine!(α,x,β,y)`:
+#   0. Check axes.
+#   1. Convert `α`.
+#   2. Dispatch on `α`.
+#   3. Call `vscal!` if `α` is zero; convert `β` and proceed with next stage otherwise.
+#   4. Dispatch on `β` and call the unsafe method.
 
 function vcombine!(α::Number, x::AbstractArray,
-                   β::Number, y::AbstractArray,
-                   ::Stage{0} = _Stage(0))
+                   β::Number, y::AbstractArray)
     @assert_same_axes x y
     return vcombine!(α, x, β, y, _Stage(1))
 end
+function vcombine!(α::Number, x::AbstractArray{Tx,N},
+                   β::Number, y::AbstractArray{Ty,N}, ::Stage{1}) where {Tx,Ty,N}
+    α′ = convert_multiplier(α, eltype(x))
+    return vcombine!(α′, x, β, y, _Stage(2))
+end
+function vcombine!(α::Number, x::AbstractArray{Tx,N},
+                   β::Number, y::AbstractArray{Ty,N}, ::Stage{2}) where {Tx,Ty,N}
+    @dispatch_on_multiplier α vcombine!(α, x, β, y, _Stage(3))
+    return y
+end
+function vcombine!(α::Number, x::AbstractArray{Tx,N},
+                   β::Number, y::AbstractArray{Ty,N}, ::Stage{3}) where {Tx,Ty,N}
+    if α isa StaticMultiplier{0}
+        vscale!(y, β)
+    else
+        β′ = convert_inplace_multiplier(β, eltype(y))
+        vcombine!(α, x, β′, y, _Stage(4))
+    end
+    return y
+end
+function vcombine!(α::Number, x::AbstractArray{Tx,N},
+                   β::Number, y::AbstractArray{Ty,N}, ::Stage{4}) where {Tx,Ty,N}
+    @dispatch_on_multiplier β unsafe_vcombine!(α, x, β, y)
+    return y
+end
+
+# Idem for `vcombine!(z, α,x,β,y)`:
 
 function vcombine!(z::AbstractArray,
                    α::Number, x::AbstractArray,
-                   β::Number, y::AbstractArray,
-                   ::Stage{0} = _Stage(0))
+                   β::Number, y::AbstractArray)
     @assert_same_axes x y z
     return vcombine!(z, α, x, β, y, _Stage(1))
 end
-
-# Stage 1: Dispatch on the value of `α`.
-
-function vcombine!(α::Number, x::AbstractArray{Tx,N},
-                   β::Number, y::AbstractArray{Ty,N},
-                   ::Stage{1}) where {Tx,Ty,N}
-    @dispatch_on_multiplier α eltype(x) vcombine!(α, x, β, y, _Stage(2))
-    return y
-end
-
 function vcombine!(z::AbstractArray{Tz,N},
                    α::Number, x::AbstractArray{Tx,N},
-                   β::Number, y::AbstractArray{Ty,N},
-                   ::Stage{1}) where {Tx,Ty,Tz,N}
-    @dispatch_on_multiplier α eltype(x) vcombine!(z, α, x, β, y, _Stage(2))
-    return z
+                   β::Number, y::AbstractArray{Ty,N}, ::Stage{1}) where {Tx,Ty,Tz,N}
+    α′ = convert_multiplier(α, eltype(x))
+    return vcombine!(z, α′, x, β, y, _Stage(2))
 end
-
-# Stage 2: Dispatch on the value of `β`.
-
-function vcombine!(α::Number, x::AbstractArray{Tx,N},
-                   β::Number, y::AbstractArray{Ty,N},
-                   ::Stage{2}) where {Tx,Ty,N}
-    @dispatch_on_multiplier β eltype(y) unsafe_vcombine!(α, x, β, y)
-    return y
-end
-
 function vcombine!(z::AbstractArray{Tz,N},
                    α::Number, x::AbstractArray{Tx,N},
-                   β::Number, y::AbstractArray{Ty,N},
-                   ::Stage{2}) where {Tx,Ty,Tz,N}
-    @dispatch_on_multiplier β eltype(y) unsafe_vcombine!(z, α, x, β, y)
+                   β::Number, y::AbstractArray{Ty,N}, ::Stage{2}) where {Tx,Ty,Tz,N}
+    @dispatch_on_multiplier α vcombine!(z, α, x, β, y, _Stage(3))
     return z
 end
-
-# Last stage: The unsafe one.
+function vcombine!(z::AbstractArray{Tz,N},
+                   α::Number, x::AbstractArray{Tx,N},
+                   β::Number, y::AbstractArray{Ty,N}, ::Stage{3}) where {Tx,Ty,Tz,N}
+    if α isa StaticMultiplier{0}
+        vscale!(z, β, y, _Stage(1))
+    else
+        β′ = convert_multiplier(β, eltype(y))
+        vcombine!(z, α, x, β′, y, _Stage(4))
+    end
+    return z
+end
+function vcombine!(z::AbstractArray{Tz,N},
+                   α::Number, x::AbstractArray{Tx,N},
+                   β::Number, y::AbstractArray{Ty,N}, ::Stage{4}) where {Tx,Ty,Tz,N}
+    @dispatch_on_multiplier β unsafe_vcombine!(z, α, x, β, y)
+    return z
+end
 
 """
     LazyAlgebra.unsafe_vcombine!(α, x, β, y) -> y

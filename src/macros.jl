@@ -51,11 +51,10 @@ function try_get_struct_name_from_definition(ex::Expr)
 end
 
 """
-     LazyAlgebra.@dispatch_on_multiplier var T expr
+     LazyAlgebra.@dispatch_on_multiplier var expr
 
 This macro expands to code dispatching expression `expr` depending on the value and type
-of the multiplier in variable named `var` and with `T` the type argument in
-[`convert_multiplier`](@ref LazyAlgebra.convert_multiplier).
+of the multiplier in variable named `var`.
 
 For example:
 
@@ -66,39 +65,33 @@ For example:
 expands to (with comments removed):
 
 ```julia
-if β isa StaticMultiplier
-    unsafe_vcombine!(α, x, β, y)
-elseif iszero(β)
+if !(β isa LazyAlgebra.StaticMultiplier) && iszero(β)
     unsafe_vcombine!(α, x, 𝟘*unit(β), y)
-elseif β == oneunit(β)
+elseif !(β isa LazyAlgebra.StaticMultiplier) && β == oneunit(β)
     unsafe_vcombine!(α, x, 𝟙*unit(β), y)
-elseif is_signed(β) && β == -(oneunit(β))
+elseif !(β isa LazyAlgebra.StaticMultiplier) && is_signed(β) && β == -oneunit(β)
     unsafe_vcombine!(α, x, -𝟙*unit(β), y)
 else
-    unsafe_vcombine!(α, x, LazyAlgebra.convert_multiplier(β, eltype(y)), y)
+    unsafe_vcombine!(α, x, β, y)
 end
 ```
 
 This can be checked thanks to `@macroexpand`:
 
 ```julia
-@macroexpand LazyAlgebra.@dispatch_on_multiplier β eltype(y) unsafe_vcombine!(α, x, β, y)
+@macroexpand LazyAlgebra.@dispatch_on_multiplier β unsafe_vcombine!(α, x, β, y)
 ```
 
 """
-macro dispatch_on_multiplier(var::Union{Symbol,QuoteNode},
-                             T::Union{Symbol,QuoteNode,Expr},
-                             expr::Expr)
-    esc(:(if $var isa StaticMultiplier
-              $expr
-          elseif iszero($var)
+macro dispatch_on_multiplier(var::Union{Symbol,QuoteNode}, expr::Expr)
+    esc(:(if !($var isa LazyAlgebra.StaticMultiplier) && iszero($var)
               $(substitute(expr, var => :(𝟘*unit($var))))
-          elseif $var == oneunit($var)
+          elseif !($var isa LazyAlgebra.StaticMultiplier) && $var == oneunit($var)
               $(substitute(expr, var => :(𝟙*unit($var))))
-          elseif is_signed($var) && $var == -oneunit($var)
+          elseif !($var isa LazyAlgebra.StaticMultiplier) && is_signed($var) && $var == -oneunit($var)
               $(substitute(expr, var => :(-𝟙*unit($var))))
           else
-              $(substitute(expr, var => :(LazyAlgebra.convert_multiplier($var, $T))))
+              $expr
           end))
 end
 

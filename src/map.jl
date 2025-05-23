@@ -48,38 +48,45 @@ to overwrite `y` with `α*f.(w, x) + β*y` and return `y`. An exception is throw
 
 See also [`LazyAlgebra.unsafe_vmap!`](@ref).
 
-""" vmap!
+"""
+vmap!(y::AbstractArray, α::Number, f::Function, w::AbstractArray, x::AbstractArray) =
+    vmap!(α, f, w, x, 𝟘, y)
 
-# Stage 0: Check axes.
-
-function vmap!(y::AbstractArray, α::Number, f::Function, w::AbstractArray, x::AbstractArray,
-               ::Stage{0} = _Stage(0))
-    # Check axes and directly jump to stage 2 to dispatch on α.
-    @assert_same_axes w x y
-    return vmap!(α, f, w, x, 𝟘, y, _Stage(2))
-end
-
+# Stages for `vmap!(α, f, w, x, β, y)`:
+#   0. Check axes.
+#   1. Convert `α`.
+#   2. Dispatch on `α`.
+#   3. If `α` is zero, call `vscale!(y,β)` and stop; otherwise, convert `β` and proceed
+#      with next stage.
+#   4. Dispatch on `β` to call the unsafe method.
 function vmap!(α::Number, f::Function, w::AbstractArray, x::AbstractArray,
-               β::Number, y::AbstractArray,
-               ::Stage{0} = _Stage(0))
-    # Check axes and jump to stage 1 to dispatch on β, before dispatching on α.
+               β::Number, y::AbstractArray)
     @assert_same_axes w x y
     return vmap!(α, f, w, x, β, y, _Stage(1))
 end
-
-# Stage 1: Dispatch on multiplier `β`.
-
 function vmap!(α::Number, f::Function, w::AbstractArray{Tw,N}, x::AbstractArray{Tx,N},
                β::Number, y::AbstractArray{Ty,N}, ::Stage{1}) where {Tw,Tx,Ty,N}
-    @dispatch_on_multiplier β eltype(y) vmap!(α, f, w, x, β, y, _Stage(2))
-    return y
+    α′ = convert_multiplier(α, Base.promote_op(f, eltype(w), eltype(x)))
+    return vmap!(α′, f, w, x, β, y, _Stage{2})
 end
-
-# Stage 2: Dispatch on multiplier `α`. FIXME Shall we skip computations if α = 0?
-
 function vmap!(α::Number, f::Function, w::AbstractArray{Tw,N}, x::AbstractArray{Tx,N},
                β::Number, y::AbstractArray{Ty,N}, ::Stage{2}) where {Tw,Tx,Ty,N}
-    @dispatch_on_multiplier α Base.promote_op(f, eltype(w), eltype(x)) unsafe_vmap!(α, f, w, x, β, y)
+    @dispatch_on_multiplier α vmap!(α, f, w, x, β, y, _Stage{3})
+    return y
+end
+function vmap!(α::Number, f::Function, w::AbstractArray{Tw,N}, x::AbstractArray{Tx,N},
+               β::Number, y::AbstractArray{Ty,N}, ::Stage{3}) where {Tw,Tx,Ty,N}
+    if α isa StaticMultiplier{0}
+        vscale!(y, β)
+    else
+        β′ = convert_inplace_multiplier(β, eltype(y))
+        vmap!(α, f, w, x, β′, y, _Stage(4))
+    end
+    return y
+end
+function vmap!(α::Number, f::Function, w::AbstractArray{Tw,N}, x::AbstractArray{Tx,N},
+               β::Number, y::AbstractArray{Ty,N}, ::Stage{4}) where {Tw,Tx,Ty,N}
+    @dispatch_on_multiplier β unsafe_vmap!(α, f, w, x, β, y)
     return y
 end
 
@@ -90,7 +97,7 @@ overwrite `y` with `y[i] = α*f(w[i], x[i]) + β*y[i])` and returns `y`.
 
 !!! warning
     This method assumes that `w`, `x`, and `y` have the same axes, and that multipliers
-    `α` and `β` have suitable types.
+    `α` and `β` have efficient types.
 
 """
 function unsafe_vmap!(α::Number, f::Function, w::AbstractArray{Tw,N}, x::AbstractArray{Tx,N},

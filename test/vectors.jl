@@ -1,5 +1,6 @@
 using LazyAlgebra
 using Test
+using Neutrals
 using LinearAlgebra
 
 @testset "Vectorized operations in `LazyAlgebra`" begin
@@ -95,7 +96,8 @@ using LinearAlgebra
         @test @inferred(vones(x)) == [1.0, 1.0, 1.0]
 
         # Test vscale and vscale!
-        @testset "`vscale` and `vscale!` with α=$α" for α in (-1, 0, 1, 2), β in (-1, 0, 1, 2)
+        @testset "`vscale` and `vscale!` with α=$α" for α in (0, 1, -1, 2 #=, 𝟘, 𝟙, -𝟙 =#)
+            @test @inferred(vscale(α, x)) == @inferred(vscale(x, α))
             @test @inferred(vscale(α, x)) ≈ α .* x
             @test @inferred(vscale(x, α)) ≈ x .* α
             @test @inferred(vscale!(z, α, x)) === z
@@ -108,7 +110,7 @@ using LinearAlgebra
         @test z ≈ x .* y
 
         # Test vupdate!
-        @testset "`vupdate!` with α=$α" for α in (-1, 0, 1, 2), β in (-1, 0, 1, 2)
+        @testset "`vupdate!` with α=$α" for α in (-1, 0, 1, 2)
             @test @inferred(vupdate!(vcopy!(z, y), α, x)) === z
             @test z ≈ y .+ α .* x
         end

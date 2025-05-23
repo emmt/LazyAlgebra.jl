@@ -101,66 +101,28 @@ end
 function unsafe_vmul!(α::Number, A::CroppingOperator{N}, x::AbstractArray{<:Any,N},
                       β::Number, y::AbstractArray{<:Any,N}) where {N}
     k = offset(A)
-    I = CartesianIndices(axes(y)) # also output_axes(A)
-    if isone(α)
-        if iszero(β)
-            @inbounds @fastmath @simd for i in I
-                y[i] = x[i + k]
-            end
-        elseif isone(β)
-            @inbounds @fastmath @simd for i in I
-                y[i] += x[i + k]
-            end
-        else
-            @inbounds @fastmath @simd for i in I
-                y[i] = x[i + k] + β*y[i]
-            end
-        end
-    else
-        if iszero(β)
-            @inbounds @fastmath @simd for i in I
-                y[i] = α*x[i + k]
-            end
-        elseif isone(β)
-            @inbounds @fastmath @simd for i in I
-                y[i] += α*x[i + k]
-            end
-        else
-            @inbounds @fastmath @simd for i in I
-                y[i] = α*x[i + k] + β*y[i]
-            end
-        end
+    I = CartesianIndices(axes(y)) # axes(y) = output_axes(A)
+    @inbounds @fastmath @simd for i in I
+        y[i] = α*x[i + k] + β*y[i]
     end
     return y
 end
 
 function unsafe_vmul!(α::Number, A::ZeroPaddingOperator{N}, x::AbstractArray{<:Any,N},
                       β::Number, y::AbstractArray{<:Any,N}) where {N}
-    # Call dispatch_vscale! to pre-fill y depending on the value of β.
-    dispatch_vscale!(y, β)
+    # Scale or zero-fill y depending on the value of β.
+    β == 𝟙 || vscale!(y, β) # FIXME check β is dimensionless
 
     # "Copy" x to inner region of y.
     k = offset(A)
-    J = CartesianIndices(axes(x)) # also input_axes(A')
-    if isone(α)
-        if iszero(β)
-            @inbounds @fastmath @simd for j in J
-                y[j + k] = x[j]
-            end
-        else
-            @inbounds @fastmath @simd for j in J
-                y[j + k] += x[j]
-            end
+    J = CartesianIndices(axes(x)) # axes(x) = input_axes(A')
+    if iszero(β)
+        @inbounds @fastmath @simd for j in J
+            y[j + k] = α*x[j]
         end
     else
-        if iszero(β)
-            @inbounds @fastmath @simd for j in J
-                y[j + k] = α*x[j]
-            end
-        else
-            @inbounds @fastmath @simd for j in J
-                y[j + k] += α*x[j]
-            end
+        @inbounds @fastmath @simd for j in J
+            y[j + k] += α*x[j]
         end
     end
     return y

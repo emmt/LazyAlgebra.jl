@@ -25,6 +25,35 @@ yield whether `x` is iterable, i.e. `iterate(x)` can be used to start iterating 
 isiterable(x) = isiterable(typeof(x))
 isiterable(::Type{T}) where {T} = hasmethod(Base.iterate, (T,))
 
+#------------------------------------------------------------------------- DIMENSIONLESS -
+
+"""
+    LazyAlgebra.dimensionless(x)
+
+yields the numerical value of `x` throwing an exception if `x` is dimensionful. If `x` is
+a real or complex number, `x` is returned; if `x` is a dimensionless quantity, it is
+converted to the equivalent real or complex number.
+
+Examples:
+
+```juliadoc
+julia> Using LazyAlgebra, Unitful.DefaultSymbols
+
+julia> LazyAlgebra.dimensionless(3.0)
+3.0
+
+julia> LazyAlgebra.dimensionless(8kg/g)
+8000
+
+```
+
+"""
+dimensionless(x::Real) = x
+dimensionless(x::Complex) = x
+dimensionless(x::AbstractQuantity{T,NoDims,U}) where {T,U} = uconvert(NoUnits, x)
+@noinline dimensionless(x::AbstractQuantity) =
+    throw(ArgumentError("expecting a dimensionless value, got dimensions `$(unit(x))`"))
+
 #----------------------------------------------------------------------------- PRECISION -
 
 """

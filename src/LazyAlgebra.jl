@@ -94,14 +94,18 @@ using TypeUtils: @public
 @public Identity
 @public check_input_axes
 @public check_output_axes
+@public convert_inplace_multiplier
+@public convert_multiplier
 @public default_cropping_offset
-@public input_eltype InputEltype InputEltypeUnknown HasInputEltype
+@public dimensionless
+@public inplace_multiplier
 @public input_axes input_ndims InputShape InputShapeUnknown HasInputShape
+@public input_eltype InputEltype InputEltypeUnknown HasInputEltype
+@public multiplier_type
 #@public LazyMap
 @public output_eltype OutputEltype OutputEltypeUnknown HasOutputEltype
 @public output_axes output_ndims OutputShape OutputShapeUnknown HasOutputShape
 @public Sum Prod
-@public convert_multiplier multiplier_type
 #@public create_output
 #@public default_cropping_offset
 #@public default_zeropadding_offset

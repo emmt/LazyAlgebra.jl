@@ -42,7 +42,6 @@ import .LazyAlgebra:
     InputShape,
     OutputShape,
     unsafe_vmul!,
-    dispatch_vmul!,
     vmul!,
     #identical,
     coefficients,
@@ -1841,77 +1840,44 @@ end
 #-----------------------------------------------------------------------------------------
 # Apply operators.
 
-# Directly extend the `dispatch_vmul!` method for sparse operators in compressed sparse
-# row format.
-function dispatch_vmul!(α::Number,
-                        A::AnyCSR{Ta,M,N},
-                        x::AbstractArray{Tx,N},
-                        β::Number,
-                        y::AbstractArray{Ty,M}) where {Ta,Tx,Ty,M,N}
-    # FIXME: check_argument(x, col_size(A))
-    # FIXME: check_argument(y, row_size(A))
-    if isone(α)
-        if iszero(β)
-            unsafe_vmul!(axpby_yields_x,     α, A, x, β, y)
-        elseif isone(β)
-            unsafe_vmul!(axpby_yields_xpy,   α, A, x, β, y)
-        else
-            unsafe_vmul!(axpby_yields_xpby,  α, A, x, β, y)
-        end
-    elseif !iszero(α)
-        if iszero(β)
-            unsafe_vmul!(axpby_yields_ax,    α, A, x, β, y)
-        elseif isone(β)
-            unsafe_vmul!(axpby_yields_axpy,  α, A, x, β, y)
-        else
-            unsafe_vmul!(axpby_yields_axpby, α, A, x, β, y)
-        end
-    else
-        dispatch_vscale!(y, β)
-    end
-    return y
-end
-
 # FIXME: Unify API so that the codes of the two following methods are
 #        identical (just the type of A change).
 
-function unsafe_vmul!(f::Function,
-                      α::Number,
+function unsafe_vmul!(α::Number,
                       A::CompressedSparseOperator{:CSR,Ta,M,N},
                       x::AbstractArray{Tx,N},
                       β::Number,
                       y::AbstractArray{Ty,M}) where {Ta,Tx,Ty,M,N}
-    T = sumprod_type(Ta, Tx)
+    Ts = sumprod_type(Ta, Tx)
     @inbounds for i in each_row(A)
-        s = zero(T)
+        s = zero(Ts)
         for k in each_nz(A, i)
             j = get_col(A, k)
             v = get_val(A, k)
             s += v*x[j]
         end
-        y[i] = f(α, s, β, y[i])
+        y[i] = α*s + β*y[i]
     end
-    nothing
+    return y
 end
 
-function unsafe_vmul!(f::Function,
-                      α::Number,
+function unsafe_vmul!(α::Number,
                       A′::Adjoint{<:CompressedSparseOperator{:CSC,Ta,M,N}},
                       x::AbstractArray{Tx,M},
                       β::Number,
                       y::AbstractArray{Ty,N}) where {Ta,Tx,Ty,M,N}
     A = parent(A′)
-    T = sumprod_type(Ta, Tx)
+    Ts = sumprod_type(Ta, Tx)
     @inbounds for j in each_col(A)
-        s = zero(T)
+        s = zero(Ts)
         for k in each_nz(A, j)
             i = get_row(A, k)
             v = get_val(A, k)
             s += conj(v)*x[i]
         end
-        y[j] = f(α, s, β, y[j])
+        y[j] = α*s + β*y[j]
     end
-    nothing
+    return y
 end
 
 function unsafe_vmul!(α::Number,
@@ -1924,28 +1890,14 @@ function unsafe_vmul!(α::Number,
     A = parent(A′)
     # FIXME check_argument(x, row_size(A))
     # FIXME check_argument(y, col_size(A))
-    isone(β) || dispatch_vscale!(y, β)
-    if isone(α)
-        T = real_type(α) # NOTE α has the precision of α*A[i,j]*x[i]
-        @inbounds for i in each_row(A)
-            q = with_precision(T, x[i])
-            if !iszero(q)
-                for k in each_nz(A, i)
-                    j = get_col(A, k)
-                    v = get_val(A, k)
-                    y[j] += q*conj(v)
-                end
-            end
-        end
-    else
-        @inbounds for i in each_row(A)
-            q = α*x[i]
-            if !iszero(q)
-                for k in each_nz(A, i)
-                    j = get_col(A, k)
-                    v = get_val(A, k)
-                    y[j] += q*conj(v)
-                end
+    isone(β) || vscale!(y, β) # FIXME unsafe_vscale! or which stage?
+    @inbounds for i in each_row(A)
+        q = α*x[i]
+        if !iszero(q)
+            for k in each_nz(A, i)
+                j = get_col(A, k)
+                v = get_val(A, k)
+                y[j] += q*conj(v)
             end
         end
     end
@@ -1964,28 +1916,14 @@ function unsafe_vmul!(α::Number,
     # suitable precision, and (iii) α is not zero.
     # FIXME check_argument(x, col_size(A))
     # FIXME check_argument(y, row_size(A))
-    isone(β) || dispatch_vscale!(y, β)
-    if isnone(α)
-        T = real_type(α) # NOTE α has the precision of α*A[i,j]*x[i]
-        @inbounds for j in each_col(A)
-            q = with_precision(T, x[j])
-            if !iszero(q)
-                for k in each_nz(A, j)
-                    i = get_row(A, k)
-                    v = get_val(A, k)
-                    y[i] += q*v
-                end
-            end
-        end
-    else
-        @inbounds for j in each_col(A)
-            q = α*x[j]
-            if !iszero(q)
-                for k in each_nz(A, j)
-                    i = get_row(A, k)
-                    v = get_val(A, k)
-                    y[i] += q*v
-                end
+    isone(β) || vscale!(y, β) # FIXME unsafe_vscale! or which stage?
+    @inbounds for j in each_col(A)
+        q = α*x[j]
+        if !iszero(q)
+            for k in each_nz(A, j)
+                i = get_row(A, k)
+                v = get_val(A, k)
+                y[i] += q*v
             end
         end
     end
@@ -2004,23 +1942,11 @@ function unsafe_vmul!(α::Number,
     # suitable precision, and (iii) α is not zero.
     # FIXME check_argument(x, col_size(A))
     # FIXME check_argument(y, row_size(A))
-    isone(β) || dispatch_vscale!(y, β)
+    isone(β) || vscale!(y, β) # FIXME unsafe_vscale! or which stage?
     V, I, J = get_vals(A), get_rows(A), get_cols(A)
-    if isone(α)
-        @inbounds for k in eachindex(V, I, J)
-            v, i, j = V[k], I[k], J[k]
-            y[i] += x[j]*v
-        end
-    elseif α == -one(α)
-        @inbounds for k in eachindex(V, I, J)
-            v, i, j = V[k], I[k], J[k]
-            y[i] -= x[j]*v
-        end
-    else
-        @inbounds for k in eachindex(V, I, J)
-            v, i, j = V[k], I[k], J[k]
-            y[i] += α*x[j]*v
-        end
+    @inbounds for k in eachindex(V, I, J)
+        v, i, j = V[k], I[k], J[k]
+        y[i] += α*x[j]*v
     end
     return y
 end
@@ -2034,24 +1960,12 @@ function unsafe_vmul!(α::Number,
     # to a suitable precision, and (iii) α is not zero.
     # FIXME: check_argument(x, row_size(A))
     # FIXME: check_argument(y, col_size(A))
-    isone(β) || dispatch_vscale!(y, β)
+    isone(β) || vscale!(y, β) # FIXME unsafe_vscale! or which stage?
     A = parent(A′) # FIXME use generic API
     V, I, J = get_vals(A), get_rows(A), get_cols(A)
-    if isone(α)
-        @inbounds for k in eachindex(V, I, J)
-            v, i, j = V[k], I[k], J[k]
-            y[j] += x[i]*conj(v)
-        end
-    elseif α == -one(α)
-        @inbounds for k in eachindex(V, I, J)
-            v, i, j = V[k], I[k], J[k]
-            y[j] -= x[i]*conj(v)
-        end
-    else
-        @inbounds for k in eachindex(V, I, J)
-            v, i, j = V[k], I[k], J[k]
-            y[j] += α*x[i]*conj(v)
-        end
+    @inbounds for k in eachindex(V, I, J)
+        v, i, j = V[k], I[k], J[k]
+        y[j] += α*x[i]*conj(v)
     end
     return y
 end
