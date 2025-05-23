@@ -22,6 +22,14 @@ This page describes the most important changes in `LazyAlgebra`. The format is b
 
 ## Unreleased
 
+This new major version of `LazyAlgebra` introduces a lot of improvements, simplifications,
+and changes.
+
+- Using neutral numbers (from the [`Neutrals.jl`](https://github.com/emmt/LazyAlgebra.jl)
+  package) for the multipliers considerably simplifies the code and reduces its size and
+  the number of alternatives to consider. For example, [`src/diff.jl`](src/diff.jl) is now
+  around 800 lines, compared to 1300 previously. This reduction is without sacrificing
+  performances and with a gain in generality as the methods accept dimensionful values.
 ### Removed
 
 - Non-linear mappings are no longer supported. As a result, the `Jacobian` type, the

@@ -1,49 +1,27 @@
 """
-
-Module `LazyAlgebra.FiniteDifferences` implement finite differences operators.
-
-"""
-module FiniteDifferences
-
-using TypeUtils
-
-using Base: @propagate_inbounds
-
-using ..LazyAlgebra
-import ..LazyAlgebra:
-    Diff,
-    Prod,
-    output_axes,
-    output_eltype,
-    unsafe_vmul!
-using ..LazyAlgebra:
-    Adjoint,
-    Gram
-
-"""
     A = Diff{L=1,D=Colon}()
 
 yields a linear mapping that computes a finite difference approximation of the `L`-order
 derivative along the dimension(s) specified by `D`. Parameter `D` is an `Int`, a tuple of
-`Int`s, or `Colon` for differentiating along respectively a single dimension, several
+`Int`s, or `Colon` for differentiating respectively along a single dimension, several
 dimensions, or all dimensions.
 
-Currently, only `L=1` or `L=2` are implemented. If `L` is unspecified, `A` will compute
-1st order finite differences.
+Currently, only 1st or 2nd order finite difference (`L=1` or `L=2`) are implemented. If
+`L` is unspecified, `A` will compute 1st order finite differences.
 
 If `D` is unspecified, `A` will compute finite differences along all dimensions.
 
-If `D` is a single `Int`, the result, say `y`, of applying the finite difference operator
-to an array, say `x`, has the same axes as `x`. Otherwise and even though `x` has a single
+If `D` is a single `Int`, the result `y = A*x` of applying the finite difference operator
+to an array `x` has the same axes as `x`. Otherwise and even though `x` has a single
 dimension or `D` is a 1-tuple, `y` has one more dimension than `x`, the last dimension of
-`y` is used to store the finite differences along each dimensions specified by `D` and the
-leading dimensions of `y` are the same as the dimensions of `x`.
+`y` storing the finite differences along each dimensions specified by `D` and the leading
+dimensions of `y` are the same as the dimensions of `x`.
 
 If multiple dimensions are specified, the result is as if the operator is applied
 separately on the specified dimension(s).
 
 More specifically, the operator created by `Diff` implements **forward finite
-differences** with **flat boundary conditions**, that is to say extrapolated entries are
+differences** with *flat boundary conditions*, that is to say extrapolated entries are
 assumed equal to the nearest entry.
 
 """
@@ -100,14 +78,6 @@ function output_axes(A::Union{Diff{L,D},Adjoint{<:Diff{L,D}}},
         return (axes_x..., Base.OneTo(nd))
     end
 end
-
-"""
-    limits(r) -> (first(r), last(r))
-
-yields the first and last value of the unit-range `r`.
-
-"""
-limits(r::AbstractUnitRange) = (first(r), last(r))
 
 # Apply the operation along all dimensions of interest but one dimension at a time and
 # knowing that α is not zero.
@@ -168,11 +138,11 @@ limits(r::AbstractUnitRange) = (first(r), last(r))
             # computed along a given dimension.
             args = (:(CartesianIndex(rngs[$(N+1)][$i])),)
         end
-        push!(code, :(unsafe_vmul!(α, B, x,
-                                   $(i == 1 || A <: Diff ? :β : :(one(β))), y,
-                                   rngs[1:$(d-1)],
-                                   rngs[$d],
-                                   rngs[$(d+1):$N], $(args...))))
+        push!(code, :(_Diff.unsafe_vmul!(α, B, x,
+                                         $(i == 1 || A <: Diff ? :β : :(one(β))), y,
+                                         rngs[1:$(d-1)],
+                                         rngs[$d],
+                                         rngs[$(d+1):$N], $(args...))))
     end
 
     return quote
@@ -181,6 +151,23 @@ limits(r::AbstractUnitRange) = (first(r), last(r))
         return y
     end
 end
+
+"""
+Private module for finite differences.
+"""
+module _Diff
+
+using TypeUtils
+using Base: @propagate_inbounds
+using ..LazyAlgebra: Adjoint, Diff, Gram
+
+"""
+    limits(r) -> (first(r), last(r))
+
+yields the first and last value of the unit-range `r`.
+
+"""
+limits(r::AbstractUnitRange) = (first(r), last(r))
 
 #------------------------------------------------------------------------------
 #
@@ -813,4 +800,4 @@ function unsafe_vmul!(α::Number,
     nothing
 end
 
-end # module
+end # module _Diff

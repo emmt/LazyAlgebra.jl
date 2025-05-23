@@ -6,9 +6,7 @@
 module TestingLazyAlgebraDiff
 
 using Test
-using MayOptimize
 using LazyAlgebra
-using LazyAlgebra.Foundations
 using LazyAlgebra.FiniteDifferences: limits, ArrayAxis, ArrayAxes,
     differentiation_order, dimensions_of_interest, optimization_level
 
