@@ -9,7 +9,7 @@ include("diag-tests.jl")
 include("pseudo-tests.jl")
 
 @testset "LazyAlgebra.jl" begin
-    include("vectors.jl")
+    include("vect-tests.jl")
     include("rules-tests.jl")
     LazyAlgebraIdentityTests.runtests()
     LazyAlgebraRank1Tests.runtests()

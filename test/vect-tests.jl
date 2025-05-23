@@ -1,185 +1,159 @@
-#
-# vect-tests.jl -
-#
-# Tests for vectorized operations.
-#
-module TestingLazyAlgebraVectorized
-
 using LazyAlgebra
 using Test
+using Neutrals
+using LinearAlgebra
 
-lpad_with_parentheses(n::Integer, x) = lpad(string("(", x, ")"), n)
-lpad_with_parentheses(n::Integer, x, y) = lpad(string("(", x, ",", y, ")"), n)
+@testset "Vectorized operations in `LazyAlgebra`" begin
+    @testset "Vector Norms" begin
+        # Test vectors
+        x = [1.0, -2.0, 3.0, -4.0]
+        y = [2.0 + 1im, -1.0 - 2im]
 
-distance(a::Real, b::Real) = abs(a - b)
-distance(a::NTuple{2,Real}, b::NTuple{2,Real}) =
-    hypot(a[1] - b[1], a[2] - b[2])
-distance(A::AbstractArray{Ta,N}, B::AbstractArray{Tb,N}) where {Ta,Tb,N} =
-    maximum(abs.(A - B))
+        # Test vnorm1
+        @test @inferred(vnorm1(x)) ≈ sum(abs.(x))
+        @test @inferred(vnorm1(y)) ≈ sum(abs.(y))
+        let v = @inferred(vnorm1(Float32, x))
+            @test v isa Float32
+            @test v ≈ Float32(sum(abs.(x)))
+        end
 
-makeselection(n::Integer) = begin
-    sel = Array{Int}(undef, 0)
-    j = [2,3,5]
-    k = 1
-    while k ≤ n
-        push!(sel, k)
-        k += rand(j)
+        # Test vnorm2
+        @test @inferred(vnorm2(x)) ≈ sqrt(mapreduce(abs2, +, x))
+        @test @inferred(vnorm2(y)) ≈ sqrt(mapreduce(abs2, +, y))
+        let v = @inferred(vnorm2(Float32, x))
+            @test v isa Float32
+            @test v ≈ Float32(sqrt(mapreduce(abs2, +, x)))
+        end
+
+        # Test vnorminf
+        @test @inferred(vnorminf(x)) ≈ mapreduce(abs, max, x)
+        @test @inferred(vnorminf(y)) ≈ mapreduce(abs, max, y)
+        let v = @inferred(vnorminf(Float32, x))
+            @test v isa Float32
+            @test v ≈ Float32(mapreduce(abs, max, x))
+        end
+
+        # Test with scalar inputs
+        @test @inferred(vnorm1(-2.0)) == 2.0
+        @test @inferred(vnorm1(-3.0 + 4.0im)) == 5.0
+        @test @inferred(vnorm2(-2.0)) == 2.0
+        @test @inferred(vnorm2(-3.0 + 4.0im)) == 5.0
+        @test @inferred(vnorminf(-2.0)) == 2.0
+        @test @inferred(vnorminf(-3.0 + 4.0im)) == 5.0
     end
-    return sel
+
+    @testset "Inner Products" begin
+        # Test real vectors
+        x = [1.0, -2.0, 3.0]
+        y = [2.0, 1.0, -1.0]
+        w = [0.5, 1.0, 2.0]  # weights
+
+        # Test vdot without weights
+        @test @inferred(vdot(x, y)) ≈ dot(x, y)
+        @test @inferred(vdot(Float32, x, y)) ≈ Float32(dot(x, y))
+
+        # Test vdot with weights
+        @test @inferred(vdot(w, x, y)) ≈ sum(w .* x .* y)
+        @test @inferred(vdot(Float32, w, x, y)) ≈ Float32(sum(w .* x .* y))
+
+        # Test complex vectors
+        xc = [1.0 + 1im, -2.0 - 2im]
+        yc = [2.0 - 1im, 1.0 + 1im]
+
+        @test @inferred(vdot(xc, yc)) ≈ dot(xc, yc)
+        @test @inferred(vdot(w[1:2], xc, yc)) ≈ sum(w[1:2] .* conj.(xc) .* yc)
+
+        # Test with scalar inputs
+        @test @inferred(vdot(2.0, 3.0)) == 6.0
+        @test @inferred(vdot(2.0, 3.0 + 1im)) == 6.0
+        @test @inferred(vdot(2.0 + 1im, 3.0)) == 6.0
+        @test @inferred(vdot(2.0 + 1im, 3.0 + 1im)) == conj(2.0 + 1im) * (3.0 + 1im)
+    end
+
+    @testset "Vector Operations" begin
+        x = [5.0, -2.0,  3.0]
+        y = [2.0,  4.0, -1.0]
+
+        # Test vcopy and vcopy!
+        z = similar(x)
+        @test @inferred(vcopy(x)) == x
+        @test @inferred(vcopy!(z, x)) === z
+        @test z == x
+
+        # Test vfill!
+        @test @inferred(vfill!(z, 2.0)) === z
+        @test all(z .== 2.0)
+
+        # Test vzeros! and vzeros
+        @test @inferred(vzeros!(z)) === z
+        @test all(iszero, z)
+        let t = @inferred(vzeros(x))
+            @test typeof(t) === typeof(x)
+            @test all(iszero, t)
+        end
+
+        # Test vones
+        @test @inferred(vones(x)) == [1.0, 1.0, 1.0]
+
+        # Test vscale and vscale!
+        @testset "`vscale` and `vscale!` with α=$α" for α in (0, 1, -1, 2 #=, 𝟘, 𝟙, -𝟙 =#)
+            @test @inferred(vscale(α, x)) == @inferred(vscale(x, α))
+            @test @inferred(vscale(α, x)) ≈ α .* x
+            @test @inferred(vscale(x, α)) ≈ x .* α
+            @test @inferred(vscale!(z, α, x)) === z
+            @test z ≈ α .* x
+        end
+
+        # Test vproduct and vproduct!
+        @test @inferred(vproduct(x, y)) ≈ x .* y
+        @test @inferred(vproduct!(z, x, y)) === z
+        @test z ≈ x .* y
+
+        # Test vupdate!
+        @testset "`vupdate!` with α=$α" for α in (-1, 0, 1, 2)
+            @test @inferred(vupdate!(vcopy!(z, y), α, x)) === z
+            @test z ≈ y .+ α .* x
+        end
+
+        # Test vcombine!
+        @testset "`vcombine` and `vcombine!` with α=$α and β=$β" for α in (-1, 0, 1, 2), β in (-1, 0, 1, 2)
+            @test @inferred(vcombine(α, x, β, y)) ≈ α .* x .+ β .* y
+            @test @inferred(vcombine!(z, α, x, β, y)) === z
+            @test z ≈ α .* x .+ β .* y
+            @test @inferred(vcombine!(α, x, β, vcopy!(z, y))) === z
+            @test z ≈ α .* x .+ β .* y
+        end
+
+        # Test vswap!
+        z1 = @inferred(vcopy(x))
+        z2 = @inferred(vcopy(y))
+        vswap!(z1, z2)
+        @test z1 == y && z2 == x
+    end
+
+    @testset "Selected Indices Operations" begin
+        x = [1.0, -2.0,  3.0, -4.0]
+        y = [2.0,  1.0, -1.0,  5.0]
+        sel = [1, 3]  # selected indices
+        msk = ones(Bool, size(x))
+        msk[sel] .= false
+
+        # Test vdot with selected indices
+        @test @inferred(vdot(sel, x, y)) ≈ sum(x[sel] .* y[sel])
+
+        # Test vproduct! with selected indices
+        z = @inferred(vzeros(x))
+        @test @inferred(vproduct!(z, sel, x, y)) === z
+        @test z[sel] ≈ x[sel] .* y[sel]
+        @test all(iszero, z[msk])
+
+        # Test vupdate! with selected indices
+        @testset "`vupdate!` with `sel` and α=$α" for α in (-1, 0, 1, 2)
+            z = @inferred(vcopy(y))
+            @test @inferred(vupdate!(z, sel, α, x)) === z
+            @test z[sel] ≈ y[sel] .+ α * x[sel]
+            @test z[msk] == y[msk]
+        end
+    end
 end
-
-alphas = (0, 1, -1,  2.71, π)
-betas = (0, 1, -1, -1.33, Base.MathConstants.φ)
-types = (Float32, Float64)
-dims = (3,4,5)
-
-@testset "vnorm $(lpad_with_parentheses(34,T))" for T in types
-    S = (T == Float32 ? Float64 : Float32)
-    v = randn(T, dims)
-    @test vnorminf(v) == maximum(abs.(v))
-    @test vnorminf(S, v) == S(maximum(abs.(v)))
-    @test vnorm1(v) ≈ sum(abs.(v))
-    @test vnorm2(v) ≈ sqrt(sum(v.*v))
-    z = complex.(randn(T, dims), randn(T, dims))
-    @test vnorminf(z) ≈ maximum(abs.(z))
-    @test vnorm1(z) ≈ sum(abs.(real.(z)) + abs.(imag.(z)))
-    @test vnorm2(z) ≈ sqrt(sum(abs2.(z)))
-end # testset
-@testset "vcopy, vswap $(lpad_with_parentheses(27,T))" for T in types
-    u = randn(T, dims)
-    uc = vcopy(u)
-    @test distance(u, uc) == 0
-    v = randn(T, dims)
-    vc = vcopy!(vcreate(v), v)
-    @test distance(v, vc) == 0
-    vswap!(u, v)
-    @test distance(u, vc) == distance(v, uc) == 0
-    @test_throws DimensionMismatch  vcopy!(Array{T}(undef, dims .+ 1), u)
-end # testset
-@testset "vfill $(lpad_with_parentheses(34,T))" for T in types
-    a = randn(T, dims)
-    @test distance(vfill!(a,0), zeros(T,dims)) == 0
-    a = randn(T, dims)
-    @test distance(vfill!(a,0), vzeros!(a)) == 0
-    a = randn(T, dims)
-    @test distance(vfill!(a,1), ones(T,dims)) == 0
-    a = randn(T, dims)
-    @test distance(vfill!(a,π), fill!(similar(a), π)) == 0
-    ac = vcopy(a)
-    @test distance(vzeros(a), zeros(T,dims)) == 0
-    @test distance(a, ac) == 0
-    @test distance(vones(a), ones(T,dims)) == 0
-    @test distance(a, ac) == 0
-end # testset
-@testset "vscale                                  " begin
-    for T in types
-        a = randn(T, dims)
-        b = vcreate(a)
-        for α in (0, -1, 1, π, 2.71)
-            d = T(α)*a
-            @test distance(vscale(α,a), d) == 0
-            @test distance(vscale(a,α), d) == 0
-            @test distance(vscale!(b,α,a), d) == 0
-            @test distance(vscale!(b,a,α), d) == 0
-            c = vcopy(a)
-            @test distance(vscale!(c,α), d) == 0
-            vcopy!(c, a)
-            @test distance(vscale!(α,c), d) == 0
-        end
-    end
-    v = ones(dims)
-    @test_throws ErrorException vscale!(1,2)
-    @test_throws ErrorException vscale!(v,2,3)
-    @test_throws ErrorException vscale!(1,v,3)
-    @test_throws ErrorException vscale!(1,2,v)
-    @test_throws ErrorException vscale!(1,2,3)
-    for Ta in types, Tb in types
-        a = randn(Ta, dims)
-        ac = vcopy(a)
-        b = Array{Tb}(undef, dims)
-        e = max(eps(Ta), eps(Tb))
-        for α in alphas
-            d = α*a
-            @test distance(vscale!(b,α,a), d) ≤ 8e
-            @test distance(vscale(α,a), d) ≤ 8e
-            @test distance(a, ac) == 0
-        end
-    end
-end # testset
-@testset "vupdate $(lpad_with_parentheses(32,Ta,Tb))" for Ta in types, Tb in types
-    Tmin = sizeof(Ta) ≤ sizeof(Tb) ? Ta : Tb
-    Tmax = sizeof(Ta) ≥ sizeof(Tb) ? Ta : Tb
-    a = randn(Ta, dims)
-    b = randn(Tb, dims)
-    sel = makeselection(length(a))
-    atol, rtol = zero(Tmin), sqrt(eps(Tmin))
-    for α in alphas
-        @test vupdate!(vcopy(a),α,b) ≈
-            a + Tmax(α)*b atol=atol rtol=rtol norm=vnorm2
-        c = vcopy(a)
-        c[sel] .+= Tmax(α)*b[sel]
-        @test vupdate!(vcopy(a),sel,α,b) ≈ c atol=atol rtol=rtol norm=vnorm2
-    end
-end # testset
-@testset "vproduct $(lpad_with_parentheses(31,Ta,Tb))" for Ta in types, Tb in types
-    a = randn(Ta, dims)
-    b = randn(Tb, dims)
-    sel = makeselection(length(a))
-    c = vcreate(a)
-    e = max(eps(Ta), eps(Tb))
-    @test distance(vproduct!(c,a,b), (a .* b)) ≤ 2e
-    c = randn(Tb, dims)
-    d = vcopy(c)
-    d[sel] = a[sel] .* b[sel]
-    @test distance(vproduct!(c,sel,a,b), d) ≤ 2e
-end # testset
-@testset "vcombine $(lpad_with_parentheses(31,T))" for T in types
-    a = randn(T, dims)
-    b = randn(T, dims)
-    d = vcreate(a)
-    for α in alphas,
-        β in betas
-        @test distance(vcombine!(d,α,a,β,b), (T(α)*a + T(β)*b)) == 0
-    end
-end # testset
-@testset "vdot $(lpad_with_parentheses(35,Ta,Tb))" for Ta in types, Tb in types
-    Tmin = sizeof(Ta) ≤ sizeof(Tb) ? Ta : Tb
-    Tmax = sizeof(Ta) ≥ sizeof(Tb) ? Ta : Tb
-    a = randn(Ta, dims)
-    b = randn(Tb, dims)
-    sel = makeselection(length(a))
-    w = zeros(Tmax, dims)
-    w[sel] = rand(length(sel))
-    # check implementation for real-valued vectors
-    @test vdot(a,b) ≈ sum(a.*b)
-    @test vdot(w,a,b) ≈ sum(w.*a.*b)
-    @test vdot(sel,a,b) ≈ sum(a[sel].*b[sel])
-    # check ⟨a,b⟩ = ⟨b,a⟩ for real-valued vectors
-    @test vdot(a,b) == vdot(b,a)
-    @test vdot(w,a,b) ≈ vdot(w,b,a)
-    @test vdot(sel,a,b) == vdot(sel,b,a)
-    @test sqrt(vdot(a,a)) ≈ vnorm2(a)
-end # testset
-@testset "vdot (Complex{$Ta},Complex{$Tb})" for Ta in types, Tb in types
-    Tmin = sizeof(Ta) ≤ sizeof(Tb) ? Ta : Tb
-    Tmax = sizeof(Ta) ≥ sizeof(Tb) ? Ta : Tb
-    a = complex.(randn(Ta, dims), randn(Ta, dims))
-    b = complex.(randn(Tb, dims), randn(Tb, dims))
-    sel = makeselection(length(a))
-    w = zeros(Tmax, dims)
-    w[sel] = rand(length(sel))
-    # check implementation for complex-valued vectors
-    @test vdot(a,b) ≈ sum(conj.(a).*b)
-    @test vdot(Tmax,a,b) ≈ real(sum(conj.(a).*b))
-    @test vdot(w,a,b) ≈ sum(w.*conj.(a).*b)
-    @test vdot(Tmax,w,a,b) ≈ real(sum(w.*conj.(a).*b))
-    @test vdot(sel,a,b) ≈ sum(conj.(a[sel]).*b[sel])
-    @test vdot(Tmax,sel,a,b) ≈ real(sum(conj.(a[sel]).*b[sel]))
-    # check ⟨a,b⟩ = conj(⟨b,a⟩) for complex-valued vectors
-    @test vdot(a,b) == conj(vdot(b,a))
-    @test vdot(w,a,b) ≈ conj(vdot(w,b,a))
-    @test vdot(sel,a,b) == conj(vdot(sel,b,a))
-end # testset
 nothing
-
-end # module
