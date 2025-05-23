@@ -215,25 +215,3 @@ is_rationalizable(::Type{T}) where {T<:Number} = real_type(T) <: Union{Integer, 
 
 divide(num::Number, den::Number) =
     is_rationalizable(num) && is_rationalizable(den) ? num//den : num/den
-
-# Inlined functions called to perform `α*x + β*y` for specific values of the
-# multipliers `α` and `β`.  Passing these (simple) functions to another method
-# is to simplify the coding of vectorized methods and of the the `vmul!`
-# method by operators.  NOTE: Forcing inlining may not be necessary but it does
-# not hurt.
-@inline axpby_yields_zero( α, x, β, y) = zero(typeof(y)) # α = 0, β = 0
-@inline axpby_yields_y(    α, x, β, y) = y               # α = 0, β = 1
-@inline axpby_yields_my(   α, x, β, y) = -y              # α = 0, β = -1
-@inline axpby_yields_by(   α, x, β, y) = β*y             # α = 0, any β
-@inline axpby_yields_x(    α, x, β, y) = x               # α = 1, β = 0
-@inline axpby_yields_xpy(  α, x, β, y) = x + y           # α = 1, β = 1
-@inline axpby_yields_xmy(  α, x, β, y) = x - y           # α = 1, β = -1
-@inline axpby_yields_xpby( α, x, β, y) = x + β*y         # α = 1, any β
-@inline axpby_yields_mx(   α, x, β, y) = -x              # α = -1, β = 0
-@inline axpby_yields_ymx(  α, x, β, y) = y - x           # α = -1, β = 1
-@inline axpby_yields_mxmy( α, x, β, y) = -x - y          # α = -1, β = -1
-@inline axpby_yields_bymx( α, x, β, y) = β*y - x         # α = -1, any β
-@inline axpby_yields_ax(   α, x, β, y) = α*x             # any α, β = 0
-@inline axpby_yields_axpy( α, x, β, y) = α*x + y         # any α, β = 1
-@inline axpby_yields_axmy( α, x, β, y) = α*x - y         # any α, β = -1
-@inline axpby_yields_axpby(α, x, β, y) = α*x + β*y       # any α, any β

@@ -18,13 +18,7 @@ import ..LazyAlgebra:
     unsafe_vmul!
 using ..LazyAlgebra:
     Adjoint,
-    Gram,
-    axpby_yields_x,
-    axpby_yields_xpy,
-    axpby_yields_xpby,
-    axpby_yields_ax,
-    axpby_yields_axpy,
-    axpby_yields_axpby
+    Gram
 
 """
     A = Diff{L=1,D=Colon}()
@@ -71,6 +65,7 @@ Prod(A::Adjoint{Diff{L,D}}, B::Diff{L,D}) where {L,D} = Gram(B)
 # Output element type for any variant of the finite difference operator.
 function output_eltype(::Type{<:Union{D,Adjoint{D},Gram{D}}},
                        ::Type{x}) where {D<:Diff,x<:AbstractArray}
+    # FIXME: At least a signed type should be returned.
     return float(eltype(x))
 end
 
@@ -130,8 +125,8 @@ limits(r::AbstractUnitRange) = (first(r), last(r))
     # Start with empty vector of statements.
     code = Expr[]
 
-    # Make sure x[...] delivers a floating-point (FIXME: at least a signed) value.
-    T = float(Tx)
+    # Make sure x[...] delivers a value of the correct type.
+    T = output_eltype(A, x)
     T === Tx || push!(code, :(x = as_eltype($T, x)))
 
     # Discard type parameter specifying the dimensions of interest to avoid specialization
@@ -187,38 +182,6 @@ limits(r::AbstractUnitRange) = (first(r), last(r))
     end
 end
 
-# Dispatch on multipliers values (α is not zero).
-function unsafe_vmul!(α::Number,
-                      A::Union{Diff{L,:any},
-                               Adjoint{<:Diff{L,:any}},
-                               Gram{<:Diff{L,:any}}},
-                      x::AbstractArray,
-                      β::Number,
-                      y::AbstractArray,
-                      I::ArrayAxes,
-                      J::eltype(ArrayAxes),
-                      K::ArrayAxes,
-                      args...) where {L}
-    if α == 1
-        if β == 0
-            unsafe_vmul!(axpby_yields_x,     α, A, x, β, y, I, J, K, args...)
-        elseif β == 1
-            unsafe_vmul!(axpby_yields_xpy,   α, A, x, β, y, I, J, K, args...)
-        else
-            unsafe_vmul!(axpby_yields_xpby,  α, A, x, β, y, I, J, K, args...)
-        end
-    else
-        if β == 0
-            unsafe_vmul!(axpby_yields_ax,    α, A, x, β, y, I, J, K, args...)
-        elseif β == 1
-            unsafe_vmul!(axpby_yields_axpy,  α, A, x, β, y, I, J, K, args...)
-        else
-            unsafe_vmul!(axpby_yields_axpby, α, A, x, β, y, I, J, K, args...)
-        end
-    end
-    nothing
-end
-
 #------------------------------------------------------------------------------
 #
 # The operator D implementing 1st order forward finite difference with flat boundary
@@ -238,8 +201,7 @@ end
 # for multi-dimensional arrays when derivatives along each dimension are stored into a
 # single array.
 #
-function unsafe_vmul!(f::Function,
-                      α::Number,
+function unsafe_vmul!(α::Number,
                       A::Diff{1,:any},
                       x::AbstractArray,
                       β::Number,
@@ -258,10 +220,10 @@ function unsafe_vmul!(f::Function,
             @inbounds @fastmath for k in CartesianIndices(K)
                 @simd for j in jmin:jmax-1
                     z = x[j+1,k] - x[j,k]
-                    y[j,k,l] = f(α, z, β, y[j,k,l])
+                    y[j,k,l] = α*z + β*y[j,k,l]
                 end
                 let j = jmax, z = zero(real(eltype(x)))
-                    y[j,k,l] = f(α, z, β, y[j,k,l])
+                    y[j,k,l] = α*z + β*y[j,k,l]
                 end
             end
         else # apply along 2nd and subsequent dimensions
@@ -269,12 +231,12 @@ function unsafe_vmul!(f::Function,
                 for j in jmin:jmax-1
                     @simd for i in CartesianIndices(I)
                         z = x[i,j+1,k] - x[i,j,k]
-                        y[i,j,k,l] = f(α, z, β, y[i,j,k,l])
+                        y[i,j,k,l] = α*z + β*y[i,j,k,l]
                     end
                 end
                 let j = jmax, z = zero(real(eltype(x)))
                     @simd for i in CartesianIndices(I)
-                        y[i,j,k,l] = f(α, z, β, y[i,j,k,l])
+                        y[i,j,k,l] = α*z + β*y[i,j,k,l]
                     end
                 end
             end
@@ -283,8 +245,7 @@ function unsafe_vmul!(f::Function,
     nothing
 end
 
-function unsafe_vmul!(f::Function,
-                      α::Number,
+function unsafe_vmul!(α::Number,
                       A::Adjoint{<:Diff{1,:any}},
                       x::AbstractArray,
                       β::Number,
@@ -299,15 +260,15 @@ function unsafe_vmul!(f::Function,
             @inbounds @fastmath for k in CartesianIndices(K)
                 let j = jmin
                     z = -x[j,k,l]
-                    y[j,k] = f(α, z, β, y[j,k])
+                    y[j,k] = α*z + β*y[j,k]
                 end
                 @simd for j in jmin+1:jmax-1
                     z = x[j-1,k,l] - x[j,k,l]
-                    y[j,k] = f(α, z, β, y[j,k])
+                    y[j,k] = α*z + β*y[j,k]
                 end
                 let j = jmax
                     z = x[j-1,k,l]
-                    y[j,k] = f(α, z, β, y[j,k])
+                    y[j,k] = α*z + β*y[j,k]
                 end
             end
         else # apply along 2nd and subsequent dimensions
@@ -315,19 +276,19 @@ function unsafe_vmul!(f::Function,
                 let j = jmin
                     @simd for i in CartesianIndices(I)
                         z = -x[i,j,k,l]
-                        y[i,j,k] = f(α, z, β, y[i,j,k])
+                        y[i,j,k] = α*z + β*y[i,j,k]
                     end
                 end
                 for j in jmin+1:jmax-1
                     @simd for i in CartesianIndices(I)
                         z = x[i,j-1,k,l] - x[i,j,k,l]
-                        y[i,j,k] = f(α, z, β, y[i,j,k])
+                        y[i,j,k] = α*z + β*y[i,j,k]
                     end
                 end
                 let j = jmax
                     @simd for i in CartesianIndices(I)
                         z = x[i,j-1,k,l]
-                        y[i,j,k] = f(α, z, β, y[i,j,k])
+                        y[i,j,k] = α*z + β*y[i,j,k]
                     end
                 end
             end
@@ -336,12 +297,12 @@ function unsafe_vmul!(f::Function,
         let j = jmin, z = zero(real(eltype(x)))
             if I isa Tuple{} # apply along 1st dimension
                 @inbounds @fastmath @simd for k in CartesianIndices(K)
-                    y[j,k] = f(α, z, β, y[j,k])
+                    y[j,k] = α*z + β*y[j,k]
                 end
             else # apply along 2nd and subsequent dimensions
                 @inbounds @fastmath for k in CartesianIndices(K)
                     @simd for i in CartesianIndices(I)
-                        y[i,j,k] = f(α, z, β, y[i,j,k])
+                        y[i,j,k] = α*z + β*y[i,j,k]
                     end
                 end
             end
@@ -359,8 +320,7 @@ end
 #               0   0  -1   2  -1
 #               0   0   0  -1   1 ]
 #
-function unsafe_vmul!(f::Function,
-                      α::Number,
+function unsafe_vmul!(α::Number,
                       A::Gram{<:Diff{1,:any}},
                       x::AbstractArray,
                       β::Number,
@@ -376,33 +336,33 @@ function unsafe_vmul!(f::Function,
             if I isa Tuple{} # apply D'*D along 1st dimension
                 let j = jmin
                     z = x[j,k] - x[j+1,k]
-                    y[j,k] = f(α, z, β, y[j,k])
+                    y[j,k] = α*z + β*y[j,k]
                 end
                 @simd for j in jmin+1:jmax-1
                     z = two*x[j,k] - (x[j-1,k] + x[j+1,k])
-                    y[j,k] = f(α, z, β, y[j,k])
+                    y[j,k] = α*z + β*y[j,k]
                 end
                 let j = jmax
                     z = x[j,k] - x[j-1,k]
-                    y[j,k] = f(α, z, β, y[j,k])
+                    y[j,k] = α*z + β*y[j,k]
                 end
             else # apply D'*D along 2nd and subsequent dimensions
                 let j = jmin
                     @simd for i in CartesianIndices(I)
                         z = x[i,j,k] - x[i,j+1,k]
-                        y[i,j,k] = f(α, z, β, y[i,j,k])
+                        y[i,j,k] = α*z + β*y[i,j,k]
                     end
                 end
                 for j in jmin+1:jmax-1
                     @simd for i in CartesianIndices(I)
                         z = two*x[i,j,k] - (x[i,j-1,k] + x[i,j+1,k])
-                        y[i,j,k] = f(α, z, β, y[i,j,k])
+                        y[i,j,k] = α*z + β*y[i,j,k]
                     end
                 end
                 let j = jmax
                     @simd for i in CartesianIndices(I)
                         z = x[i,j,k] - x[i,j-1,k]
-                        y[i,j,k] = f(α, z, β, y[i,j,k])
+                        y[i,j,k] = α*z + β*y[i,j,k]
                     end
                 end
             end
@@ -411,12 +371,12 @@ function unsafe_vmul!(f::Function,
         let j = jmin, z = zero(real(eltype(x)))
             if I isa Tuple{}
                 @inbounds @fastmath @simd for k in CartesianIndices(K)
-                    y[j,k] = f(α, z, β, y[j,k])
+                    y[j,k] = α*z + β*y[j,k]
                 end
             else
                 @inbounds @fastmath for k in CartesianIndices(K)
                     @simd for i in CartesianIndices(I)
-                        y[i,j,k] = f(α, z, β, y[i,j,k])
+                        y[i,j,k] = α*z + β*y[i,j,k]
                     end
                 end
             end
@@ -445,8 +405,7 @@ end
 #
 # Apply 2nd order finite differences.
 #
-function unsafe_vmul!(f::Function,
-                      α::Number,
+function unsafe_vmul!(α::Number,
                       A::Diff{2,:any},
                       x::AbstractArray,
                       β::Number,
@@ -463,33 +422,33 @@ function unsafe_vmul!(f::Function,
             if I isa Tuple{} # apply along 1st dimension
                 let j = jmin
                     z = x[j+1,k] - x[j,k]
-                    y[j,k,l] = f(α, z, β, y[j,k,l])
+                    y[j,k,l] = α*z + β*y[j,k,l]
                 end
                 @simd for j in jmin+1:jmax-1
                     z = x[j-1,k] + x[j+1,k] - two*x[j,k]
-                    y[j,k,l] = f(α, z, β, y[j,k,l])
+                    y[j,k,l] = α*z + β*y[j,k,l]
                 end
                 let j = jmax
                     z = x[j-1,k] - x[j,k]
-                    y[j,k,l] = f(α, z, β, y[j,k,l])
+                    y[j,k,l] = α*z + β*y[j,k,l]
                 end
             else # apply along 2nd and subsequent dimensions
                 let j = jmin
                     @simd for i in CartesianIndices(I)
                         z = x[i,j+1,k] - x[i,j,k]
-                        y[i,j,k,l] = f(α, z, β, y[i,j,k,l])
+                        y[i,j,k,l] = α*z + β*y[i,j,k,l]
                     end
                 end
                 for j in jmin+1:jmax-1
                     @simd for i in CartesianIndices(I)
                         z = x[i,j-1,k] + x[i,j+1,k] - two*x[i,j,k]
-                        y[i,j,k,l] = f(α, z, β, y[i,j,k,l])
+                        y[i,j,k,l] = α*z + β*y[i,j,k,l]
                     end
                 end
                 let j = jmax
                     @simd for i in CartesianIndices(I)
                         z = x[i,j-1,k] - x[i,j,k]
-                        y[i,j,k,l] = f(α, z, β, y[i,j,k,l])
+                        y[i,j,k,l] = α*z + β*y[i,j,k,l]
                     end
                 end
             end
@@ -498,12 +457,12 @@ function unsafe_vmul!(f::Function,
         let j = jmin, z = zero(real(eltype(x)))
             if I isa Tuple{} # apply along 1st dimension
                 @inbounds @fastmath @simd for k in CartesianIndices(K)
-                    y[j,k,l] = f(α, z, β, y[j,k,l])
+                    y[j,k,l] = α*z + β*y[j,k,l]
                 end
             else # apply along 2nd and subsequent dimensions
                 @inbounds @fastmath for k in CartesianIndices(K)
                     @simd for i in CartesianIndices(I)
-                        y[i,j,k,l] = f(α, z, β, y[i,j,k,l])
+                        y[i,j,k,l] = α*z + β*y[i,j,k,l]
                     end
                 end
             end
@@ -514,8 +473,7 @@ end
 #
 # Apply adjoint of 2nd order finite differences.
 #
-function unsafe_vmul!(f::Function,
-                      α::Number,
+function unsafe_vmul!(α::Number,
                       A::Adjoint{<:Diff{2,:any}},
                       x::AbstractArray,
                       β::Number,
@@ -532,33 +490,33 @@ function unsafe_vmul!(f::Function,
             if I isa Tuple{} # apply along 1st dimension
                 let j = jmin
                     z = x[j+1,k,l] - x[j,k,l]
-                    y[j,k] = f(α, z, β, y[j,k])
+                    y[j,k] = α*z + β*y[j,k]
                 end
                 @simd for j in jmin+1:jmax-1
                     z = x[j-1,k,l] + x[j+1,k,l] - two*x[j,k,l]
-                    y[j,k] = f(α, z, β, y[j,k])
+                    y[j,k] = α*z + β*y[j,k]
                 end
                 let j = jmax
                     z = x[j-1,k,l] - x[j,k,l]
-                    y[j,k] = f(α, z, β, y[j,k])
+                    y[j,k] = α*z + β*y[j,k]
                 end
             else # apply along 2nd and subsequent dimensions
                 let j = jmin
                     @simd for i in CartesianIndices(I)
                         z = x[i,j+1,k,l] - x[i,j,k,l]
-                        y[i,j,k] = f(α, z, β, y[i,j,k])
+                        y[i,j,k] = α*z + β*y[i,j,k]
                     end
                 end
                 for j in jmin+1:jmax-1
                     @simd for i in CartesianIndices(I)
                         z = x[i,j-1,k,l] + x[i,j+1,k,l] - two*x[i,j,k,l]
-                        y[i,j,k] = f(α, z, β, y[i,j,k])
+                        y[i,j,k] = α*z + β*y[i,j,k]
                     end
                 end
                 let j = jmax
                     @simd for i in CartesianIndices(I)
                         z = x[i,j-1,k,l] - x[i,j,k,l]
-                        y[i,j,k] = f(α, z, β, y[i,j,k])
+                        y[i,j,k] = α*z + β*y[i,j,k]
                     end
                 end
             end
@@ -567,12 +525,12 @@ function unsafe_vmul!(f::Function,
         let j = jmin, z = zero(real(eltype(x)))
             if I isa Tuple{} # apply along 1st dimension
                 @simd for k in CartesianIndices(K)
-                    y[j,k] = f(α, z, β, y[j,k])
+                    y[j,k] = α*z + β*y[j,k]
                 end
             else # apply along 2nd and subsequent dimensions
                 @inbounds @fastmath for k in CartesianIndices(K)
                     @simd for i in CartesianIndices(I)
-                        y[i,j,k] = f(α, z, β, y[i,j,k])
+                        y[i,j,k] = α*z + β*y[i,j,k]
                     end
                 end
             end
@@ -673,15 +631,14 @@ end
 #
 # Apply Gram composition of 2nd order finite differences.
 #
-function unsafe_vmul!(f::Function,
-                       α::Number,
-                       A::Gram{Diff{2,:any}},
-                       x::AbstractArray,
-                       β::Number,
-                       y::AbstractArray,
-                       I::ArrayAxes,
-                       J::eltype(ArrayAxes),
-                       K::ArrayAxes)
+function unsafe_vmul!(α::Number,
+                      A::Gram{Diff{2,:any}},
+                      x::AbstractArray,
+                      β::Number,
+                      y::AbstractArray,
+                      I::ArrayAxes,
+                      J::eltype(ArrayAxes),
+                      K::ArrayAxes)
     jmin, jmax = limits(J)
     len = length(J)
     if len ≥ 5
@@ -689,19 +646,19 @@ function unsafe_vmul!(f::Function,
             let i = CartesianIndex()
                 @inbounds @fastmath for k in CartesianIndices(K)
                     let j = jmin
-                        y[i,j,k] = f(α, D2tD2_1(x,i,j,k), β, y[i,j,k])
+                        y[i,j,k] = α*D2tD2_1(x,i,j,k) + β*y[i,j,k]
                     end
                     let j = jmin+1
-                        y[i,j,k] = f(α, D2tD2_2(x,i,j,k), β, y[i,j,k])
+                        y[i,j,k] = α*D2tD2_2(x,i,j,k) + β*y[i,j,k]
                     end
                     @simd for j in jmin+2:jmax-2
-                        y[i,j,k] = f(α, D2tD2_3(x,i,j,k), β, y[i,j,k])
+                        y[i,j,k] = α*D2tD2_3(x,i,j,k) + β*y[i,j,k]
                     end
                     let j = jmax-1
-                        y[i,j,k] = f(α, D2tD2_4(x,i,j,k), β, y[i,j,k])
+                        y[i,j,k] = α*D2tD2_4(x,i,j,k) + β*y[i,j,k]
                     end
                     let j = jmax
-                        y[i,j,k] = f(α, D2tD2_5(x,i,j,k), β, y[i,j,k])
+                        y[i,j,k] = α*D2tD2_5(x,i,j,k) + β*y[i,j,k]
                     end
                 end
             end
@@ -709,27 +666,27 @@ function unsafe_vmul!(f::Function,
             @inbounds @fastmath for k in CartesianIndices(K)
                 let j = jmin
                     @simd for i in CartesianIndices(I)
-                        y[i,j,k] = f(α, D2tD2_1(x,i,j,k), β, y[i,j,k])
+                        y[i,j,k] = α*D2tD2_1(x,i,j,k) + β*y[i,j,k]
                     end
                 end
                 let j = jmin+1
                     @simd for i in CartesianIndices(I)
-                        y[i,j,k] = f(α, D2tD2_2(x,i,j,k), β, y[i,j,k])
+                        y[i,j,k] = α*D2tD2_2(x,i,j,k) + β*y[i,j,k]
                     end
                 end
                 for j in jmin+2:jmax-2
                     @simd for i in CartesianIndices(I)
-                        y[i,j,k] = f(α, D2tD2_3(x,i,j,k), β, y[i,j,k])
+                        y[i,j,k] = α*D2tD2_3(x,i,j,k) + β*y[i,j,k]
                     end
                 end
                 let j = jmax-1
                     @simd for i in CartesianIndices(I)
-                        y[i,j,k] = f(α, D2tD2_4(x,i,j,k), β, y[i,j,k])
+                        y[i,j,k] = α*D2tD2_4(x,i,j,k) + β*y[i,j,k]
                     end
                 end
                 let j = jmax
                     @simd for i in CartesianIndices(I)
-                        y[i,j,k] = f(α, D2tD2_5(x,i,j,k), β, y[i,j,k])
+                        y[i,j,k] = α*D2tD2_5(x,i,j,k) + β*y[i,j,k]
                     end
                 end
             end
@@ -739,16 +696,16 @@ function unsafe_vmul!(f::Function,
             let i = CartesianIndex()
                 @inbounds @fastmath @simd for k in CartesianIndices(K)
                     let j = jmin
-                        y[i,j,k] = f(α, D2tD2_1(x,i,j,k), β, y[i,j,k])
+                        y[i,j,k] = α*D2tD2_1(x,i,j,k) + β*y[i,j,k]
                     end
                     let j = jmin+1
-                        y[i,j,k] = f(α, D2tD2_2(x,i,j,k), β, y[i,j,k])
+                        y[i,j,k] = α*D2tD2_2(x,i,j,k) + β*y[i,j,k]
                     end
                     let j = jmax-1
-                        y[i,j,k] = f(α, D2tD2_4(x,i,j,k), β, y[i,j,k])
+                        y[i,j,k] = α*D2tD2_4(x,i,j,k) + β*y[i,j,k]
                     end
                     let j = jmax
-                        y[i,j,k] = f(α, D2tD2_5(x,i,j,k), β, y[i,j,k])
+                        y[i,j,k] = α*D2tD2_5(x,i,j,k) + β*y[i,j,k]
                     end
                 end
             end
@@ -756,22 +713,22 @@ function unsafe_vmul!(f::Function,
             @inbounds @fastmath for k in CartesianIndices(K)
                 let j = jmin
                     @simd for i in CartesianIndices(I)
-                        y[i,j,k] = f(α, D2tD2_1(x,i,j,k), β, y[i,j,k])
+                        y[i,j,k] = α*D2tD2_1(x,i,j,k) + β*y[i,j,k]
                     end
                 end
                 let j = jmin+1
                     @simd for i in CartesianIndices(I)
-                        y[i,j,k] = f(α, D2tD2_2(x,i,j,k), β, y[i,j,k])
+                        y[i,j,k] = α*D2tD2_2(x,i,j,k) + β*y[i,j,k]
                     end
                 end
                 let j = jmax-1
                     @simd for i in CartesianIndices(I)
-                        y[i,j,k] = f(α, D2tD2_4(x,i,j,k), β, y[i,j,k])
+                        y[i,j,k] = α*D2tD2_4(x,i,j,k) + β*y[i,j,k]
                     end
                 end
                 let j = jmax
                     @simd for i in CartesianIndices(I)
-                        y[i,j,k] = f(α, D2tD2_5(x,i,j,k), β, y[i,j,k])
+                        y[i,j,k] = α*D2tD2_5(x,i,j,k) + β*y[i,j,k]
                     end
                 end
             end
@@ -781,13 +738,13 @@ function unsafe_vmul!(f::Function,
             let i = CartesianIndex()
                 @simd for k in CartesianIndices(K)
                     let j = jmin
-                        y[i,j,k] = f(α, D2tD2_1(x,i,j,k), β, y[i,j,k])
+                        y[i,j,k] = α*D2tD2_1(x,i,j,k) + β*y[i,j,k]
                     end
                     let j = jmin+1
-                        y[i,j,k] = f(α, D2tD2_6(x,i,j,k), β, y[i,j,k])
+                        y[i,j,k] = α*D2tD2_6(x,i,j,k) + β*y[i,j,k]
                     end
                     let j = jmax
-                        y[i,j,k] = f(α, D2tD2_5(x,i,j,k), β, y[i,j,k])
+                        y[i,j,k] = α*D2tD2_5(x,i,j,k) + β*y[i,j,k]
                     end
                 end
             end
@@ -795,17 +752,17 @@ function unsafe_vmul!(f::Function,
             @inbounds @fastmath for k in CartesianIndices(K)
                 let j = jmin
                     @simd for i in CartesianIndices(I)
-                        y[i,j,k] = f(α, D2tD2_1(x,i,j,k), β, y[i,j,k])
+                        y[i,j,k] = α*D2tD2_1(x,i,j,k) + β*y[i,j,k]
                     end
                 end
                 let j = jmin+1
                     @simd for i in CartesianIndices(I)
-                        y[i,j,k] = f(α, D2tD2_6(x,i,j,k), β, y[i,j,k])
+                        y[i,j,k] = α*D2tD2_6(x,i,j,k) + β*y[i,j,k]
                     end
                 end
                 let j = jmax
                     @simd for i in CartesianIndices(I)
-                        y[i,j,k] = f(α, D2tD2_5(x,i,j,k), β, y[i,j,k])
+                        y[i,j,k] = α*D2tD2_5(x,i,j,k) + β*y[i,j,k]
                     end
                 end
             end
@@ -815,10 +772,10 @@ function unsafe_vmul!(f::Function,
             let i = CartesianIndex()
                 @inbounds @fastmath @simd for k in CartesianIndices(K)
                     let j = jmin
-                        y[i,j,k] = f(α, D2tD2_7(x,i,j,k), β, y[i,j,k])
+                        y[i,j,k] = α*D2tD2_7(x,i,j,k) + β*y[i,j,k]
                     end
                     let j = jmax
-                        y[i,j,k] = f(α, D2tD2_8(x,i,j,k), β, y[i,j,k])
+                        y[i,j,k] = α*D2tD2_8(x,i,j,k) + β*y[i,j,k]
                     end
                 end
             end
@@ -826,12 +783,12 @@ function unsafe_vmul!(f::Function,
             @inbounds @fastmath for k in CartesianIndices(K)
                 let j = jmin
                     @simd for i in CartesianIndices(I)
-                        y[i,j,k] = f(α, D2tD2_7(x,i,j,k), β, y[i,j,k])
+                        y[i,j,k] = α*D2tD2_7(x,i,j,k) + β*y[i,j,k]
                     end
                 end
                 let j = jmax
                     @simd for i in CartesianIndices(I)
-                        y[i,j,k] = f(α, D2tD2_8(x,i,j,k), β, y[i,j,k])
+                        y[i,j,k] = α*D2tD2_8(x,i,j,k) + β*y[i,j,k]
                     end
                 end
             end
@@ -840,14 +797,14 @@ function unsafe_vmul!(f::Function,
         if I isa Tuple{} # apply along 1st dimension
             let i = CartesianIndex(), j = jmin, z = zero(real(eltype(x)))
                 @inbounds @fastmath @simd for k in CartesianIndices(K)
-                    y[i,j,k] = f(α, z, β, y[i,j,k])
+                    y[i,j,k] = α*z + β*y[i,j,k]
                 end
             end
         else # apply along 2nd and subsequent dimensions
             let j = jmin, z = zero(real(eltype(x)))
                 @inbounds @fastmath for k in CartesianIndices(K)
                     @simd for i in CartesianIndices(I)
-                        y[i,j,k] = f(α, z, β, y[i,j,k])
+                        y[i,j,k] = α*z + β*y[i,j,k]
                     end
                 end
             end
