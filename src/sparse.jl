@@ -89,7 +89,7 @@ to_values(::Type{T}, vals::AbstractVector) where {T} = convert(Vector{T}, vals)
 end
 
 # Union of types acceptable to define array size and methods to convert to
-# canonic form.
+# canonical form.
 const ArraySize = Union{Integer,Tuple{Vararg{Integer}}}
 to_size(siz::Tuple{Vararg{Int}}) = siz
 to_size(siz::Tuple{Vararg{Integer}}) = map(to_int, siz)
@@ -672,7 +672,7 @@ end
 end
 
 #-----------------------------------------------------------------------------------------
-# Extend LzyAlgebra sparse operator API for SparseArrays.SparseMatrixCSC.
+# Extend LazyAlgebra sparse operator API for SparseArrays.SparseMatrixCSC.
 
 nrows(A::SparseMatrixCSC) = getfield(A, :m)
 ncols(A::SparseMatrixCSC) = getfield(A, :n)
@@ -1839,9 +1839,11 @@ end
 
 #-----------------------------------------------------------------------------------------
 # Apply operators.
-
-# FIXME: Unify API so that the codes of the two following methods are
-#        identical (just the type of A change).
+#
+# When calling `unsafe_vmul!`, the following assumptions must hold:
+# 1. all sizes have been checked;
+# 2. α is not zero;
+# 3. α and β have been converted to a suitable type.
 
 function unsafe_vmul!(α::Number,
                       A::CompressedSparseOperator{:CSR,Ta,M,N},
@@ -1853,29 +1855,10 @@ function unsafe_vmul!(α::Number,
         s = zero(Ts)
         for k in each_nz(A, i)
             j = get_col(A, k)
-            v = get_val(A, k)
-            s += v*x[j]
+            Aᵢⱼ = get_val(A, k)
+            s += Aᵢⱼ*x[j]
         end
         y[i] = α*s + β*y[i]
-    end
-    return y
-end
-
-function unsafe_vmul!(α::Number,
-                      A′::Adjoint{<:CompressedSparseOperator{:CSC,Ta,M,N}},
-                      x::AbstractArray{Tx,M},
-                      β::Number,
-                      y::AbstractArray{Ty,N}) where {Ta,Tx,Ty,M,N}
-    A = parent(A′)
-    Ts = sumprod_type(Ta, Tx)
-    @inbounds for j in each_col(A)
-        s = zero(Ts)
-        for k in each_nz(A, j)
-            i = get_row(A, k)
-            v = get_val(A, k)
-            s += conj(v)*x[i]
-        end
-        y[j] = α*s + β*y[j]
     end
     return y
 end
@@ -1885,68 +1868,69 @@ function unsafe_vmul!(α::Number,
                       x::AbstractArray{Tx,M},
                       β::Number,
                       y::AbstractArray{Ty,N}) where {Ta,Tx,Ty,M,N}
-    # Assumptions: (1) all sizes have been checked, (ii) α and β have been converted to a
-    # suitable precision, and (iii) α is not zero.
-    A = parent(A′)
-    # FIXME check_argument(x, row_size(A))
-    # FIXME check_argument(y, col_size(A))
+    A = adjoint(A′) # get A such that A' ≡ A′
     isone(β) || unsafe_vscale!(y, β)
     @inbounds for i in each_row(A)
-        q = α*x[i]
-        if !iszero(q)
+        αxᵢ = α*x[i]
+        if !iszero(αxᵢ)
             for k in each_nz(A, i)
                 j = get_col(A, k)
-                v = get_val(A, k)
-                y[j] += q*conj(v)
+                Aᵢⱼ = get_val(A, k)
+                y[j] += conj(Aᵢⱼ)*αxᵢ
             end
         end
     end
     return y
 end
-
-# Apply a sparse operator, and its adjoint, stored in Compressed Sparse Column (CSC)
-# format.
 
 function unsafe_vmul!(α::Number,
                       A::CompressedSparseOperator{:CSC,Ta,M,N},
                       x::AbstractArray{Tx,N},
                       β::Number,
                       y::AbstractArray{Ty,M}) where {Ta,Tx,Ty,M,N}
-    # Assumptions: (1) all sizes have been checked, (ii) α and β have been converted to a
-    # suitable precision, and (iii) α is not zero.
-    # FIXME check_argument(x, col_size(A))
-    # FIXME check_argument(y, row_size(A))
     isone(β) || unsafe_vscale!(y, β)
     @inbounds for j in each_col(A)
-        q = α*x[j]
-        if !iszero(q)
+        αxⱼ = α*x[j]
+        if !iszero(αxⱼ)
             for k in each_nz(A, j)
                 i = get_row(A, k)
-                v = get_val(A, k)
-                y[i] += q*v
+                Aᵢⱼ = get_val(A, k)
+                y[i] += Aᵢⱼ*αxⱼ
             end
         end
     end
     return y
 end
 
-# Apply a sparse operator, and its adjoint, stored in Compressed Sparse
-# Coordinate (COO) format.
+function unsafe_vmul!(α::Number,
+                      A′::Adjoint{<:CompressedSparseOperator{:CSC,Ta,M,N}},
+                      x::AbstractArray{Tx,M},
+                      β::Number,
+                      y::AbstractArray{Ty,N}) where {Ta,Tx,Ty,M,N}
+    A = adjoint(A′) # get A such that A' ≡ A′
+    Ts = sumprod_type(Ta, Tx)
+    @inbounds for j in each_col(A)
+        s = zero(Ts)
+        for k in each_nz(A, j)
+            i = get_row(A, k)
+            Aᵢⱼ = get_val(A, k)
+            s += conj(Aᵢⱼ)*x[i]
+        end
+        y[j] = α*s + β*y[j]
+    end
+    return y
+end
 
 function unsafe_vmul!(α::Number,
                       A::CompressedSparseOperator{:COO,Ta,M,N},
                       x::AbstractArray{Tx,N},
                       β::Number,
                       y::AbstractArray{Ty,M}) where {Ta,Tx,Ty,M,N}
-    # Assumptions: (1) all sizes have been checked, (ii) α and β have been converted to a
-    # suitable precision, and (iii) α is not zero.
-    # FIXME check_argument(x, col_size(A))
-    # FIXME check_argument(y, row_size(A))
     isone(β) || unsafe_vscale!(y, β)
     V, I, J = get_vals(A), get_rows(A), get_cols(A)
     @inbounds for k in eachindex(V, I, J)
-        v, i, j = V[k], I[k], J[k]
-        y[i] += α*x[j]*v
+        Aᵢⱼ, i, j = V[k], I[k], J[k]
+        y[i] += α*Aᵢⱼ*x[j]
     end
     return y
 end
@@ -1956,16 +1940,12 @@ function unsafe_vmul!(α::Number,
                       x::AbstractArray{Tx,M},
                       β::Number,
                       y::AbstractArray{Ty,N}) where {Ta,Tx,Ty,M,N}
-    # Assumptions: (1) all sizes have been checked, (ii) α and β have been converted
-    # to a suitable precision, and (iii) α is not zero.
-    # FIXME: check_argument(x, row_size(A))
-    # FIXME: check_argument(y, col_size(A))
+    A = adjoint(A′) # get A such that A' ≡ A′
     isone(β) || unsafe_vscale!(y, β)
-    A = parent(A′) # FIXME use generic API
     V, I, J = get_vals(A), get_rows(A), get_cols(A)
     @inbounds for k in eachindex(V, I, J)
-        v, i, j = V[k], I[k], J[k]
-        y[j] += α*x[i]*conj(v)
+        Aᵢⱼ, i, j = V[k], I[k], J[k]
+        y[j] += α*conj(Aᵢⱼ)*x[i]
     end
     return y
 end
