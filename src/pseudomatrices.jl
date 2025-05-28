@@ -2,8 +2,8 @@
 
 """
     A = PseudoMatrix{T,M}(arr)
-    A = PseudoMatrix{T}(arr, Val(M))
-    A = PseudoMatrix(arr, Val(M))
+    A = PseudoMatrix{T}(arr, Dims{M})
+    A = PseudoMatrix(arr, Dims{M})
 
 build a linear operator `A` whose coefficients are given by a multi-dimensional array
 `arr` and whose behavior generalizes the definition of the matrix-vector product.
@@ -20,9 +20,9 @@ axes of `x` match the `ndims(arr) - M` trailing axes of `arr` and yields a resul
 whose axes are the `M` leading axes of `arr`.
 
 If `arr` is a matrix (i.e., a 2-dimensional abstract array), then `Operator(arr)`
-is a shortcut to `PseudoMatrix(arr,Val(1))`.
+is a shortcut to `PseudoMatrix(arr,Dims{1})`.
 
-Replacing `Val(M)` by a colon `:` or type parameters `{T,M}` by `{T,Colon}` yields a
+Replacing `Dims{M}` by a colon `:` or type parameters `{T,M}` by `{T,Colon}` yields a
 *flexible* pseudo-matrix whose number of row dimensions is not fixed. See
 [`FlexibleMatrix`](@ref) for a more convenient constructor.
 
@@ -30,7 +30,7 @@ See also [`FlexibleMatrix`](@ref), [`Operator`](@ref), [`vmul`](@ref), and
 [`vmul!`](@ref).
 
 """
-PseudoMatrix(arr::AbstractArray{T}, ::Val{M}) where {T,M} = PseudoMatrix{T,M}(arr)
+PseudoMatrix(arr::AbstractArray{T}, ::Type{<:Dims{M}}) where {T,M} = PseudoMatrix{T,M}(arr)
 PseudoMatrix(arr::AbstractArray{T}, ::Colon) where {T} = PseudoMatrix{T,Colon}(arr)
 PseudoMatrix{T,M}(arr::AbstractArray) where {T,M} =
     PseudoMatrix{T,M}(as(AbstractArray{T}, arr))
@@ -133,6 +133,8 @@ function unsafe_vmul!(α::Number, A::Adjoint{<:PseudoMatrix}, x::AbstractArray,
     return y
 end
 
+get_precision(::Type{<:PseudoMatrix{T}}) where {T} = get_precision(T)
+
 # Set precision of pseudo-matrices and flexible matrices.
 _with_precision(::Type{T}, A::PseudoMatrix{<:Any,M}) where {T<:AbstractFloat,M} =
-    PseudoMatrix(_with_precision(T, parent(A)), M === Colon ? Colon() : Val(M))
+    PseudoMatrix(_with_precision(T, parent(A)), M === Colon ? Colon() : Dims{M})

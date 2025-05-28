@@ -24,7 +24,7 @@ function runtests(; rng::AbstractRNG = MersenneTwister(314159),
             C = shift_values!(-0.2, rand(rng, T, dims))
             N = length(dims) - M # number of column dimensions, 0 for flexible matrix
             A = N ≥ 1 ?
-                @inferred(PseudoMatrix(C, Val(M))) :
+                @inferred(PseudoMatrix(C, Dims{M})) :
                 @inferred(FlexibleMatrix(C))
 
             # Check operator properties.
@@ -47,8 +47,11 @@ function runtests(; rng::AbstractRNG = MersenneTwister(314159),
             end
 
             # Set precision.
-            @test @inferred(with_precision(AbstractFloat, A)) === A
-            @test @inferred(with_precision(real(eltype(A)), A)) === A
+            if T <: AbstractFloat
+                @test get_precision(A) === T
+                @test @inferred(with_precision(get_precision(A), A)) === A
+                @test @inferred(with_precision(real(eltype(A)), A)) === A
+            end
             Tp = real(eltype(A)) === Float32 ? Float64 : Float32
             Ap = @inferred(with_precision(Tp, A))
             @test real(eltype(Ap)) === Tp
