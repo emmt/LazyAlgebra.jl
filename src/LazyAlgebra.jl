@@ -38,7 +38,6 @@ export
     SymbolicOperator,
     SymmetricRankOneOperator,
     ZeroPaddingOperator,
-    #col_size,
     conjgrad!,
     conjgrad,
     diag, # re-export from LinearAlgebra
@@ -51,16 +50,11 @@ export
     #lgemv!,
     #lgemv,
     #multiplier,
-    #ncols,
-    #nnz,
-    #nonzeros,
-    #nrows,
-    #row_size,
+    nnz,
+    nonzeros,
     #sparse,
     #terms,
-    #unpack!,
     #unscaled,
-    with_precision,
     vcombine!,
     vcombine,
     vcopy!,
@@ -84,7 +78,8 @@ export
     vswap!,
     vupdate!,
     vzeros!,
-    vzeros
+    vzeros,
+    with_precision
 
 # Non-exported but public API.
 using TypeUtils: @public
@@ -116,16 +111,31 @@ using TypeUtils: @public
 @public col_size
 @public convert_inplace_multiplier
 @public convert_multiplier
+@public copy_cols
+@public copy_rows
+@public copy_vals
 @public create_output
 @public default_cropping_offset
 @public default_cropping_offset
 @public default_zeropadding_offset
 @public dimensionless
+@public each_col
+@public each_nz
+@public each_row
+@public first_nz
+@public get_col
+@public get_col
+@public get_offs
+@public get_row
+@public get_rows
+@public get_val
+@public get_vals
 @public inplace_multiplier
 @public input_axes
 @public input_eltype
 @public input_ndims
 @public input_size
+@public last_nz
 @public multiplier_type
 @public ncols
 @public nrows
@@ -137,7 +147,9 @@ using TypeUtils: @public
 @public row_axes
 @public row_ndims
 @public row_size
+@public set_val!
 @public test_API
+@public unpack!
 @public unsafe_vcombine!
 @public unsafe_vcopy!
 @public unsafe_vdot
@@ -151,9 +163,14 @@ using Printf
 using ArrayTools
 using Neutrals
 using Test
+using StructuredArrays
 using TypeUtils
 using Unitful: AbstractQuantity, Quantity, NoDims, unit, ustrip
+using ZippedArrays
 #using FFTW
+
+import SparseArrays
+using SparseArrays: SparseMatrixCSC, nonzeros, nnz
 
 using Base: OneTo, Fix1, Fix2, @propagate_inbounds
 
@@ -181,8 +198,6 @@ include("pseudomatrices.jl")
 include("cropping.jl")
 include("diff.jl")
 include("sparse.jl")
-using .SparseOperators
-import .SparseOperators: unpack!
 include("matrices.jl")
 #include("genmult.jl")
 #import .GenMult: lgemm!, lgemm, lgemv!, lgemv

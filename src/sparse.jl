@@ -1,68 +1,10 @@
-"""
+# `sparse.jl` implements various format of compressed sparse linear operators, an API to
+# deal with sparse operators, and methods to apply sparse operators and convert between
+# different sparse format. This goes beyond Julia's `SparseArrays` standard package which
+# only provides "Compressed Sparse Column" (CSC) format.
+#
+# See https://en.wikipedia.org/wiki/Sparse_matrix.
 
-Module `SparseOperators` implements various format of compressed sparse linear operators,
-an API to deal with sparse operators, and methods to apply sparse operators and convert
-between different sparse format. This goes beyond Julia's `SparseArrays` standard package
-which only provides "Compressed Sparse Column" (CSC) format.
-
-See https://en.wikipedia.org/wiki/Sparse_matrix.
-
-"""
-module SparseOperators
-
-export
-    CompressedSparseOperator,
-    SparseOperator,
-    SparseOperatorCOO,
-    SparseOperatorCSC,
-    SparseOperatorCSR,
-    nrows,
-    ncols,
-    row_size,
-    col_size,
-    nonzeros,
-    nnz
-
-using Neutrals
-using StructuredArrays
-using TypeUtils
-using ZippedArrays
-
-import LinearAlgebra
-
-using ..LazyAlgebra
-using ..LazyAlgebra:
-    @callable,
-    Adjoint,
-    HasInputShape,
-    HasOutputShape,
-    LazyMap,
-    ordinal_suffix
-
-import .LazyAlgebra:
-    #MorphismType,
-    InputShape,
-    OutputShape,
-    unsafe_vmul!,
-    vmul!,
-    #identical,
-    coefficients,
-    #row_size,
-    #col_size,
-    #nrows,
-    #ncols,
-    #input_ndims,
-    #input_size,
-    #output_ndims,
-    #output_size,
-    output_axes,
-    output_eltype
-
-import SparseArrays
-using SparseArrays: SparseMatrixCSC, nonzeros, nnz
-
-import Base: getindex, setindex!, iterate
-using Base: @propagate_inbounds
 
 #------------------------------------------------------------------------------
 # Convert to integer type suitable for indexing.
@@ -97,22 +39,6 @@ to_size(siz::Tuple{Vararg{Integer}}) = map(to_int, siz)
 to_size(siz::Integer) = (to_int(siz),)
 
 #------------------------------------------------------------------------------
-
-"""
-    SparseOperator{T,M,N}
-
-is the abstract type inherited by sparse operator types. Parameter `T` is the type of the
-structural non-zeros. Parameters `M` and `N` are the number of dimensions of the *rows*
-and of the *columns* respectively. Sparse operators are a generalization of sparse
-matrices in the sense that they implement linear operators which can be applied to
-`N`-dimensional arguments to produce `M`-dimensional results (as explained below). See
-[`PseudoMatrix`](@ref) for a similar generalization but for *dense* matrices.
-
-See [`CompressedSparseOperator`](@ref) for usage of sparse operators implementing
-compressed storage formats.
-
-"""
-abstract type SparseOperator{T,M,N} <: Operator end
 
 """
     CompressedSparseOperator{F,T,M,N}
@@ -196,92 +122,7 @@ The low-level methods `each_row`, `each_col`, `each_nz`, `get_row`, `get_col` an
 `get_val` are not automatically exported by `LazyAlgebra`, this is the purpose of the
 statement `using LazyAlgebra.SparseMethods`.
 
-"""
-abstract type CompressedSparseOperator{F,T,M,N} <: SparseOperator{T,M,N} end
-
-@callable struct SparseOperatorCSR{T,M,N,
-                                   V<:AbstractVector{T},
-                                   J<:AbstractVector{Int},
-                                   K<:AbstractVector{Int}
-                                   } <: CompressedSparseOperator{:CSR,T,M,N}
-    m::Int          # equivalent number of rows of the operator
-    n::Int          # number of columns of the operator
-    vals::V         # values of entries
-    cols::J         # linear column indices of entries
-    offs::K         # row offsets in arrays of entries and column indices
-    rowsiz::Dims{M} # dimensions of rows
-    colsiz::Dims{N} # dimensions of columns
-
-    # A private inner constructor is defined to prevent Julia from providing a simple
-    # outer constructor, it is not meant to be called directly as it does not check
-    # whether arguments are correct.
-    global _SparseOperatorCSR
-    function _SparseOperatorCSR(m::Integer, n::Integer,
-                                vals::V, cols::J, offs::K,
-                                rowsiz::Dims{M},
-                                colsiz::Dims{N}) where {T,M,N,
-                                                        V<:AbstractVector{T},
-                                                        J<:AbstractVector{Int},
-                                                        K<:AbstractVector{Int}}
-        new{T,M,N,V,J,K}(m, n, vals, cols, offs, rowsiz, colsiz)
-    end
-end
-
-@callable struct SparseOperatorCSC{T,M,N,
-                                   V<:AbstractVector{T},
-                                   I<:AbstractVector{Int},
-                                   K<:AbstractVector{Int}
-                                   } <: CompressedSparseOperator{:CSC,T,M,N}
-    m::Int          # equivalent number of rows of the operator
-    n::Int          # number of columns of the operator
-    vals::V         # values of entries
-    rows::I         # linear row indices of entries
-    offs::K         # columns offsets in arrays of entries and row indices
-    rowsiz::Dims{M} # dimensions of rows
-    colsiz::Dims{N} # dimensions of columns
-
-    # A private inner constructor is defined to prevent Julia from providing a simple
-    # outer constructor, it is not meant to be called directly as it does not check
-    # whether arguments are correct.
-    global _SparseOperatorCSC
-    function _SparseOperatorCSC(m::Int, n::Int,
-                                vals::V, rows::I, offs::K,
-                                rowsiz::Dims{M},
-                                colsiz::Dims{N}) where {T,M,N,
-                                                        V<:AbstractVector{T},
-                                                        I<:AbstractVector{Int},
-                                                        K<:AbstractVector{Int}}
-        new{T,M,N,V,I,K}(m, n, vals, rows, offs, rowsiz, colsiz)
-    end
-end
-
-@callable struct SparseOperatorCOO{T,M,N,
-                                   V<:AbstractVector{T},
-                                   I<:AbstractVector{Int},
-                                   J<:AbstractVector{Int}
-                                   } <: CompressedSparseOperator{:COO,T,M,N}
-    m::Int          # equivalent number of rows of the operator
-    n::Int          # number of columns of the operator
-    vals::V         # values of entries
-    rows::I         # linear row indices of entries
-    cols::J         # linear column indices of entries
-    rowsiz::Dims{M} # dimensions of rows
-    colsiz::Dims{N} # dimensions of columns
-
-    # A private inner constructor is defined to prevent Julia from providing a simple outer
-    # constructor, it is not meant to be called directly as it does not check whether
-    # arguments are correct.
-    global _SparseOperatorCOO
-    function _SparseOperatorCOO(m::Integer, n::Integer,
-                                vals::V, rows::I, cols::J,
-                                rowsiz::Dims{M},
-                                colsiz::Dims{N}) where {T,M,N,
-                                                        V<:AbstractVector{T},
-                                                        I<:AbstractVector{Int},
-                                                        J<:AbstractVector{Int}}
-        new{T,M,N,V,I,J}(m, n, vals, rows, cols, rowsiz, colsiz)
-    end
-end
+""" CompressedSparseOperator
 
 # Unions of compressed sparse operators that can be considered as being in a given storage
 # format. Whatever the format, `T` is the element type, `M` is the number of output
@@ -1180,13 +1021,13 @@ end
 """
     unpack!(A, S; flatten=false) -> A
 
-unpacks the non-zero coefficients of the sparse operator `S` into the array `A`
-and returns `A`.  Keyword `flatten` specifies whether to only consider the
-length of `A` instead of its dimensions.  In any cases, `A` must have as many
-elements as `length(S)` and standard linear indexing.
+unpacks the non-zero coefficients of the sparse operator `S` into the array `A` and
+returns `A`. Keyword `flatten` specifies whether to only consider the length of `A`
+instead of its dimensions. In any cases, `A` must have as many elements as `length(S)` and
+standard linear indexing.
 
-Just call `Array(S)` to unpack the coefficients of a sparse operator `S`
-without providing the destination array.
+Just call `Array(S)` to unpack the coefficients of a sparse operator `S` without providing
+the destination array.
 
 """ unpack!
 
@@ -1930,64 +1771,8 @@ function unsafe_vmul!(α::Number,
     return y
 end
 
-end # module SparseOperators
-
-# The following module is to facilitate using compressed sparse operators at a
-# lower level than the exported API.
-module SparseMethods
-
-export
-    CompressedSparseOperator,
-    SparseOperator,
-    SparseOperatorCOO,
-    SparseOperatorCSC,
-    SparseOperatorCSR,
-    col_size,
-    copy_cols,
-    copy_rows,
-    copy_vals,
-    each_col,
-    each_nz,
-    each_row,
-    get_col,
-    get_cols,
-    get_offs,
-    get_row,
-    get_rows,
-    get_val,
-    get_vals,
-    ncols,
-    nnz,
-    nonzeros,
-    nrows,
-    row_size,
-    set_val!
-
-import ..SparseOperators:
-    CompressedSparseOperator,
-    SparseOperator,
-    SparseOperatorCOO,
-    SparseOperatorCSC,
-    SparseOperatorCSR,
-    col_size,
-    copy_cols,
-    copy_rows,
-    copy_vals,
-    each_col,
-    each_nz,
-    each_row,
-    get_col,
-    get_cols,
-    get_offs,
-    get_row,
-    get_rows,
-    get_val,
-    get_vals,
-    ncols,
-    nnz,
-    nonzeros,
-    nrows,
-    row_size,
-    set_val!
-
-end # module SparseMethods
+"""
+Private module for sparse operators.
+"""
+module _Sparse
+end
