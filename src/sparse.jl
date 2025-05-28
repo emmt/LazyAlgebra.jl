@@ -36,7 +36,8 @@ using ..LazyAlgebra:
     Adjoint,
     HasInputShape,
     HasOutputShape,
-    LazyMap
+    LazyMap,
+    ordinal_suffix
 
 import .LazyAlgebra:
     #MorphismType,
@@ -1815,26 +1816,6 @@ throw_dimension_mismatch(mesg::AbstractString) =
 
 @noinline throw_incompatible_number_of_elements() =
     throw_dimension_mismatch("incompatible number of elements")
-
-"""
-    ordinal_suffix(n) -> "st" or "nd" or "rd" or "th"
-
-yields the ordinal suffix for integer `n`.
-
-"""
-function ordinal_suffix(n::Integer)
-    if n > 0
-        d = mod(n, 10)
-        if d == 1
-            return "st"
-        elseif d == 2
-            return "nd"
-        elseif d == 3
-            return "rd"
-        end
-    end
-    return "th"
-end
 
 #-----------------------------------------------------------------------------------------
 # Apply operators.

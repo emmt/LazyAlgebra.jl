@@ -129,6 +129,7 @@ using TypeUtils: @public
 @public multiplier_type
 @public ncols
 @public nrows
+@public ordinal_suffix
 @public output_axes
 @public output_eltype
 @public output_ndims

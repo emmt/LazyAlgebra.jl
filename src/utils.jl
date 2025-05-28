@@ -25,6 +25,26 @@ yield whether `x` is iterable, i.e. `iterate(x)` can be used to start iterating 
 isiterable(x) = isiterable(typeof(x))
 isiterable(::Type{T}) where {T} = hasmethod(Base.iterate, (T,))
 
+"""
+    LazyAlgebra.ordinal_suffix(n) -> "st" or "nd" or "rd" or "th"
+
+yields the ordinal suffix for integer `n`.
+
+"""
+function ordinal_suffix(n::Integer)
+    if n > 0
+        d = mod(n, 10)
+        if d == 1
+            return "st"
+        elseif d == 2
+            return "nd"
+        elseif d == 3
+            return "rd"
+        end
+    end
+    return "th"
+end
+
 #------------------------------------------------------------------------- DIMENSIONLESS -
 
 """
