@@ -55,8 +55,15 @@ Base.transpose(trait::OutputEltypeUnknown) = InputEltypeUnknown()
 Base.transpose(trait::HasInputEltype) = HasOutputEltype()
 Base.transpose(trait::HasOutputEltype) = HasInputEltype()
 
-Base.ndims(x::Union{InputShape,OutputShape}) = ndims(typeof(x))
-Base.ndims(::Type{<:Union{HasInputShape{N},HasOutputShape{N}}}) where {N} = N
+Base.ndims(x::OutputShape) = ndims(typeof(x))
+Base.ndims(::HasOutputShape{N}) where {N} = N
+@noinline Base.ndims(::OutputShapeUnknown) =
+    throw_argument_error("unknown number of output dimensions")
+
+Base.ndims(x::InputShape) = ndims(typeof(x))
+Base.ndims(::HasInputShape{N}) where {N} = N
+@noinline Base.ndims(::InputShapeUnknown) =
+    throw_argument_error("unknown number of input dimensions")
 
 """
     LazyAlgebra.InputShape(typeof(A))
@@ -75,6 +82,7 @@ See also [`LazyAlgebra.InputEltype](@ref) and [`LazyAlgebra.OutputShape](@ref).
 """
 InputShape(A) = InputShape(typeof(A))
 InputShape(::Type) = InputShapeUnknown()
+InputShape(::Type{A}) where {A<:AbstractMatrix} = HasInputShape{1}()
 InputShape(::Type{A}) where {A<:Union{Adjoint,Inverse}} =
     transpose(OutputShape(parent(A)))
 
@@ -100,6 +108,7 @@ See also [`LazyAlgebra.OutputEltype](@ref), [`LazyAlgebra.InputShape](@ref), and
 """
 OutputShape(A) = OutputShape(typeof(A))
 OutputShape(::Type) = OutputShapeUnknown()
+OutputShape(::Type{A}) where {A<:AbstractMatrix} = HasOutputShape{1}()
 OutputShape(::Type{A}) where {A<:Union{Adjoint,Inverse}} =
     transpose(InputShape(parent(A)))
 
@@ -283,41 +292,41 @@ output_eltype(::Type{Prod{L,R}}, ::Type{x}) where {L<:Number,R,x<:AbstractArray}
 
 """
     LazyAlgebra.output_ndims(A)
+    LazyAlgebra.output_ndims(typeof(A))
 
-yields the number dimensions of the result of `A*x` based on the type of `A`.
-
-!!! note
-    If the number `N` of dimensions of `A*x` is known in advance, do not extend this
-    method but rather extend `LazyAlgebra.OutputShape(typeof(A))` to yield
-    `LazyAlgebra.HasOutputShape{N}()`.
-
-See also [`LazyAlgebra.input_ndims`](@ref), [`LazyAlgebra.output_axes`](@ref),
-[`LazyAlgebra.output_eltype`](@ref), and [`LazyAlgebra.OutputShape`](@ref).
-
-"""
-output_ndims(A) = _output_ndims(OutputShape(A))
-_output_ndims(::HasOutputShape{N}) where {N} = N
-@noinline _output_ndims(::OutputShapeUnknown) =
-    error("`LazyAlgebra.output_ndims` not defined for objects of this type")
-
-"""
-    LazyAlgebra.input_ndims(A)
-
-yields the number dimensions of the input `x` for `A*x` based on the type of `A`.
+yield the number dimensions of the result of `A*x` based on the type of `A`.
 
 !!! note
     If the number `M` of dimensions of `A*x` is known in advance, do not extend this
-    method but rather extend `LazyAlgebra.OutputShape(typeof(A))` to yield
-    `LazyAlgebra.HasOutputShape{M}()`.
+    method but rather extend `LazyAlgebra.OutputShape(typeof(A))`,
+    `LazyAlgebra.output_axes(A)`, and optionally `LazyAlgebra.output_size(A)` to
+    respectively yield `LazyAlgebra.HasOutputShape{M}()`, the axes and the size of `A*x`.
 
-See also [`LazyAlgebra.output_ndims`](@ref), [`LazyAlgebra.input_axes`](@ref),
-[`LazyAlgebra.input_eltype`](@ref), and [`LazyAlgebra.InputShape`](@ref).
+See also [`LazyAlgebra.input_ndims`](@ref), [`LazyAlgebra.output_axes`](@ref),
+[`LazyAlgebra.output_eltype`](@ref), [`LazyAlgebra.OutputShape`](@ref), and.
+[`LazyAlgebra.row_ndims`](@ref).
 
 """
-input_ndims(A) = _input_ndims(InputShape(A))
-_input_ndims(::HasInputShape{N}) where {N} = N
-@noinline _input_ndims(::InputShapeUnknown) =
-    error("`LazyAlgebra.input_ndims` not defined for objects of this type")
+output_ndims(A) = ndims(OutputShape(A))
+
+"""
+    LazyAlgebra.input_ndims(A)
+    LazyAlgebra.input_ndims(typeof(A))
+
+yield the number dimensions of the input `x` for `A*x` based on the type of `A`.
+
+!!! note
+    If the number `N` of dimensions of `x` to compute `A*x` is known in advance, do not
+    extend this method but rather extend `LazyAlgebra.OutputShape(typeof(A))`,
+    `LazyAlgebra.input_axes(A)`, and optionally `LazyAlgebra.input_size(A)` to
+    respectively yield `LazyAlgebra.HasInputShape{N}()`, the axes and the size of `A*x`.
+
+See also [`LazyAlgebra.output_ndims`](@ref), [`LazyAlgebra.input_axes`](@ref),
+[`LazyAlgebra.input_eltype`](@ref), and [`LazyAlgebra.InputShape`](@ref), and.
+[`LazyAlgebra.col_ndims`](@ref).
+
+"""
+input_ndims(A) = ndims(InputShape(A))
 
 """
     LazyAlgebra.output_axes(A::Operator, x::AbstractArray)
@@ -394,6 +403,12 @@ See also [`LazyAlgebra.output_axes`](@ref) and [`LazyAlgebra.InputShape`](@ref).
 """
 @noinline input_axes(A::Operator) =
     error("`LazyAlgebra.input_axes(A)` not defined for operator `A` of type `$(typeof(A))`")
+
+# Output and input axes and size are known in advance for a regular matrix.
+output_axes(A::AbstractMatrix) = (axes(A, 1),)
+output_size(A::AbstractMatrix) = (size(A, 1),)
+input_axes( A::AbstractMatrix) = (axes(A, 2),)
+input_size( A::AbstractMatrix) = (size(A, 2),)
 
 output_axes(A::Union{Adjoint,Inverse}) =  input_axes(A[])
 input_axes( A::Union{Adjoint,Inverse}) = output_axes(A[])

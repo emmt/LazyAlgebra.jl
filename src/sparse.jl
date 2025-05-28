@@ -5,12 +5,7 @@
 #
 # See https://en.wikipedia.org/wiki/Sparse_matrix.
 
-
 #------------------------------------------------------------------------------
-# Convert to integer type suitable for indexing.
-to_int(i::Int) = i
-to_int(i::Integer) = Int(i)
-
 # Convert to vector of indices.
 to_indices(inds::AbstractVector{<:Integer}) = convert_eltype(Int, inds)
 
@@ -31,12 +26,8 @@ to_values(::Type{T}, vals::AbstractVector) where {T} = convert(Vector{T}, vals)
     (first(inds) == 1 ? vals : convert(Vector{T}, vals))
 end
 
-# Union of types acceptable to define array size and methods to convert to
-# canonical form.
+# Union of types acceptable to define array size.
 const ArraySize = Union{Integer,Tuple{Vararg{Integer}}}
-to_size(siz::Tuple{Vararg{Int}}) = siz
-to_size(siz::Tuple{Vararg{Integer}}) = map(to_int, siz)
-to_size(siz::Integer) = (to_int(siz),)
 
 #------------------------------------------------------------------------------
 
@@ -144,18 +135,16 @@ const CSRorCSC = Union{AnyCSR,AnyCSC,SparseMatrixCSC}
 
 Base.eltype(::Type{<:SparseOperator{T,M,N}}) where {T,M,N} = T
 InputShape(::Type{<:SparseOperator{T,M,N}}) where {T,M,N} = HasInputShape{N}()
-OutputShape(::Type{<:SparseOperator{T,M,N}}) where {T,M,N} = HasOuputShape{M}()
+OutputShape(::Type{<:SparseOperator{T,M,N}}) where {T,M,N} = HasOutputShape{M}()
 
 nrows(A::SparseOperator) = getfield(A, :m)
 ncols(A::SparseOperator) = getfield(A, :n)
-row_size(A::SparseOperator) = getfield(A, :rowsiz)
-col_size(A::SparseOperator) = getfield(A, :colsiz)
-output_size(A::SparseOperator) = row_size(A)
-input_size(A::SparseOperator) = col_size(A)
-output_ndims(A::SparseOperator{T,M,N}) where {T,M,N} = M
-input_ndims(A::SparseOperator{T,M,N}) where {T,M,N} = N
+row_size(A::SparseOperator) = getfield(A, :rowsiz) # alias to output_size
+col_size(A::SparseOperator) = getfield(A, :colsiz) # alias to input_size
+row_axes(A::SparseOperator) = map(Base.OneTo, row_size(A)) # alias to output_axes
+col_axes(A::SparseOperator) = map(Base.OneTo, col_size(A)) # alias to input_axes
 
-Base.ndims(A::SparseOperator{T,M,N}) where {T,M,N} = M+N
+Base.ndims(A::SparseOperator{T,M,N}) where {T,M,N} = M + N
 Base.length(A::SparseOperator) = nrows(A)*ncols(A)
 Base.size(A::SparseOperator) = (row_size(A)..., col_size(A)...)
 Base.axes(A::SparseOperator) = map(Base.OneTo, size(A))
@@ -869,7 +858,7 @@ for (CS, other_args) in ((:SparseOperatorCSR, (:cols, :offs)),
                      rowsiz::Tuple{Vararg{Integer}}, colsiz::Tuple{Vararg{Integer}})
             check_structure($_CS(to_values(vals),
                                  $(map(s -> :(to_indices($s)), other_args)...),
-                                 to_size(rowsiz), to_size(colsiz)))
+                                 as_array_size(rowsiz), as_array_size(colsiz)))
         end
 
         # Constructors for any compressed format similar to the basic ones but with type
@@ -921,7 +910,7 @@ function build(::Type{W}, arr::AbstractArray{S,L},
         "number of column dimensions must be ≥ 1, got `N = $N`")
     M + N == L || throw_argument_error(
         "sum of numbers of row and column dimensions must be $L, got `M + N = $(M + N)`")
-    siz = size(A)
+    siz = size(arr)
     rowsiz = siz[1:M]
     colsiz = siz[M+1:end]
     nrows = prod(rowsiz)
@@ -1117,7 +1106,7 @@ function check_new_shape(A::SparseOperator,
 end
 
 Base.reshape(A::SparseOperator, rowsiz::ArraySize, colsiz::ArraySize) =
-    reshape(A, to_size(rowsiz), to_size(colsiz))
+    reshape(A, as_array_size(rowsiz), as_array_size(colsiz))
 
 function Base.reshape(A::SparseOperatorCSR,
                       rowsiz::Tuple{Vararg{Int}},
