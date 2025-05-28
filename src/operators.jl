@@ -655,7 +655,7 @@ vmul(α::Number, A::Prod, x::AbstractArray) = vmul(α, A[1], vmul(A[2], x))
 function vmul(α::Number, A::Operator, x::AbstractArray)
     # Create output array and call `vmul!` at stage 1 to skip checking of axes.
     y = create_output(α, A, x) # FIXME convert multiplier before?
-    return vmul!(α, A, x, 𝟘, y, _Stage(1))
+    return vmul!(Stage(1), α, A, x, 𝟘, y)
 end
 
 """
@@ -723,34 +723,34 @@ vmul!(α::Number, A::Prod, x::AbstractArray, β::Number, y::AbstractArray) =
 function vmul!(α::Number, A::Operator, x::AbstractArray, β::Number, y::AbstractArray)
     @assert !(A isa Prod)
     check_output_axes(y, output_axes(A, x))
-    return vmul!(α, A, x, β, y, _Stage(1))
+    return vmul!(Stage(1), α, A, x, β, y)
 end
 
-function vmul!(α::Number, A::Operator, x::AbstractArray, β::Number, y::AbstractArray,
-               ::Stage{1})
+function vmul!(::Stage{1},
+               α::Number, A::Operator, x::AbstractArray, β::Number, y::AbstractArray)
     α′ = convert_multiplier(α, output_eltype(A, x))
-    return vmul!(α′, A, x, β, y, _Stage(2))
+    return vmul!(Stage(2), α′, A, x, β, y)
 end
 
-function vmul!(α::Number, A::Operator, x::AbstractArray, β::Number, y::AbstractArray,
-               ::Stage{2})
-    @dispatch_on_multiplier α vmul!(α, A, x, β, y, _Stage(3))
+function vmul!(::Stage{2},
+               α::Number, A::Operator, x::AbstractArray, β::Number, y::AbstractArray)
+    @dispatch_on_multiplier α vmul!(Stage(3), α, A, x, β, y)
     return y
 end
 
-function vmul!(α::Number, A::Operator, x::AbstractArray, β::Number, y::AbstractArray,
-               ::Stage{3})
+function vmul!(::Stage{3},
+               α::Number, A::Operator, x::AbstractArray, β::Number, y::AbstractArray)
     if α isa StaticMultiplier{0}
         vscale!(y, β)
     else
         β′ = convert_inplace_multiplier(β, eltype(y))
-        vmul!(α, A, x, β′, y, _Stage(4))
+        vmul!(Stage(4), α, A, x, β′, y)
     end
     return y
 end
 
-function vmul!(α::Number, A::Operator, x::AbstractArray, β::Number, y::AbstractArray,
-               ::Stage{4})
+function vmul!(::Stage{4},
+               α::Number, A::Operator, x::AbstractArray, β::Number, y::AbstractArray)
     @dispatch_on_multiplier β unsafe_vmul!(α, A, x, β, y)
     return y
 end

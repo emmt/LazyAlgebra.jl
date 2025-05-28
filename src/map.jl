@@ -62,30 +62,34 @@ vmap!(y::AbstractArray, α::Number, f::Function, w::AbstractArray, x::AbstractAr
 function vmap!(α::Number, f::Function, w::AbstractArray, x::AbstractArray,
                β::Number, y::AbstractArray)
     @assert_same_axes w x y
-    return vmap!(α, f, w, x, β, y, _Stage(1))
+    return vmap!(Stage(1), α, f, w, x, β, y)
 end
-function vmap!(α::Number, f::Function, w::AbstractArray{Tw,N}, x::AbstractArray{Tx,N},
-               β::Number, y::AbstractArray{Ty,N}, ::Stage{1}) where {Tw,Tx,Ty,N}
+function vmap!(::Stage{1},
+               α::Number, f::Function, w::AbstractArray{Tw,N}, x::AbstractArray{Tx,N},
+               β::Number, y::AbstractArray{Ty,N}) where {Tw,Tx,Ty,N}
     α′ = convert_multiplier(α, Base.promote_op(f, eltype(w), eltype(x)))
-    return vmap!(α′, f, w, x, β, y, _Stage{2})
+    return vmap!(Stage(2), α′, f, w, x, β, y)
 end
-function vmap!(α::Number, f::Function, w::AbstractArray{Tw,N}, x::AbstractArray{Tx,N},
-               β::Number, y::AbstractArray{Ty,N}, ::Stage{2}) where {Tw,Tx,Ty,N}
-    @dispatch_on_multiplier α vmap!(α, f, w, x, β, y, _Stage{3})
+function vmap!(::Stage{2},
+               α::Number, f::Function, w::AbstractArray{Tw,N}, x::AbstractArray{Tx,N},
+               β::Number, y::AbstractArray{Ty,N}) where {Tw,Tx,Ty,N}
+    @dispatch_on_multiplier α vmap!(Stage(3), α, f, w, x, β, y)
     return y
 end
-function vmap!(α::Number, f::Function, w::AbstractArray{Tw,N}, x::AbstractArray{Tx,N},
-               β::Number, y::AbstractArray{Ty,N}, ::Stage{3}) where {Tw,Tx,Ty,N}
+function vmap!(::Stage{3},
+               α::Number, f::Function, w::AbstractArray{Tw,N}, x::AbstractArray{Tx,N},
+               β::Number, y::AbstractArray{Ty,N}) where {Tw,Tx,Ty,N}
     if α isa StaticMultiplier{0}
         vscale!(y, β)
     else
         β′ = convert_inplace_multiplier(β, eltype(y))
-        vmap!(α, f, w, x, β′, y, _Stage(4))
+        vmap!(Stage(4), α, f, w, x, β′, y)
     end
     return y
 end
-function vmap!(α::Number, f::Function, w::AbstractArray{Tw,N}, x::AbstractArray{Tx,N},
-               β::Number, y::AbstractArray{Ty,N}, ::Stage{4}) where {Tw,Tx,Ty,N}
+function vmap!(::Stage{4},
+               α::Number, f::Function, w::AbstractArray{Tw,N}, x::AbstractArray{Tx,N},
+               β::Number, y::AbstractArray{Ty,N}) where {Tw,Tx,Ty,N}
     @dispatch_on_multiplier β unsafe_vmap!(α, f, w, x, β, y)
     return y
 end

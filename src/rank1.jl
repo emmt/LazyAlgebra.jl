@@ -75,7 +75,7 @@ function unsafe_vmul!(α::Number, A::Union{K,Adjoint{K}}, x::AbstractArray,
     u = first(A)
     v = last(A)
     λ = α*vdot(v, x)
-    vcombine!(λ, u, β, y, _Stage(1))
+    vcombine!(Stage(1), λ, u, β, y)
 end
 
 # Set precision for rank-1 operators.

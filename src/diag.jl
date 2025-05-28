@@ -55,7 +55,7 @@ for (T, B, f) in ((:(                 Diag ), :(              A),   :(*)),
                               β::Number, y::AbstractArray)
             # Call `vmap!` at stage 1 to dispatch on the multipliers because
             # axes of array arguments have already been checked.
-            return vmap!(α, $f, diag($B), x, β, y, _Stage(1))
+            return vmap!(Stage(1), α, $f, diag($B), x, β, y)
         end
     end
 end

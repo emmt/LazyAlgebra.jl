@@ -51,7 +51,7 @@ end
 unsafe_vmul!(α::Number, A::Identity, x::AbstractArray, β::Number, y::AbstractArray) =
     # Call `vcombine!` at stage 1 to dispatch on the values of `α` and `β` because array
     # axes have already been checked.
-    vcombine!(y, α, x, β, y, _Stage(1))
+    vcombine!(Stage(1), y, α, x, β, y)
 
 # Set precision for identity operators.
 _with_precision(::Type{T}, A::Identity) where {T<:AbstractFloat} = A
