@@ -265,6 +265,8 @@ Base.eltype(A::Operator) = eltype(typeof(A))
 Base.eltype(::Type{<:Adjoint{A}}) where {A} = eltype(A)
 Base.eltype(::Type{<:Inverse{A}}) where {A} = float(eltype(A))
 Base.eltype(::Type{<:InverseAdjoint{A}}) where {A} = float(eltype(A))
+@noinline Base.eltype(::Type{T}) where {T<:Operator} =
+    error("`eltype` trait not implemented for operators of type `$T`")
 
 # Output element type for sums and products assuming right-associativity.
 output_eltype(::Type{Sum{L,R}}, ::Type{x}) where {L,R,x<:AbstractArray} =

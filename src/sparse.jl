@@ -313,7 +313,6 @@ input_size(A::SparseOperator) = col_size(A)
 output_ndims(A::SparseOperator{T,M,N}) where {T,M,N} = M
 input_ndims(A::SparseOperator{T,M,N}) where {T,M,N} = N
 
-Base.eltype(A::SparseOperator{T,M,N}) where {T,M,N} = T
 Base.ndims(A::SparseOperator{T,M,N}) where {T,M,N} = M+N
 Base.length(A::SparseOperator) = nrows(A)*ncols(A)
 Base.size(A::SparseOperator) = (row_size(A)..., col_size(A)...)

@@ -426,7 +426,7 @@ input_eltype(H::CirculantConvolution{T,N}) where {T,N} = T
 output_eltype(H::CirculantConvolution{T,N}) where {T,N} = T
 
 # Basic methods for an array.
-Base.eltype(H::CirculantConvolution{T,N}) where {T,N} = T
+Base.eltype(::Type{<:CirculantConvolution{T,N}}) where {T,N} = T
 Base.size(H::CirculantConvolution{T,N}) where {T,N} =
     ntuple(i -> H.dims[(i ≤ N ? i : i - N)], 2*N)
 Base.size(H::CirculantConvolution{T,N}, i::Integer) where {T,N} =
