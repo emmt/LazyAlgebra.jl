@@ -38,7 +38,6 @@ export
     SymbolicOperator,
     SymmetricRankOneOperator,
     ZeroPaddingOperator,
-    #coefficients,
     #col_size,
     conjgrad!,
     conjgrad,

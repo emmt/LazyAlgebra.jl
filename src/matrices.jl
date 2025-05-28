@@ -112,12 +112,3 @@ the number of element of an argument of the operator be it single- or multi-dime
 """
 ncols(A::Operator) = prod(col_size(A))
 ncols(A::AbstractMatrix) = size(A, 2)
-
-"""
-    LazyAlgebra.coefficients(A)
-
-yields the object backing the storage of the coefficients of the matrix or linear operator
-`A`. Not all linear operators extend this method.
-
-"""
-coefficients(A::AbstractMatrix) = A

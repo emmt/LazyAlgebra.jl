@@ -20,24 +20,61 @@ This page describes the most important changes in `LazyAlgebra`. The format is b
   This would be useful to deal with arrays whose elements have non-standard numerical
   types as physical quantities in the `Unitful` package.
 
+- Functions `vproduct` and `vproduct!` to compute the Hadamar (elementwise) product of two
+  *vectors* have been removed. Instead of `vproduct(x, y)`, simply call `Diag(x)*y`, `x .*
+  y`, or `@. x*y` to compute this product efficiently. However note that the 2 latter
+  statements do not impose that the axes of `x` and `y` be the same. Similarly, instead of
+  `vproduct!(dst, x, y)`, simply call `vmul!(dst, Diag(x), y)`, or `@. dst = x*y`.
+
 ## Unreleased
 
 This new major version of `LazyAlgebra` introduces a lot of improvements, simplifications,
 and changes.
+
+- Non-linear mappings have not been found to be really useful and are no longer supported.
+  As a result all operators, their adjoint, their inverse, their sums, their compositions,
+  or a mixture of all this are linear operators. This simplifies a lot of things. Abstract
+  type `Operator` replaces `LinearMapping`.
+
+- `LazyAlgebra` consider 3 different kinds of objects:
+
+  - **Linear operators** are instances of `Operator` which can be arbitrarily associated
+    in sums and compositions. The coefficients of these operators may not be explicitly
+    stored. Adjoint, inverse, sums and compositions of operators are lazily remembered.
+
+  - **Vectors** are instances of `AbstractArray` which can be multiplied (in a similar
+    sense as the matrix-vector multiplication) by operators or linearly combined to
+    produce other *vectors*.
+
+  - **Multipliers** are scalar factors represented by instances of `Number` and which can
+    multiply (or scale) operators and vectors. In operations that involve the scaling of a
+    vector by a scalar factor, the storage type (not the units if any) of the factor is
+    converted to be the same as the floating-point precision of the vector. Hence no
+    unwanted conversion occurs due to the precision of a multiplier.
 
 - Using neutral numbers (from the [`Neutrals.jl`](https://github.com/emmt/LazyAlgebra.jl)
   package) for the multipliers considerably simplifies the code and reduces its size and
   the number of alternatives to consider. For example, [`src/diff.jl`](src/diff.jl) is now
   around 800 lines, compared to 1300 previously. This reduction is without sacrificing
   performances and with a gain in generality as the methods accept dimensionful values.
+
+- Number may have units and complex numbers should be fully supported with their usual
+  meaning in linear algebra.
+
+
 ### Removed
 
 - Non-linear mappings are no longer supported. As a result, the `Jacobian` type, the
   `jacobian`, `∇`, `primitive`, `variables`, and `is_linear` functions, and the
   `LinearType` trait and its sub-types `Linear`, and `NonLinear` have been suppressed.
 
+- Type `NonuniformScaling` replaced by its alias `Diag`.
+
 - The `unveil` function has been removed. Call `parent(A)` for adjoint, inverse, or Gram
   operators and `parent(parent(A))` on inverse-adjoint operators.
+
+- The `coefficients` function has been removed. Call `parent(A)` for diagonal operator or
+  pseudo-matrix `A`.
 
 - `GeneralMatrix` has been replaced by `FlexibleMatrix` which is a special case of
   the `PseudoMatrix` operator.

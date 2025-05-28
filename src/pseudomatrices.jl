@@ -64,7 +64,6 @@ FlexibleMatrix{T}(arr::AbstractArray) where {T} = PseudoMatrix{T}(arr, :)
 
 # Accessors.
 Base.parent(A::PseudoMatrix) = getfield(A, :parent)
-coefficients(A) = parent(A)
 
 # Traits.
 Base.eltype(::Type{<:PseudoMatrix{T}}) where {T} = T
