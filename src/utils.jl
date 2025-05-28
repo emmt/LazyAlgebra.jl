@@ -64,9 +64,6 @@ yield the numerical precision of number/object `x`. If `x` is a floating-point v
 floating-point type is returned; if `x` stores floating-point values, their promoted
 floating-point type is returned; otherwise, `AbstractFloat` is returned.
 
-!!! note
-    Not all types of object implement `get_precision`.
-
 See also [`with_precision`](@ref).
 
 """
@@ -102,10 +99,10 @@ end
 yields an object `y` similar to `x` but with numerical precision specified by the
 floating-point type `T`. If `x` has already the required precision or if setting its
 precision is irrelevant or not implemented, `x` is returned unchanged. Setting the
-precision shall not change the units if any. If `T` is `AbstractFloat`, the default
-floating-point type `$default_precision` is assumed.
+precision shall not change the dimensions of dimensionful numbers. If `T` is
+`AbstractFloat`, the default floating-point type `$default_precision` is assumed.
 
-Argument `x` may also be a type to infer the type with precision `T`.
+Argument `x` may also be a type to infer the corresponding type with precision `T`.
 
 Example:
 

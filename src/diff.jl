@@ -169,7 +169,7 @@ yields the first and last value of the unit-range `r`.
 """
 limits(r::AbstractUnitRange) = (first(r), last(r))
 
-#------------------------------------------------------------------------------
+#---------------------------------------------------------- 1ST ORDER FINITE DIFFERENCES -
 #
 # The operator D implementing 1st order forward finite difference with flat boundary
 # conditions and its adjoint D' are given by:
@@ -184,9 +184,9 @@ limits(r::AbstractUnitRange) = (first(r), last(r))
 #             0   1  -1   0
 #             0   0   1   0];
 #
-# The row (for D) and column (for D') of zeros are to preserve the size. This is needed
-# for multi-dimensional arrays when derivatives along each dimension are stored into a
-# single array.
+# The last row (for D) and column (for D') of zeros are to preserve the size. This is
+# needed for multi-dimensional arrays when derivatives along each dimension are stored
+# into a single array.
 #
 function unsafe_vmul!(α::Number,
                       A::Diff{1,:any},
@@ -372,7 +372,7 @@ function unsafe_vmul!(α::Number,
     nothing
 end
 
-#------------------------------------------------------------------------------
+#---------------------------------------------------------- 2ND ORDER FINITE DIFFERENCES -
 #
 # 2nd order finite differences with flat boundary conditions are computed by:
 #
@@ -387,8 +387,8 @@ end
 #
 #  - Applying this operator on a single dimension is self-adjoint.
 #
-#  - For a single dimension, this operator is the opposite of the Gram
-#    composition of 1st order finite differences (backward or forward).
+#  - For a single dimension, this operator is the opposite of the Gram composition of 1st
+#    order finite differences (backward or forward).
 #
 # Apply 2nd order finite differences.
 #
