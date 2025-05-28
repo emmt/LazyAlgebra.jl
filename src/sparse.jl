@@ -23,6 +23,7 @@ export
     nonzeros,
     nnz
 
+using Neutrals
 using StructuredArrays
 using TypeUtils
 using ZippedArrays
@@ -498,8 +499,7 @@ yields an iterator over the indices in the arrays of values and linear column in
 the `i`-th row of `A`.
 
 """
-@inline each_nz(A::Union{SparseOperatorCOO,Adjoint{<:SparseOperatorCOO}}) =
-    Base.OneTo(nnz(A))
+@inline each_nz(A::Union{SparseOperatorCOO,Adjoint{<:SparseOperatorCOO}}) = 𝟙:nnz(A)
 
 @inline first_nz(A::Union{SparseOperatorCOO,Adjoint{<:SparseOperatorCOO}}) = 1
 
@@ -556,7 +556,7 @@ operator `A` stored in a *Compressed Sparse Row* (CSR) format, this includes the
 of a sparse operator in *Compressed Sparse Column* (CSC) format.
 
 """
-each_row(A::CompressedSparseOperator{:CSR}) = Base.OneTo(nrows(A))
+each_row(A::CompressedSparseOperator{:CSR}) = 𝟙:nrows(A)
 each_row(A::Adjoint{<:CompressedSparseOperator{:CSC}}) = each_col(parent(A))
 
 """
@@ -567,7 +567,7 @@ sparse operator `A` stored in a *Compressed Sparse Column* (CSC) format, this in
 adjoint of a sparse operator in *Compressed Sparse Row* (CSR) format.
 
 """
-each_col(A::CompressedSparseOperator{:CSC}) = Base.OneTo(ncols(A))
+each_col(A::CompressedSparseOperator{:CSC}) = 𝟙:ncols(A)
 each_col(A::Adjoint{<:CompressedSparseOperator{:CSR}}) = each_row(parent(A))
 
 """
@@ -682,7 +682,7 @@ get_rows(A::SparseMatrixCSC) = getfield(A, :rowval)
 # get_cols is already done elsewhere.
 row_size(A::SparseMatrixCSC) = (nrows(A),)
 col_size(A::SparseMatrixCSC) = (ncols(A),)
-each_col(A::SparseMatrixCSC) = Base.OneTo(ncols(A))
+each_col(A::SparseMatrixCSC) = 𝟙:ncols(A)
 
 # Provide a specific versions of `check_offset_index`, `unsafe_first_nz`, and
 # `unsafe_last_nz` because offsets have a slightly different definition for

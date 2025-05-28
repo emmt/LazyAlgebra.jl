@@ -70,12 +70,12 @@ function output_axes(A::Union{Diff{L,D},Adjoint{<:Diff{L,D}}},
     elseif A isa Adjoint
         N ≥ 1 || throw(DimensionMismatch("input array must have at least 1 dimension"))
         nd = (D === Colon ? N-1 : length(D))
-        axes_x[N] == Base.OneTo(nd) || throw(DimensionMismatch(
+        axes_x[N] == 𝟙:nd || throw(DimensionMismatch(
             "last axis of input array must be 1:$nd, got $(axes_x[N])"))
         return axes_x[1:N-1]
     else
         nd = (D === Colon ? N : length(D))
-        return (axes_x..., Base.OneTo(nd))
+        return (axes_x..., 𝟙:nd)
     end
 end
 
