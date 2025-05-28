@@ -66,25 +66,23 @@ FlexibleMatrix{T}(arr::AbstractArray) where {T} = PseudoMatrix{T}(arr, :)
 Base.parent(A::PseudoMatrix) = getfield(A, :parent)
 coefficients(A) = parent(A)
 
-# Extend `Base.eltype` so that it is not needed to define `LazyAlgebra.output_eltype`.
-Base.eltype(::Type{<:Union{A,Adjoint{A}}}) where {T,A<:PseudoMatrix{T}} = T
-Base.eltype(::Type{<:Union{Inverse{A},InverseAdjoint{A}}}) where {T,A<:PseudoMatrix{T}} = float(T)
+# Traits.
+Base.eltype(::Type{<:PseudoMatrix{T}}) where {T} = T
 
 InputShape(::Type{<:PseudoMatrix{T,M,N}}) where {T,M,N} =
     M !== Colon ? HasInputShape{N-M}() : InputShapeUnknown()
+
+OutputShape(::Type{<:PseudoMatrix{T,M,N}}) where {T,M,N} =
+    M !== Colon ? HasOutputShape{M}() : OutputShapeUnknown()
 
 input_axes(A::PseudoMatrix{T,M,N}) where {T,M,N} =
     M !== Colon ? axes(parent(A))[M+1:N] : error(
         "input axes are not known in advance for flexible general matrices")
 
-OutputShape(::Type{<:PseudoMatrix{T,M,N}}) where {T,M,N} =
-    M !== Colon ? HasOutputShape{M}() : OutputShapeUnknown()
-
 output_axes(A::PseudoMatrix{T,M,N}) where {T,M,N} =
     M !== Colon ? axes(parent(A))[1:M] : error(
         "output axes are not known in advance for flexible general matrices")
 
-# Only need to extend `output_axes` for flexible general matrices.
 function output_axes(A::Union{G,Adjoint{G},Inverse{G},InverseAdjoint{G}},
                      x_axes::ArrayAxes{L}) where {T,L,N,G<:FlexibleMatrix{T,N}}
     0 ≤ L ≤ N || throw(DimensionMismatch("input array has too many dimensions"))

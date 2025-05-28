@@ -60,7 +60,7 @@ Adjoint(A::SymmetricRankOneOperator) = A
 
 # Operator API for rank-1 operators.
 Base.eltype(::Type{<:AbstractRankOneOperator{U,V}}) where {U,V} =
-    float(prod_type(eltype(U), eltype(V)))
+    prod_type(eltype(U), eltype(V))
 
 OutputShape(::Type{<:AbstractRankOneOperator{U,V}}) where {U,V} = HasOutputShape{ndims(U)}()
 output_axes(A::AbstractRankOneOperator) = axes(first(A))

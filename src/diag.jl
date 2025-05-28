@@ -34,9 +34,7 @@ LinearAlgebra.diag(A::Inverse{<:Diag}) = LazyMap(inv, diag(A[]))
 LinearAlgebra.diag(A::InverseAdjoint{<:Diag}) = LazyMap(inv∘conj, diag(A[][]))
 
 # API for operators.
-Base.eltype(::Type{<:Union{A,Adjoint{A}}}) where {D,A<:Diag{D}} = eltype(D)
-Base.eltype(::Type{<:Union{Inverse{A},InverseAdjoint{A}}}) where {D,A<:Diag{D}} =
-    float(eltype(D))
+Base.eltype(::Type{<:Diag{D}}) where {D} = eltype(D)
 
 OutputShape(::Type{<:Diag{<:AbstractArray{T,N}}}) where {T,N} = HasOutputShape{N}()
 output_axes(A::Diag) = axes(diag(A))
