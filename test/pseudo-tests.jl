@@ -1,4 +1,13 @@
-module TestingLazyAlgebraPseudoMatrices
+"""
+
+# Tests for pseudo-matrices
+
+Typical usage:
+
+    include("test/pseudo-tests.jl").runtests();
+
+"""
+module LazyAlgebraPseudoTests
 
 using LazyAlgebra
 using Test

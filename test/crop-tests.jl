@@ -1,6 +1,10 @@
 """
 
-Tests for cropping and zero-padding.
+# Tests for cropping and zero-padding
+
+Typical usage:
+
+    include("test/crop-tests.jl").runtests();
 
 """
 module LazyAlgebraCropTests

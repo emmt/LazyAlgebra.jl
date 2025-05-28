@@ -1,9 +1,13 @@
-#
-# diff-tests.jl -
-#
-# Tests for finite difference operators.
-#
-module TestingLazyAlgebraDiff
+"""
+
+# Tests for finite differences.
+
+Typical usage:
+
+    include("test/diff-tests.jl").runtests();
+
+"""
+module LazyAlgebraDiffTests
 
 using Test
 using LazyAlgebra

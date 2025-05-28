@@ -1,6 +1,10 @@
 """
 
-Tests for rank-1 operators.
+# Tests for rank-1 operators
+
+Typical usage:
+
+    include("test/rank1-tests.jl").runtests();
 
 """
 module LazyAlgebraRank1Tests

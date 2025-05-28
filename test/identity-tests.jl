@@ -1,7 +1,10 @@
 """
 
-Tests for the universal and shaped identities of LazyAlgebra and the uniform scaling of
-LinearAlgebra.
+# Tests for universal and shaped identities
+
+Typical usage:
+
+    include("test/identity-tests.jl").runtests();
 
 """
 module LazyAlgebraIdentityTests

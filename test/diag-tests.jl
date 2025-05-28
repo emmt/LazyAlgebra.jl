@@ -1,3 +1,12 @@
+"""
+
+# Tests for diagonal operator
+
+Typical usage:
+
+    include("test/diag-tests.jl").runtests();
+
+"""
 module LazyAlgebraDiagTests
 
 using LazyAlgebra
