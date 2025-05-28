@@ -135,7 +135,7 @@ given the type of an operator `A`, yields one of:
   given by `LazyAlgebra.output_eltype(typeof(A))`.
 
 !!! note
-    In any case, the output element type of `A*x` and `α*A*xcan be determined by
+    In any case, the output element type of `A*x` and `α*A*x` can be determined by
     `LazyAlgebra.output_eltype(A, x)` and `LazyAlgebra.output_eltype(α, A, x)`.
 
 See also [`LazyAlgebra.OutputShape](@ref), [`LazyAlgebra.InputEltype](@ref), and

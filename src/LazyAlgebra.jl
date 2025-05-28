@@ -86,27 +86,56 @@ export
     vzeros!,
     vzeros
 
+# Non-exported but public API.
 using TypeUtils: @public
-@public @callable @dispatch_on_multiplier
-@public Adjoint Inverse InverseAdjoint
+@public @callable
+@public @dispatch_on_multiplier
+@public Adjoint
+@public HasInputEltype
+@public HasInputShape
+@public HasOutputEltype
+@public HasOutputShape
 @public Identity
+@public InputEltype
+@public InputEltypeUnknown
+@public InputShape
+@public InputShapeUnknown
+@public Inverse
+@public InverseAdjoint
+@public LazyMap
+@public OutputEltype
+@public OutputEltypeUnknown
+@public OutputShape
+@public OutputShapeUnknown
+@public Prod
+@public Sum
 @public check_input_axes
 @public check_output_axes
+@public col_axes
+@public col_ndims
+@public col_size
 @public convert_inplace_multiplier
 @public convert_multiplier
+@public create_output
 @public default_cropping_offset
+@public default_cropping_offset
+@public default_zeropadding_offset
 @public dimensionless
 @public inplace_multiplier
-@public input_axes input_ndims InputShape InputShapeUnknown HasInputShape
-@public input_eltype InputEltype InputEltypeUnknown HasInputEltype
+@public input_axes
+@public input_eltype
+@public input_ndims
+@public input_size
 @public multiplier_type
-#@public LazyMap
-@public output_eltype OutputEltype OutputEltypeUnknown HasOutputEltype
-@public output_axes output_ndims OutputShape OutputShapeUnknown HasOutputShape
-@public Sum Prod
-#@public create_output
-#@public default_cropping_offset
-#@public default_zeropadding_offset
+@public ncols
+@public nrows
+@public output_axes
+@public output_eltype
+@public output_ndims
+@public output_size
+@public row_axes
+@public row_ndims
+@public row_size
 @public test_API
 @public unsafe_vcombine!
 @public unsafe_vcopy!
@@ -153,7 +182,7 @@ include("diff.jl")
 include("sparse.jl")
 using .SparseOperators
 import .SparseOperators: unpack!
-#include("matrices.jl")
+include("matrices.jl")
 #include("genmult.jl")
 #import .GenMult: lgemm!, lgemm, lgemv!, lgemv
 #include("blas.jl")

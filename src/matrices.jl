@@ -21,6 +21,10 @@ LinearAlgebra.mul!(c::AbstractArray, A::Operator, b::AbstractArray, α::Number, 
 LinearAlgebra.mul!(y::AbstractArray, A::Operator, b::AbstractArray) =
     vmul!(y, A, b)
 
+# Operator API for regular matrices.
+InputShape(::Type{A}) where {A<:AbstractMatrix} = HasInputShape{1}()
+OutputShape(::Type{A}) where {A<:AbstractMatrix} = HasOutputShape{1}()
+
 output_axes(A::AbstractMatrix) = (axes(A, 1),)
 input_axes( A::AbstractMatrix) = (axes(A, 2),)
 
@@ -45,6 +49,32 @@ LazyAlgebra.input_axes) which may not be implemented for all operators.
 """
 input_size(A::Operator) = map(length, input_axes(A))
 input_size(A::AbstractMatrix) = (size(A, 2),)
+
+"""
+    LazyAlgebra.row_ndims(A)
+    LazyAlgebra.row_ndims(typeof(A))
+
+yield the number of dimensions of the result of applying the linear operator `A` or
+multiplying by the matrix `A`. This is equivalent to [`LazyAlgebra.output_ndims(A)`](@ref
+LazyAlgebra.output_ndims).
+
+"""
+row_ndims(A::Union{Operator,AbstractMatrix}) = row_ndims(typeof(A))
+row_ndims(::Type{A}) where {A<:Operator} = output_ndims(A)
+row_ndims(::Type{A}) where {A<:AbstractMatrix} = 1
+
+"""
+    LazyAlgebra.col_ndims(A)
+    LazyAlgebra.col_ndims(typeof(A))
+
+yield the number of dimensions of the input argument `x` to compute `A*x` with the matrix
+or linear operator `A`. This is equivalent to [`LazyAlgebra.input_ndims(A)`](@ref
+LazyAlgebra.input_ndims).
+
+"""
+col_ndims(A::Union{Operator,AbstractMatrix}) = col_ndims(typeof(A))
+col_ndims(::Type{A}) where {A<:Operator} = input_ndims(A)
+col_ndims(::Type{A}) where {A<:AbstractMatrix} = 1
 
 """
     LazyAlgebra.row_axes(A)
