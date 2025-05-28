@@ -111,7 +111,7 @@ using TypeUtils: @public
 @public unsafe_vcombine!
 @public unsafe_vcopy!
 @public unsafe_vdot
-@public unsafe_vmul! dispatch_vmul!
+@public unsafe_vmul!
 @public unsafe_vproduct!
 @public unsafe_vscale!
 @public unsafe_vswap!

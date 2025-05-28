@@ -635,8 +635,8 @@ to the argument `x`.
     Do not extend this method for specific operator types, but rather the
     [`LazyAlgebra.unsafe_vmul!`](@ref) method.
 
-See also [`vmul!`](@ref), [`LazyAlgebra.Operator`](@ref),
-[`LazyAlgebra.dispatch_vmul!`](@ref), and [`LazyAlgebra.unsafe_vmul!`](@ref).
+See also [`vmul!`](@ref), [`LazyAlgebra.Operator`](@ref), and
+[`LazyAlgebra.unsafe_vmul!`](@ref).
 
 """
 function vmul end
@@ -684,8 +684,8 @@ The `vmul!` method can be seen as a generalization of the `LinearAlgebra.mul!` m
     Do not extend this method for specific operator types, but rather the
     [`LazyAlgebra.unsafe_vmul!`](@ref) method.
 
-See also [`vmul`](@ref), [`LazyAlgebra.Operator`](@ref),
-[`LazyAlgebra.dispatch_vmul!`](@ref), and [`LazyAlgebra.unsafe_vmul!`](@ref).
+See also [`vmul`](@ref), [`LazyAlgebra.Operator`](@ref), and
+[`LazyAlgebra.unsafe_vmul!`](@ref).
 
 """
 function vmul! end
