@@ -29,9 +29,10 @@ Diff() = Diff{1}()
 Diff{L}() where {L} = Diff{L,Colon}()
 
 # Two finite difference operators are identical if they have the same order of
-# differentiation and list of dimensions along which compute the differences.
-Base.:(==)(A::Diff{L,D}, B::Diff{L,D}) where {L,D} = true
-Base.:(isequal)(A::Diff{L,D}, B::Diff{L,D}) where {L,D} = true
+# differentiation and list of dimensions along which compute the differences. This amounts
+# to checking whether they have the same type. Note that `isequal` amounts to calling `==`
+# by default.
+Base.:(==)(A::T, B::T) where {T<:Diff} = true
 
 # Print operator in such a way that is similar to how the operator would be created in
 # Julia.

@@ -83,7 +83,11 @@ Base.:(/)(A::Operator, β::Number) = β \ A
 Base.:(/)(A::Operator, B::Operator) = A * inv(B)
 Base.:(/)(α::Number,   B::Operator) = α * inv(B)
 
-# Equality.
+# Equality. If no more specific rules exist, consider that two operators are different by
+# default unless they are the same object.
+Base.:(==)(A::T, B::T) where {T<:Operator} = A === B
+Base.:(==)(A::Operator, B::Operator) = false
+Base.isequal(A::Operator, B::Operator) = A == B
 for cmp in (:(==), :isequal)
     @eval begin
         # Equality for sums of operators.
@@ -108,6 +112,11 @@ for cmp in (:(==), :isequal)
         Base.$cmp(A::Prod, B::Prod) = $cmp(A[1], B[1]) && $cmp(A[2], B[2])
         Base.$cmp(A::Prod, B::Operator) = isone(A[1]) && $cmp(A[2], B)
         Base.$cmp(A::Operator, B::Prod) = isone(B[1]) && $cmp(A, B[2])
+
+        # Equality for adjoint and inverse (accounting for inverse-adjoint results from
+        # these rules).
+        Base.$cmp(A::Adjoint, B::Adjoint) = $cmp(parent(A), parent(A))
+        Base.$cmp(A::Inverse, B::Inverse) = $cmp(parent(A), parent(A))
     end
 end
 

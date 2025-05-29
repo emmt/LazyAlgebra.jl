@@ -14,4 +14,5 @@ SymbolicOperator(name::AbstractString) = SymbolicOperator(Symbol(id))
 
 Base.show(io::IO, A::SymbolicOperator) = print(io, A.name)
 
-# FIXME identical(A::SymbolicOperator, B::SymbolicOperator) = A.name === B.name
+# Testing for equality. Note that `isequal` amounts to calling `==` by default.
+Base.:(==)(A::SymbolicOperator, B::SymbolicOperator) = A.name === B.name

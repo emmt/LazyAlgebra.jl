@@ -50,6 +50,18 @@ Base.last( A::RankOneOperator) = getfield(A, :v)
 Base.first(A::SymmetricRankOneOperator) = getfield(A, :u)
 Base.last( A::SymmetricRankOneOperator) = first(A)
 
+# Testing for equality.
+for cmp in (:(==), :isequal)
+    @eval begin
+        Base.$cmp(A::RankOneOperator, B::RankOneOperator) =
+            A === B || ($cmp(first(A), first(B)) && $cmp(last(A), last(B)))
+        Base.$cmp(A::SymmetricRankOneOperator, B::SymmetricRankOneOperator) =
+            A === B || $cmp(first(A), first(B))
+        Base.$cmp(A::AbstractRankOneOperator, B::AbstractRankOneOperator) =
+            $cmp(first(A), first(B)) && $cmp(last(A), last(B))
+    end
+end
+
 # NOTE It is so simple to re-build a rank-1 operator that taking the adjoint is directly
 #      simplified as follows (this is type-stable):
 Adjoint(A::RankOneOperator) = RankOneOperator(last(A), first(A))

@@ -24,6 +24,15 @@ function Base.show(io::IO, A::Identity)
     write(io, ')')
 end
 
+# Testing for equality. Note that `isequal` amounts to calling `==` by default.
+Base.:(==)(A::Identity{Colon}, B::Identity{Colon}) = true
+Base.:(==)(A::Identity{<:Dims{N}}, B::Identity{<:Dims{N}}) where {N} =
+    A === B || A.shape == B.shape
+Base.:(==)(A::Identity{<:ArrayAxes{N}}, B::Identity{<:ArrayAxes{N}}) where {N} =
+    A === B || A.shape == B.shape
+Base.:(==)(A::Identity{<:NTuple{N}}, B::Identity{<:NTuple{N}}) where {N} =
+    input_axes(A) == input_axes(B)
+
 # Implement API of operators for the identity.
 output_eltype(::Type{<:Identity}, ::Type{X}) where {X<:AbstractArray} = float(eltype(X))
 output_axes(A::UniversalIdentity, shape::ArrayAxes) = shape

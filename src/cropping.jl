@@ -81,6 +81,10 @@ function check_cropping_axis(I::AbstractUnitRange{Int},
     nothing
 end
 
+# Testing for equality. Note that `isequal` amounts to calling `==` by default.
+Base.:(==)(A::CroppingOperator{N}, B::CroppingOperator{N}) where {N} =
+    A === B || (A.i == B.i && A.j == B.j && A.k == B.k)
+
 # Accessors and operator API for the cropping and zero-padding operators.
 output_axes(A::CroppingOperator) = getfield(A, :i)
 input_axes( A::CroppingOperator) = getfield(A, :j)

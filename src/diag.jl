@@ -42,6 +42,13 @@ output_axes(A::Diag) = axes(diag(A))
 InputShape(::Type{<:Diag{<:AbstractArray{T,N}}}) where {T,N} = HasInputShape{N}()
 input_axes(A::Diag) = axes(diag(A))
 
+# Testing for equality.
+for cmp in (:(==), :isequal)
+    @eval begin
+        Base.$cmp(A::Diag, B::Diag) = A === B || $cmp(diag(A), diag(B))
+    end
+end
+
 conj_mul(w, x) = conj(w)*x
 conj_ldiv(w, x) = conj(w)\x
 for (T, B, f) in ((:(                 Diag ), :(              A),   :(*)),

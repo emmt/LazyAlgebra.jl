@@ -65,6 +65,14 @@ FlexibleMatrix{T}(arr::AbstractArray) where {T} = PseudoMatrix{T}(arr, :)
 # Accessors.
 Base.parent(A::PseudoMatrix) = getfield(A, :parent)
 
+# Testing for equality.
+for cmp in (:(==), :isequal)
+    @eval begin
+        Base.$cmp(A::PseudoMatrix{<:Any,M,N}, B::PseudoMatrix{<:Any,M,N}) where {M,N} =
+            A === B || $cmp(parent(A), parent(B))
+    end
+end
+
 # Traits.
 Base.eltype(::Type{<:PseudoMatrix{T}}) where {T} = T
 

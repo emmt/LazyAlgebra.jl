@@ -155,6 +155,29 @@ Base.axes(A::SparseOperator) = map(Base.OneTo, size(A))
 Base.convert(::Type{T}, A::T) where {T<:SparseOperator} = A
 Base.convert(::Type{T}, A) where {T<:SparseOperator} = T(A)
 
+for f in (:(==), :isequal)
+    @eval begin
+        function Base.$f(A::SparseOperatorCSR{<:Any,M,N},
+                         B::SparseOperatorCSR{<:Any,M,N}) where {M,N}
+            A === B || (A.m == B.m && A.n == B.n &&
+                A.rowsiz == B.rowsiz && A.colsiz == B.colsiz &&
+                A.cols == B.cols && A.offs == B.offs && $f(A.vals, B.vals))
+        end
+        function Base.$f(A::SparseOperatorCSC{<:Any,M,N},
+                         B::SparseOperatorCSC{<:Any,M,N}) where {M,N}
+            A === B || (A.m == B.m && A.n == B.n &&
+                A.rowsiz == B.rowsiz && A.colsiz == B.colsiz &&
+                A.rows == B.rows && A.offs == B.offs && $f(A.vals, B.vals))
+        end
+        function Base.$f(A::SparseOperatorCOO{<:Any,M,N},
+                         B::SparseOperatorCOO{<:Any,M,N}) where {M,N}
+            A === B || (A.m == B.m && A.n == B.n &&
+                A.rowsiz == B.rowsiz && A.colsiz == B.colsiz &&
+                A.rows == B.rows && A.cols == B.cols && $f(A.vals, B.vals))
+        end
+    end
+end
+
 # Assume that a `copy` of a compressed sparse operator is to keep the same structure for
 # the structural non-zeros but possibly change the values. So only duplicate the value
 # part. For a `deepcopy` of a compressed sparse operator, all the fields are copied.
