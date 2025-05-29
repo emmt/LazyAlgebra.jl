@@ -43,19 +43,14 @@ InputShape(::Type{<:ShapedIdentity{N}}) where {N} = HasInputShape{N}()
 OutputShape(::Type{<:Identity}) = OutputShapeUnknown()
 OutputShape(::Type{<:ShapedIdentity{N}}) where {N} = HasOutputShape{N}()
 
-for f in (:output_axes, :input_axes)
-    @eval begin
-        $f(A::Identity{<:ArrayAxes}) = A.shape
-        $f(A::Identity{<:Dims}) = as_array_axes(A.shape)
-        #$f(A::Identity{<:Tuple{}}) = ()
-    end
-end
-for f in (:output_size, :input_size)
-    @eval begin
-        $f(A::Identity{<:Dims}) = A.shape
-        #$f(A::Identity{<:Tuple{}}) = ()
-    end
-end
+input_axes(A::Identity{<:ArrayAxes}) = A.shape
+input_size(A::Identity{<:Dims}) = A.shape
+input_axes(A::Identity{<:Dims}) = as_array_axes(input_size(A))
+input_axes(A::Identity{<:Tuple{}}) = ()
+
+# Output has the same shape as input for the identity.
+output_axes(A::Identity) = input_axes(A)
+output_size(A::Identity) = input_size(A)
 
 unsafe_vmul!(α::Number, A::Identity, x::AbstractArray, β::Number, y::AbstractArray) =
     # Call `vcombine!` at stage 1 to dispatch on the values of `α` and `β` because array
