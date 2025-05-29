@@ -77,11 +77,12 @@ storage order which depends on the compressed format.
 - If `A` is in CSC format or is the adjoint of a sparse operator in CSR format:
 
   ```julia
-  using LazyAlgebra.SparseMethods
+  using LazyAlgebra: each_col, each_nz, get_row, get_val
   for j in each_col(A)        # loop over column index
       for k in each_nz(A, j)  # loop over structural non-zeros in this column
           i   = get_row(A, k) # get row index of entry
           Aij = get_val(A, k) # get value of entry
+          ...
        end
   end
   ```
@@ -89,11 +90,12 @@ storage order which depends on the compressed format.
 - If `A` is in CSR format or is the adjoint of a sparse operator in CSC format:
 
   ```julia
-  using LazyAlgebra.SparseMethods
+  using LazyAlgebra: each_row, each_nz, get_col, get_val
   for i in each_row(A)        # loop over row index
       for k in each_nz(A, i)  # loop over structural non-zeros in this row
           j   = get_col(A, k) # get column index of entry
           Aij = get_val(A, k) # get value of entry
+          ...
        end
   end
   ```
@@ -101,17 +103,17 @@ storage order which depends on the compressed format.
 - If `A` is in COO format:
 
   ```julia
-  using LazyAlgebra.SparseMethods
+  using LazyAlgebra: each_nz, get_row, get_col, get_val
   for k in each_nz(A)      # loop over all structural non-zeros
        i   = get_row(A, k) # get row index of entry
        j   = get_col(A, k) # get column index of entry
        Aij = get_val(A, k) # get value of entry
+       ...
   end
   ```
 
 The low-level methods `each_row`, `each_col`, `each_nz`, `get_row`, `get_col` and
-`get_val` are not automatically exported by `LazyAlgebra`, this is the purpose of the
-statement `using LazyAlgebra.SparseMethods`.
+`get_val` are not automatically exported by `LazyAlgebra`.
 
 """ CompressedSparseOperator
 
