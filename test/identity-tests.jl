@@ -16,7 +16,7 @@ using Test
 using TypeUtils
 
 function runtests(; rng::AbstractRNG = MersenneTwister(314159),
-                  sizes = ((3,), (2,3), (2,3,4)),
+                  sizes = ((), (3,), (2,3), (2,3,4)),
                   eltypes::Tuple{Vararg{Type}} = (Float64, Complex{Float32}),
                   kwds...)
     @testset "Identity" begin
@@ -38,7 +38,7 @@ function runtests(; rng::AbstractRNG = MersenneTwister(314159),
 
             for T in eltypes, dims in sizes
                 x = rand(rng, T, dims)
-                y = float.(x)
+                y = map(float, x) # not `float.(x)` because it collapses 0-dim array in a scalar
                 LazyAlgebra.test_API(Id, x, y; name="universal identity", kwds...)
             end
         end
@@ -46,7 +46,7 @@ function runtests(; rng::AbstractRNG = MersenneTwister(314159),
         @testset "Shaped identity" begin
             for T in eltypes, dims in sizes
                 x = rand(rng, T, dims)
-                y = float.(x)
+                y = map(float, x) # not `float.(x)` because it collapses 0-dim array in a scalar
                 LazyAlgebra.test_API(Identity(dims...), x, y; name="shaped identity", kwds...)
             end
         end
