@@ -1,6 +1,9 @@
 # Implement simplification rules for sums and compositions of LazyAlgebra operators.
+#
 # Contrarily to automatic rules applied at construction time, the result returned by
-# `simplify` and `try_simplify` may not be type-stable.
+# `simplify` and `try_simplify` may not be type-stable. One of the difficulty is
+# to avoid re-trying to simplify (sub-)expressions that have been already simplified and
+# yet not forget to apply all implemented simplifications.
 
 is_nothing(::Nothing) = true
 is_nothing(::Any) = false
@@ -138,6 +141,9 @@ simplify(A::Sum{<:Operator,<:Sum}) = simplify_sum!(flatten_sum!(Operator[], A))
 
 flatten_sum!(A::AbstractVector{Operator}, B::Sum) =
     flatten_sum!(flatten_sum!(A, B[1]), B[2])
+flatten_sum!(A::AbstractVector{Operator}, (λ,B)::Prod{<:Number,<:Sum}) =
+    # Distribute multiplication by a scalar over the terms of a sum.
+    isone(λ) ? flatten_sum!(A, B) : flatten_sum!(flatten_sum!(A, λ*B[1]), λ*B[2])
 flatten_sum!(A::AbstractVector{Operator}, B::Operator) =
     flatten_sum!(Stage(1), A, simplify(B))
 function flatten_sum!(::Stage{1}, A::AbstractVector{Operator}, B::Operator)
@@ -154,6 +160,7 @@ function flatten_sum!(::Stage{1}, A::AbstractVector{Operator}, B::Operator)
     return push!(A, B)
 end
 
+# Given a sum flattened by `flatten_sum!`, simplify the sum of terms.
 function simplify_sum!(A::AbstractVector{Operator})
     # Eliminate zeros.
     rng = firstindex(A):lastindex(A)

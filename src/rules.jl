@@ -125,6 +125,10 @@ end
 
 # Simplification rules for products and sums.
 #
+# - NOTE Do not distribute multiplication by a scalar among the terms of a sum to not
+#   prevent the left-factorization of multipliers at construction time. This is done by
+#   `simplify`.
+#
 # - Number operands are moved to the leftmost part of products and factorized.
 Prod(α::Number,           β::Number        ) = α * β
 Prod(A::Operator,         β::Number        ) = Prod(β, A)
@@ -132,9 +136,6 @@ Prod(α::Number,           B::Prod{<:Number}) = (α * B[1]) * B[2]
 Prod(A::Operator,         B::Prod{<:Number}) = B[1] * (A * B[2])
 Prod(A::Prod{<:Operator}, B::Prod{<:Number}) = B[1] * (A * B[2])
 Prod(A::Prod{<:Number},   B::Prod{<:Number}) = (A[1] * B[1]) * (A[2] * B[2])
-#
-# - Distribute multiplication by a scalar over the terms of a sum.
-Prod(α::Number, B::Sum) = α*B[1] + α*B[2]
 #
 # - Right-associativity is applied to keep product and sum of operators in the expected
 #   order for applying these constructions to an argument. See `unsafe_vmul!` method for
