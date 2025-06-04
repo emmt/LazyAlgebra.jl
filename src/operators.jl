@@ -563,9 +563,10 @@ end
 """
     LazyAlgebra.unscaled(A)
 
-yields the operator `B` of the *scaled operator* `A = λ*B`; otherwise yields `A`. This
-method is also applicable to instances of `LinearAlgebra.UniformScaling`. Call
-[`LazyAlgebra.multiplier`](@ref) to get the multiplier `λ`.
+yields the operator `B` of the *scaled operator* `A = λ*B` where `λ` is a number;
+otherwise yields `A`. This method is also applicable to instances of
+`LinearAlgebra.UniformScaling`. Call [`LazyAlgebra.multiplier`](@ref) to get the
+multiplier `λ`.
 
 """
 unscaled(A::Operator) = A
@@ -575,9 +576,10 @@ unscaled(A::UniformScaling) = Id
 """
     LazyAlgebra.multiplier(A)
 
-yields the multiplier `λ` of the *scaled operator* `A = λ*B`; otherwise yields `1`. This
-method is also applicable to instances of `LinearAlgebra.UniformScaling`. Call
-[`LazyAlgebra.unscaled`](@ref) to get the operator `B`.
+yields the multiplier `λ` of the *scaled operator* `A = λ*B` where `λ` is a number and `B`
+an operator; otherwise yields `1`. This method is also applicable to instances of
+`LinearAlgebra.UniformScaling`. Call [`LazyAlgebra.unscaled`](@ref) to get the operator
+`B`.
 
 """
 multiplier(A::Prod{<:Number}) = A[2]

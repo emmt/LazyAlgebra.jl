@@ -132,7 +132,8 @@ Prod(A::Prod{<:Number},   B::Prod{<:Number}) = (A[1] * B[1]) * (A[2] * B[2])
 #
 # - Right-associativity is applied to keep product and sum of operators in the expected
 #   order for applying these constructions to an argument. See `unsafe_vmul!` method for
-#   these constructions.
+#   these constructions. As a result, the left-hand side of a `Sum` (resp. a `Prod`) shall
+#   never be a `Sum` (resp. a `Prod`).
 Sum( A::Sum,  B::Operator) = A[1] + (A[2] + B)
 Prod(A::Prod, B::Operator) = A[1] * (A[2] * B)
 
