@@ -88,7 +88,7 @@ Base.:(/)(α::Number,   B::Operator) = α * inv(B)
 Base.:(==)(A::T, B::T) where {T<:Operator} = A === B
 Base.:(==)(A::Operator, B::Operator) = false
 Base.isequal(A::Operator, B::Operator) = A == B
-for cmp in (:(==), :isequal)
+for eq in (:(==), :isequal)
     @eval begin
         # Equality for sums of operators.
         #
@@ -97,26 +97,29 @@ for cmp in (:(==), :isequal)
         # terms or would require first sorting the terms of A and B. This is too long, so
         # equality is only tested without permutations. This is sufficient if A and B have
         # been "simplified" (and thus their terms sorted).
-        Base.$cmp(A::Sum, B::Sum) = ($cmp(A[1], B[1]) && $cmp(A[2], B[2]))
+        Base.$eq(A::Sum, B::Sum) = ($eq(A[1], B[1]) && $eq(A[2], B[2]))
         #
         # For comparing a sum and another operator, it is lazily assumed that the i/o
         # sizes of the terms of the sum are compatible. Again, the number of considered
         # cases are not meant to be exhaustive, just to be sufficient if A and B have been
         # simplified.
-        Base.$cmp(A::Sum, B::Operator) =
-            (iszero(A[1]) && $cmp(A[2], B)) || (iszero(A[2]) && $cmp(A[1], B))
-        Base.$cmp(A::Operator, B::Sum) =
-            (iszero(B[1]) && $cmp(A, B[2])) || (iszero(B[2]) && $cmp(A, B[1]))
+        Base.$eq(A::Operator, B::Sum) = $eq(B, A)
+        Base.$eq(A::Sum, B::Operator) =
+            (iszero(A[1]) && $eq(A[2], B)) || (iszero(A[2]) && $eq(A[1], B))
 
         # Equality for scaled operators and compositions of operators.
-        Base.$cmp(A::Prod, B::Prod) = $cmp(A[1], B[1]) && $cmp(A[2], B[2])
-        Base.$cmp(A::Prod, B::Operator) = isone(A[1]) && $cmp(A[2], B)
-        Base.$cmp(A::Operator, B::Prod) = isone(B[1]) && $cmp(A, B[2])
+        Base.$eq(A::Prod, B::Prod) = $eq(A[1], B[1]) && $eq(A[2], B[2])
+        Base.$eq(A::Prod, B::Operator) = isone(A[1]) && $eq(A[2], B)
+        Base.$eq(A::Operator, B::Prod) = $eq(B, A)
+
+        # Equality between sums and products.
+        Base.$eq(A::Sum, B::Prod) = $eq(B, A)
+        Base.$eq(A::Prod, B::Sum) = isone(A[1]) && $eq(A[2], B)
 
         # Equality for adjoint and inverse (accounting for inverse-adjoint results from
         # these rules).
-        Base.$cmp(A::Adjoint, B::Adjoint) = $cmp(parent(A), parent(A))
-        Base.$cmp(A::Inverse, B::Inverse) = $cmp(parent(A), parent(A))
+        Base.$eq(A::Adjoint, B::Adjoint) = $eq(parent(A), parent(A))
+        Base.$eq(A::Inverse, B::Inverse) = $eq(parent(A), parent(A))
     end
 end
 
