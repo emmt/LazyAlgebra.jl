@@ -2,6 +2,8 @@ using LazyAlgebra
 using Test
 using LinearAlgebra
 
+using LazyAlgebra: Adjoint, Inverse, Prod, Sum
+
 @testset "Arithmetic rules" begin
     @testset "Multipliers" begin
         let multiplier_type = LazyAlgebra.multiplier_type
@@ -19,7 +21,7 @@ using LinearAlgebra
 
     @testset "Arithmetic rules" begin
         A, B, C, D = SymbolicOperator.((:A, :B, :C, :D))
-        @test A isa Operator
+        @test typeof(A) <: Operator
         @test A === A
         @test A !== B
 
@@ -30,7 +32,7 @@ using LinearAlgebra
             S = N == 2 ? @inferred(A + B) :
                 N == 3 ? @inferred(A + B + C) :
                 N == 4 ? @inferred(A + B + C + D) : nothing
-            @test S isa LazyAlgebra.Sum{typeof(A)}
+            @test typeof(S) <: Sum{typeof(A)}
             @test @inferred(length(S)) === 2
             @test @inferred(firstindex(S)) === 1
             @test @inferred(lastindex(S)) === 2
@@ -42,15 +44,15 @@ using LinearAlgebra
             @test S[2] === S2
             @test S[1] === A
             if N == 2
-                @test S isa LazyAlgebra.Sum{typeof(A),typeof(B)}
+                @test typeof(S) <: Sum{typeof(A),typeof(B)}
                 @test S[2] === B
             elseif N == 3
-                @test S isa LazyAlgebra.Sum{typeof(A),LazyAlgebra.Sum{typeof(B),typeof(C)}}
+                @test typeof(S) <: Sum{typeof(A),Sum{typeof(B),typeof(C)}}
                 @test S[2] === B + C
                 @test S[2][1] === B
                 @test S[2][2] === C
             elseif N == 4
-                @test S isa LazyAlgebra.Sum{typeof(A),LazyAlgebra.Sum{typeof(B),LazyAlgebra.Sum{typeof(C),typeof(D)}}}
+                @test typeof(S) <: Sum{typeof(A),Sum{typeof(B),Sum{typeof(C),typeof(D)}}}
                 @test S[2] === B + C + D
                 @test S[2][1] === B
                 @test S[2][2] === C + D
@@ -81,7 +83,7 @@ using LinearAlgebra
             S = N == 2 ? @inferred(A * B) :
                 N == 3 ? @inferred(A * B * C) :
                 N == 4 ? @inferred(A * B * C * D) : nothing
-            @test S isa LazyAlgebra.Prod{typeof(A)}
+            @test typeof(S) <: Prod{typeof(A)}
             @test @inferred(length(S)) === 2
             @test @inferred(firstindex(S)) === 1
             @test @inferred(lastindex(S)) === 2
@@ -93,15 +95,15 @@ using LinearAlgebra
             @test S[2] === S2
             @test S[1] === A
             if N == 2
-                @test S isa LazyAlgebra.Prod{typeof(A),typeof(B)}
+                @test typeof(S) <: Prod{typeof(A),typeof(B)}
                 @test S[2] === B
             elseif N == 3
-                @test S isa LazyAlgebra.Prod{typeof(A),LazyAlgebra.Prod{typeof(B),typeof(C)}}
+                @test typeof(S) <: Prod{typeof(A),Prod{typeof(B),typeof(C)}}
                 @test S[2] === B * C
                 @test S[2][1] === B
                 @test S[2][2] === C
             elseif N == 4
-                @test S isa LazyAlgebra.Prod{typeof(A),LazyAlgebra.Prod{typeof(B),LazyAlgebra.Prod{typeof(C),typeof(D)}}}
+                @test typeof(S) <: Prod{typeof(A),Prod{typeof(B),Prod{typeof(C),typeof(D)}}}
                 @test S[2] === B * C * D
                 @test S[2][1] === B
                 @test S[2][2] === C * D
@@ -136,10 +138,10 @@ using LinearAlgebra
         @test A * B \ C * D === inv(A * B) * C * D # FIXME not `A * inv(B) * C * D` due to Julia associative rules
 
         # Adjoint of a number
-        @test @inferred(LazyAlgebra.Adjoint(42)) === 42
-        @test @inferred(LazyAlgebra.Adjoint(4.0 - 2.0im)) === 4.0 + 2.0im
+        @test @inferred(Adjoint(42)) === 42
+        @test @inferred(Adjoint(4.0 - 2.0im)) === 4.0 + 2.0im
         # Adjoint of an operator
-        @test A' isa LazyAlgebra.Adjoint
+        @test typeof(A') <: Adjoint
         @test A' === adjoint(A)
         @test @inferred(adjoint(A')) === A
         @test @inferred(parent(A')) === A
@@ -148,53 +150,55 @@ using LinearAlgebra
         @test A'' === A
         # Adjoint of a sum.
         @test (A + B)' === A' + B'
-        @test (A + B)' isa LazyAlgebra.Sum
+        @test typeof((A + B)') <: Sum
         @test Tuple((A + B)') === (A', B')
         @test (A + B + C + D)' === A' + B' + C' + D'
-        @test (A + B + C + D)' isa LazyAlgebra.Sum
+        @test typeof((A + B + C + D)') <: Sum
         @test (A + B + C + D)'[1] === A'
         @test (A + B + C + D)'[2][1] === B'
         @test (A + B + C + D)'[2][2][1] === C'
         @test (A + B + C + D)'[2][2][2] === D'
         # Adjoint of a product.
         @test (A * B)' === B' * A'
-        @test (A * B)' isa LazyAlgebra.Prod
+        @test typeof((A * B)') <: Prod
         @test Tuple((A * B)') === (B', A')
         @test (A * B * C * D)' === D' * C' * B' * A'
-        @test (A * B * C * D)' isa LazyAlgebra.Prod
+        @test typeof((A * B * C * D)') <: Prod
         @test (A * B * C * D)'[1] === D'
         @test (A * B * C * D)'[2][1] === C'
         @test (A * B * C * D)'[2][2][1] === B'
         @test (A * B * C * D)'[2][2][2] === A'
 
         # Inverse of a number
-        @test @inferred(LazyAlgebra.Inverse(2)) === 1/2
-        @test @inferred(LazyAlgebra.Inverse(3.0 - 2.0im)) ≈ (3.0 + 2.0im)/13.0
+        @test @inferred(Inverse(2)) === 1//2
+        @test @inferred(Inverse(3.0 - 2.0im)) ≈ (3.0 + 2.0im)/13.0
         # Inverse of an operator
-        @test inv(A) isa LazyAlgebra.Inverse
+        @test typeof(inv(A)) <: Inverse
         @test @inferred(inv(inv(A))) === A
         @test @inferred(parent(inv(A))) === A
         @test @inferred(getindex(inv(A))) === A
         @test inv(A)[] === A
         # Inverse of a sum.
-        @test inv(A + B) isa LazyAlgebra.Inverse
+        @test typeof(inv(A + B)) <: Inverse
         @test inv(A + B)[] === A + B
-        @test inv(A + B + C + D) isa LazyAlgebra.Inverse
+        @test typeof(inv(A + B + C + D)) <: Inverse
         @test inv(A + B + C + D)[] === A + B + C + D
         # Inverse of a product.
         @test inv(A * B) === inv(B) * inv(A)
-        @test inv(A * B) isa LazyAlgebra.Prod
+        @test typeof(inv(A * B)) <: Prod
         @test Tuple(inv(A * B)) === (inv(B), inv(A))
         @test inv(A * B * C * D) === inv(D) * inv(C) * inv(B) * inv(A)
-        @test inv(A * B * C * D) isa LazyAlgebra.Prod
+        @test typeof(inv(A * B * C * D)) <: Prod
         @test inv(A * B * C * D)[1] === inv(D)
         @test inv(A * B * C * D)[2][1] === inv(C)
         @test inv(A * B * C * D)[2][2][1] === inv(B)
         @test inv(A * B * C * D)[2][2][2] === inv(A)
 
         # Inverse-adjoint and adjoint-inverse
-        @test inv(A)' === @inferred(adjoint(inv(A))) isa LazyAlgebra.Inverse{<:LazyAlgebra.Adjoint}
-        @test @inferred(inv(A')) === @inferred(inv(adjoint(A))) isa LazyAlgebra.Inverse{<:LazyAlgebra.Adjoint}
+        @test inv(A)' === @inferred(adjoint(inv(A)))
+        @test @inferred(inv(A')) === @inferred(inv(adjoint(A)))
+        @test typeof(inv(A)') <: Inverse{<:Adjoint}
+        @test typeof(inv(A')) <: Inverse{<:Adjoint}
         @test @inferred(parent(inv(A'))) === A'
         @test @inferred(parent(inv(A)')) === A'
         @test @inferred(parent(parent(inv(A')))) === A
@@ -210,39 +214,68 @@ using LinearAlgebra
 
         # Scalar times operator.
         @testset "Scalar (λ=$λ) times $X" for λ in (0x0, true, -1, 1//2, pi, 2.3f0, 2.0 - 3.0im), X in (A, A + B, A*B)
-            @test λ*X === X*λ
-            @test λ*X isa LazyAlgebra.Prod{typeof(λ),typeof(X)}
-            @test @inferred(first(λ*X)) === λ
-            @test @inferred( last(λ*X)) === X
-            @test (λ*X)' === (X*λ)'
-            @test @inferred(first((λ*X)')) === conj(λ)
-            @test @inferred( last((X*λ)')) === X'
-            @test inv(λ*X) === inv(X*λ)
-            @test @inferred(first(inv(λ*X))) ≈ inv(λ)
-            @test @inferred( last(inv(X*λ))) === inv(X)
-            @test λ\X === X/λ
-            @test @inferred(first(λ\X)) ≈ inv(λ)
-            @test @inferred( last(λ\X)) === X
-            @test (λ\X)' === (X/λ)'
-            @test @inferred(first((λ\X)')) ≈ inv(conj(λ))
-            @test @inferred( last((λ\X)')) === X'
-            @test inv(λ\X) === inv(X/λ)
-            @test @inferred(first(inv(λ\X))) ≈ λ
-            @test @inferred( last(inv(λ\X))) === inv(X)
-            @test inv((λ\X)') === inv((X/λ)')
-            @test @inferred(first(inv((λ\X)'))) ≈ conj(λ)
-            @test @inferred( last(inv((λ\X)'))) === inv(X')
+            @test @inferred(λ*X) === @inferred(X*λ)
+            @test typeof(λ*X) <: Prod{typeof(λ),typeof(X)}
+            @test  first(λ*X) === λ
+            @test   last(λ*X) === X
+            #
+            @test @inferred(X/λ) === @inferred(λ\X)
+            @test typeof(X/λ) <: Prod{<:Number,typeof(X)}
+            @test  first(X/λ) === Inverse(λ)
+            @test   last(X/λ) === X
+            #
+            @test @inferred(adjoint((λ*X))) === (λ*X)'
+            @test @inferred(adjoint((X*λ))) === (X*λ)'
+            @test @inferred(conj(λ)*X') ===  (λ*X)'
+            @test typeof((λ*X)') <: Prod{<:Number,typeof(X')}
+            @test  first((λ*X)') === conj(λ)
+            @test   last((λ*X)') === X'
+            #
+            @test @inferred(inv(λ*X)) === @inferred(Inverse(λ)*inv(X))
+            @test @inferred(inv(X*λ)) === @inferred(Inverse(λ)*inv(X))
+            @test typeof(inv(λ*X)) <: Prod{<:Number,typeof(inv(X))}
+            @test  first(inv(λ*X)) === Inverse(λ)
+            @test   last(inv(λ*X)) === inv(X)
+            #
+            @test (X/λ)' === @inferred(adjoint((X/λ)))
+            @test (λ\X)' === @inferred(adjoint((X/λ)))
+            @test typeof((X/λ)') <: Prod{<:Number,typeof(X')}
+            @test  first((X/λ)') === Inverse(conj(λ))
+            @test   last((X/λ)') === X'
+            #
+            @test @inferred(inv(λ\X)) === @inferred(inv(X/λ))
+            @test typeof(inv(X/λ)) <: Prod{<:Number,typeof(inv(X))}
+            @test  first(inv(X/λ)) ≈ λ
+            @test   last(inv(X/λ)) === inv(X)
+            #
+            @test @inferred(inv((λ\X)')) === @inferred(inv((X/λ)'))
+            @test typeof(inv((X/λ)')) <: Prod{<:Number,typeof(inv(X'))}
+            @test  first(inv((X/λ)')) ≈ conj(λ)
+            @test   last(inv((X/λ)')) === inv(X')
         end
 
         # Left-factorization of scalar in products.
         α, β = 3//4, -2.0 + 3.0im
         X, Y = B + C*D, A - D
-        @test A*α === α*A isa LazyAlgebra.Prod{typeof(α),typeof(A)}
-        @test (A*B)*α === A*(B*α) === A*(α*B) === (A*α)*B === (α*A)*B === α*(A*B) isa LazyAlgebra.Prod{typeof(α),typeof(A*B)}
-        @test (A*X)*α === A*(X*α) === A*(α*X) === (A*α)*X === (α*A)*X === α*(A*X) isa LazyAlgebra.Prod{typeof(α),typeof(A*X)}
-        @test (A*B)/α === A*(B/α) === A*(α\B) === (A/α)*B === (α\A)*B === α\(A*B) isa LazyAlgebra.Prod{<:Number,typeof(A*B)}
-        @test X*α + Y*β === α*X + β*Y isa LazyAlgebra.Sum{LazyAlgebra.Prod{typeof(α),typeof(X)},LazyAlgebra.Prod{typeof(β),typeof(Y)}}
-        @test (X*α)*(Y*β) === (α*X)*(β*Y) === (α*β)*(X*Y) isa LazyAlgebra.Prod{<:Number,typeof(X*Y)}
+        @test @inferred(A*α) === @inferred(α*A)
+        @test typeof(α*A) <: Prod{typeof(α),typeof(A)}
+        @test (A*B)*α === A*(B*α) === A*(α*B) === (A*α)*B === (α*A)*B === α*(A*B) === α*A*B
+        @test typeof(α*A*B) <: Prod{typeof(α),typeof(A*B)}
+        @test (A*X)*α === A*(X*α) === A*(α*X) === (A*α)*X === (α*A)*X === α*(A*X) === α*A*X
+        @test typeof(α*A*X) <: Prod{typeof(α),typeof(A*X)}
+        @test (A*B)/α === A*(B/α) === A*(α\B) === (A/α)*B === (α\A)*B === α\(A*B)
+        @test typeof(α\(A*B)) <: Prod{<:Number,typeof(A*B)}
+        #
+        @test @inferred(α*X + Y*β) === @inferred(α*X + β*Y)
+        @test @inferred(X*α + β*Y) === @inferred(α*X + β*Y)
+        @test @inferred(X*α + Y*β) === @inferred(α*X + β*Y)
+        @test typeof(α*X + β*Y) <: Sum{Prod{typeof(α),typeof(X)},Prod{typeof(β),typeof(Y)}}
+        #
+        @test @inferred((α*X)*(β*Y)) === @inferred((α*β)*(X*Y))
+        @test @inferred((α*X)*(Y*β)) === @inferred((α*β)*(X*Y))
+        @test @inferred((X*α)*(β*Y)) === @inferred((α*β)*(X*Y))
+        @test @inferred((X*α)*(Y*β)) === @inferred((α*β)*(X*Y))
+        @test typeof((α*β)*(X*Y)) <: Prod{<:Number,typeof(X*Y)}
 
         # Showing expressions.
         @test string(A) == "A"
@@ -257,15 +290,28 @@ using LinearAlgebra
         # Unary plus and minus.
         @testset "Unary plus and minus on $X" for X in (A, A + B, A + B*C, A*(B + C*D))
             @test +X === X
-            @test -X === (-1)*X isa LazyAlgebra.Prod{Int,typeof(X)}
+            @test -X === (-1)*X
+            @test typeof(-X) <: Prod{Int,typeof(X)}
         end
 
         # Only type-stable simplifications are applied by constructors.
-        @test 2A != A + A isa LazyAlgebra.Sum{typeof(A),typeof(A)}
-        @test 0A != A - A === A + (-1)*A isa LazyAlgebra.Sum{typeof(A),<:LazyAlgebra.Prod{<:Number,typeof(A)}}
-        @test 2Id === Id + Id isa LazyAlgebra.Prod{<:Number,typeof(Id)}
-        @test 4Id === Id + 3Id isa LazyAlgebra.Prod{<:Number,typeof(Id)}
-        @test Id - Id === 0*Id isa LazyAlgebra.Prod{<:Number,typeof(Id)}
+        @test @inferred(A + A) != @inferred(2A)
+        @test typeof(A + A) <: Sum{typeof(A),typeof(A)}
+        @test typeof(2A) <: Prod{Int,typeof(A)}
+        #
+        @test @inferred(A - A) != @inferred(0A)
+        @test @inferred(A - A) === @inferred(A + (-1)*A)
+        @test typeof(A - A) <: Sum{typeof(A),<:Prod{Int,typeof(A)}}
+        @test typeof(0A) <: Prod{Int,typeof(A)}
+        #
+        @test @inferred(Id + Id) === 2Id
+        @test typeof(Id + Id) <: Prod{Int,typeof(Id)}
+        #
+        @test @inferred(Id - Id) === @inferred(0*Id)
+        @test typeof(Id - Id) <: Prod{<:Number,typeof(Id)}
+        #
+        @test @inferred(Id + 3Id - 2Id) === @inferred(2Id)
+        @test typeof(2Id) <: Prod{<:Number,typeof(Id)}
 
         # Neutral element for the addition.
         @test zero(A) === 0*A
@@ -325,10 +371,10 @@ using LinearAlgebra
         @test A∘I === I.λ*A
         @test I*A === I.λ*A
         @test I∘A === I.λ*A
-        @test A/I   isa LazyAlgebra.Prod{<:Number,typeof(A)}
-        @test A/I*B isa LazyAlgebra.Prod{<:Number,typeof(A*B)}
-        @test I\A   isa LazyAlgebra.Prod{<:Number,typeof(A)}
-        @test A*I\B isa LazyAlgebra.Prod{<:Number,typeof(A\B)}
+        @test typeof(@inferred(A/I))   <: Prod{<:Number,typeof(A)}
+        @test typeof(@inferred(A/I*B)) <: Prod{<:Number,typeof(A*B)}
+        @test typeof(@inferred(I\A))   <: Prod{<:Number,typeof(A)}
+        @test typeof(@inferred(A*I\B)) <: Prod{<:Number,typeof(A\B)}
         @test Id + I === 2Id
         @test Id - I === 0Id
         @test I + Id === 2Id
