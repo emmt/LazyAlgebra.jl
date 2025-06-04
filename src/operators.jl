@@ -582,7 +582,7 @@ an operator; otherwise yields `1`. This method is also applicable to instances o
 `B`.
 
 """
-multiplier(A::Prod{<:Number}) = A[2]
+multiplier(A::Prod{<:Number}) = A[1]
 multiplier(A::Operator) = 1
 multiplier(A::UniformScaling) = getfield(A, :λ)
 
