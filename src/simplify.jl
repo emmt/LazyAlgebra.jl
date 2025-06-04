@@ -156,15 +156,21 @@ function simplify_sum!(A::AbstractVector{Operator})
             j += 1
         end
     end
-    n = max(1, j - first(rng)) # number of remaining terms
+    n = j - first(rng) # number of remaining terms
 
     # Return a sum of the remaining terms sorted according to their hash-value. For a
     # small number of remaining terms, bypass sorting to speed-up the process.
-    if n == 1
+    if n ≤ 1
+        # Having less than 1 remaining terms means that the sum simplifies to zero, it is
+        # still valid to return the first term.
         return first(A)
-    elseif n == 2
+    elseif n ≤ 3
         i = firstindex(A)
-        return sorted_sum(A[i], A[i+1])
+        if n == 2
+            return sorted_sum(A[i], A[i+1])
+        else
+            return sorted_sum(A[i], A[i+1], A[i+2])
+        end
     else
         if n < length(A)
             # Restrict the list to the non-zero terms.
@@ -181,6 +187,29 @@ end
 
 sorted_sum(A::Operator, B::Operator) =
     order_in_sum(B) < order_in_sum(A) ? B + A : A + B
+
+function sorted_sum(A::Operator, B::Operator, C::Operator)
+    A_order = order_in_sum(A)
+    B_order = order_in_sum(B)
+    C_order = order_in_sum(C)
+    if B_order < A_order
+        if C_order < B_order
+            return C + B + A
+        elseif C_order < A_order
+           return B + C + A
+        else
+           return B + A + C
+        end
+    else
+        if C_order < A_order
+            return C + A + B
+        elseif C_order < B_order
+           return A + C + B
+        else
+           return A + B + C
+        end
+    end
+end
 
 """
     LazyAlgebra.try_simplify(A::Operator) -> Union{Operator,Nothing}
