@@ -100,7 +100,11 @@ function runtests()
             end
 
             @test simplify(2*(A + B) - (A + B)) === simplify(A + B)
+            @test simplify(2*(A + B) - (B + A)) === simplify(A + B)
             @test simplify(2*(A + B) - B - A) === simplify(A + B)
+            @test simplify(2*(A + B) - A - B) === simplify(A + B)
+            @test simplify(2*(A + B) - (B + 2A)) === B
+            @test simplify(2*(A + B) - (B + C + 2A)) === simplify(B - C)
 
             # Product with inverse, etc.
             @test simplify(A/A) === Id

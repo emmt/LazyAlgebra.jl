@@ -119,25 +119,8 @@ function simplify_prod(λ::Number, A::AbstractVector{Operator}, B::Operator,
     return simplify_prod(λ′, A′, true)
 end
 
-# Simplify a sum of 2 terms. This is an optimized version for speed-up.
-simplify(A::Sum{<:Operator,<:Operator}) = simplify_sum(simplify(A[1]), simplify(A[2]))
-
-# To simplify the sum of 2 terms (that have been separately simplified), first try a more
-# simple expression, otherwise return the sum of the sorted terms.
-function simplify_sum(A::Operator, B::Operator) # operands assumed to have been simplified
-    C = try_simplify(A + B)
-    if is_something(C)
-        return C
-    elseif order_in_sum(B) < order_in_sum(A)
-        return B + A
-    else
-        return A + B
-    end
-end
-
-# Simplify a sum of any number of terms. For speed-up, a sum of 2 terms is simplified by
-# another specialized method.
-simplify(A::Sum{<:Operator,<:Sum}) = simplify_sum!(flatten_sum!(Operator[], A))
+# Simplify a sum of any number of terms.
+simplify(A::Sum) = simplify_sum!(flatten_sum!(Operator[], A))
 
 flatten_sum!(A::AbstractVector{Operator}, B::Sum) =
     flatten_sum!(flatten_sum!(A, B[1]), B[2])
@@ -147,7 +130,7 @@ flatten_sum!(A::AbstractVector{Operator}, (λ,B)::Prod{<:Number,<:Sum}) =
 flatten_sum!(A::AbstractVector{Operator}, B::Operator) =
     flatten_sum!(Stage(1), A, simplify(B))
 function flatten_sum!(::Stage{1}, A::AbstractVector{Operator}, B::Operator)
-    # This version is called when `B` is not a sum and has been simplified. First, Attempt
+    # This version is called when `B` is not a sum and has been simplified. First, attempt
     # to combine `B` with any preceding terms of the sum; if this fails, `B` is appended
     # to the list of terms.
     for i in eachindex(A)
@@ -175,24 +158,29 @@ function simplify_sum!(A::AbstractVector{Operator})
     end
     n = max(1, j - first(rng)) # number of remaining terms
 
-    # If only one term remains, return this term as it represents a simplification of the
-    # sum which initially had at least two terms.
-    n == 1 && return first(A)
-
-    # Restrict the list to the non-zero terms.
-    if n < length(A)
-        resize!(A, n)
-    end
-
-    # Rebuild simplified sum according to right-associativity and sorting terms according
-    # to their hash-value.
-    I = sortperm(map(order_in_sum, A))
-    if I == 1:n
-        return foldr(Sum, A)
+    # Return a sum of the remaining terms sorted according to their hash-value. For a
+    # small number of remaining terms, bypass sorting to speed-up the process.
+    if n == 1
+        return first(A)
+    elseif n == 2
+        i = firstindex(A)
+        return sorted_sum(A[i], A[i+1])
     else
-        return foldr(Sum, A[I])
+        if n < length(A)
+            # Restrict the list to the non-zero terms.
+            resize!(A, n)
+        end
+        I = sortperm(map(order_in_sum, A))
+        if I == 1:n
+            return foldr(Sum, A)
+        else
+            return foldr(Sum, A[I])
+        end
     end
 end
+
+sorted_sum(A::Operator, B::Operator) =
+    order_in_sum(B) < order_in_sum(A) ? B + A : A + B
 
 """
     LazyAlgebra.try_simplify(A::Operator) -> Union{Operator,Nothing}
