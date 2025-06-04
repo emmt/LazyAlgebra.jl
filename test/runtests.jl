@@ -9,7 +9,6 @@ using Test
     include("crop-tests.jl").runtests();
     include("rank1-tests.jl").runtests();
     include("pseudo-tests.jl").runtests();
-
-    LazyAlgebraIdentityTests.runtests()
+    include("simplify-tests.jl").runtests();
 end
 nothing

@@ -52,6 +52,7 @@ export
     #multiplier,
     nnz,
     nonzeros,
+    simplify,
     #sparse,
     #terms,
     #unscaled,
@@ -199,6 +200,7 @@ include("pseudomatrices.jl")
 include("cropping.jl")
 include("diff.jl")
 include("sparse.jl")
+include("simplify.jl")
 #include("genmult.jl")
 #import .GenMult: lgemm!, lgemm, lgemv!, lgemv
 #include("blas.jl")

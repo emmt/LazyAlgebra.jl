@@ -6,12 +6,6 @@ This page describes the most important changes in `LazyAlgebra`. The format is b
 
 ## Wish list for future developments
 
-* Simplifications that are automatically done by`LazyAlgebra` may change multipliers but
-  must not change the coefficients of the mappings. Call `simplify(A)` to apply further
-  simplifications that may change the coefficients of the mappings in `A`. For instance,
-  assuming `a` is an array, `inv(Diag(a))` automatically yields `Inverse(Diag(a))` while
-  `simplify(inv(Diag(a)))` yields `Diag(1 ./ a)`.
-
 * Calling BLAS should be avoided in some cases, either because BLAS is slower than
   optimized Julia code, or because BLAS may use more than one thread in inappropriate
   places (e.g., Julia multi-threaded code).
@@ -31,10 +25,23 @@ This page describes the most important changes in `LazyAlgebra`. The format is b
 This new major version of `LazyAlgebra` introduces a lot of improvements, simplifications,
 and changes.
 
-- Non-linear mappings have not been found to be really useful and are no longer supported.
-  As a result all operators, their adjoint, their inverse, their sums, their compositions,
-  or a mixture of all this are linear operators. This simplifies a lot of things. Abstract
-  type `Operator` replaces `LinearMapping`.
+### Overview of changes
+
+- **Non-linear mappings** have not been found to be really useful and are no longer
+  supported. As a result all operators, their adjoint, their inverse, their sums, their
+  compositions, or a mixture of all these are linear operators. This simplifies a lot of
+  things. Abstract type `Operator` replaces `LinearMapping`.
+
+- **Simplifications** that are automatically done by`LazyAlgebra` (i.e., at construction
+  time of operators) must be **type-stable**. They may change multipliers but must not
+  change the coefficients of the mappings. Call `simplify(A)` to apply further
+  simplifications that are allowed to not be type-stable and that may change the
+  coefficients of the mappings in `A`. For instance, assuming `a` is an array,
+  `inv(Diag(a))` automatically yields `Inverse(Diag(a))` while `simplify(inv(Diag(a)))`
+  yields `Diag(1 ./ a)`. Another example, assuming `A` is a simple operator and `λ` a
+  number, `λ*A` is not automatically simplified into `A` if `λ = 1` (because the result
+  would depend on the value, not on the type, of `λ`), while `simplify(λ*A)` yields `A` if
+  `λ = 1`.
 
 - `LazyAlgebra` consider 3 different kinds of objects:
 
