@@ -264,13 +264,9 @@ end
 
 # When simplifying a product of an operator and its inverse, return shaped identity if
 # possible.
-try_simplify((A,B)::Prod{<:Inverse,<:Inverse}) = nothing
-try_simplify((A,B)::Prod{<:Operator,<:Inverse}) = try_simplify_ratio(A, parent(B))
-try_simplify((A,B)::Prod{<:Inverse,<:Operator}) = try_simplify_ratio(parent(A), B)
-try_simplify_ratio(A::Operator, B::Operator) =
-    !isequal(A, B) ? nothing :
-    InputShape(A) isa HasInputShape ? Identity(input_shape(A)) :
-    OutputShape(A) isa HasOutputShape ? Identity(output_shape(A)) : Id
+try_simplify(A::Prod{<:Inverse,<:Inverse}) = nothing
+try_simplify(A::Prod{<:Operator,<:Inverse}) = isequal(A[1], A[2][]) ? Id : nothing
+try_simplify(A::Prod{<:Inverse,<:Operator}) = isequal(A[1][], A[2]) ? Id : nothing
 
 # For the adjoint (resp. inverse) of an operator, first attempt to simplify the parent
 # operator and, if this succeeds, return the simplification of the adjoint (resp. inverse)
