@@ -211,6 +211,5 @@ include("conjgrad.jl")
 #include("genmult.jl")
 #import .GenMult: lgemm!, lgemm, lgemv!, lgemv
 #include("blas.jl")
-#include("init.jl")
 
 end
