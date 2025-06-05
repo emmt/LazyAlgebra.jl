@@ -490,13 +490,13 @@ unscaled(A::UniformScaling) = Id
     LazyAlgebra.multiplier(A)
 
 yields the multiplier `λ` of the *scaled operator* `A = λ*B` where `λ` is a number and `B`
-an operator; otherwise yields `1`. This method is also applicable to instances of
+an operator; otherwise yields `𝟙`. This method is also applicable to instances of
 `LinearAlgebra.UniformScaling`. Call [`LazyAlgebra.unscaled`](@ref) to get the operator
 `B`.
 
 """
 multiplier(A::Prod{<:Number}) = A[1]
-multiplier(A::Operator) = 1
+multiplier(A::Operator) = 𝟙
 multiplier(A::UniformScaling) = getfield(A, :λ)
 
 """
