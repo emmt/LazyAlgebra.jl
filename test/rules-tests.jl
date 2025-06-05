@@ -1,6 +1,7 @@
 using LazyAlgebra
 using Test
 using LinearAlgebra
+using Neutrals
 
 using LazyAlgebra: Adjoint, Inverse, Prod, Sum
 
@@ -213,7 +214,7 @@ using LazyAlgebra: Adjoint, Inverse, Prod, Sum
         @test @inferred(adjoint(X)) === X
 
         # Scalar times operator.
-        @testset "Scalar (λ=$λ) times $X" for λ in (0x0, true, -1, 1//2, pi, 2.3f0, 2.0 - 3.0im), X in (A, A + B, A*B)
+        @testset "Scalar (λ=$λ) times $X" for λ in (0x0, true, 𝟙, -1, 1//2, pi, 2.3f0, 2.0 - 3.0im), X in (A, A + B, A*B)
             @test @inferred(λ*X) === @inferred(X*λ)
             @test typeof(λ*X) <: Prod{typeof(λ),typeof(X)}
             @test  first(λ*X) === λ
@@ -276,6 +277,11 @@ using LazyAlgebra: Adjoint, Inverse, Prod, Sum
         @test @inferred((X*α)*(β*Y)) === @inferred((α*β)*(X*Y))
         @test @inferred((X*α)*(Y*β)) === @inferred((α*β)*(X*Y))
         @test typeof((α*β)*(X*Y)) <: Prod{<:Number,typeof(X*Y)}
+
+        # Scaling by neutral numbers.
+        @test (𝟙*Id)*A === 𝟙*A
+        @test A/(𝟙*B) === 𝟙*A*inv(B)
+        @test A\(𝟙*B) === 𝟙*inv(A)*B
 
         # Showing expressions.
         @test string(A) == "A"

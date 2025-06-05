@@ -226,9 +226,9 @@ _with_precision(::Type{T}, (A,B)::Sum) where {T<:AbstractFloat} =
 
 #-----------------------------------------------------------------------------------------
 
-# Yield whether a number has integer storage.
+# Yield whether a number is a real with integer storage.
 is_rationalizable(x::Number) = is_rationalizable(typeof(x))
-is_rationalizable(::Type{T}) where {T<:Number} = real_type(T) <: Union{Integer, Rational}
+is_rationalizable(::Type{T}) where {T<:Number} = bare_type(T) <: Union{Integer, Rational}
 
 divide(num::Number, den::Number) =
     is_rationalizable(num) && is_rationalizable(den) ? num//den : num/den

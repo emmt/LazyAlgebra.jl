@@ -54,7 +54,8 @@ Base.inv(A::Operator     ) = Inverse(A)
 Inverse(A::Inverse       ) = parent(A)
 Inverse(A::Prod{<:Number}) = A[1] \ Inverse(A[2])
 Inverse(A::Prod          ) = Inverse(A[2]) * Inverse(A[1])
-Inverse(α::Number        ) = is_rationalizable(α) ? one(α)//α : one(α)/α
+Inverse(α::Number        ) = is_rationalizable(α) ? one(α)//α : inv(α)
+Inverse(α::Neutral       ) = inv(α)
 
 # Unary plus and minus of operators.
 Base.:(+)(A::Operator) = A
