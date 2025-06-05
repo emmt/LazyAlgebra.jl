@@ -17,12 +17,12 @@ module LazyAlgebra
 include("macros.jl")
 
 export
-    #CirculantConvolution,
+    CirculantConvolution,
     CompressedSparseOperator,
     CroppingOperator,
     Diag,
     Diff,
-    #FFTOperator,
+    FFT,
     FlexibleMatrix,
     Gram,
     Id,
@@ -41,6 +41,12 @@ export
     conjgrad!,
     conjgrad,
     diag, # re-export from LinearAlgebra
+    #fftfreq,
+    fftshift, # re-export from AbstractFFTs
+    #goodfftdim,
+    #goodfftdims,
+    ifftshift, # re-export from AbstractFFTs
+    #rfftdims,
     get_precision,
     #is_diagonal,
     #is_endomorphism,
@@ -169,7 +175,7 @@ using StructuredArrays
 using TypeUtils
 using Unitful: AbstractQuantity, Quantity, NoDims, unit, ustrip
 using ZippedArrays
-#using FFTW
+using AbstractFFTs, FFTW
 
 import SparseArrays
 using SparseArrays: SparseMatrixCSC, nonzeros, nnz
@@ -201,13 +207,12 @@ include("pseudomatrices.jl")
 include("cropping.jl")
 include("diff.jl")
 include("sparse.jl")
+include("fft.jl")
 include("simplify.jl")
+include("conjgrad.jl")
 #include("genmult.jl")
 #import .GenMult: lgemm!, lgemm, lgemv!, lgemv
 #include("blas.jl")
-#include("fft.jl")
-#import .FFTs: CirculantConvolution, FFTOperator
-include("conjgrad.jl")
 #include("init.jl")
 
 end

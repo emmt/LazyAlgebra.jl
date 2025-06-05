@@ -1,104 +1,10 @@
-#
-# fft.jl -
-#
 # Implementation of FFT and circulant convolution operators.
 #
-#-----------------------------------------------------------------------------------------
-#
-# This file is part of LazyAlgebra (https://github.com/emmt/LazyAlgebra.jl)
-# released under the MIT "Expat" license.
-#
-# Copyright (c) 2017-2025, Éric Thiébaut.
-# Copyright (c) 2015-2016, Éric Thiébaut, Jonathan Léger & Matthew Ozon.
-#
-
-module FFTs
-
-# Be nice with the caller: re-export `fftshift` and `ifftshift` but not `fft`,
-# `ifft`, etc. as the `FFTOperator` is meant to replace them.
-export
-    CirculantConvolution,
-    FFTOperator,
-    fftfreq,
-    fftshift,
-    goodfftdim,
-    goodfftdims,
-    ifftshift,
-    rfftdims
-
-using ..Foundations
-using ..LazyAlgebra
-using ..LazyAlgebra:
-    @certify, bad_argument, bad_size, compose
-import ..LazyAlgebra:
-    adjoint, vmul!, vcreate, MorphismType, mul!,
-    input_size, input_ndims, input_eltype,
-    output_size, output_ndims, output_eltype,
-    identical
-
-import Base: *, /, \, inv
-
-using ArrayTools
-
-import AbstractFFTs: Plan, fftshift, ifftshift
-
-using FFTW
-
-# All planning flags. FIXME: rename
-const PLANNING = (FFTW.ESTIMATE | FFTW.MEASURE | FFTW.PATIENT |
-    FFTW.EXHAUSTIVE | FFTW.WISDOM_ONLY)
-
-# The time needed to allocate temporary arrays is negligible compared to the time taken to
-# compute a FFT (e.g., 5µs to allocate a 256×256 array of double precision complexes
-# versus 1.5ms to compute its FFT). We therefore do not store any temporary arrays in the
-# FFT operator. Only the FFT plans are cached in the operator.
-
-struct FFTOperator{T<:FFTW.fftwNumber,
-                   C<:FFTW.fftwComplex, N,
-                   F<:FFTW.FFTWPlan{T},
-                   B<:FFTW.FFTWPlan{C}} <: Operator
-    forward::F     # plan for forward transform
-    backward::B    # plan for backward transform
-    function FFTOperator(forward::F, backward::B) where {T<:FFTW.fftwNumber,
-                                                         C<:FFTW.fftwComplex,
-                                                         F<:FFTW.FFTWPlan{T},
-                                                         B<:FFTW.FFTWPlan{C}}
-        check_fftw_plans(forward, backward)
-        N = input_ndims(F)
-        return new{T,C,N,F,B}(input_size(forward), zdims, forward, backward)
-    end
-end
-
-@callable FFTOperator
-
-struct CirculantConvolution{T <: FFTW.fftwNumber,
-                            C <: FFTW.fftwComplex, N,
-                            F <: FFTW.FFTWPlan{T},
-                            B <: FFTW.FFTWPlan{C}} <: Operator
-    mtf::Array{C,N} # modulation transfer function
-    forward::F      # plan for forward transform
-    backward::B     # plan for backward transform
-
-    # Inner constructor to check the consistency of the arguments.
-    function CirculantConvolution(mtf::Array{C,N},
-                                  forward::F,
-                                  backward::B) where {T <: FFTW.fftwNumber,
-                                                      C <: FFTW.fftwComplex, N,
-                                                      F <: FFTW.FFTWPlan{T},
-                                                      B <: FFTW.FFTWPlan{C}}
-        check_fftw_plans(forward, backward)
-        size(mtf) == output_size(forward) || throw(
-            DimensionMismatch("incompatible dimensions of MTF and forward FFT plan"))
-        return new{T,C,N,F,B}(mtf, forward, backward)
-    end
-
-end
-
-@callable CirculantConvolution
+#-------------------------------------------------------------------------- FFT OPERATOR -
 
 """
-    F = FFTOperator(forward)
-    F = FFTOperator(forward, backward)
+    F = FFT(forward)
+    F = FFT(forward, backward)
 
 builds a fast Fourier transform (FFT) operator based on the given `forward` and `backward`
 FFT plans. If not specified, the `backward` plan is automatically built from the `forward`
@@ -106,13 +12,13 @@ plan.
 
 Another possibility is:
 
-    F = FFTOperator(x; kwds...)
+    F = FFT(x; kwds...)
 
 which builds an FFT operator suitable for computing the FFT of arrays similar to `x`. The
 operator can also be specified by the real/complex floating-point type of the elements of
 the arrays to transform and their dimensions:
 
-   F =  FFTOperator(T, shape...; kwds...)
+   F =  FFT{T}(shape...; kwds...)
 
 where `T` is one of `Float64`, `Float32` (for a real-complex FFT), `Complex{Float64}`, or
 `Complex{Float32}` (for a complex-complex FFT) and `shape...` are the dimensions or axes
@@ -126,7 +32,7 @@ The interest of creating such an operator is that it caches the resources necess
 fast computation of the FFT and can be therefore *much* faster than calling `fft`, `rfft`,
 `ifft`, etc. This is especially true on small arrays.
 
-An instance of `FFTOperator` behaves as any other linear operator of `LazyAlgebra`:
+An instance of `FFT` behaves as any other linear operator of `LazyAlgebra`:
 
 ```julia
 F*x     # yields the FFT of x
@@ -137,15 +43,15 @@ F\\x     # yields the inverse FFT of x
 See also [`vmul`](@ref), [`vmul!`](@ref), and [`LazyAlgebra.Operator`](@ref).
 
 """
-FFTOperator(forward::FFTW.FFTWPlan) = FFTOperator(forward, inv(forward).p)
+FFT(forward::FFTW.FFTWPlan) = FFT(forward, inv(forward).p)
 
-function FFTOperator(::Type{T}, dims::Dims{N};
-                     timelimit::Real = FFTW.NO_TIMELIMIT,
-                     flags::Integer = FFTW.MEASURE) where {T<:FFTW.fftwNumber,N}
+function FFT{T}(dims::Dims{N};
+                timelimit::Real = FFTW.NO_TIMELIMIT,
+                flags::Integer = FFTW.MEASURE) where {T<:FFTW.fftwNumber,N}
     # Get planning flags.
     flags = check_fftw_flags(flags)
     temp = Array{T}(undef, dims)
-    if T isa Complex
+    if T <: Complex
         # Compute the plans with suitable FFTW flags for a complex-to-complex FFT
         # operator. For maximum efficiency, the transforms are applied in-place and thus
         # cannot preserve their inputs.
@@ -160,100 +66,116 @@ function FFTOperator(::Type{T}, dims::Dims{N};
         # for multi-dimensional c2r transforms implemented in FFTW, see
         # http://www.fftw.org/doc/Planner-Flags.html).
         forward = plan_rfft(temp; flags = (flags | FFTW.PRESERVE_INPUT),
-                            timelimit = timelimit),
-        backward_plan = plan_brfft(Array{Complex{T}}(undef, rfftdims(dims)), dims[1];
-                                   flags = (flags | FFTW.DESTROY_INPUT),
-                                   timelimit = timelimit)
+                            timelimit = timelimit)
+        backward = plan_brfft(Array{Complex{T}}(undef, rfftdims(dims)), dims[1];
+                              flags = (flags | FFTW.DESTROY_INPUT),
+                              timelimit = timelimit)
     end
-    return FFTOperator(forward, backward)
+    return FFT(forward, backward)
 end
 
-function FFTOperator(::Type{T}, shape::eltype(ArrayShape)...;
-                     kwds...) where {T<:FFTW.fftwNumber}
-    return FFTOperator(T, shape; kwds...)
-end
+FFT{T}(shape::eltype(ArrayShape)...; kwds...) where {T<:FFTW.fftwNumber} =
+    FFT{T}(shape; kwds...)
 
-function FFTOperator(::Type{T}, shape::ArrayShape;
-                     kwds...) where {T<:FFTW.fftwNumber}
-    return FFTOperator(T, as_array_size(shape); kwds...)
-end
+FFT{T}(shape::ArrayShape; kwds...) where {T<:FFTW.fftwNumber} =
+    FFT{T}(as_array_size(shape); kwds...)
 
-function FFTOperator(A::DenseArray;
-                     kwds...) where {T<:FFTW.fftwNumber}
-    return FFTOperator(eltype(A), size(A); kwds...)
-end
+FFT(A::AbstractArray; kwds...) = FFT{float(eltype(A))}(axes(A); kwds...)
 
-# Traits:
-MorphismType(::FFTOperator{<:Complex}) = Endomorphism() # FIXME: false
+# Conversion constructors.
+FFT(A::FFT) = A
+FFT{T}(A::FFT{T}) where {T<:FFTW.fftwNumber} = A
+function FFT{T}(A::FFT) where {T<:FFTW.fftwNumber}
+    (T <: Complex) == (input_eltype(A) <: Complex) || throw(ArgumentError(
+        "input element types must be both real or both complex"))
+    flags = get_plan(A).flags & ~(FFTW.PRESERVE_INPUT|FFTW.DESTROY_INPUT)
+    dims = input_size(A)
+    return FFT{T}(dims; flags = flags)
+end
 
 # Accessors and LazyAlgebra operator API for FFT operators.
-OutputShape(::Type{<:FFTOperator{T,C,N}}) where {T,C,N} = HasOutputShape{N}()
-output_size(A::FFTOperator) = output_size(A.forward)
-output_axes(A::FFTOperator) = map(Base.OneTo, output_size(A))
+OutputShape(::Type{<:FFT{T,C,N}}) where {T,C,N} = HasOutputShape{N}()
+output_size(A::FFT) = output_size(get_plan(A))
+output_axes(A::FFT) = map(Base.OneTo, output_size(A))
 
-InputShape(::Type{<:FFTOperator{T,C,N}}) where {T,C,N} = HasInputShape{N}()
-input_size(A::FFTOperator) = input_size(get_plan(A))
-input_axes(A::FFTOperator) = map(Base.OneTo, input_size(A))
+InputShape(::Type{<:FFT{T,C,N}}) where {T,C,N} = HasInputShape{N}()
+input_size(A::FFT) = input_size(get_plan(A))
+input_axes(A::FFT) = map(Base.OneTo, input_size(A))
 
-InputEltype(::Type{<:FFTOperator}) = HasInputEltype()
-input_eltype(::Type{Union{F,InverseAdjoint{F}}}) where {T,C,N,F<:FFTOperator{T,C,N}} = T
-input_eltype(::Type{Union{Adjoint{F},Inverse{F}}}) where {T,C,N,F<:FFTOperator{T,C,N}} = C
+InputEltype(::Type{<:FFT}) = HasInputEltype()
+input_eltype(::Type{<:Union{F,InverseAdjoint{F}}}) where {T,C,N,F<:FFT{T,C,N}} = T
+input_eltype(::Type{<:Union{Adjoint{F},Inverse{F}}}) where {T,C,N,F<:FFT{T,C,N}} = C
 
-OutputEltype(::Type{<:FFTOperator}) = HasInputEltype()
-output_eltype(::Type{Union{F,InverseAdjoint{F}}}) where {T,C,N,F<:FFTOperator{T,C,N}} = C
-output_eltype(::Type{Union{Adjoint{F},Inverse{F}}}) where {T,C,N,F<:FFTOperator{T,C,N}} = T
+OutputEltype(::Type{<:FFT}) = HasOutputEltype()
+output_eltype(::Type{<:Union{F,InverseAdjoint{F}}}) where {T,C,N,F<:FFT{T,C,N}} = C
+output_eltype(::Type{<:Union{Adjoint{F},Inverse{F}}}) where {T,C,N,F<:FFT{T,C,N}} = T
 
-# Default output type does not depend on that of `x`.
-output_eltype(::Type{A}, ::Type{X}) where {F<:FFTOperator,A<:Union{F,Adjoint{F},Inverse{F},InverseAdjoint{F}},X} =
-    output_eltype(A)
+# Other accessors.
+get_plan(A::FFT) = getfield(A, :forward)
+get_plan(A::InverseAdjoint{<:FFT}) = get_plan(A[][])
+get_plan(A::Union{Adjoint{F},Inverse{F}}) where {F<:FFT} = getfield(A[], :backward)
 
-get_plan(A::FFTOperator) = getfield(A, :forward)
-get_plan(A::InverseAdjoint{<:FFTOperator}) = get_plan(A[][])
-get_plan(A::Union{Adjoint{F},Inverse{F}}) where {F<:FFTOperator} = getfield(A[], :backward)
+fft_length(A::Union{F,InverseAdjoint{F}}) where {F<:FFT} = ncols(A)
+fft_length(A::Union{Adjoint{F},Inverse{F}}) where {F<:FFT} = nrows(A)
 
-fft_length(A::Union{F,InverseAdjoint{F}}) where {F<:FFTOperator} = ncols(A)
-fft_length(A::Union{F,InverseAdjoint{F}}) where {F<:FFTOperator} = nrows(A)
+# Precision.
+get_precision(::Type{<:FFT{T}}) where {T} = real(T)
+_with_precision(::Type{T}, A::FFT{<:Union{T,Complex{T}}}) where {T<:AbstractFloat} = A
+_with_precision(::Type{T}, A::FFT{<:Real}) where {T<:AbstractFloat} =
+    FFT{T}(A)
+_with_precision(::Type{T}, A::FFT{<:Complex}) where {T<:AbstractFloat} =
+    FFT{Complex{T}}(A)
 
 function unsafe_vmul!(α::Number, A::Union{F,Adjoint{F}},
                       x::AbstractArray{<:Any,N}, β::Number, y::AbstractArray{<:Any,N},
-                      scratch::Bool = false) where {T,C,N,F<:FFTOperator{T,C,N}}
-    unsafe_vmul!(α, get_plan(A), x, β, y, scratch)
+                      scratch::Bool = false) where {T,C,N,F<:FFT{T,C,N}}
+    return unsafe_vmul!(α, get_plan(A), x, β, y, scratch)
 end
 
 function unsafe_vmul!(α::Number, A::Union{Inverse{F},InverseAdjoint{F}},
                       x::AbstractArray{<:Any,N}, β::Number, y::AbstractArray{<:Any,N},
-                      scratch::Bool = false) where {T,C,N,F<:FFTOperator{T,C,N}}
-    unsafe_vmul!(α/fft_length(A), get_plan(A), x, β, y, scratch)
+                      scratch::Bool = false) where {T,C,N,F<:FFT{T,C,N}}
+    λ = with_precision(get_precision(A), divide(α, fft_length(A)))
+    return unsafe_vmul!(λ, get_plan(A), x, β, y, scratch)
 end
 
 # 2 FFT operators yield the same result if they operate on arguments with the same element
 # type and the same dimensions. If the types do not match, the matching method is the one
 # which return false, so it is only needed to implement the method for two arguments with
 # the same types (omitting the type of the plans as it is irrelevant here).
-yield_same_output(A::FFTOperator{T,C,N}, B::FFTOperator{T,C,N}) where {T,C,N} =
+Base.:(==)(A::FFT{T,C,N}, B::FFT{T,C,N}) where {T,C,N} =
     (input_size(A) == input_size(B))
 
-Base.show(io::IO, A::FFTOperator) = print(io, "FFT")
+brief(io::IO, A::FFT) = write(io, "FFT")
+Base.show(io::IO, ::MIME"text/plain", A::FFT) = show(io, A)
+function Base.show(io::IO, A::FFT)
+    print(io, "FFT{", input_eltype(A), "}(")
+    print_shape(io, input_axes(A))
+    print(io, "; flags = ")
+    print_fftw_flags(io, get_plan(A).flags)
+    print(io, ")")
+    nothing
+end
+
 
 # Impose the following simplifying rules:
 #     inv(F) = n\F'
 #     ==> F⋅F' = F'⋅F = n⋅Id
 #     ==> inv(F⋅F') = inv(F'⋅F) = inv(F)⋅inv(F') = inv(F')⋅inv(F) = n\Id
 
-try_simplify((A,B)::Prod{Adjoint{F},F}) where {F<:FFTOperator} =
-    yield_same_output(A[], B) ? fft_length(A)*Id : nothing
+try_simplify((A,B)::Prod{Adjoint{F},F}) where {F<:FFT} =
+    isequal(A[], B) ? fft_length(A)*Id : nothing
 
-try_simplify((A,B)::Prod{F,Adjoint{F}}) where {F<:FFTOperator} =
-    yield_same_output(A, B[]) ? fft_length(A)*Id : nothing
+try_simplify((A,B)::Prod{F,Adjoint{F}}) where {F<:FFT} =
+    isequal(A, B[]) ? fft_length(A)*Id : nothing
 
-try_simplify((A,B)::Prod{InverseAdjoint{F},Inverse{F}}) where {F<:FFTOperator} =
-    yield_same_output(A[][], B[]) ? (1//fft_length(A))*Id : nothing
+try_simplify((A,B)::Prod{InverseAdjoint{F},Inverse{F}}) where {F<:FFT} =
+    isequal(A[][], B[]) ? (1//fft_length(A))*Id : nothing
 
-try_simplify((A,B)::Prod{Inverse{F},InverseAdjoint{F}}) where {F<:FFTOperator} =
-    yield_same_output(A[], B[][]) ? (1//fft_length(A))*Id : nothing
+try_simplify((A,B)::Prod{Inverse{F},InverseAdjoint{F}}) where {F<:FFT} =
+    isequal(A[], B[][]) ? (1//fft_length(A))*Id : nothing
 
-#-----------------------------------------------------------------------------------------
-# FFTW plans.
+#---------------------------------------------------------------------------- FFTW PLANS -
 
 fft_type(::FFTW.cFFTWPlan{<:Complex}) = "c2c"
 fft_type(::FFTW.rFFTWPlan{<:Complex}) = "c2r"
@@ -277,8 +199,10 @@ end
 
 for P in (:cFFTWPlan, :rFFTWPlan)
     @eval begin
-        InputShape(::Type{<:FFTW.$P{T,K,inplace,N,G}}) where {T,K,inplace,N,G} = HasInputShape{N}()
-        OutputShape(::Type{<:FFTW.$P{T,K,inplace,N,G}}) where {T,K,inplace,N,G} = HasOutputShape{N}()
+        InputShape(::Type{<:FFTW.$P{T,K,inplace,N,G}}) where {T,K,inplace,N,G} =
+            HasInputShape{N}()
+        OutputShape(::Type{<:FFTW.$P{T,K,inplace,N,G}}) where {T,K,inplace,N,G} =
+            HasOutputShape{N}()
     end
 end
 
@@ -288,14 +212,15 @@ input_axes(A::FFTW.FFTWPlan) = map(Base.OneTo, input_size(A))
 output_size(A::FFTW.FFTWPlan) = A.osz
 output_axes(A::FFTW.FFTWPlan) = map(Base.OneTo, output_size(A))
 
+InputEltype(::Type{<:FFTW.FFTWPlan}) = HasInputEltype()
 input_eltype(A::FFTW.FFTWPlan) = input_eltype(typeof(A))
 input_eltype(::Type{<:FFTW.FFTWPlan{T}}) where {T} = T
-InputEltype(::Type{<:FFTW.FFTWPlan}) = HasInputEltype()
 
+OutputEltype(::Type{<:FFTW.FFTWPlan}) = HasOutputEltype()
 output_eltype(A::FFTW.FFTWPlan) = output_eltype(typeof(A))
 output_eltype(::Type{<:FFTW.FFTWPlan{T}}) where {T} = T
 output_eltype(::Type{<:FFTW.rFFTWPlan{T}}) where {T<:Real} = Complex{T}
-OutputEltype(::Type{<:FFTW.FFTWPlan}) = HasOutputEltype()
+output_eltype(::Type{<:FFTW.rFFTWPlan{Complex{T}}}) where {T<:Real} = T
 
 # Unfortunately, Julia interface to FFTW only records the flags passed to the FFTW
 # library, not the actual flags. So we must be conservative.
@@ -318,7 +243,7 @@ does_not_destroy_input(A::FFTW.FFTWPlan) = !iszero(A.flags & FFTW.PRESERVE_INPUT
 #      `AbstractFFTs.AdjointPlan~, an inverse-FFT plan is a scaled plan of type
 #      `AbstractFFTs.ScaledPlan`, the inverse of a plan is cached in the plan, etc. We
 #      therefore only extend LazyAlgebra Operator API for a definite subset of FFTW plans
-#      used by `FFTOperator`.
+#      used by `FFT`.
 #
 # NOTE In principle, FFTW plans can be applied to strided arrays (StridedArray) but this
 #      imposes that the arguments have the same strides. So for now, we choose to restrict
@@ -408,30 +333,31 @@ function unsafe_vmul!(α::Number, A::FFTW.rFFTWPlan{<:Any,K,false,N},
     return y
 end
 
-#------------------------------------------------------------------------------
-# Circulant convolution.
-
-
-# Traits:
-MorphismType(::CirculantConvolution) = Endomorphism()
+#----------------------------------------------------------------- CIRCULANT CONVOLUTION -
 
 # Basic methods for a linear operator on Julia's arrays.
+
+InputShape(::Type{<:CirculantConvolution{T,N}}) where {T,N} = HasInputShape{N}()
 input_size(H::CirculantConvolution) = H.dims
-output_size(H::CirculantConvolution) = H.dims
-input_size(H::CirculantConvolution, i::Integer) = get_dimension(H.dims, i)
-output_size(H::CirculantConvolution, i::Integer) = get_dimension(H.dims, i)
-input_ndims(H::CirculantConvolution{T,N}) where {T,N} = N
-output_ndims(H::CirculantConvolution{T,N}) where {T,N} = N
-input_eltype(H::CirculantConvolution{T,N}) where {T,N} = T
-output_eltype(H::CirculantConvolution{T,N}) where {T,N} = T
+input_axes(H::CirculantConvolution) = map(Base.OneTo, input_size(H))
+
+OutputShape(::Type{<:CirculantConvolution{T,N}}) where {T,N} = HasOutputShape{N}()
+output_size(H::CirculantConvolution) = input_size(H)
+output_axes(H::CirculantConvolution) = input_axes(H)
+
+InputEltype(::Type{<:CirculantConvolution}) = HasInputEltype()
+input_eltype(::Type{<:CirculantConvolution{T,N}}) where {T,N} = T
+
+OutputEltype(::Type{<:CirculantConvolution}) = HasOutputEltype()
+output_eltype(::Type{<:CirculantConvolution{T,N}}) where {T,N} = T
 
 # Basic methods for an array.
 Base.eltype(::Type{<:CirculantConvolution{T,N}}) where {T,N} = T
+Base.ndims( ::Type{<:CirculantConvolution{T,N}}) where {T,N} = 2N
 Base.size(H::CirculantConvolution{T,N}) where {T,N} =
-    ntuple(i -> H.dims[(i ≤ N ? i : i - N)], 2*N)
+    ntuple(i -> H.dims[(i ≤ N ? i : i - N)], 2N)
 Base.size(H::CirculantConvolution{T,N}, i::Integer) where {T,N} =
     (i < 1 ? bad_dimension_index() : i ≤ N ? H.dims[i] : i ≤ 2N ? H.dims[i-N] : 1)
-Base.ndims(H::CirculantConvolution{T,N}) where {T,N} = 2*N
 
 """
 # Circulant convolution operator
@@ -439,11 +365,11 @@ Base.ndims(H::CirculantConvolution{T,N}) where {T,N} = 2*N
 The circulant convolution operator `H` is defined by:
 
 ```julia
-H  = (1/n)*F'*Diag(mtf)*F
+H = (1/n)*F'*Diag(mtf)*F
 ```
 
-with `n` the number of elements, `F` the discrete Fourier transform operator
-and `mtf` the modulation transfer function.
+with `n` the number of elements, `F` the discrete Fourier transform operator and `mtf` the
+*Modulation Transfer Function*.
 
 The operator `H` can be created by:
 
@@ -451,10 +377,9 @@ The operator `H` can be created by:
 H = CirculantConvolution(psf; flags=FFTW.MEASURE, timelimit=Inf, shift=false)
 ```
 
-where `psf` is the point spread function (PSF).  Note that the PSF is assumed
-to be centered according to the convention of the discrete Fourier transform.
-You may use `ifftshift` or the keyword `shift` if the PSF is geometrically
-centered:
+where `psf` is the point spread function (PSF). Note that the PSF is assumed to be
+centered according to the convention of the discrete Fourier transform. You may use
+`ifftshift` or the keyword `shift` if the PSF is geometrically centered:
 
 ```julia
 H = CirculantConvolution(ifftshift(psf))
@@ -465,23 +390,21 @@ The following keywords can be specified:
 
 * `shift` (`false` by default) indicates whether to apply `ifftshift` to `psf`.
 
-* `normalize` (`false` by default) indicates whether to divide `psf` by the sum
-  of its values.  This keyword is only available for real-valued PSF.
+* `normalize` (`false` by default) indicates whether to divide `psf` by the sum of its
+  values. This keyword is only available for real-valued PSF.
 
-* `flags` is a bitwise-or of FFTW planner flags, defaulting to `FFTW.MEASURE`.
-  If the operator is to be used many times (as in iterative methods), it is
-  recommended to use at least `flags=FFTW.MEASURE` (the default) which
-  generally yields faster transforms compared to `flags=FFTW.ESTIMATE`.
+* `flags` is a bitwise-or of FFTW planner flags, defaulting to `FFTW.MEASURE`. If the
+  operator is to be used many times (as in iterative methods), it is recommended to use at
+  least `flags=FFTW.MEASURE` (the default) which generally yields faster transforms
+  compared to `flags=FFTW.ESTIMATE`.
 
-* `timelimit` specifies a rough upper bound on the allowed planning time, in
-  seconds.
+* `timelimit` specifies a rough upper bound on the allowed planning time, in seconds.
 
-The operator can be used as a regular linear operator: `H(x)` or `H*x` to
-compute the convolution of `x` and `H'(x)` or `H'*x` to apply the adjoint of
-`H` to `x`.
+The operator can be used as a regular linear operator: `H(x)` or `H*x` to compute the
+convolution of `x` and `H'(x)` or `H'*x` to apply the adjoint of `H` to `x`.
 
-For a slight improvement of performances, an array `y` to store the result of
-the operation can be provided:
+For a slight improvement of performances, an array `y` to store the result of the
+operation can be provided:
 
 ```julia
 vmul!(y, H, x) -> y
@@ -491,8 +414,7 @@ vmul!(y, H', x) -> y
 
 If provided, `y` must be at a different memory location than `x`.
 
-""" CirculantConvolution
-
+"""
 function CirculantConvolution(psf::AbstractArray; kwds...)
     T = float(eltype(psf))
     T <: FFTW.fftwNumber || throw(ArgumentError(
@@ -500,7 +422,7 @@ function CirculantConvolution(psf::AbstractArray; kwds...)
     return CirculantConvolution(convert(Array{T}, psf); kwds...)
 end
 
-function CirculantConvolution(psf::DenseArray{<:Union{T,Complex{T}},N};
+function CirculantConvolution(psf::AbstractArray{<:Union{T,Complex{T}},N};
                               flags::Integer = FFTW.MEASURE,
                               normalize::Bool = false,
                               shift::Bool = false,
@@ -546,79 +468,38 @@ function CirculantConvolution(psf::DenseArray{<:Union{T,Complex{T}},N};
     return CirculantConvolution(mtf, F, B)
 end
 
-"""
-
-`safe_plan_rfft(x; kwds...)` yields a FFTW plan for computing the real to
-complex fast Fourier transform of `x`.  This method is the same as `plan_rfft`
-except that it makes sure that `x` is preserved.
-
-"""
-function safe_plan_rfft(x::AbstractArray{T,N}; flags::Integer = FFTW.MEASURE,
-                        kwds...) where {T<:fftwReal,N}
-    planning = (flags & PLANNING)
-    if isa(x, StridedArray) && (planning == FFTW.ESTIMATE ||
-                                planning == FFTW.WISDOM_ONLY)
-        return plan_rfft(x; flags=flags, kwds...)
-    else
-       return plan_rfft(Array{T}(undef, size(x)); flags=flags, kwds...)
-    end
-end
-
-function vcreate(H::Union{F,Adjoint{<:F},Inverse{<:F},InverseAdjoint{<:F}},
-                 x::AbstractArray{T,N},
-                 scratch::Bool) where {T<:fftwNumber,N,
-                                       F<:CirculantConvolution{T,N}}
-    return Array{T,N}(undef, H.dims)
-end
-
+# Unsafe assumptions:
+#   1. dimensions (axes) of arguments have been checked;
+#   2. multipliers `α` and `β` have suitable precision;
+#   3. `α` is nonzero.
 function unsafe_vmul!(α::Number,
                       H::Union{F,Adjoint{<:F}},
                       x::AbstractArray{Complex{T},N},
                       β::Number,
-                      y::AbstractArray{Complex{T},N}) where {T<:fftwReal,N,
+                      y::AbstractArray{Complex{T},N}) where {T<:FFTW.fftwReal,N,
                                                              F<:CirculantConvolution{
                                                                  Complex{T},Complex{T},N}}
-    @certify !Base.has_offset_axes(x, y)
-    if α == 0
-        @certify size(y) == H.dims
-        vscale!(y, β)
-    else
-        n = length(x)
-        if β == 0
-            # Use y as a workspace.
+    n = length(x)
+    d = H isa Adjoint ? Diag(H.mtf)' : Diag(H.mtf)
+    if F <: CirculantConvolution{<:Complex}
+        if β == 𝟘
+            # Use `y` as a workspace.
             mul!(y, H.forward, x) # out-of-place forward FFT of x in y
-            _vmul!(y, α/n, P, H.mtf) # in-place multiply y by mtf/n
+            vmul!(Stage(1), y, α/n, d) # in-place multiply y by mtf/n
             mul!(y, H.backward, y) # in-place backward FFT of y
         else
             # Must allocate a workspace.
             z = Array{Complex{T}}(undef, H.zdims) # allocate temporary
             mul!(z, H.forward, x) # out-of-place forward FFT of x in z
-            _vmul!(z, α/n, P, H.mtf) # in-place multiply z by mtf/n
+            vmul!(Stage(1), z, α/n, d) # in-place multiply z by mtf/n
             mul!(z, H.backward, z) # in-place backward FFT of z
-            vcombine!(y, 1, z, β, y)
+            vcombine!(y, 𝟙, z, β, y)
         end
-    end
-    return y
-end
-
-function vmul!(α::Number,
-                H::Union{F,Adjoint{<:F}},
-                x::AbstractArray{T,N},
-                scratch::Bool,
-                β::Number,
-                y::AbstractArray{T,N}) where {T<:fftwReal,N,
-                                              F<:CirculantConvolution{
-                                                  T,Complex{T},N}}
-    @certify !Base.has_offset_axes(x, y)
-    if α == 0
-        @certify size(y) == H.dims
-        vscale!(y, β)
     else
-        n = length(x)
         z = Array{Complex{T}}(undef, H.zdims) # allocate temporary
         mul!(z, H.forward, x) # out-of-place forward FFT of x in z
-        _vmul!(z, α/n, P, H.mtf) # in-place multiply z by mtf/n
-        if β == 0
+        vmul!(Stage(1), z, α/n, d) # in-place multiply z by mtf/n
+        if β == 𝟘
             mul!(y, H.backward, z) # out-of-place backward FFT of z in y
         else
             w = Array{T}(undef, H.dims) # allocate another temporary
@@ -629,50 +510,10 @@ function vmul!(α::Number,
     return y
 end
 
-"""
-```julia
-_vmul!(arr, α, P, mtf)
-```
+#----------------------------------------------------------------------------- UTILITIES -
 
-stores in `arr` the elementwise multiplication of `arr` by `α*mtf` if `P` is `Operator` or
-by `α*conj(mtf)` if `P` is `Adjoint`. An error is thrown if the arrays do not have the
-same dimensions. It is assumed that `α ≠ 0`.
-
-"""
-function _vmul!(arr::AbstractArray{Complex{T},N},
-                 α::Number, ::Type{Operator},
-                 mtf::AbstractArray{Complex{T},N}) where {T,N}
-    @certify axes(arr) == axes(mtf)
-    if α == 1
-        @inbounds @simd for i in eachindex(arr, mtf)
-            arr[i] *= mtf[i]
-        end
-    else
-        alpha = convert_multiplier(α, T)
-        @inbounds @simd for i in eachindex(arr, mtf)
-            arr[i] *= alpha*mtf[i]
-        end
-    end
-end
-
-function _vmul!(arr::AbstractArray{Complex{T},N},
-                 α::Number, ::Type{Adjoint},
-                 mtf::AbstractArray{Complex{T},N}) where {T,N}
-    @certify axes(arr) == axes(mtf)
-    if α == 1
-        @inbounds @simd for i in eachindex(arr, mtf)
-            arr[i] *= conj(mtf[i])
-        end
-    else
-        alpha = convert_multiplier(α, T)
-        @inbounds @simd for i in eachindex(arr, mtf)
-            arr[i] *= alpha*conj(mtf[i])
-        end
-    end
-end
-
-#------------------------------------------------------------------------------
-# Utilities.
+const FFTW_PLANNING = (FFTW.ESTIMATE | FFTW.MEASURE | FFTW.PATIENT | FFTW.EXHAUSTIVE |
+    FFTW.WISDOM_ONLY)
 
 """
 
@@ -682,23 +523,33 @@ filtered flags.
 
 """
 function check_fftw_flags(flags::Integer)
-    planning = flags & PLANNING
-    flags == planning || bad_argument("only FFTW planning flags can be specified")
+    planning = flags & FFTW_PLANNING
+    flags == planning || throw_bad_argument("only FFTW planning flags can be specified")
     return UInt32(planning)
 end
 
-"""
-
-`get_dimension(dims, i)` yields the `i`-th dimension in tuple of integers
-`dims`.  Like for broadcasting rules, it is assumed that the length of
-all dimensions after the last one are equal to 1.
-
-"""
-get_dimension(dims::Dims{N}, i::Integer) where {N} =
-    (i < 1 ? bad_dimension_index() : i ≤ N ? dims[i] : 1)
-# FIXME: should be in ArrayTools
-bad_dimension_index() = error("invalid dimension index")
-
+function print_fftw_flags(io::IO, flags::Integer)
+    n = 0
+    for (bit, key) in (FFTW.ESTIMATE       => :ESTIMATE,
+                       FFTW.MEASURE        => :MEASURE,
+                       FFTW.PATIENT        => :PATIENT,
+                       FFTW.EXHAUSTIVE     => :EXHAUSTIVE,
+                       FFTW.WISDOM_ONLY    => :WISDOM_ONLY)
+        if iszero(bit) ? iszero(flags & FFTW_PLANNING) : !iszero(bit & flags)
+            n > 0 && print(io, " | ")
+            print(io, "FFTW.", key)
+            n += 1
+        end
+    end
+    bits = FFTW.DESTROY_INPUT | FFTW.PRESERVE_INPUT
+    for (bit, key) in (FFTW.DESTROY_INPUT  => :DESTROY_INPUT,
+                       FFTW.PRESERVE_INPUT => :PRESERVE_INPUT)
+        if (flags & bits) == bit
+            print(io, " #= FFTW.", key, " =#")
+        end
+    end
+    nothing
+end
 
 """
 ```julia
@@ -709,7 +560,7 @@ yields the smallest integer which is greater or equal `len` and which is a
 multiple of powers of 2, 3 and/or 5.  If argument is an array dimesion list
 (i.e. a tuple of integers), a tuple of good FFT dimensions is returned.
 
-Also see: [`goodfftdims`](@ref), [`rfftdims`](@ref), [`FFTOperator`](@ref).
+Also see: [`goodfftdims`](@ref), [`rfftdims`](@ref), [`FFT`](@ref).
 
 """
 goodfftdim(len::Integer) = goodfftdim(Int(len))
@@ -723,7 +574,7 @@ goodfftdims(dims)
 yields a list of dimensions suitable for computing the FFT of arrays whose
 dimensions are `dims` (a tuple or a vector of integers).
 
-Also see: [`goodfftdim`](@ref), [`rfftdims`](@ref), [`FFTOperator`](@ref).
+Also see: [`goodfftdim`](@ref), [`rfftdims`](@ref), [`FFT`](@ref).
 
 """
 goodfftdims(dims::Integer...) = map(goodfftdim, dims)
@@ -738,7 +589,7 @@ rfftdims(dims)
 yields the dimensions of the complex array produced by a real-complex FFT of a
 real array of size `dims`.
 
-Also see: [`goodfftdim`](@ref), [`FFTOperator`](@ref).
+Also see: [`goodfftdim`](@ref), [`FFT`](@ref).
 
 """
 rfftdims(dims::Integer...) = rfftdims(dims)
@@ -783,7 +634,7 @@ cycles/second.  This is equivalent to:
 fftfreq(dim)/(dim*step)
 ```
 
-See also: [`FFTOperator`](@ref), [`fftshift`](@ref).
+See also: [`FFT`](@ref), [`fftshift`](@ref).
 
 """
 function fftfreq(_dim::Integer)
@@ -816,5 +667,3 @@ function fftfreq(_dim::Integer, step::Real)
     end
     return f
 end
-
-end # module

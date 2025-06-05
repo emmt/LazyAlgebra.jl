@@ -429,3 +429,48 @@ end
         new{T,M,N,V,I,J}(m, n, vals, rows, cols, rowsiz, colsiz)
     end
 end
+
+# The time needed to allocate temporary arrays is negligible compared to the time taken to
+# compute a FFT (e.g., 5µs to allocate a 256×256 array of double precision complexes
+# versus 1.5ms to compute its FFT). We therefore do not store any temporary arrays in the
+# FFT operator. Only the FFT plans are cached in the operator.
+@callable struct FFT{T<:FFTW.fftwNumber,  # input element type
+                     C<:FFTW.fftwComplex, # output element type
+                     N,                   # number of input or output dimensions
+                     F<:FFTW.FFTWPlan{T},
+                     B<:FFTW.FFTWPlan{C}} <: Operator
+    forward::F     # plan for forward transform
+    backward::B    # plan for backward transform
+    function FFT(forward::F, backward::B) where {T<:FFTW.fftwNumber,
+                                                 C<:FFTW.fftwComplex,
+                                                 F<:FFTW.FFTWPlan{T},
+                                                 B<:FFTW.FFTWPlan{C}}
+        check_fftw_plans(forward, backward)
+        N = input_ndims(F)
+        return new{T,C,N,F,B}(forward, backward)
+    end
+end
+
+@callable struct CirculantConvolution{T <: FFTW.fftwNumber,
+                                      C <: FFTW.fftwComplex,
+                                      N,
+                                      F <: FFTW.FFTWPlan{T},
+                                      B <: FFTW.FFTWPlan{C}} <: Operator
+    mtf::Array{C,N} # modulation transfer function
+    forward::F      # plan for forward transform
+    backward::B     # plan for backward transform
+
+    # Inner constructor to check the consistency of the arguments.
+    function CirculantConvolution(mtf::Array{C,N},
+                                  forward::F,
+                                  backward::B) where {T <: FFTW.fftwNumber,
+                                                      C <: FFTW.fftwComplex, N,
+                                                      F <: FFTW.FFTWPlan{T},
+                                                      B <: FFTW.FFTWPlan{C}}
+        check_fftw_plans(forward, backward)
+        size(mtf) == output_size(forward) || throw(
+            DimensionMismatch("incompatible dimensions of MTF and forward FFT plan"))
+        return new{T,C,N,F,B}(mtf, forward, backward)
+    end
+
+end
