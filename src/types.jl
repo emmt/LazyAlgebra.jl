@@ -126,15 +126,19 @@ end
 @callable Inverse
 
 """
-    LazyAlgebra.InverseAdjoint{A}
+    LazyAlgebra.InverseAdjoint{A} ≡ LazyAlgebra.Inverse{LazyAlgebra.Adjoint{A}}
 
-is an alias for the type of an operator that is the inverse adjoint (or adjoint inverse)
-of an operator of type `A`.
+is an alias for the type of an operator that is the inverse adjoint of an operator of type
+`A`.
+
+!!! note
+    Construction rules imply that `inv(A)'` is always built as `inv(A')`. In other words,
+    adjoint inverse is always automatically converted into an inverse adjoint.
 
 See also [`LazyAlgebra.Adjoint`](@ref) and [`LazyAlgebra.Inverse`](@ref).
 
 """
-const InverseAdjoint{A} = Union{Inverse{Adjoint{A}},Adjoint{Inverse{A}}}
+const InverseAdjoint{A} = Inverse{Adjoint{A}}
 
 # Any of A, A', inv(A), inv(A'), or inv(A)'.
 const AnyVariant{A} = Union{A,Adjoint{A},Inverse{A},InverseAdjoint{A}}
