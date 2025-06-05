@@ -45,6 +45,12 @@ function runtests(; rng::AbstractRNG = MersenneTwister(314159),
             # Build operator.
             D = @inferred(Diag(w))
 
+            # Conversion constructor.
+            @test Diag(D) === D
+            @test Diag(D') === D'
+            @test Diag(inv(D)) === inv(D)
+            @test Diag(inv(D)') === inv(D)'
+
             # Check operator properties.
             @test D isa Diag{typeof(w)}
             @test eltype(D) === eltype(w)
