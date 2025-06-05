@@ -213,7 +213,8 @@ end
 # Alias representing `λ*A`, the linear operator `A` multiplied by a scalar `λ`.
 # Call [`LazyAlgebra.multiplier(B)`](@ref) and [`unscaled(B)`](@ref) with a scaled
 # operator `B = λ*A` to retrieve `λ` and `A` respectively.
-const Scaled{L<:Number,R} = Prod{L,R}
+const Scaled{T<:Operator} = Prod{<:Number,T}
+const MaybeScaled{T<:Operator} = Union{T,Scaled{T}}
 
 abstract type InputShape end
 struct InputShapeUnknown <: InputShape end
@@ -257,6 +258,8 @@ const ShapedIdentity{N} = Identity{<:Union{Dims{N},ArrayAxes{N}}}
 @callable struct Diag{D<:AbstractArray} <: Operator
     diag::D
 end
+
+const DiagonalOperator = Union{Diag,Adjoint{<:Diag},Inverse{<:Diag},InverseAdjoint{<:Diag}}
 
 struct LazyMap{T,N,L,F,A<:AbstractArray{<:Any,N}} <: AbstractArray{T,N}
     func::F

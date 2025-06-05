@@ -196,6 +196,26 @@ function runtests()
                 @test X isa Diag
                 @test diag(X) ≈ conj.(diag(A)) .+ inv.(diag(B))
             end
+            let X = simplify(A + 3*Id)
+                @test X isa Diag
+                @test diag(X) ≈ diag(A) .+ 3
+            end
+            let X = simplify(2*A + 3*Id)
+                @test X isa Diag
+                @test diag(X) ≈ 2 .* diag(A) .+ 3
+            end
+            let X = simplify(2*A' + 3*Id)
+                @test X isa Diag
+                @test diag(X) ≈ 2 .* conj.(diag(A)) .+ 3
+            end
+            let X = simplify(2*inv(A) + 3*Id)
+                @test X isa Diag
+                @test diag(X) ≈ 2 .* inv.(diag(A)) .+ 3
+            end
+            let X = simplify(2*inv(A') + 3*Id)
+                @test X isa Diag
+                @test diag(X) ≈ 2 .* conj.(inv.(diag(A))) .+ 3
+            end
         end
     end
 end

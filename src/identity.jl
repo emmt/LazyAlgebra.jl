@@ -33,6 +33,10 @@ Base.:(==)(A::Identity{<:ArrayAxes{N}}, B::Identity{<:ArrayAxes{N}}) where {N} =
 Base.:(==)(A::Identity{<:NTuple{N}}, B::Identity{<:NTuple{N}}) where {N} =
     input_axes(A) == input_axes(B)
 
+# Get diagonal of identity.
+LinearAlgebra.diag(A::UniversalIdentity) = Array{typeof(𝟙),0}(undef)
+LinearAlgebra.diag(A::ShapedIdentity) = new_array(typeof(𝟙), input_axes(A))
+
 # Implement API of operators for the identity.
 output_eltype(::Type{<:Identity}, ::Type{X}) where {X<:AbstractArray} = float(eltype(X))
 output_axes(A::UniversalIdentity, shape::ArrayAxes) = shape

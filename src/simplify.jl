@@ -289,9 +289,9 @@ is_complex(::Type{T}) where {T<:Number} = is_complex(bare_type(T))
 is_complex(::Type{<:Complex}) = true
 is_complex(::Type{<:Any}) = false
 
-const DiagonalOperator = Union{Diag,Adjoint{<:Diag},Inverse{<:Diag},InverseAdjoint{<:Diag}}
-
-# Simplification rules for diagonal operators.
+# Simplification rules for diagonal operators. In products, the identity has been automatically
+# suppressed at construction time, so only sums of diagonal operators and (scaled) identity
+# have to be considered.
 function try_simplify((A,B)::Prod{<:DiagonalOperator,<:DiagonalOperator})
     input_axes(A) == input_axes(B) || return nothing
     if false
@@ -303,6 +303,12 @@ function try_simplify((A,B)::Prod{<:DiagonalOperator,<:DiagonalOperator})
     else
         return Diag(map(*, diag(A), diag(B)))
     end
+end
+
+function try_simplify((λ,A)::Prod{<:Number,<:DiagonalOperator})
+    isone(λ) && return simplify(A)
+    f = Base.Fix1(*, convert_multiplier(λ, eltype(A)))
+    return Diag(map(f, diag(A)))
 end
 
 function try_simplify((A,B)::Sum{<:DiagonalOperator,<:DiagonalOperator})
@@ -318,10 +324,19 @@ function try_simplify((A,B)::Sum{<:DiagonalOperator,<:DiagonalOperator})
     end
 end
 
-function try_simplify((λ,A)::Prod{<:Number,<:DiagonalOperator})
-    isone(λ) && return simplify(A)
-    f = Base.Fix1(*, convert_multiplier(λ, eltype(A)))
-    return Diag(map(f, diag(A)))
+function try_simplify((A,B)::Sum{<:MaybeScaled{<:DiagonalOperator},<:MaybeScaled{<:Identity}})
+    if B isa Union{ShapedIdentity,Prod{<:Number,<:ShapedIdentity}}
+        input_axes(A) == input_axes(B) || return nothing
+    end
+    a = diag(A)
+    λ = convert_multiplier(multiplier(B), eltype(a))
+    c = similar(a, sum_type(eltype(a), typeof(λ)))
+    c .= a .+ λ
+    return Diag(c)
+end
+
+function try_simplify((A,B)::Sum{<:MaybeScaled{<:Identity},<:MaybeScaled{<:DiagonalOperator}})
+    try_simplify(B + A)
 end
 
 function try_simplify(A::DiagonalOperator)

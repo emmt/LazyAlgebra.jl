@@ -12,6 +12,7 @@ module LazyAlgebraDiagTests
 using LazyAlgebra
 using Test
 using Random
+using Neutrals
 using TypeUtils
 using LinearAlgebra
 
@@ -26,6 +27,15 @@ function runtests(; rng::AbstractRNG = MersenneTwister(314159),
                   rtol = 4e-7)
 
     @testset "Diagonal operator" begin
+        @testset "Diagonal and identity" begin
+            @test Diag(Id) === Id
+            @test Diag(I) === I.λ*Id
+            @test Diag(2Id) === 2*Id
+            @test typeof(diag(Id)) <: Array{typeof(𝟙),0}
+            @test typeof(diag(Identity(2,3))) <: Array{typeof(𝟙),2}
+            @test size(diag(Identity(2,3))) == (2,3)
+        end
+
         @testset "dims=$(dims), T=$T" for dims in sizes, T in eltypes
             # Generate array of coefficients making sure they are all non-zero to
             # implement inverse.

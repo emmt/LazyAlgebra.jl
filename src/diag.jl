@@ -33,6 +33,11 @@ LinearAlgebra.diag(A::Adjoint{<:Diag}) = LazyMap(conj, diag(A[]))
 LinearAlgebra.diag(A::Inverse{<:Diag}) = LazyMap(inv, diag(A[]))
 LinearAlgebra.diag(A::InverseAdjoint{<:Diag}) = LazyMap(inv∘conj, diag(A[][]))
 
+# Constructors for identity and uniform scaling.
+Diag(A::Identity) = A
+Diag(A::Prod{<:Number,<:Identity}) = A
+Diag(A::UniformScaling) = Operator(A)
+
 # API for operators.
 Base.eltype(::Type{<:Diag{D}}) where {D} = eltype(D)
 
