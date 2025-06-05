@@ -22,7 +22,7 @@ export
 using ..LazyAlgebra
 using ..LazyAlgebra: axes, promote_multiplier,
     libblas, @blasfunc, BlasInt, BlasReal, BlasFloat, BlasComplex,
-    bad_argument, bad_size
+    throw_bad_argument, bad_size
 using ArrayTools  # for `cartesian_indices`, `is_flat_array`, etc.
 using LinearAlgebra
 using LinearAlgebra.BLAS
@@ -104,7 +104,7 @@ incompatible_dimensions() =
     bad_size("incompatible dimensions")
 
 invalid_transpose_character() =
-    bad_argument("invalid transpose character")
+    throw_bad_argument("invalid transpose character")
 
 include("lgemv.jl")
 include("lgemm.jl")

@@ -232,3 +232,8 @@ is_rationalizable(::Type{T}) where {T<:Number} = bare_type(T) <: Union{Integer, 
 
 divide(num::Number, den::Number) =
     is_rationalizable(num) && is_rationalizable(den) ? num//den : num/den
+
+#-----------------------------------------------------------------------------------------
+
+@noinline throw_bad_argument(msg::AbstractString) = throw(ArgumentError(msg))
+@noinline throw_bad_argument(args...) = throw(ArgumentError(string(args...)))

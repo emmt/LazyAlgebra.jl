@@ -188,7 +188,7 @@ function unsafe_vdot(sel::AbstractVector{Int}, x::AbstractArray, y::AbstractArra
 end
 
 @noinline out_of_range_selection() =
-    bad_argument("some selected indices are out of range")
+    throw_bad_argument("some selected indices are out of range")
 
 #--------------------------------------------------------------------------------- VCOPY -
 

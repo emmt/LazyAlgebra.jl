@@ -133,15 +133,15 @@ function conjgrad!(x::AbstractArray{<:Any,N}, A,
                    strict::Bool = true) where {N}
 
     # Initialization.
-    zero(ftol) ≤ ftol < one(ftol) || bad_argument(
+    zero(ftol) ≤ ftol < one(ftol) || throw_bad_argument(
         "bad function tolerance `ftol = ", ftol, "`, should be ≥ 0 and < 1")
-    gtol[1] ≥ zero(gtol[1]) || bad_argument(
+    gtol[1] ≥ zero(gtol[1]) || throw_bad_argument(
         "bad gradient absolute tolerance `gtol[1] = ", gtol[1], "`, should be ≥ 0")
-    zero(gtol[2]) ≤ gtol[2] < one(gtol[2]) || bad_argument(
+    zero(gtol[2]) ≤ gtol[2] < one(gtol[2]) || throw_bad_argument(
         "bad gradient relative tolerance `gtol[2] = ", gtol[2], "`, should be ≥ 0 and < 1")
-    zero(xtol) ≤ xtol < one(xtol) || bad_argument(
+    zero(xtol) ≤ xtol < one(xtol) || throw_bad_argument(
         "bad variables relative tolerance `xtol = ", xtol, "`, should be ≥ 0 and < 1")
-    restart ≥ one(restart) || bad_argument(
+    restart ≥ one(restart) || throw_bad_argument(
         "bad number of iterations for restarting `restart = ", restart,"`, should be ≥ 1")
     vcopy!(x, x0)
     if maxiter < one(maxiter) && quiet && !verb
