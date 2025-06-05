@@ -350,3 +350,56 @@ try_simplify((A,B)::Prod{Identity,Identity}) =
     B isa UniversalIdentity ? A :
     input_axes(A) != output_axes(B) ? nothing :
     B isa Identity{<:Dims} ? B : A
+
+# Complex rules for:
+#
+#     μ*inv(B)*C*B + λ*Id -> inv(B)*(μ*C + λ*Id)*B
+#     μ*B*C*inv(B) + λ*Id -> B*(μ*C + λ*Id)*inv(B)
+
+function try_simplify(A::Sum{<:MaybeScaled{<:Prod{<:Inverse{<:T},<:Prod{<:Operator,<:T}}},
+                             <:MaybeScaled{<:Identity}}) where {T<:Operator}
+    # `A = μ*inv(B)*C*D + λ*Id` with `B` and `D` having the same type.
+    Q = unscaled(A[1])
+    μ = multiplier(A[1])
+    B  = inv(Q[1])
+    C  = Q[2][1]
+    D  = Q[2][2]
+    λI = A[2]
+    if !isequal(B, D)
+        nothing
+    elseif isone(μ)
+        inv(B)*simplify(C + λI)*B
+    else
+        inv(B)*simplify(μ*C + λI)*B
+    end
+end
+
+function try_simplify(A::Sum{<:MaybeScaled{<:Identity},
+                             <:MaybeScaled{<:Prod{<:Inverse{<:T},<:Prod{<:Operator,<:T}}}}) where {T<:Operator}
+    # Permute the terms
+    return try_simplify(A[2] + A[1])
+end
+
+function try_simplify(A::Sum{<:MaybeScaled{<:Prod{<:T,<:Prod{<:Operator,<:Inverse{<:T}}}},
+                             <:MaybeScaled{<:Identity}}) where {T<:Operator}
+    # `A = μ*B*C*inv(D) + λ*Id` with `B` and `D` having the same type
+    Q = unscaled(A[1])
+    μ = multiplier(A[1])
+    B  = Q[1]
+    C  = Q[2][1]
+    D  = inv(Q[2][2])
+    λI = A[2]
+    if !isequal(B, D)
+        nothing
+    elseif isone(μ)
+        B*simplify(C + λI)*inv(B)
+    else
+        B*simplify(μ*C + λI)*inv(B)
+    end
+end
+
+function try_simplify(A::Sum{<:MaybeScaled{<:Identity},
+                             <:MaybeScaled{<:Prod{<:T,<:Prod{<:Operator,<:Inverse{<:T}}}}}) where {T<:Operator}
+    # Permute the terms
+    return try_simplify(A[2] + A[1])
+end

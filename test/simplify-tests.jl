@@ -163,6 +163,29 @@ function runtests()
             @test simplify_once(Pass((1//2)*A)*Pass(2*B)*Pass(C)) === Pass(A*B*C)
             @test simplify_once(Pass((1//2)*A)*Pass(B)*Pass(2*C)) === Pass(A*B*C)
             =#
+
+            # `μ*inv(B)*C*B + λ*Id` -> `inv(B)*(μ*C + λ*Id)*B`
+            @test simplify(inv(B)*C*B + Id) === inv(B)*simplify(C + Id)*B
+            @test simplify(inv(B)*C*B + 3*Id) === inv(B)*simplify(C + 3*Id)*B
+            @test simplify(2*inv(B)*C*B + Id) === inv(B)*simplify(2*C + Id)*B
+            @test simplify(2*inv(B)*C*B + 3*Id) === inv(B)*simplify(2*C + 3*Id)*B
+            @test simplify(Id + inv(B)*C*B) === inv(B)*simplify(C + Id)*B
+            @test simplify(3*Id + inv(B)*C*B) === inv(B)*simplify(C + 3*Id)*B
+            @test simplify(Id + 2*inv(B)*C*B) === inv(B)*simplify(2*C + Id)*B
+            @test simplify(3*Id + 2*inv(B)*C*B) === inv(B)*simplify(2*C + 3*Id)*B
+            @test simplify(Id + 2*inv(B)*C*B + 2*Id) === inv(B)*simplify(2*C + 3*Id)*B
+
+            # `μ*B*C*inv(B) + λ*Id` -> `B*(μ*C + λ*Id)*inv(B)`
+            @test simplify(B*C*inv(B) + Id) === B*simplify(C + Id)*inv(B)
+            @test simplify(B*C*inv(B) + 3*Id) === B*simplify(C + 3*Id)*inv(B)
+            @test simplify(2*B*C*inv(B) + Id) === B*simplify(2*C + Id)*inv(B)
+            @test simplify(2*B*C*inv(B) + 3*Id) === B*simplify(2*C + 3*Id)*inv(B)
+            @test simplify(Id + B*C*inv(B)) === B*simplify(C + Id)*inv(B)
+            @test simplify(3*Id + B*C*inv(B)) === B*simplify(C + 3*Id)*inv(B)
+            @test simplify(Id + 2*B*C*inv(B)) === B*simplify(2*C + Id)*inv(B)
+            @test simplify(3*Id + 2*B*C*inv(B)) === B*simplify(2*C + 3*Id)*inv(B)
+            @test simplify(Id + 2*B*C*inv(B) + 2*Id) === B*simplify(2*C + 3*Id)*inv(B)
+
         end
 
         @testset "Simplifications of diagonal operators (T = $T)" for T in (Float64, Complex{Float32})
