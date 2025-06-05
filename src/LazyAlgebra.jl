@@ -56,12 +56,10 @@ export
     #lgemv!,
     #lgemv,
     #multiplier,
-    nnz,
-    nonzeros,
+    nnz, # re-export from SparseArrays
+    nonzeros, # re-export from SparseArrays
     simplify,
-    #sparse,
-    #terms,
-    #unscaled,
+    sparse, # re-export from SparseArrays
     vcombine!,
     vcombine,
     vcopy!,
@@ -143,6 +141,7 @@ using TypeUtils: @public
 @public input_ndims
 @public input_size
 @public last_nz
+@public multiplier
 @public multiplier_type
 @public ncols
 @public nrows
@@ -166,6 +165,7 @@ using TypeUtils: @public
 @public unsafe_vscale!
 @public unsafe_vswap!
 @public unsafe_vupdate!
+@public unscaled
 
 using Printf
 using ArrayTools
@@ -178,7 +178,7 @@ using ZippedArrays
 using AbstractFFTs, FFTW
 
 import SparseArrays
-using SparseArrays: SparseMatrixCSC, nonzeros, nnz
+using SparseArrays: SparseMatrixCSC, nonzeros, nnz, sparse
 
 using Base: OneTo, Fix1, Fix2, @propagate_inbounds
 
@@ -188,7 +188,6 @@ using LinearAlgebra
 #using LinearAlgebra.BLAS: libblas, @blasfunc,
 #    BlasInt, BlasReal, BlasFloat, BlasComplex
 #
-#using SparseArrays: sparse
 
 include("types.jl")
 #include("traits.jl")
