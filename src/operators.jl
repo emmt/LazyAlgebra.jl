@@ -153,7 +153,7 @@ See also [`LazyAlgebra.OutputShape](@ref), [`LazyAlgebra.InputEltype](@ref), and
 """
 OutputEltype(A) = OutputEltype(typeof(A))
 OutputEltype(::Type) = OutputEltypeUnknown()
-OutputEltype(::Type{A}) where {A<:InverseAdjoint} =
+OutputEltype(::Type{A}) where {A<:Union{Adjoint,Inverse}} =
     transpose(InputEltype(parent(A)))
 
 """
