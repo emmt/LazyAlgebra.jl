@@ -36,6 +36,8 @@ function runtests(; rng::AbstractRNG = MersenneTwister(314159),
             @test Id/inv(A) === A
             @test inv(A)\Id === A
 
+            @test A'*(π*Id)*A === π*A'*A
+
             for T in eltypes, dims in sizes
                 x = rand(rng, T, dims)
                 y = map(float, x) # not `float.(x)` because it collapses 0-dim array in a scalar
