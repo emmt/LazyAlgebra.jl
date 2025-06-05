@@ -207,9 +207,9 @@ unroll_map(f, x::Tuple{}) = ()
 unroll_map(f, x::Tuple{Any}) = (f(first(x)),)
 @inline unroll_map(f, x::Tuple) = (f(first(x)), unroll_map(f, Base.tail(x))...)
 
-# Set precision for Adjoint, Inverse, and Gram. Thanks to recursion, this also
-# works for InverseAdjoint.
-for W in (:Adjoint, :Inverse, :Gram)
+# Set precision for Adjoint, and Inverse. Thanks to recursion, this also works for
+# InverseAdjoint.
+for W in (:Adjoint, :Inverse)
     @eval begin
         _with_precision(::Type{T}, A::$W) where {T<:AbstractFloat} =
             $W(_with_precision(T, parent(A)))
