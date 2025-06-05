@@ -10,6 +10,7 @@ Typical usage:
 module LazyAlgebraSimplifyTests
 
 using LazyAlgebra
+using Neutrals
 using Test
 
 function runtests()
@@ -99,6 +100,7 @@ function runtests()
                 @test simplify(D + C + B + A) === X
             end
 
+            # Distribution of the multiplication by a scalar among the terms of a sum.
             @test simplify(2*(A + B) - (A + B)) === simplify(A + B)
             @test simplify(2*(A + B) - (B + A)) === simplify(A + B)
             @test simplify(2*(A + B) - B - A) === simplify(A + B)
@@ -116,6 +118,14 @@ function runtests()
             @test simplify(A*inv(A)*B) === B
             @test simplify(B*A*inv(A)) === B
             @test simplify(A*B*inv(B)*C) === A*C
+            @test simplify(A/(1B)) === A/B === A*inv(B)
+            @test simplify(A/(3B)) === (1//3)*A/B
+            @test simplify((2A)/(3B)) === (2//3)*A/B
+            @test simplify(A/(𝟙*B)) === A/B
+            @test simplify(A\(1B)) === A\B === inv(A)*B
+            @test simplify(A\(3B)) === 3*(A\B) === 3*inv(A)*B
+            @test simplify((2A)\(3B)) === (3//2)*(A\B) === (3//2)*inv(A)*B
+            @test simplify(A\(𝟙*B)) === A\B
 
             @test simplify(inv(A*B)) === inv(B)*inv(A)
             @test simplify(inv(A*B)*(A*B)) === Id
@@ -135,6 +145,13 @@ function runtests()
             #@test simplify(A*A') === Gram(A)
             #@test simplify(A'*A) === Gram(A')
             #@test simplify(Gram(A)') === Gram(A)
+
+            # Intentionally not supported `β/A` and `A\β`.
+            @test_throws Exception simplify(1/A) === inv(A)
+            @test_throws Exception simplify(2/A) === 2*inv(A)
+            @test_throws Exception simplify(A\1) === inv(A)
+            @test_throws Exception simplify(A\2) === 2*inv(A)
+
             #=
             @test simplify_once(Pass(2*A)*Pass(B)) === Pass(2*A*B)
             @test simplify_once(Pass(A)*Pass(2*B)) === Pass(2*A*B)

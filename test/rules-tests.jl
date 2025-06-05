@@ -278,6 +278,15 @@ using LazyAlgebra: Adjoint, Inverse, Prod, Sum
         @test @inferred((X*α)*(Y*β)) === @inferred((α*β)*(X*Y))
         @test typeof((α*β)*(X*Y)) <: Prod{<:Number,typeof(X*Y)}
 
+        # `A\β` and `β/A` intentionally not supported.
+        β = 3
+        @test_throws Exception A\β
+        @test_throws Exception β/A
+        @test A\(β*I) === β*inv(A)
+        @test (β*I)/A === β*inv(A)
+        @test A\(β*Id) === β*inv(A)
+        @test (β*Id)/A === β*inv(A)
+
         # Scaling by neutral numbers.
         @test (𝟙*Id)*A === 𝟙*A
         @test A/(𝟙*B) === 𝟙*A*inv(B)

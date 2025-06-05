@@ -76,13 +76,17 @@ Base.:(*)(A::Operator, β::Number  ) = β * A
 Base.:(*)(A::Operand,  B::Operator) = Prod(A, B)
 Base.:(*)(α::Number,   B::Operator) = Prod(α, B)
 #
-Base.:(\)(α::Number,   B::Prod{<:Number}) = divide(B[1], α) * B[2]
-Base.:(\)(α::Number,   B::Operator      ) = Inverse(α) * B
-Base.:(\)(A::Operator, B::Operator      ) = inv(A) * B
+Base.:(/)(A::Operator,       β::Number) = Inverse(β) * A
+Base.:(/)(A::Prod{<:Number}, β::Number) = divide(A[1], β) * A[2]
+Base.:(/)(A::Operator,       B::Operator) = A * inv(B)
+Base.:(/)(α::Number,         B::Operator) = error(
+    "`A\\β` and `β/A` for a linear operator `A` and a number `β` intentionally not supported, write `β*inv(A)` or `β*Id/A` if that is the intention")
 #
-Base.:(/)(A::Operator, β::Number) = β \ A
-Base.:(/)(A::Operator, B::Operator) = A * inv(B)
-Base.:(/)(α::Number,   B::Operator) = α * inv(B)
+# Default rule for left-division in base Julia is: x\y -> adjoint(adjoint(y)/adjoint(x))
+# which, in LazyAlgebra, simplifies to: x\y -> inv(x)*y.
+Base.:(\)(A::Operator, B::Operator) = inv(A) * B
+Base.:(\)(α::Number,   B::Operator) = B / α
+Base.:(\)(A::Operator, β::Number  ) = β / A
 
 # Equality. If no more specific rules exist, consider that two operators are different by
 # default unless they are the same object.
