@@ -140,23 +140,6 @@ const InverseAdjoint{A} = Union{Inverse{Adjoint{A}},Adjoint{Inverse{A}}}
 const AnyVariant{A} = Union{A,Adjoint{A},Inverse{A},InverseAdjoint{A}}
 
 """
-    B = Gram(A)
-    B = simplify(A'*A)
-
-yield a linear operator `B` representing the composition `A'*A` for the linear operator
-`A`. Applying this construction may be optimized for some kind of operators like the
-finite difference [`Diff`](@ref).
-
-Calling `Base.parent(B)` or `B[]` reveals the bare linear operator `A` embedded in `B`.
-
-"""
-struct Gram{T<:Operator} <: Operator
-    parent::T
-end
-
-@callable Gram
-
-"""
     C = A + B
     C = LazyAlgebra.Sum(A::Operator, B::Operator)
 

@@ -24,7 +24,6 @@ export
     Diff,
     FFT,
     FlexibleMatrix,
-    Gram,
     Id,
     Identity,
     Operator,

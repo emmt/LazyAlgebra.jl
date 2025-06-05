@@ -40,7 +40,7 @@ let NonMatrix = LinearAlgebra.UniformScaling, Other = Union{NonMatrix,AbstractMa
         Prod(A::$Other,  B::Operand) = Prod(Operator(A), B)
         Prod(A::Operand, B::$Other ) = Prod(A, Operator(B))
     end
-    for constructor in (:Adjoint, :Inverse, :Gram)
+    for constructor in (:Adjoint, :Inverse)
         @eval $constructor(A::$Other) = $constructor(Operator(A))
     end
 end
@@ -904,18 +904,6 @@ end
 @noinline function unsafe_vmul!(α::Number, A::Union{Inverse{<:Sum},InverseAdjoint{<:Sum}},
                                  x::AbstractArray, β::Number, y::AbstractArray)
     error("automatic dispatching of the inverse of a sum of operators is not supported")
-end
-
-# Default rules to apply a Gram operator. Gram matrices are Hermitian by construction
-# which left only 2 cases to deal with.
-function vmul!(α::Number, G::Gram, x::AbstractArray, β::Number, y::AbstractArray)
-    A = G[] # A is such that G = A'*A
-    return vmul!(α, A', A*x, β, y)
-end
-#
-function vmul!(α::Number, G::Inverse{<:Gram}, x::AbstractArray, β::Number, y::AbstractArray)
-    A = G[][] # A is such that G = inv(A'*A) = inv(A)*inv(A')
-    return vmul!(α, inv(A), inv(A')*x, β, y)
 end
 
 """

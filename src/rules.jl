@@ -6,11 +6,11 @@
 #
 #-----------------------------------------------------------------------------------------
 
-# Accessors for Adjoint, Inverse, Gram, Sum, and Prod.
-Base.parent(A::Union{Adjoint,Inverse,Gram}) = getfield(A, :parent)
-Base.getindex(A::Union{Adjoint,Inverse,Gram}) = parent(A)
+# Accessors for Adjoint, Inverse, Sum, and Prod.
+Base.parent(A::Union{Adjoint,Inverse}) = getfield(A, :parent)
+Base.getindex(A::Union{Adjoint,Inverse}) = parent(A)
 Base.Tuple( A::Union{Sum,Prod}) = getfield(A, :operands)
-for Wrapper in (:Adjoint, :Inverse, :Gram)
+for Wrapper in (:Adjoint, :Inverse)
     @eval begin
         # Make `parent` also applicable to types of wrapped operators.
         Base.parent(::Type{$Wrapper{T}}) where {T} = T
@@ -44,9 +44,6 @@ Adjoint(α::Number        ) = conj(α)
 # Maintain inverse on top of adjoint.
 Adjoint(A::Inverse           ) = Inverse(Adjoint(parent(A)))
 Adjoint(A::Inverse{<:Adjoint}) = inv(parent(parent(A)))
-
-# Gram operators are self-adjoint by construction.
-Adjoint(A::Gram) = A
 
 # Extend `inv(A)` to call `Inverse(A)` for any operator `A`. Automatically simplify taking
 # the inverse of the inverse of an operator and propagate the inverse in products.

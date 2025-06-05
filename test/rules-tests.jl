@@ -209,10 +209,6 @@ using LazyAlgebra: Adjoint, Inverse, Prod, Sum
         @test @inferred(adjoint(inv(A'))) === inv(A)
         @test @inferred(adjoint(inv(A)')) === inv(A)
 
-        # Gram operator.
-        X = @inferred(Gram(A))
-        @test @inferred(adjoint(X)) === X
-
         # Scalar times operator.
         @testset "Scalar (λ=$λ) times $X" for λ in (0x0, true, 𝟙, -1, 1//2, pi, 2.3f0, 2.0 - 3.0im), X in (A, A + B, A*B)
             @test @inferred(λ*X) === @inferred(X*λ)

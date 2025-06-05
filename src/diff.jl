@@ -36,20 +36,33 @@ Base.:(==)(A::T, B::T) where {T<:Diff} = true
 
 # Print operator in such a way that is similar to how the operator would be created in
 # Julia.
-Base.show(io::IO, ::Diff{L,D}) where {L,D} =
-    print(io, "Diff{", L, ',', (D === Colon ? "Colon" : D), "}()")
-
-Prod(A::Adjoint{Diff{L,D}}, B::Diff{L,D}) where {L,D} = Gram(B)
+function Base.show(io::IO, ::Diff{L,D}) where {L,D}
+    print(io, "Diff{", L, ',')
+    if D === Colon
+        print(io, "Colon")
+    elseif D isa Tuple{Integer,Vararg{Integer}}
+        print(io, "(")
+        for (i,d) in enumerate(D)
+            i > 1 && print(io, ",")
+            print(io, d)
+        end
+        print(io, length(D) == 1 ? ",)" : ")")
+    else
+        print(io, D)
+    end
+    print(io, "}()")
+    nothing
+end
 
 # Output element type for any variant of the finite difference operator.
-function output_eltype(::Type{<:Union{D,Adjoint{D},Gram{D}}},
+function output_eltype(::Type{<:Union{D,Adjoint{D}}},
                        ::Type{x}) where {D<:Diff,x<:AbstractArray}
     # FIXME: At least a signed type should be returned.
     return float(eltype(x))
 end
 
 # Output axes for D'*D with D a finite difference operator.
-output_axes(A::Gram{<:Diff}, axes_x::ArrayAxes) = axes_x
+output_axes(A::Prod{Adjoint{D},D}, axes_x::ArrayAxes) where {D<:Diff} = axes_x
 
 # Output element type for other variant of the finite difference operator.
 function output_axes(A::Union{Diff{L,D},Adjoint{<:Diff{L,D}}},
@@ -83,12 +96,10 @@ end
 # Apply the operation along all dimensions of interest but one dimension at a time and
 # knowing that α is not zero.
 @generated function unsafe_vmul!(α::Number,
-                                 A::Union{Diff{L,D},
-                                          Adjoint{<:Diff{L,D}},
-                                          Gram{<:Diff{L,D}}},
+                                 A::Union{𝒟,Adjoint{𝒟},Prod{Adjoint{𝒟},𝒟}},
                                  x::AbstractArray{Tx,Nx},
                                  β::Number,
-                                 y::AbstractArray{Ty,Ny}) where {L,D,Tx,Nx,Ty,Ny}
+                                 y::AbstractArray{Ty,Ny}) where {L,D,𝒟<:Diff{L,D},Tx,Nx,Ty,Ny}
     # Minimal check to avoid compiling an invalid function.
     D === Colon || D isa Int || D isa Tuple{Vararg{Int}} || throw(AssertionError(
         "invalid list of dimension(s) of differentiation"))
@@ -102,12 +113,13 @@ end
 
     # Discard type parameter specifying the dimensions of interest to avoid specialization
     # on this parameter.
+    op = :(Diff{$L,:any}())
     if A <: Adjoint
-        push!(code, :(B = Adjoint(Diff{$L,:any}())))
-    elseif A <: Gram
-        push!(code, :(B = Gram(Diff{$L,:any}())))
+        push!(code, :(B = $op'))
+    elseif A <: Prod # Gram
+        push!(code, :(B = $op'*$op))
     else
-        push!(code, :(B = Diff{$L,:any}()))
+        push!(code, :(B = $op))
     end
 
     # Define `rngs` to be the axes of x or y (whichever is the longest list) and set `N`
@@ -129,7 +141,7 @@ end
         d ∈ 1:N || return quote
             throw(AssertionError("out of range dimension(s) of differentiation"))
         end
-        if A <: Gram
+        if A <: Prod # Gram
             args = ()
         elseif D isa Int
             args = (:(CartesianIndex()),)
@@ -160,7 +172,7 @@ module _Diff
 
 using TypeUtils
 using Base: @propagate_inbounds
-using ..LazyAlgebra: Adjoint, Diff, Gram
+using ..LazyAlgebra: Adjoint, Diff, Prod
 
 """
     limits(r) -> (first(r), last(r))
@@ -309,13 +321,13 @@ end
 #               0   0   0  -1   1 ]
 #
 function unsafe_vmul!(α::Number,
-                      A::Gram{<:Diff{1,:any}},
+                      A::Prod{𝒟,Adjoint{𝒟}}, # Gram
                       x::AbstractArray,
                       β::Number,
                       y::AbstractArray,
                       I::ArrayAxes,
                       J::eltype(ArrayAxes),
-                      K::ArrayAxes)
+                      K::ArrayAxes) where {𝒟<:Diff{1,:any}}
     jmin, jmax = limits(J)
     if jmin < jmax
         T = real_type(eltype(x))
@@ -620,13 +632,13 @@ end
 # Apply Gram composition of 2nd order finite differences.
 #
 function unsafe_vmul!(α::Number,
-                      A::Gram{Diff{2,:any}},
+                      A::Prod{Adjoint{𝒟},𝒟}, # Gram,
                       x::AbstractArray,
                       β::Number,
                       y::AbstractArray,
                       I::ArrayAxes,
                       J::eltype(ArrayAxes),
-                      K::ArrayAxes)
+                      K::ArrayAxes) where {𝒟<:Diff{2,:any}}
     jmin, jmax = limits(J)
     len = length(J)
     if len ≥ 5

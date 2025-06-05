@@ -142,27 +142,12 @@ function runtests()
             @test simplify(inv(B'*A')*(A*B)') === Id
             @test simplify(inv(A'*B')*B'*A') === Id
             @test simplify(A'*inv((A*B)')*B') === Id
-            #@test simplify(A*A') === Gram(A)
-            #@test simplify(A'*A) === Gram(A')
-            #@test simplify(Gram(A)') === Gram(A)
 
             # Intentionally not supported `β/A` and `A\β`.
             @test_throws Exception simplify(1/A) === inv(A)
             @test_throws Exception simplify(2/A) === 2*inv(A)
             @test_throws Exception simplify(A\1) === inv(A)
             @test_throws Exception simplify(A\2) === 2*inv(A)
-
-            #=
-            @test simplify_once(Pass(2*A)*Pass(B)) === Pass(2*A*B)
-            @test simplify_once(Pass(A)*Pass(2*B)) === Pass(2*A*B)
-            @test simplify_once(Pass(A)*Pass(2*B)*Pass(C)) === Pass(2*A*B*C)
-            @test simplify_once(Pass(A)*Pass(B)*Pass(2*C)) === Pass(2*A*B*C)
-
-            @test simplify_once(Pass(2*A)*Pass((1//2)*B)) === Pass(A*B)
-            @test simplify_once(Pass((1//2)*A)*Pass(2*B)) === Pass(A*B)
-            @test simplify_once(Pass((1//2)*A)*Pass(2*B)*Pass(C)) === Pass(A*B*C)
-            @test simplify_once(Pass((1//2)*A)*Pass(B)*Pass(2*C)) === Pass(A*B*C)
-            =#
 
             # `μ*inv(B)*C*B + λ*Id` -> `inv(B)*(μ*C + λ*Id)*B`
             @test simplify(inv(B)*C*B + Id) === inv(B)*simplify(C + Id)*B
