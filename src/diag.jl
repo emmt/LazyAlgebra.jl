@@ -25,7 +25,13 @@ retrieve the scaling factors:
 
 """ Diag
 
-Base.show(io::IO, A::Diag) = print(io, "Diag(…)")
+# MIME"text/plain" is for the REPL.
+Base.show(io::IO, ::MIME"text/plain", A::Diag) = print(io, "Diag(…)")
+function Base.show(io::IO, A::Diag)
+    print(io, "Diag(")
+    show(io, typeof(diag(A)))
+    print(io, "(…))")
+end
 
 # Accessors.
 LinearAlgebra.diag(A::Diag) = A.diag

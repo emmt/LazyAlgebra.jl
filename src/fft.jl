@@ -18,7 +18,7 @@ which builds an FFT operator suitable for computing the FFT of arrays similar to
 operator can also be specified by the real/complex floating-point type of the elements of
 the arrays to transform and their dimensions:
 
-   F =  FFT{T}(shape...; kwds...)
+    F =  FFT{T}(shape...; kwds...)
 
 where `T` is one of `Float64`, `Float32` (for a real-complex FFT), `Complex{Float64}`, or
 `Complex{Float32}` (for a complex-complex FFT) and `shape...` are the dimensions or axes
@@ -29,8 +29,8 @@ create the FFT plans (see http://www.fftw.org/doc/Planner-Flags.html). The defau
 `flags=FFTW.MEASURE` and no time limit.
 
 The interest of creating such an operator is that it caches the resources necessary for
-fast computation of the FFT and can be therefore *much* faster than calling `fft`, `rfft`,
-`ifft`, etc. This is especially true on small arrays.
+fast computation of the FFT and can be therefore faster than calling `fft`, `rfft`,
+`ifft`, etc.
 
 An instance of `FFT` behaves as any other linear operator of `LazyAlgebra`:
 
@@ -146,8 +146,8 @@ end
 Base.:(==)(A::FFT{T,C,N}, B::FFT{T,C,N}) where {T,C,N} =
     (input_size(A) == input_size(B))
 
-brief(io::IO, A::FFT) = write(io, "FFT")
-Base.show(io::IO, ::MIME"text/plain", A::FFT) = show(io, A)
+# MIME"text/plain" is for the REPL.
+Base.show(io::IO, ::MIME"text/plain", A::FFT) = write(io, "FFT")
 function Base.show(io::IO, A::FFT)
     print(io, "FFT{", input_eltype(A), "}(")
     print_shape(io, input_axes(A))

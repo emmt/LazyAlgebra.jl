@@ -189,7 +189,7 @@ using LinearAlgebra
 #
 
 include("types.jl")
-#include("traits.jl")
+include("show.jl")
 include("utils.jl")
 include("multipliers.jl")
 include("vectors.jl")

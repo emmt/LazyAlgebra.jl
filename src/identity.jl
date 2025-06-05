@@ -17,6 +17,8 @@ Identity() = _Identity(:)
 Identity(shape::eltype(ArrayShape)...) = Identity(shape)
 Identity(shape::ArrayShape) = _Identity(as_array_shape(shape))
 
+# MIME"text/plain" is for the REPL.
+Base.show(io::IO, ::MIME"text/plain", A::Identity) = show(io, A)
 Base.show(io::IO, A::typeof(Id)) = write(io, "Id")
 function Base.show(io::IO, A::Identity)
     write(io, "Identity(")

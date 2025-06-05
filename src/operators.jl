@@ -473,93 +473,6 @@ create_output(A::Operator, x::AbstractArray) =
 create_output(α::Number, A::Operator, x) =
     new_array(output_eltype(α, A, x), output_axes(A, x))
 
-Base.show(io::IO, ::MIME"text/plain", A::Operator) = show(io, A)
-
-function Base.show(io::IO, A::Operator)
-    show(io, typeof(A))
-end
-
-function Base.show(io::IO, A::Adjoint)
-    B = parent(A)
-    show_paren(io, B, B isa Union{Sum,Prod,Adjoint})
-    write(io, '\'')
-end
-
-function Base.show(io::IO, A::Inverse)
-    write(io, "inv(")
-    show(io, parent(A))
-    write(io, ')')
-end
-
-function Base.show(io::IO, A::Prod)
-    protect = A[2] isa Sum
-    if A[1] isa Number
-        λ = A[1]
-        if λ == -1
-            write(io, '-')
-        elseif λ == 1
-            protect = false
-        else
-            show_multiplier(io, λ)
-            write(io, '*')
-        end
-    else
-        show_in_prod(io, A[1])
-        write(io, '*')
-    end
-    show_paren(io, A[2], protect)
-end
-
-function Base.show(io::IO, A::Sum)
-    show(io, A[1])
-    show_next_in_sum(io, A[2])
-end
-
-# Show a multiplier (surrounded by parentheses if not a real, i.e. if a complex).
-show_multiplier(io::IO, λ::Number) = show_paren(io, λ, !isreal(λ))
-
-# Show a term in a product.
-show_in_prod(io::IO, A::Operator) = show_paren(io, A, A isa Sum)
-
-# Show a term optionally enclosed by parentheses.
-function show_paren(io::IO, x, paren::Bool)
-    paren && print(io, '(')
-    show(io, x)
-    paren && print(io, ')')
-end
-
-# `show_next_in_sum` shows a term in a sum (not the first one).
-function show_next_in_sum(io::IO, A::Operator)
-    write(io, " + ")
-    show(io, A)
-end
-
-function show_next_in_sum(io::IO, A::Sum)
-    show_next_in_sum(io, A[1])
-    show_next_in_sum(io, A[2])
-end
-
-function show_next_in_sum(io::IO, A::Prod)
-    if A[1] isa Number
-        λ = A[1]
-        if isreal(λ) && λ < zero(λ)
-            λ = -λ
-            write(io, " - ")
-        else
-            write(io, " + ")
-        end
-        if λ != one(λ)
-            show_multiplier(io, λ)
-            write(io, '*')
-        end
-    else
-        write(io, " + ")
-        show_in_prod(io, A[1])
-        write(io, '*')
-    end
-    show_in_prod(io, A[2])
-end
-
 """
     LazyAlgebra.unscaled(A)
 
@@ -823,32 +736,6 @@ function axes_to_string(rngs::Tuple{Vararg{AbstractUnitRange{<:Integer}}})
     io = IOBuffer()
     print_axes(io, rngs)
     return String(take!(io))
-end
-
-print_axis(io::IO, dim::Integer) =
-    print(io, "1:", max(0, Int(dim)))
-
-print_axis(io::IO, rng::AbstractUnitRange{<:Integer}) =
-    print(io, first(rng), ':', last(rng))
-
-function print_axes(io::IO, rngs::Tuple{Vararg{AbstractUnitRange{<:Integer}}})
-    write(io, '(')
-    for (i, rng) in enumerate(rngs)
-        i > 1 && write(io, ", ")
-        print_axis(io, rng)
-    end
-    length(rngs) == 1 && write(io, ',')
-    write(io, ')')
-    nothing
-end
-
-function print_shape(io::IO, shape::ArrayShape)
-    if shape isa Tuple{Vararg{Union{Integer,Base.OneTo}}}
-        show(io, as_array_size(shape))
-    else
-        print_axes(io, shape)
-    end
-    nothing
 end
 
 """
