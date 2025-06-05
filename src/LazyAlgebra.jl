@@ -125,7 +125,7 @@ using TypeUtils: @public
 @public each_row
 @public first_nz
 @public get_col
-@public get_col
+@public get_cols
 @public get_offs
 @public get_row
 @public get_rows
@@ -150,6 +150,7 @@ using TypeUtils: @public
 @public row_size
 @public set_val!
 @public test_API
+@public try_simplify
 @public unpack!
 @public unsafe_vcombine!
 @public unsafe_vcopy!
