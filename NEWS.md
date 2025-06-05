@@ -140,6 +140,7 @@ and changes.
     the row or column index depending on whether `A` is in row- or in column-wise format.
   - `LazyAlgebra.get_vals(A')` yields a lazily conjugated array.
 
+- `FFTOperator` renamed `FFT`.
 
 ### Added
 
@@ -169,6 +170,8 @@ and changes.
 
 - Non-exported public method `LazyAlgebra.test_API` to test the implementation of an
   operator.
+
+- Sum, composition, adjoint, and inverse of diagonal operators are simplified
 
 
 ## Version 0.2.7 (2024-03-08)
