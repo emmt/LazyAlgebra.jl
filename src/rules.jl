@@ -120,8 +120,8 @@ for eq in (:(==), :isequal)
 
         # Equality for adjoint and inverse (accounting for inverse-adjoint results from
         # these rules).
-        Base.$eq(A::Adjoint, B::Adjoint) = $eq(parent(A), parent(A))
-        Base.$eq(A::Inverse, B::Inverse) = $eq(parent(A), parent(A))
+        Base.$eq(A::Adjoint, B::Adjoint) = $eq(parent(A), parent(B))
+        Base.$eq(A::Inverse, B::Inverse) = $eq(parent(A), parent(B))
     end
 end
 

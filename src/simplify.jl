@@ -30,7 +30,7 @@ end
 # operator remains a scaled operator and a marked composition of operators remains a
 # composition of operators.
 mark(A::Sum) = Marked(A)
-mark(A::Prod{<:Number}) = A[1]*mark(A)
+mark(A::Prod{<:Number}) = A[1]*mark(A[2])
 mark(A::Prod{<:Operator}) = mark(A[1])*mark(A[2])
 mark(A::Operator) = A
 
