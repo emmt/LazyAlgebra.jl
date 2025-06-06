@@ -214,15 +214,15 @@ store the sparse coefficients:
 CompressedSparseOperator{F,T,M,N,UniformVector{Bool}}(A[, sel])
 ```
 
-yields a compressed sparse operator whose values are an immutable uniform
-vector of `true` values requiring no storage.  This is useful if you want to
-only store the sparse structure of the selected values, that is their indices
-in the compressed format `F` not their values.
+yields a compressed sparse operator whose values are an immutable uniform vector of `true`
+values requiring no storage. This is useful if you want to only store the sparse structure
+of the selected values, that is their indices in the compressed format `F` not their
+values.
 
-As explained in the last sections, compressed sparse operators can also be
-consructed by providing the values of the structural non-zeros and their
-respective row and column indices.  As a general rule, to construct (or convert
-to) a sparse operator with compressed storage format `F`, you can call:
+As explained in the last sections, compressed sparse operators can also be constructed by
+providing the values of the structural non-zeros and their respective row and column
+indices. As a general rule, to construct (or convert to) a sparse operator with compressed
+storage format `F`, you can call:
 
 ```julia
 CompressedSparseOperator{F}(args...; kwds...)
@@ -252,18 +252,18 @@ for (Aij,i,j) in A # simple but slow for CSR and CSC
 end
 ```
 
-to retrieve the values `Aij` and respective row `i` and column `j` indices for
-all the entries stored in `A`.  It is however more efficient to access them
-according to their storage order which depends on the compressed format.
+to retrieve the values `Aij` and respective row `i` and column `j` indices for all the
+entries stored in `A`. It is however more efficient to access them according to their
+storage order which depends on the compressed format.
 
 - If `A` is in CSC format:
 
   ```julia
-  using LazyAlgebra.SparseMethods
-  for j in each_col(A)        # loop over column index
-      for k in each_off(A, j) # loop over structural non-zeros in this column
-          i   = get_row(A, k) # get row index of entry
-          Aij = get_val(A, k) # get value of entry
+  using LazyAlgebra: each_nz_index, each_col_index, row_index
+  @inbounds for j in each_col_index(A) # loop over column index
+      for k in each_nz_index(A, j)     # loop over structural non-zeros in this column
+          i = row_index(A, k)          # get row index of entry
+          Aij = A[k]                   # get value of entry
        end
   end
   ```
@@ -271,11 +271,11 @@ according to their storage order which depends on the compressed format.
 - If `A` is in CSR format:
 
   ```julia
-  using LazyAlgebra.SparseMethods
-  for i in each_row(A)        # loop over row index
-      for k in each_off(A, i) # loop over structural non-zeros in this row
-          j   = get_col(A, k) # get column index of entry
-          Aij = get_val(A, k) # get value of entry
+  using LazyAlgebra: each_nz_index, each_row_index, col_index
+  for i in each_row_index(A)       # loop over row index
+      for k in each_nz_index(A, i) # loop over structural non-zeros in this row
+          j = col_index(A, k)      # get column index of entry
+          Aij = A[k]               # get value of entry
        end
   end
   ```
@@ -283,18 +283,18 @@ according to their storage order which depends on the compressed format.
 - If `A` is in COO format:
 
   ```julia
-  using LazyAlgebra.SparseMethods
-  for k in each_off(A)
-       i   = get_row(A, k) # get row index of entry
-       j   = get_col(A, k) # get column index of entry
-       Aij = get_val(A, k) # get value of entry
+  using LazyAlgebra: each_nz_index, row_index, col_index
+  for k in each_nz_index(A) # loop over indices of structural non-zeros
+       i = row_index(A, k)  # get row index of entry
+       j = col_index(A, k)  # get column index of entry
+       Aij = A[k]           # get value of entry
   end
   ```
 
-The low-level methods `each_row`, `each_col`, `each_off`, `get_row`, `get_col`
-and `get_val` are not automatically exported by `LazyAlgebra`, this is the
-purpose of the statement `using LazyAlgebra.SparseMethods`.  These methods may
-be extended to implement variants of compressed sparse operators.
+It can be noted that the low-level methods `each_nz_index`, `each_row_index`,
+`each_col_index`, `row_index`, and `col_index` are not automatically exported by
+`LazyAlgebra`, hence, the requirement of the statement `using LazyAlgebra: ...`. These
+methods may be extended to implement variants of compressed sparse operators.
 
 
 ## Sparse operators in COO format

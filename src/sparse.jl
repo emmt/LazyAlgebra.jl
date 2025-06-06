@@ -77,12 +77,12 @@ storage order which depends on the compressed format.
 - If `A` is in CSC format or is the adjoint of a sparse operator in CSR format:
 
   ```julia
-  using LazyAlgebra: each_col, each_nz, get_row, get_val
-  for j in each_col(A)        # loop over column index
-      for k in each_nz(A, j)  # loop over structural non-zeros in this column
-          i   = get_row(A, k) # get row index of entry
-          Aij = get_val(A, k) # get value of entry
-          ...
+  using LazyAlgebra: each_nz_index, each_col_index, row_index
+  for j in each_col_index(A)       # loop over column index
+      for k in each_nz_index(A, j) # loop over structural non-zeros in this column
+          i = row_index(A, k)      # get row index of entry
+          Aij = A[k]               # get value of entry
+          A[k] = ...               # set value of entry
        end
   end
   ```
@@ -90,12 +90,12 @@ storage order which depends on the compressed format.
 - If `A` is in CSR format or is the adjoint of a sparse operator in CSC format:
 
   ```julia
-  using LazyAlgebra: each_row, each_nz, get_col, get_val
-  for i in each_row(A)        # loop over row index
-      for k in each_nz(A, i)  # loop over structural non-zeros in this row
-          j   = get_col(A, k) # get column index of entry
-          Aij = get_val(A, k) # get value of entry
-          ...
+  using LazyAlgebra: each_nz_index, each_row_index, col_index
+  for i in each_row_index(A)       # loop over row index
+      for k in each_nz_index(A, i) # loop over structural non-zeros in this row
+          j = col_index(A, k)      # get column index of entry
+          Aij = A[k]               # get value of entry
+          A[k] = ...               # set value of entry
        end
   end
   ```
@@ -103,17 +103,17 @@ storage order which depends on the compressed format.
 - If `A` is in COO format:
 
   ```julia
-  using LazyAlgebra: each_nz, get_row, get_col, get_val
-  for k in each_nz(A)      # loop over all structural non-zeros
-       i   = get_row(A, k) # get row index of entry
-       j   = get_col(A, k) # get column index of entry
-       Aij = get_val(A, k) # get value of entry
-       ...
+  using LazyAlgebra: each_nz_index, row_index, col_index
+  for k in each_nz_index(A) # loop over index of structural non-zeros
+       i = row_index(A, k)  # get row index of entry
+       j = col_index(A, k)  # get column index of entry
+       Aij = A[k]           # get value of entry
+       A[k] = ...           # set value of entry
   end
   ```
 
-The low-level methods `each_row`, `each_col`, `each_nz`, `get_row`, `get_col` and
-`get_val` are not automatically exported by `LazyAlgebra`.
+The low-level methods `each_row_index`, `each_col_index`, `each_nz_index`, `row_index`,
+and `col_index` are public but not automatically exported by `LazyAlgebra`.
 
 """ CompressedSparseOperator
 
@@ -146,10 +146,10 @@ col_size(A::SparseOperator) = getfield(A, :colsiz) # alias to input_size
 row_axes(A::SparseOperator) = map(Base.OneTo, row_size(A)) # alias to output_axes
 col_axes(A::SparseOperator) = map(Base.OneTo, col_size(A)) # alias to input_axes
 
-Base.ndims(A::SparseOperator{T,M,N}) where {T,M,N} = M + N
-Base.length(A::SparseOperator) = nrows(A)*ncols(A)
-Base.size(A::SparseOperator) = (row_size(A)..., col_size(A)...)
-Base.axes(A::SparseOperator) = map(Base.OneTo, size(A))
+# FIXME Base.ndims(A::SparseOperator{T,M,N}) where {T,M,N} = M + N
+# FIXME Base.length(A::SparseOperator) = nrows(A)*ncols(A)
+# FIXME Base.size(A::SparseOperator) = (row_size(A)..., col_size(A)...)
+# FIXME Base.axes(A::SparseOperator) = map(Base.OneTo, size(A))
 
 # Use constructors to perform conversion (the first method is to resolve ambiguities).
 Base.convert(::Type{T}, A::T) where {T<:SparseOperator} = A
@@ -181,89 +181,88 @@ end
 # Assume that a `copy` of a compressed sparse operator is to keep the same structure for
 # the structural non-zeros but possibly change the values. So only duplicate the value
 # part. For a `deepcopy` of a compressed sparse operator, all the fields are copied.
-for (func, rows, cols, offs) in ((:copy,      :get_rows,  :get_cols,  :get_offs),
-                                 (:deepcopy, :copy_rows, :copy_cols, :copy_offs))
+for (func, rows, cols, offs) in ((:copy,     :row_indices,      :col_indices,      :offsets),
+                                 (:deepcopy, :copy_row_indices, :copy_col_indices, :copy_offs))
     @eval begin
         Base.$func(A::SparseOperatorCSR) =
-            _SparseOperatorCSR(nrows(A), ncols(A), copy_vals(A), $cols(A), $offs(A),
+            _SparseOperatorCSR(nrows(A), ncols(A), copy_nonzeros(A), $cols(A), $offs(A),
                                row_size(A), col_size(A))
 
         Base.$func(A::SparseOperatorCSC{T,M,N}) where {T,M,N} =
-            _SparseOperatorCSC(nrows(A), ncols(A), copy_vals(A), $rows(A), $offs(A),
+            _SparseOperatorCSC(nrows(A), ncols(A), copy_nonzeros(A), $rows(A), $offs(A),
                                row_size(A), col_size(A))
 
         Base.$func(A::SparseOperatorCOO{T,M,N}) where {T,M,N} =
-            _SparseOperatorCOO(nrows(A), ncols(A), copy_vals(A), $rows(A), $cols(A),
+            _SparseOperatorCOO(nrows(A), ncols(A), copy_nonzeros(A), $rows(A), $cols(A),
                                row_size(A), col_size(A))
     end
 end
 
 # `findnz(A) -> I,J,V` yields the row and column indices and the values of the stored
 # values in `A`.
-SparseArrays.findnz(A::SparseOperator) = (get_rows(A), get_cols(A), get_vals(A))
+SparseArrays.findnz(A::SparseOperator) = (row_indices(A), col_indices(A), nonzeros(A))
 
 # Extend some methods in SparseArrays. The "structural" non-zeros are the entries stored
 # by the sparse structure which may or not be equal to zero, un-stored entries are always
 # considered as being strictly equal to zero.
-SparseArrays.nonzeros(A::SparseOperator) = get_vals(A)
 SparseArrays.nnz(A::SparseOperator) = length(nonzeros(A))
 SparseArrays.nnz(A::Adjoint{<:SparseOperator}) = length(nonzeros(parent(A)))
 
 """
-    LazyAlgebra.get_vals(A)
+    SparseArrays.nonzeros(A::LazyAlgebra.SparseOperator)
 
 yields the array storing the structural non-zeros of the compressed sparse operator `A`.
-The returned array is shared with `A`, call [`LazyAlgebra.copy_vals(A)`](@ref
-LazyAlgebra.copy_vals) instead if you want to modify the contents of the returned array
+The returned array is shared with `A`, call [`LazyAlgebra.copy_nonzeros(A)`](@ref
+LazyAlgebra.copy_nonzeros) instead if you want to modify the contents of the returned array
 with no side effects on `A`.
 
 """
-get_vals(A::SparseOperator) = getfield(A, :vals)
-get_vals(A::Adjoint{<:SparseOperator}) = LazyMap{eltype(A)}(conj, get_vals(parent(A)))
+SparseArrays.nonzeros(A::SparseOperator) = getfield(A, :vals)
+SparseArrays.nonzeros(A::Adjoint{<:SparseOperator}) = LazyMap{eltype(A)}(conj, nonzeros(parent(A)))
 
 """
-    LazyAlgebra.copy_vals([T = eltype(A),] A) -> vals
+    LazyAlgebra.copy_nonzeros([T = eltype(A),] A) -> vals
 
 yields a copy of the values of the structural non-zeros of the sparse operator `A`
 converted to type `T`. The result is a vector that is not shared by `A`, the caller may
 thus modify its contents with no side effects on `A`.
 
 """
-copy_vals(A::SparseOperator{T}) where {T} = copy_vals(T, A)
-function copy_vals(::Type{T}, A::SparseOperator) where {T}
-    vals = get_vals(A)
+copy_nonzeros(A::SparseOperator{T}) where {T} = copy_nonzeros(T, A)
+function copy_nonzeros(::Type{T}, A::SparseOperator) where {T}
+    vals = nonzeros(A)
     unsafe_vcopy!(similar(vals, T), vals)
 end
 
 """
-    LazyAlgebra.get_rows(A)
+    LazyAlgebra.row_indices(A)
 
 yields the row indices of the structural non-zeros of the sparse operator `A`. The
-returned array may be shared with `A`, call [`LazyAlgebra.copy_rows(A)`](@ref
-LazyAlgebra.copy_rows) instead if you want to modify the contents of the returned array
-with no side effects on `A`.
+returned array may be shared with `A`, call [`LazyAlgebra.copy_row_indices(A)`](@ref
+LazyAlgebra.copy_row_indices) instead if you want to modify the contents of the returned
+array with no side effects on `A`.
 
 """
-get_rows(A::Union{SparseOperatorCSC,SparseOperatorCOO}) = getfield(A, :rows)
-get_rows(A::CompressedSparseOperator{:CSR}) = copy_rows(A) # FIXME: yield an iterator
-get_rows(A::Adjoint{<:SparseOperator}) = get_cols(parent(A))
+row_indices(A::Union{SparseOperatorCSC,SparseOperatorCOO}) = getfield(A, :rows)
+row_indices(A::CompressedSparseOperator{:CSR}) = copy_row_indices(A) # FIXME: yield an iterator
+row_indices(A::Adjoint{<:SparseOperator}) = col_indices(parent(A))
 
 """
-    LazyAlgebra.copy_rows(A) -> rows
+    LazyAlgebra.copy_row_indices(A) -> rows
 
 yields a copy of the linear row indices of the structural non-zeros of the sparse operator
 `A`. The result is a vector that is not shared by `A`, the caller may thus modify its
 contents with no side effects on `A`.
 
 """
-function copy_rows(A::SparseOperator)
-    rows = get_rows(A)
+function copy_row_indices(A::SparseOperator)
+    rows = row_indices(A)
     unsafe_vcopy!(Vector{Int}(undef, size(rows)), rows)
 end
-function copy_rows(A::CompressedSparseOperator{:CSR})
-    rows = Vector{Int}(undef, length(get_vals(A)))
-    @inbounds for i in each_row(A)
-        @simd for k in each_nz(A, i)
+function copy_row_indices(A::CompressedSparseOperator{:CSR})
+    rows = Vector{Int}(undef, length(nonzeros(A)))
+    @inbounds for i in each_row_index(A)
+        @simd for k in each_nz_index(A, i)
             rows[k] = i
         end
     end
@@ -271,35 +270,35 @@ function copy_rows(A::CompressedSparseOperator{:CSR})
 end
 
 """
-    LazyAlgebra.get_cols(A)
+    LazyAlgebra.col_indices(A)
 
 yields the column indices of the structural non-zeros of the sparse operator `A`. The
-returned array may be shared with `A`, call [`LazyAlgebra.copy_cols(A)`](@ref
-LazyAlgebra.copy_cols) instead if you want to modify the contents of the returned array
-with no side effects on `A`.
+returned array may be shared with `A`, call [`LazyAlgebra.copy_col_indices(A)`](@ref
+LazyAlgebra.copy_col_indices) instead if you want to modify the contents of the returned
+array with no side effects on `A`.
 
 """
-get_cols(A::Union{SparseOperatorCSR,SparseOperatorCOO}) = getfield(A, :cols)
-get_cols(A::Union{CompressedSparseOperator{:CSC},SparseMatrixCSC}) =
-    copy_cols(A) # FIXME: yield an iterator
-get_cols(A::Adjoint{<:SparseOperator}) = get_rows(parent(A))
+col_indices(A::Union{SparseOperatorCSR,SparseOperatorCOO}) = getfield(A, :cols)
+col_indices(A::Union{CompressedSparseOperator{:CSC},SparseMatrixCSC}) =
+    copy_col_indices(A) # FIXME: yield an iterator
+col_indices(A::Adjoint{<:SparseOperator}) = row_indices(parent(A))
 
 """
-    LazyAlgebra.copy_cols(A) -> cols
+    LazyAlgebra.copy_col_indices(A) -> cols
 
 yields a copy of the linear column indices of the structural non-zeros of the sparse
 operator `A`. The result is a vector that is not shared by `A`, the caller may thus modify
 its contents with no side effects on `A`.
 
 """
-function copy_cols(A::SparseOperator)
-    cols = get_cols(A)
+function copy_col_indices(A::SparseOperator)
+    cols = col_indices(A)
     unsafe_vcopy!(Vector{Int}(undef, size(cols)), cols)
 end
-function copy_cols(A::Union{CompressedSparseOperator{:CSC},SparseMatrixCSC})
-    cols = Vector{Int}(undef, length(get_vals(A)))
-    @inbounds for j in each_col(A)
-        @simd for k in each_nz(A, j)
+function copy_col_indices(A::Union{CompressedSparseOperator{:CSC},SparseMatrixCSC})
+    cols = Vector{Int}(undef, length(nonzeros(A)))
+    @inbounds for j in each_col_index(A)
+        @simd for k in each_nz_index(A, j)
             cols[k] = j
         end
     end
@@ -307,70 +306,58 @@ function copy_cols(A::Union{CompressedSparseOperator{:CSC},SparseMatrixCSC})
 end
 
 """
-    LazyAlgebra.get_offs(A)
+    LazyAlgebra.offsets(A)
 
 yields the table of offsets of the sparse operator `A`. Not all operators extend this
 method.
 
 !!! warning
     The interpretation of offsets depend on the type of `A`. For instance, assuming `offs
-    = LazyAlgebra.get_offs(A)`, then the index range of the `j`-th column of a
+    = LazyAlgebra.offsets(A)`, then the index range of the `j`-th column of a
     `SparseMatrixCSC` is `offs[j]:(offs[j+1]-1)` while the index range is
     `(offs[j]+1):offs[j+1]` for a `SparseOperatorCSC`. For this reason, it is recommended
-    to call [`each_nz`](@ref) instead or to call `get_offs` with 2 arguments as shown
+    to call [`each_nz_index`](@ref) instead or to call `offsets` with 2 arguments as shown
     below.
 
 """
-get_offs(A::Union{SparseOperatorCSR,SparseOperatorCSC}) = getfield(A, :offs)
-get_offs(A::Adjoint{<:CompressedSparseOperator{:CSR}}) = get_offs(parent(A))
-get_offs(A::Adjoint{<:CompressedSparseOperator{:CSC}}) = get_offs(parent(A))
+offsets(A::Union{SparseOperatorCSR,SparseOperatorCSC}) = getfield(A, :offs)
+offsets(A::Adjoint{<:CompressedSparseOperator{:CSR}}) = offsets(parent(A))
+offsets(A::Adjoint{<:CompressedSparseOperator{:CSC}}) = offsets(parent(A))
 
 """
+    each_nz_index(A)
 
-For a sparse operator `A` stored in a *Compressed Sparse Coordinate* (COO) format, the
-call:
+yields an iterator over the indices of the structural non-zeros of the sparse operator `A`
+stored in a *Compressed Sparse Coordinate* (COO) format.
 
-    each_nz(A)
+    each_nz_index(A, j)
 
-yields an iterator over the indices in the arrays of values and of linear row and column
-indices for the `k`-th entry of `A`.
+yields an iterator over the indices of the structural non-zeros of the `j`-th column of
+the sparse operator `A` stored in a *Compressed Sparse Column* (CSC) format.
 
----
+    each_nz_index(A, i)
 
-For a sparse operator `A` stored in a *Compressed Sparse Column* (CSC) format, the call:
-
-    each_nz(A, j)
-
-yields an iterator over the indices in the arrays of values and linear row indices for the
-`j`-th column of `A`.
-
----
-
-For a sparse operator `A` stored in a *Compressed Sparse Row* (CSR) format, the call:
-
-    each_nz(A, i)
-
-yields an iterator over the indices in the arrays of values and linear column indices for
-the `i`-th row of `A`.
+yields an iterator over the indices of the structural non-zeros of the `i`-th row of the
+sparse operator `A` stored in a *Compressed Sparse Row* (CSR) format.
 
 """
-@inline each_nz(A::Union{SparseOperatorCOO,Adjoint{<:SparseOperatorCOO}}) = 𝟙:nnz(A)
+@inline each_nz_index(A::Union{SparseOperatorCOO,Adjoint{<:SparseOperatorCOO}}) = 𝟙:nnz(A)
 
-@inline first_nz(A::Union{SparseOperatorCOO,Adjoint{<:SparseOperatorCOO}}) = 1
+@inline first_nz_index(A::Union{SparseOperatorCOO,Adjoint{<:SparseOperatorCOO}}) = 1
 
-@inline last_nz(A::Union{SparseOperatorCOO,Adjoint{<:SparseOperatorCOO}}) = nnz(A)
+@inline last_nz_index(A::Union{SparseOperatorCOO,Adjoint{<:SparseOperatorCOO}}) = nnz(A)
 
-@inline function first_nz(A::CSRorCSC, ij::Int)
+@inline function first_nz_index(A::CSRorCSC, ij::Int)
     @boundscheck check_offset_index(A, ij)
-    return unsafe_first_nz(A, ij)
+    return unsafe_first_nz_index(A, ij)
 end
 
-@inline function last_nz(A::CSRorCSC, ij::Int)
+@inline function last_nz_index(A::CSRorCSC, ij::Int)
     @boundscheck check_offset_index(A, ij)
-    return unsafe_last_nz(A, ij)
+    return unsafe_last_nz_index(A, ij)
 end
 
-@inline function each_nz(A::CSRorCSC, ij::Int)
+@inline function each_nz_index(A::CSRorCSC, ij::Int)
     @boundscheck check_offset_index(A, ij)
     return unsafe_each_nz(A, ij)
 end
@@ -378,7 +365,7 @@ end
 # Management of offsets in compressed sparse operator in CSC- or CSR-like formats.
 
 @inline check_offset_index(::Type{Bool}, A::CSRorCSC, ij::Int) =
-    1 ≤ ij < length(get_offs(A))
+    1 ≤ ij < length(offsets(A))
 
 @inline check_offset_index(A::AnyCSR, i::Int) =
     check_offset_index(Bool, A, i) ? nothing : out_of_range_row_index(A, i)
@@ -386,12 +373,12 @@ end
 @inline check_offset_index(A::Union{AnyCSC,SparseMatrixCSC}, j::Int) =
     check_offset_index(Bool, A, j) ? nothing : out_of_range_column_index(A, i)
 
-@inline unsafe_first_nz(A::Union{AnyCSR,AnyCSC}, ij::Int) = @inbounds get_offs(A)[ij] + 1
+@inline unsafe_first_nz_index(A::Union{AnyCSR,AnyCSC}, ij::Int) = @inbounds offsets(A)[ij] + 1
 
-@inline unsafe_last_nz(A::Union{AnyCSR,AnyCSC}, ij::Int) = @inbounds get_offs(A)[ij + 1]
+@inline unsafe_last_nz_index(A::Union{AnyCSR,AnyCSC}, ij::Int) = @inbounds offsets(A)[ij + 1]
 
 @inline unsafe_each_nz(A::Union{AnyCSR,AnyCSC}, ij::Int) =
-    UnitRange(unsafe_first_nz(A, ij), unsafe_last_nz(A, ij))
+    UnitRange(unsafe_first_nz_index(A, ij), unsafe_last_nz_index(A, ij))
 
 @noinline out_of_range_row_index(A, i::Integer) =
     throw(ErrorException(string("out of range row index ", i,
@@ -404,85 +391,73 @@ end
                                 ncols(A), " columns")))
 
 """
-    each_row(A)
+    each_row_index(A)
 
 yields an iterator over the linear row indices of the structural non-zeros of the sparse
 operator `A` stored in a *Compressed Sparse Row* (CSR) format, this includes the adjoint
 of a sparse operator in *Compressed Sparse Column* (CSC) format.
 
 """
-each_row(A::CompressedSparseOperator{:CSR}) = 𝟙:nrows(A)
-each_row(A::Adjoint{<:CompressedSparseOperator{:CSC}}) = each_col(parent(A))
+each_row_index(A::CompressedSparseOperator{:CSR}) = 𝟙:nrows(A)
+each_row_index(A::Adjoint{<:CompressedSparseOperator{:CSC}}) = each_col_index(parent(A))
 
 """
-    each_col(A)
+    each_col_index(A)
 
 yields an iterator over the linear column indices of the structural non-zeros of the
 sparse operator `A` stored in a *Compressed Sparse Column* (CSC) format, this includes the
 adjoint of a sparse operator in *Compressed Sparse Row* (CSR) format.
 
 """
-each_col(A::CompressedSparseOperator{:CSC}) = 𝟙:ncols(A)
-each_col(A::Adjoint{<:CompressedSparseOperator{:CSR}}) = each_row(parent(A))
+each_col_index(A::CompressedSparseOperator{:CSC}) = 𝟙:ncols(A)
+each_col_index(A::Adjoint{<:CompressedSparseOperator{:CSR}}) = each_row_index(parent(A))
 
 """
-    get_row(A, k) -> i
+    row_index(A, k) -> i
 
 yields the linear row index of the `k`-th entry of the sparse operator `A` stored in a
 *Compressed Sparse Column* (CSC) or *Coordinate* (COO) formats (this includes adjoint of
 sparse operators in CSR format).
 
 """
-@propagate_inbounds get_row(A::Union{AnyCOO,AnyCSC}, k::Int) = get_rows(A)[k]
+@propagate_inbounds row_index(A::Union{AnyCOO,AnyCSC}, k::Int) = row_indices(A)[k]
 
 """
-    get_col(A, k) -> j
+    col_index(A, k) -> j
 
 yields the linear column index of the `k`-th entry of the sparse operator `A` stored in a
 *Compressed Sparse Row* (CSR) or *Coordinate* (COO) formats (this includes adjoint of
 sparse operators in CSC format).
 
 """
-@propagate_inbounds get_col(A::Union{AnyCOO,AnyCSR}, k::Int) = get_cols(A)[k]
+@propagate_inbounds col_index(A::Union{AnyCOO,AnyCSR}, k::Int) = col_indices(A)[k]
 
-"""
-    get_val(A, k) -> v
+# Implement partial API of abstract vectors to access the nonzeros by their linear index `k`.
 
-yields the value of the `k`-th structural non-zero of the sparse operator `A` stored in a
-compressed format. Argument `A` may also be the adjoint of a compressed sparse operator.
-
-"""
-@inline function get_val(A::CompressedSparseOperator, k::Int)
-    vals = get_vals(A)
+# FIXME Base.ndims, size, length, axes, eachindex, etc.
+@inline function Base.getindex(A::CompressedSparseOperator, k::Int)
+    vals = nonzeros(A)
     @boundscheck checkbounds(vals, k)
     v = @inbounds vals[k]
     return v
 end
 
-@inline function get_val(A::Adjoint{<:CompressedSparseOperator}, k::Int)
-    vals = get_vals(parent(A))
+@inline function Base.getindex(A::Adjoint{<:CompressedSparseOperator}, k::Int)
+    vals = nonzeros(parent(A))
     @boundscheck checkbounds(vals, k)
     v = @inbounds vals[k]
     return conj(v)
 end
 
-"""
-    set_val!(A, k, v) -> A
-
-assigns `v` to the value of the `k`-th structural non-zero of the sparse operator `A`
-stored in a compressed format. Argument `A` may also be the adjoint of a compressed sparse
-operator in which case the call is similar to `set_val!(A', k, conj(v))`.
-
-"""
-@inline function set_val!(A::CompressedSparseOperator, k::Int, v)
-    vals = get_vals(A)
+@inline function Base.setindex!(A::CompressedSparseOperator, v, k::Int)
+    vals = nonzeros(A)
     @boundscheck checkbounds(vals, k)
     @inbounds vals[k] = v
     return A
 end
 
-@inline function set_val!(A::Adjoint{<:CompressedSparseOperator}, k::Int, v)
-    vals = get_vals(parent(A))
+@inline function Base.setindex!(A::Adjoint{<:CompressedSparseOperator}, v, k::Int)
+    vals = nonzeros(parent(A))
     @boundscheck checkbounds(vals, k)
     @inbounds vals[k] = conj(v)
     return A
@@ -496,10 +471,10 @@ end
         while k > kmax
             i < nrows(A) || return nothing
             i += 1
-            kmax = last_nz(A, i)
+            kmax = last_nz_index(A, i)
         end
-        v = get_val(A, k)
-        j = get_col(A, k)
+        v = A[k]
+        j = col_index(A, k)
         return ((v, i, j), (i, k, kmax))
     end
 end
@@ -510,10 +485,10 @@ end
         while k > kmax
             j < ncols(A) || return nothing
             j += 1
-            kmax = last_nz(A, j)
+            kmax = last_nz_index(A, j)
         end
-        v = get_val(A, k)
-        i = get_row(A, k)
+        v = A[k]
+        i = row_index(A, k)
         return ((v, i, j), (j, k, kmax))
     end
 end
@@ -522,7 +497,7 @@ end
     @inbounds begin
         k < kmax || return nothing
         k += 1
-        return ((get_val(A, k), get_row(A, k), get_col(A, k)), (k, kmax))
+        return ((A[k], row_index(A, k), col_index(A, k)), (k, kmax))
     end
 end
 
@@ -531,31 +506,30 @@ end
 
 nrows(A::SparseMatrixCSC) = getfield(A, :m)
 ncols(A::SparseMatrixCSC) = getfield(A, :n)
-get_vals(A::SparseMatrixCSC) = getfield(A, :nzval)
-get_offs(A::SparseMatrixCSC) = getfield(A, :colptr)
-get_rows(A::SparseMatrixCSC) = getfield(A, :rowval)
-# get_cols is already done elsewhere.
+offsets(A::SparseMatrixCSC) = getfield(A, :colptr) # like `getcolptr`
+row_indices(A::SparseMatrixCSC) = getfield(A, :rowval) # like `rowvals`
+# FIXME col_indices is already done elsewhere.
 row_size(A::SparseMatrixCSC) = (nrows(A),)
 col_size(A::SparseMatrixCSC) = (ncols(A),)
-each_col(A::SparseMatrixCSC) = 𝟙:ncols(A)
+each_col_index(A::SparseMatrixCSC) = 𝟙:ncols(A)
 
-# Provide a specific versions of `check_offset_index`, `unsafe_first_nz`, and
-# `unsafe_last_nz` because offsets have a slightly different definition for
+# Provide a specific versions of `check_offset_index`, `unsafe_first_nz_index`, and
+# `unsafe_last_nz_index` because offsets have a slightly different definition for
 # `SparseMatrixCSC` than for our CSC format.
 @inline check_offset_index(::Type{Bool}, A::SparseMatrixCSC, j::Int) =
-     1 ≤ j < length(get_offs(A))
-@inline unsafe_first_nz(A::SparseMatrixCSC, j::Int) = @inbounds get_offs(A)[j]
-@inline unsafe_last_nz(A::SparseMatrixCSC, j::Int) = @inbounds get_offs(A)[j + 1] - 1
+     1 ≤ j < length(offsets(A))
+@inline unsafe_first_nz_index(A::SparseMatrixCSC, j::Int) = @inbounds offsets(A)[j]
+@inline unsafe_last_nz_index(A::SparseMatrixCSC, j::Int) = @inbounds offsets(A)[j + 1] - 1
 
-@propagate_inbounds each_nz(A::SparseMatrixCSC, j::Integer) = nzrange(A, j::Integer)
+@propagate_inbounds each_nz_index(A::SparseMatrixCSC, j::Integer) = nzrange(A, j::Integer)
 @propagate_inbounds SparseArrays.nzrange(A::CompressedSparseOperator, ij::Int) =
-    each_nz(A, ij)
+    each_nz_index(A, ij)
 
 function SparseArrays.rowvals(A::Union{CompressedSparseOperator{:COO},
                                        Adjoint{<:CompressedSparseOperator{:COO}},
                                        CompressedSparseOperator{:CSC},
                                        Adjoint{<:CompressedSparseOperator{:CSR}}})
-    get_rows(A)
+    row_indices(A)
 end
 
 #-----------------------------------------------------------------------------------------
@@ -885,7 +859,7 @@ for (CS, other_args) in ((:SparseOperatorCSR, (:cols, :offs)),
         # Constructors that convert array of values. Other fields have already been
         # checked so do not check structure again.
         $CS{T}(A::$CS{S,M,N}) where {S,T,M,N} =
-            $_CS(nrows(A), ncols(A), to_values(T, get_vals(A)),
+            $_CS(nrows(A), ncols(A), to_values(T, nonzeros(A)),
                  $(map(s -> :($(Symbol("get_",s))(A)), other_args)...),
                  row_size(A), col_size(A))
 
@@ -1086,10 +1060,10 @@ function unpack!(B::AbstractArray{T,L},
                  flatten::Bool = false) where {T,L,M,N}
     prepare_unpack!(B, A, flatten)
     m = nrows(A) # used as the "stride" in B
-    @inbounds for i in each_row(A)
-        for k in each_nz(A, i)
-            j = get_col(A, k)
-            v = get_val(A, k)
+    @inbounds for i in each_row_index(A)
+        for k in each_nz_index(A, i)
+            j = col_index(A, k)
+            v = A[k]
             B[i + m*(j - 1)] = v
         end
     end
@@ -1101,10 +1075,10 @@ function unpack!(B::AbstractArray{T,L},
                  flatten::Bool = false) where {T,L,M,N}
     prepare_unpack!(B, A, flatten)
     m = nrows(A) # used as the "stride" in B
-    @inbounds for j in each_col(A)
-        for k in each_nz(A, j)
-            i = get_row(A, k)
-            v = get_val(A, k)
+    @inbounds for j in each_col_index(A)
+        for k in each_nz_index(A, j)
+            i = row_index(A, k)
+            v = A[k]
             B[i + m*(j - 1)] = v
         end
     end
@@ -1122,10 +1096,10 @@ function unpack!(B::AbstractArray{T,L},
                  op::Function; flatten::Bool = false) where {T,L,M,N}
     prepare_unpack!(B, A, flatten)
     m = nrows(A) # used as the "stride" in B
-    @inbounds for k in each_nz(A)
-        i = get_row(A, k)
-        j = get_col(A, k)
-        v = get_val(A, k)
+    @inbounds for k in each_nz_index(A)
+        i = row_index(A, k)
+        j = col_index(A, k)
+        v = A[k]
         l = i + m*(j - 1)
         B[l] = op(B[l], v)
     end
@@ -1148,7 +1122,7 @@ function Base.reshape(A::SparseOperatorCSR,
                       rowsiz::Tuple{Vararg{Int}},
                       colsiz::Tuple{Vararg{Int}})
     check_new_shape(A, rowsiz, colsiz)
-    _SparseOperatorCSR(nrows(A), ncols(A), get_vals(A), get_cols(A), get_offs(A),
+    _SparseOperatorCSR(nrows(A), ncols(A), nonzeros(A), col_indices(A), offsets(A),
                        rowsiz, colsiz)
 end
 
@@ -1156,7 +1130,7 @@ function Base.reshape(A::SparseOperatorCSC,
                       rowsiz::Tuple{Vararg{Int}},
                       colsiz::Tuple{Vararg{Int}})
     check_new_shape(A, rowsiz, colsiz)
-    _SparseOperatorCSC(nrows(A), ncols(A), get_vals(A), get_rows(A), get_offs(A),
+    _SparseOperatorCSC(nrows(A), ncols(A), nonzeros(A), row_indices(A), offsets(A),
                        rowsiz, colsiz)
 end
 
@@ -1164,7 +1138,7 @@ function Base.reshape(A::SparseOperatorCOO,
                       rowsiz::Tuple{Vararg{Int}},
                       colsiz::Tuple{Vararg{Int}})
     check_new_shape(A, rowsiz, colsiz)
-    _SparseOperatorCOO(nrows(A), ncols(A), get_vals(A), get_rows(A), get_cols(A),
+    _SparseOperatorCOO(nrows(A), ncols(A), nonzeros(A), row_indices(A), col_indices(A),
                        rowsiz, colsiz)
 end
 
@@ -1175,30 +1149,30 @@ end
 # to copy when converting to a compressed sparse coordinate (COO) format.
 
 SparseOperatorCSR{T}(A::SparseOperator) where {T} =
-    coo_to_csr!(copy_vals(T, A),
-                copy_rows(A),
-                copy_cols(A),
+    coo_to_csr!(copy_nonzeros(T, A),
+                copy_row_indices(A),
+                copy_col_indices(A),
                 row_size(A),
                 col_size(A))
 
 SparseOperatorCSC{T}(A::SparseOperator) where {T} =
-    coo_to_csc!(copy_vals(T, A),
-                copy_rows(A),
-                copy_cols(A),
+    coo_to_csc!(copy_nonzeros(T, A),
+                copy_row_indices(A),
+                copy_col_indices(A),
                 row_size(A),
                 col_size(A))
 
 SparseOperatorCOO{T}(A::SparseOperator) where {T} =
-    SparseOperatorCOO(copy_vals(T, A),
-                      get_rows(A),
-                      get_cols(A),
+    SparseOperatorCOO(copy_nonzeros(T, A),
+                      row_indices(A),
+                      col_indices(A),
                       row_size(A),
                       col_size(A))
 
 SparseOperatorCOO{T}(A::SparseOperator{T}) where {T} =
-    SparseOperatorCOO(get_vals(A),
-                      get_rows(A),
-                      get_cols(A),
+    SparseOperatorCOO(nonzeros(A),
+                      row_indices(A),
+                      col_indices(A),
                       row_size(A),
                       col_size(A))
 
@@ -1447,7 +1421,7 @@ there are any inconsistencies.
 
 """
 function check_vals(A::SparseOperator)
-    vals = get_vals(A)
+    vals = nonzeros(A)
     is_fast_array(vals) || throw_not_fast_array("array of values")
     length(vals) == nnz(A) || throw_argument_error("bad number of values")
     nothing
@@ -1468,7 +1442,7 @@ range `1:m`.
 """
 function check_rows(A::Union{<:CompressedSparseOperator{:CSC},
                              <:CompressedSparseOperator{:COO}})
-    rows = get_rows(A)
+    rows = row_indices(A)
     length(rows) == nnz(A) ||
         throw_argument_error("bad number of row indices")
     check_rows(rows, nrows(A))
@@ -1501,7 +1475,7 @@ range `1:n`.
 """
 function check_cols(A::Union{<:CompressedSparseOperator{:CSR},
                              <:CompressedSparseOperator{:COO}})
-    cols = get_cols(A)
+    cols = col_indices(A)
     length(cols) == nnz(A) ||
         throw_argument_error("bad number of column indices")
     check_cols(cols, ncols(A))
@@ -1529,7 +1503,7 @@ of inconsistency.
 """
 function check_offs(A::T) where {T<:Union{CompressedSparseOperator{:CSR},
                                           CompressedSparseOperator{:CSC}}}
-    offs = get_offs(A)
+    offs = offsets(A)
     is_fast_array(offs) || throw_not_fast_array("array of offsets")
     n = (T <: CompressedSparseOperator{:CSR} ? nrows(A) : ncols(A))
     length(offs) == n + 1 || error("bad number of offsets")
@@ -1697,11 +1671,11 @@ function unsafe_vmul!(α::Number,
                       β::Number,
                       y::AbstractArray{Ty,M}) where {Ta,Tx,Ty,M,N}
     Ts = sumprod_type(Ta, Tx)
-    @inbounds for i in each_row(A)
+    @inbounds for i in each_row_index(A)
         s = zero(Ts)
-        for k in each_nz(A, i)
-            j = get_col(A, k)
-            Aᵢⱼ = get_val(A, k)
+        for k in each_nz_index(A, i)
+            j = col_index(A, k)
+            Aᵢⱼ = A[k]
             s += Aᵢⱼ*x[j]
         end
         y[i] = α*s + β*y[i]
@@ -1716,13 +1690,12 @@ function unsafe_vmul!(α::Number,
                       y::AbstractArray{Ty,N}) where {Ta,Tx,Ty,M,N}
     A = adjoint(A′) # get A such that A' ≡ A′
     isone(β) || unsafe_vscale!(y, β)
-    @inbounds for i in each_row(A)
+    @inbounds for i in each_row_index(A)
         αxᵢ = α*x[i]
         if !iszero(αxᵢ)
-            for k in each_nz(A, i)
-                j = get_col(A, k)
-                Aᵢⱼ = get_val(A, k)
-                y[j] += conj(Aᵢⱼ)*αxᵢ
+            for k in each_nz_index(A, i)
+                j = col_index(A, k)
+                y[j] += conj(A[k])*αxᵢ
             end
         end
     end
@@ -1735,13 +1708,12 @@ function unsafe_vmul!(α::Number,
                       β::Number,
                       y::AbstractArray{Ty,M}) where {Ta,Tx,Ty,M,N}
     isone(β) || unsafe_vscale!(y, β)
-    @inbounds for j in each_col(A)
+    @inbounds for j in each_col_index(A)
         αxⱼ = α*x[j]
         if !iszero(αxⱼ)
-            for k in each_nz(A, j)
-                i = get_row(A, k)
-                Aᵢⱼ = get_val(A, k)
-                y[i] += Aᵢⱼ*αxⱼ
+            for k in each_nz_index(A, j)
+                i = row_index(A, k)
+                y[i] += A[k]*αxⱼ
             end
         end
     end
@@ -1755,12 +1727,11 @@ function unsafe_vmul!(α::Number,
                       y::AbstractArray{Ty,N}) where {Ta,Tx,Ty,M,N}
     A = adjoint(A′) # get A such that A' ≡ A′
     Ts = sumprod_type(Ta, Tx)
-    @inbounds for j in each_col(A)
+    @inbounds for j in each_col_index(A)
         s = zero(Ts)
-        for k in each_nz(A, j)
-            i = get_row(A, k)
-            Aᵢⱼ = get_val(A, k)
-            s += conj(Aᵢⱼ)*x[i]
+        for k in each_nz_index(A, j)
+            i = row_index(A, k)
+            s += conj(A[k])*x[i]
         end
         y[j] = α*s + β*y[j]
     end
@@ -1773,7 +1744,7 @@ function unsafe_vmul!(α::Number,
                       β::Number,
                       y::AbstractArray{Ty,M}) where {Ta,Tx,Ty,M,N}
     isone(β) || unsafe_vscale!(y, β)
-    V, I, J = get_vals(A), get_rows(A), get_cols(A)
+    V, I, J = nonzeros(A), row_indices(A), col_indices(A)
     @inbounds for k in eachindex(V, I, J)
         Aᵢⱼ, i, j = V[k], I[k], J[k]
         y[i] += α*Aᵢⱼ*x[j]
@@ -1788,16 +1759,10 @@ function unsafe_vmul!(α::Number,
                       y::AbstractArray{Ty,N}) where {Ta,Tx,Ty,M,N}
     A = adjoint(A′) # get A such that A' ≡ A′
     isone(β) || unsafe_vscale!(y, β)
-    V, I, J = get_vals(A), get_rows(A), get_cols(A)
+    V, I, J = nonzeros(A), row_indices(A), col_indices(A)
     @inbounds for k in eachindex(V, I, J)
         Aᵢⱼ, i, j = V[k], I[k], J[k]
         y[j] += α*conj(Aᵢⱼ)*x[i]
     end
     return y
-end
-
-"""
-Private module for sparse operators.
-"""
-module _Sparse
 end

@@ -88,9 +88,9 @@ end
 
     # Make a COO version with randomly permuted entries.
     kp = randperm(nnz(coo));
-    coo_perm = SparseOperatorCOO(get_vals(coo)[kp],
-                                 get_rows(coo)[kp],
-                                 get_cols(coo)[kp],
+    coo_perm = SparseOperatorCOO(nonzeros(coo)[kp],
+                                 row_indices(coo)[kp],
+                                 col_indices(coo)[kp],
                                  row_size(coo),
                                  col_size(coo));
 
@@ -108,9 +108,9 @@ end
         w[j2] *= 3/4
         k[j2] = k[j1]
     end
-    coo_dups = SparseOperatorCOO(get_vals(coo)[k] .* w,
-                                 get_rows(coo)[k],
-                                 get_cols(coo)[k],
+    coo_dups = SparseOperatorCOO(nonzeros(coo)[k] .* w,
+                                 row_indices(coo)[k],
+                                 col_indices(coo)[k],
                                  row_size(coo),
                                  col_size(coo))
 
@@ -152,26 +152,26 @@ end
     @test nnz(csc) === nvals
     @test nnz(coo) === nvals
     @test nnz(spm) === nvals
-    @test length(get_vals(csr)) === nvals
-    @test length(get_vals(csc)) === nvals
-    @test length(get_vals(coo)) === nvals
-    @test length(get_vals(spm)) === nvals
+    @test length(nonzeros(csr)) === nvals
+    @test length(nonzeros(csc)) === nvals
+    @test length(nonzeros(coo)) === nvals
+    @test length(nonzeros(spm)) === nvals
 
-    # `nonzeros` and `get_vals` should yield the same object.
-    @test get_vals(csr) === nonzeros(csr)
-    @test get_vals(csc) === nonzeros(csc)
-    @test get_vals(coo) === nonzeros(coo)
-    @test get_vals(spm) === nonzeros(spm)
+    # `nonzeros` and `nonzeros` should yield the same object.
+    @test nonzeros(csr) === nonzeros(csr)
+    @test nonzeros(csc) === nonzeros(csc)
+    @test nonzeros(coo) === nonzeros(coo)
+    @test nonzeros(spm) === nonzeros(spm)
 
     # Julia arrays are column-major so values and row indices should be the
     # same in compressed sparse column (CSC) and compressed sparse coordinate
     # (COO) formats.
-    @test get_vals(coo) == get_vals(csc)
-    @test get_rows(coo) == get_rows(csc)
-    @test get_cols(coo) == get_cols(csc)
-    @test get_vals(coo) == get_vals(spm)
-    @test get_rows(coo) == get_rows(spm)
-    @test get_cols(coo) == get_cols(spm)
+    @test nonzeros(coo) == nonzeros(csc)
+    @test row_indices(coo) == row_indices(csc)
+    @test col_indices(coo) == col_indices(csc)
+    @test nonzeros(coo) == nonzeros(spm)
+    @test row_indices(coo) == row_indices(spm)
+    @test col_indices(coo) == col_indices(spm)
 
     # Check converting back to standard array.
     @test Array(csr) == A
@@ -211,50 +211,50 @@ end
                     @test identical(cnv, coo) == (t === T && src === coo)
                     if is_csc(src) || is_csr(src)
                         if is_csc(src)
-                            @test get_rows(cnv) === get_rows(src)
+                            @test row_indices(cnv) === row_indices(src)
                         else
-                            @test get_rows(cnv) == get_rows(src)
+                            @test row_indices(cnv) == row_indices(src)
                         end
                         if is_csr(src)
-                            @test get_cols(cnv) === get_cols(src)
+                            @test col_indices(cnv) === col_indices(src)
                         else
-                            @test get_cols(cnv) == get_cols(src)
+                            @test col_indices(cnv) == col_indices(src)
                         end
                         if t === T
-                            @test get_vals(cnv) === get_vals(src)
+                            @test nonzeros(cnv) === nonzeros(src)
                         else
-                            @test get_vals(cnv) == get_vals(src)
+                            @test nonzeros(cnv) == nonzeros(src)
                         end
                     end
                 elseif F === :CSC
                     @test (cnv === csc) == (t === T && src === csc)
                     @test identical(cnv, csc) == (t === T && src === csc)
                     if is_csc(src)
-                        @test get_rows(cnv) === get_rows(csc)
+                        @test row_indices(cnv) === row_indices(csc)
                     else
-                        @test get_rows(cnv) == get_rows(csc)
+                        @test row_indices(cnv) == row_indices(csc)
                     end
-                    @test each_col(cnv) === each_col(csc)
-                    @test get_cols(cnv) == get_cols(csc)
+                    @test each_col_index(cnv) === each_col_index(csc)
+                    @test col_indices(cnv) == col_indices(csc)
                     if is_csc(src) && t === T
-                        @test get_vals(cnv) === get_vals(csc)
+                        @test nonzeros(cnv) === nonzeros(csc)
                     else
-                        @test get_vals(cnv) == get_vals(csc)
+                        @test nonzeros(cnv) == nonzeros(csc)
                     end
                 elseif F === :CSR
                     @test (cnv === csr) == (t === T && src === csr)
                     @test identical(cnv, csr) == (t === T && src === csr)
-                    @test each_row(cnv) === each_row(csr)
-                    @test get_rows(cnv) == get_rows(csr)
+                    @test each_row_index(cnv) === each_row_index(csr)
+                    @test row_indices(cnv) == row_indices(csr)
                     if is_csr(src)
-                        @test get_cols(cnv) === get_cols(csr)
+                        @test col_indices(cnv) === col_indices(csr)
                     else
-                        @test get_cols(cnv) == get_cols(csr)
+                        @test col_indices(cnv) == col_indices(csr)
                     end
                     if is_csr(src) && t === T
-                        @test get_vals(cnv) === get_vals(csr)
+                        @test nonzeros(cnv) === nonzeros(csr)
                     else
-                        @test get_vals(cnv) == get_vals(csr)
+                        @test nonzeros(cnv) == nonzeros(csr)
                     end
                 end
             end
@@ -364,14 +364,14 @@ end # testset
             @test eltype(S1) === T1
             @test ndims(S1) == ndims(S)
             if is_csc(S) || is_coo(S)
-                @test get_rows(S1) === get_rows(S)
+                @test row_indices(S1) === row_indices(S)
             else
-                @test get_rows(S1) == get_rows(S)
+                @test row_indices(S1) == row_indices(S)
             end
             if is_csr(S) || is_coo(S)
-                @test get_cols(S1) === get_cols(S)
+                @test col_indices(S1) === col_indices(S)
             else
-                @test get_cols(S1) == get_cols(S)
+                @test col_indices(S1) == col_indices(S)
             end
             @test coefficients(S1) == coefficients(S)
             @test LazyAlgebra.identical(S1, S) == false
@@ -381,14 +381,14 @@ end # testset
             @test eltype(S2d) === eltype(S)
             @test ndims(S2d) == 2
             if is_csc(S) || is_coo(S)
-                @test get_rows(S2d) === get_rows(S)
+                @test row_indices(S2d) === row_indices(S)
             else
-                @test get_rows(S2d) == get_rows(S)
+                @test row_indices(S2d) == row_indices(S)
             end
             if is_csr(S) || is_coo(S)
-                @test get_cols(S2d) === get_cols(S)
+                @test col_indices(S2d) === col_indices(S)
             else
-                @test get_cols(S2d) == get_cols(S)
+                @test col_indices(S2d) == col_indices(S)
             end
             @test coefficients(S2d) === coefficients(S)
             @test LazyAlgebra.identical(S2d, S) == false
@@ -407,8 +407,8 @@ end # testset
             # FIXME: @test 1*S === S
             # FIXME: S0 = 0*S
             # FIXME: @test isa(S0, SparseOperator)
-            # FIXME: @test length(get_rows(S0)) == 0
-            # FIXME: @test length(get_cols(S0)) == 0
+            # FIXME: @test length(row_indices(S0)) == 0
+            # FIXME: @test length(col_indices(S0)) == 0
             # FIXME: @test length(coefficients(S0)) == 0
             # FIXME: @test eltype(S0) == eltype(S)
             # FIXME: @test input_size(S0) == input_size(S)
@@ -416,8 +416,8 @@ end # testset
             # FIXME: α = R(π)
             # FIXME: αS = α*S
             # FIXME: @test isa(αS, SparseOperator)
-            # FIXME: @test get_rows(αS) === get_rows(S)
-            # FIXME: @test get_cols(αS) === get_cols(S)
+            # FIXME: @test row_indices(αS) === row_indices(S)
+            # FIXME: @test col_indices(αS) === col_indices(S)
             # FIXME: @test coefficients(αS) == α*coefficients(S)
             # FIXME: @test eltype(αS) == eltype(S)
             # FIXME: @test input_size(αS) == input_size(S)
@@ -433,8 +433,8 @@ end # testset
             # FIXME: @test eltype(W1_S) === T
             # FIXME: @test output_size(W1_S) == output_size(S)
             # FIXME: @test input_size(W1_S) == input_size(S)
-            # FIXME: @test get_rows(W1_S) === get_rows(S)
-            # FIXME: @test get_cols(W1_S) === get_cols(S)
+            # FIXME: @test row_indices(W1_S) === row_indices(S)
+            # FIXME: @test col_indices(W1_S) === col_indices(S)
             # FIXME: @test coefficients(W1_S) == c1
             # FIXME: w2 = genarr(T, input_size(S))
             # FIXME: W2 = NonuniformScaling(w2)
@@ -445,13 +445,13 @@ end # testset
             # FIXME: @test eltype(S_W2) === T
             # FIXME: @test output_size(S_W2) == output_size(S)
             # FIXME: @test input_size(S_W2) == input_size(S)
-            # FIXME: @test get_cols(S_W2) === get_cols(S)
-            # FIXME: @test get_rows(S_W2) === get_rows(S)
+            # FIXME: @test col_indices(S_W2) === col_indices(S)
+            # FIXME: @test row_indices(S_W2) === row_indices(S)
             # FIXME: @test coefficients(S_W2) == c2
             # FIXME:
             # FIXME: # Use another constructor with integer conversion.
-            # FIXME: R = SparseOperator(Int32.(get_rows(S)),
-            # FIXME:                    Int64.(get_cols(S)),
+            # FIXME: R = SparseOperator(Int32.(row_indices(S)),
+            # FIXME:                    Int64.(col_indices(S)),
             # FIXME:                    coefficients(S),
             # FIXME:                    Int32.(output_size(S)),
             # FIXME:                    Int64.(input_size(S)))

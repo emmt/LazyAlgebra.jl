@@ -28,6 +28,8 @@ SparseOperatorCSR
 ### Methods
 
 ```@docs
+nonzeros
+nnz
 LazyAlgebra.SparseOperators.unpack!
 ```
 
@@ -36,18 +38,15 @@ LazyAlgebra.SparseOperators.unpack!
 These methods are provided by `using LazyAlgebra.SparseMethods`.
 
 ```@docs
-LazyAlgebra.SparseMethods.each_row
-LazyAlgebra.SparseMethods.each_col
-LazyAlgebra.SparseMethods.each_off
-LazyAlgebra.SparseMethods.get_row
-LazyAlgebra.SparseMethods.get_rows
-LazyAlgebra.SparseMethods.get_col
-LazyAlgebra.SparseMethods.get_cols
-LazyAlgebra.SparseMethods.get_val
-LazyAlgebra.SparseMethods.get_vals
-LazyAlgebra.SparseMethods.set_val!
-LazyAlgebra.SparseMethods.get_offs
-LazyAlgebra.SparseMethods.copy_rows
-LazyAlgebra.SparseMethods.copy_cols
-LazyAlgebra.SparseMethods.copy_vals
+LazyAlgebra.each_row_index
+LazyAlgebra.each_col_index
+LazyAlgebra.each_nz_index
+LazyAlgebra.row_index
+LazyAlgebra.row_indices
+LazyAlgebra.col_index
+LazyAlgebra.col_indices
+LazyAlgebra.offsets
+LazyAlgebra.copy_row_indices
+LazyAlgebra.copy_col_indices
+LazyAlgebra.copy_nonzeros
 ```

@@ -129,16 +129,18 @@ and changes.
 
 - Sparse operator API has been improved and simplified.
   - Non-exported public method `LazyAlgebra.each_off` has been renamed
-    `LazyAlgebra.each_nz`.
-  - Non-exported public method `LazyAlgebra.get_offs` can only take a single argument.
-  - Non-exported public methods `LazyAlgebra.each_nz`, `LazyAlgebra.first_nz`, and
-    `LazyAlgebra.last_nz` are provided to query the range, first, and last indices of the
-    structural non-zeros.
+    `LazyAlgebra.each_nz_index`.
+  - Non-exported public method `LazyAlgebra.offsets` can only take a single argument.
+  - Non-exported public methods `LazyAlgebra.each_nz_index`, `LazyAlgebra.first_nz_index`, and
+    `LazyAlgebra.last_nz_index` are provided to query the range, first, and last indices
+    of the structural non-zeros.
   - To extend the package for new sparse compressed operators, non-exported public methods
-    `LazyAlgebra.check_offset_index(Bool,A,ij)`, `LazyAlgebra.unsafe_first_nz(A,ij)`, and
-    `LazyAlgebra.unsafe_last_nz(A,ij)` may be specialized in the type of `A` and with `ij`
-    the row or column index depending on whether `A` is in row- or in column-wise format.
-  - `LazyAlgebra.get_vals(A')` yields a lazily conjugated array.
+    `LazyAlgebra.check_offset_index(Bool,A,ij)`,
+    `LazyAlgebra.unsafe_first_nz_index(A,ij)`, and
+    `LazyAlgebra.unsafe_last_nz_index(A,ij)` may be specialized in the type of `A` and
+    with `ij` the row or column index depending on whether `A` is in row- or in
+    column-wise format.
+  - `nonzeros(A')` yields a lazily conjugated array for a sparse operator `A`.
 
 - `FFTOperator` renamed `FFT`.
 
