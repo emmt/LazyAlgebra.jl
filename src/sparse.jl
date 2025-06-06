@@ -547,6 +547,17 @@ each_col(A::SparseMatrixCSC) = 𝟙:ncols(A)
 @inline unsafe_first_nz(A::SparseMatrixCSC, j::Int) = @inbounds get_offs(A)[j]
 @inline unsafe_last_nz(A::SparseMatrixCSC, j::Int) = @inbounds get_offs(A)[j + 1] - 1
 
+@propagate_inbounds each_nz(A::SparseMatrixCSC, j::Integer) = nzrange(A, j::Integer)
+@propagate_inbounds SparseArrays.nzrange(A::CompressedSparseOperator, ij::Int) =
+    each_nz(A, ij)
+
+function SparseArrays.rowvals(A::Union{CompressedSparseOperator{:COO},
+                                       Adjoint{<:CompressedSparseOperator{:COO}},
+                                       CompressedSparseOperator{:CSC},
+                                       Adjoint{<:CompressedSparseOperator{:CSR}}})
+    get_rows(A)
+end
+
 #-----------------------------------------------------------------------------------------
 # Constructors.
 
