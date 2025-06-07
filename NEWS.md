@@ -127,22 +127,47 @@ and changes.
   dimension(s) along which to perform the differentiation. If unspecified, `L=1` and
   `D=Colon` are assumed. The latter indicates to differentiate along all dimensions.
 
-- Sparse operator API has been improved and simplified.
-  - Non-exported public method `LazyAlgebra.each_off` has been renamed
-    `LazyAlgebra.each_nz_index`.
-  - Non-exported public method `LazyAlgebra.offsets` can only take a single argument.
-  - Non-exported public methods `LazyAlgebra.each_nz_index`, `LazyAlgebra.first_nz_index`, and
-    `LazyAlgebra.last_nz_index` are provided to query the range, first, and last indices
-    of the structural non-zeros.
-  - To extend the package for new sparse compressed operators, non-exported public methods
-    `LazyAlgebra.check_offset_index(Bool,A,ij)`,
-    `LazyAlgebra.unsafe_first_nz_index(A,ij)`, and
-    `LazyAlgebra.unsafe_last_nz_index(A,ij)` may be specialized in the type of `A` and
-    with `ij` the row or column index depending on whether `A` is in row- or in
-    column-wise format.
-  - `nonzeros(A')` yields a lazily conjugated array for a sparse operator `A`.
-
 - `FFTOperator` renamed `FFT`.
+
+- **Sparse operator API** has been improved and simplified. In the new API, methods have
+  more explicit names and some names (e.g., `each_row`, and `each_col`) have changed to
+  avoid confusions (`eachrow`, and `eachcol` have different meaning in base Julia). Sparse
+  operators are not meant to be seen as abstract matrices (unlike Julia sparse matrices),
+  so the syntax `A[i,j]` to access the value at row `i` and column `j` is not implemented.
+  Instead, `A[k]` is used to directly access the `k`-th structural non-zero and is a
+  shortcut to `nonzeros(A)[k]` which is valid for sparse operators and sparse matrices.
+  For convenience, `nonzeros(A')` yields a lazily conjugated array for a sparse operator
+  `A` and `A'[k]` yields `conj(A[k])` while `A'[k] = v` amounts to `A[k] = conj(v)`. The
+  changes are summarized by the following table which also compares the new API with that
+  of `SparseArrays`:
+
+
+  | Old `LazyAlgebra` API | New `LazyAlgebra` API    | `SparseArrays`       |
+  |:----------------------|:-------------------------|:---------------------|
+  | `copy_cols(A)`        | `copy_col_indices(A)`    |                      |
+  | `copy_rows(A)`        | `copy_row_indices(A)`    |                      |
+  | `copy_vals(A)`        | `copy_nonzeros(A)`       |                      |
+  | `each_col(A)`         | `each_col_index(A)`      |                      |
+  | `each_off(A[, ij])`   | `each_nz_index(A[, ij])` | `nzrange(A, j)`      |
+  | `each_row(A)`         | `each_row_index(A)`      |                      |
+  | `get_col(A, k)`       | `col_index(A, k)`        |                      |
+  | `get_cols(A)`         | `col_indices(A)`         |                      |
+  | `get_offs(A)`         | `offsets(A)`             | `getcolptr(A)`       |
+  | `get_row(A, k)`       | `row_index(A, k)`        |                      |
+  | `get_rows(A)`         | `row_indices(A)`         | `rowvals(A)`         |
+  | `get_val(A, k)`       | `A[k]`                   | `nonzeros(A)[k]`     |
+  | `get_vals(A)`         | `nonzeros(A)`            | `nonzeros(A)`        |
+  | `nnz(A)`              | `nnz(A)`                 | `nnz(A)`             |
+  | `set_val!(A, k, v)`   | `A[k] = v`               | `nonzeros(A)[k] = v` |
+
+  with:
+
+  - `A` is the sparse matrix (Julia `SparseArrays`) or operator (`LazyAlgebra` or `ASAP`);
+  - `i` is a row index;
+  - `j` is a column index;
+  - `ij` is a row or column index depending on the storage format of `A`;
+  - `k` is an index into the array of nonzeros;
+
 
 ### Added
 
