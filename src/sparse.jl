@@ -1666,7 +1666,8 @@ throw_dimension_mismatch(mesg::AbstractString) =
 # 3. α and β have been converted to a suitable type.
 
 function unsafe_vmul!(α::Number,
-                      A::CompressedSparseOperator{:CSR,Ta,M,N},
+                      A::Union{CompressedSparseOperator{:CSR,Ta,M,N},
+                               Adjoint{<:CompressedSparseOperator{:CSC,Ta,N,M}}},
                       x::AbstractArray{Tx,N},
                       β::Number,
                       y::AbstractArray{Ty,M}) where {Ta,Tx,Ty,M,N}
@@ -1675,8 +1676,7 @@ function unsafe_vmul!(α::Number,
         s = zero(Ts)
         for k in each_nz_index(A, i)
             j = col_index(A, k)
-            Aᵢⱼ = A[k]
-            s += Aᵢⱼ*x[j]
+            s += A[k]*x[j]
         end
         y[i] = α*s + β*y[i]
     end
@@ -1684,26 +1684,8 @@ function unsafe_vmul!(α::Number,
 end
 
 function unsafe_vmul!(α::Number,
-                      A′::Adjoint{<:CompressedSparseOperator{:CSR,Ta,M,N}},
-                      x::AbstractArray{Tx,M},
-                      β::Number,
-                      y::AbstractArray{Ty,N}) where {Ta,Tx,Ty,M,N}
-    A = adjoint(A′) # get A such that A' ≡ A′
-    isone(β) || unsafe_vscale!(y, β)
-    @inbounds for i in each_row_index(A)
-        αxᵢ = α*x[i]
-        if !iszero(αxᵢ)
-            for k in each_nz_index(A, i)
-                j = col_index(A, k)
-                y[j] += conj(A[k])*αxᵢ
-            end
-        end
-    end
-    return y
-end
-
-function unsafe_vmul!(α::Number,
-                      A::CompressedSparseOperator{:CSC,Ta,M,N},
+                      A::Union{CompressedSparseOperator{:CSC,Ta,M,N},
+                               Adjoint{<:CompressedSparseOperator{:CSR,Ta,N,M}}},
                       x::AbstractArray{Tx,N},
                       β::Number,
                       y::AbstractArray{Ty,M}) where {Ta,Tx,Ty,M,N}
@@ -1721,48 +1703,16 @@ function unsafe_vmul!(α::Number,
 end
 
 function unsafe_vmul!(α::Number,
-                      A′::Adjoint{<:CompressedSparseOperator{:CSC,Ta,M,N}},
-                      x::AbstractArray{Tx,M},
-                      β::Number,
-                      y::AbstractArray{Ty,N}) where {Ta,Tx,Ty,M,N}
-    A = adjoint(A′) # get A such that A' ≡ A′
-    Ts = sumprod_type(Ta, Tx)
-    @inbounds for j in each_col_index(A)
-        s = zero(Ts)
-        for k in each_nz_index(A, j)
-            i = row_index(A, k)
-            s += conj(A[k])*x[i]
-        end
-        y[j] = α*s + β*y[j]
-    end
-    return y
-end
-
-function unsafe_vmul!(α::Number,
-                      A::CompressedSparseOperator{:COO,Ta,M,N},
+                      A::Union{CompressedSparseOperator{:COO,Ta,M,N},
+                               Adjoint{<:CompressedSparseOperator{:COO,Ta,N,M}}},
                       x::AbstractArray{Tx,N},
                       β::Number,
                       y::AbstractArray{Ty,M}) where {Ta,Tx,Ty,M,N}
     isone(β) || unsafe_vscale!(y, β)
-    V, I, J = nonzeros(A), row_indices(A), col_indices(A)
-    @inbounds for k in eachindex(V, I, J)
-        Aᵢⱼ, i, j = V[k], I[k], J[k]
-        y[i] += α*Aᵢⱼ*x[j]
-    end
-    return y
-end
-
-function unsafe_vmul!(α::Number,
-                      A′::Adjoint{<:CompressedSparseOperator{:COO,Ta,M,N}},
-                      x::AbstractArray{Tx,M},
-                      β::Number,
-                      y::AbstractArray{Ty,N}) where {Ta,Tx,Ty,M,N}
-    A = adjoint(A′) # get A such that A' ≡ A′
-    isone(β) || unsafe_vscale!(y, β)
-    V, I, J = nonzeros(A), row_indices(A), col_indices(A)
-    @inbounds for k in eachindex(V, I, J)
-        Aᵢⱼ, i, j = V[k], I[k], J[k]
-        y[j] += α*conj(Aᵢⱼ)*x[i]
+    @inbounds for k in each_nz_index(A)
+        i = row_index(A, k)
+        j = col_index(A, k)
+        y[i] += α*A[k]*x[j]
     end
     return y
 end

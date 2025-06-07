@@ -9,9 +9,7 @@ using LinearAlgebra
 using SparseArrays
 using StructuredArrays
 using LazyAlgebra
-using LazyAlgebra: identical, Adjoint, Direct
-using LazyAlgebra.SparseMethods
-using LazyAlgebra.SparseOperators: check_structure, compute_offsets
+using LazyAlgebra: Adjoint
 using BenchmarkTools
 using Random
 
@@ -63,7 +61,7 @@ end
 
 nickname(::AbstractMatrix) = "Matrix";
 nickname(::AbstractSparseMatrix) = "SparseMatrix";
-nickname(::GeneralMatrix) = "GeneralMatrix";
+nickname(::FlexibleMatrix) = "FlexibleMatrix";
 nickname(::CompressedSparseOperator{:COO}) = "SparseOperatorCOO";
 nickname(::CompressedSparseOperator{:CSC}) = "SparseOperatorCSC";
 nickname(::CompressedSparseOperator{:CSR}) = "SparseOperatorCSR";
@@ -90,7 +88,7 @@ function bench1(::Type{T}, m::Int, n::Int, sparsity::Float64) where {T}
     coo = SparseOperatorCOO(A);
     csc = SparseOperatorCSC(A);
     csr = SparseOperatorCSR(A);
-    gen = GeneralMatrix(A);
+    flx = FlexibleMatrix(A);
     S = sparse(A);
     println("Tests are done for T=$T, (m,n)=($m,$n) and sparsity = ",
             round(sparsity*1e2, sigdigits=3), "% of entries.\n")
@@ -99,19 +97,24 @@ function bench1(::Type{T}, m::Int, n::Int, sparsity::Float64) where {T}
     nnz(S) == nnz(csr) || println("not same number on non-zeros (CSR)");
     mul!(y1, A, x);
     mul!(x1, A', y);
-    for B in (gen, S, coo, csc, csr)
+    for B in (flx, S, coo, csc, csr)
         mul!(y2, B, x);
         mul!(x2, B', y);
-        println("compare A*x  for a ", nickname(20, B), extrema(x1 - x2))
-        println("compare A'*x for a ", nickname(20, B), extrema(y1 - y2))
+        if T <: Complex
+            println("compare A*x  for a ", nickname(20, B), maximum(abs.(x1 - x2)))
+            println("compare A'*x for a ", nickname(20, B), maximum(abs.(y1 - y2)))
+        else
+            println("compare A*x  for a ", nickname(20, B), extrema(x1 - x2))
+            println("compare A'*x for a ", nickname(20, B), extrema(y1 - y2))
+        end
     end
     println()
-    for B in (A, gen, S, coo, csc, csr)
+    for B in (A, flx, S, coo, csc, csr)
         print("benchmarking A*x for a ", nickname(20, B))
         @btime mul!($y1, $B, $x)
     end
     println()
-    for B in (A, gen, S, coo, csc, csr)
+    for B in (A, flx, S, coo, csc, csr)
         print("benchmarking A'*x for a ", nickname(20, B))
         @btime mul!($x1, $(B'), $y)
     end
@@ -120,4 +123,4 @@ end
 
 end # module
 
-BenchmarkingLazyAlgebraSparseOperators.bench1()
+println("BenchmarkingLazyAlgebraSparseOperators.bench1(;T=..., m=..., n=...)")

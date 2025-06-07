@@ -168,6 +168,9 @@ and changes.
   - `ij` is a row or column index depending on the storage format of `A`;
   - `k` is an index into the array of nonzeros;
 
+  With the new API, the code for the sparse operators is now around 1800 lines, compared
+  to 2500 previously.
+
 
 ### Added
 
