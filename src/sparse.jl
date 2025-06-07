@@ -5,12 +5,11 @@
 #
 # See https://en.wikipedia.org/wiki/Sparse_matrix.
 
-#------------------------------------------------------------------------------
+#-----------------------------------------------------------------------------------------
 # Convert to vector of indices.
 to_indices(inds::AbstractVector{<:Integer}) = convert_eltype(Int, inds)
 
-# Convert to vector of values with given element type and make sure it is a
-# fast vector.
+# Convert to vector of values with given element type and make sure it is a fast vector.
 to_values(vals::AbstractVector{T}) where {T} = to_values(T, vals)
 to_values(::Type{Any}, vals::AbstractVector{T}) where {T} = to_values(T, vals)
 to_values(::Type{T}, vals::Vector{T}) where {T} = vals
@@ -29,7 +28,7 @@ end
 # Union of types acceptable to define array size.
 const ArraySize = Union{Integer,Tuple{Vararg{Integer}}}
 
-#------------------------------------------------------------------------------
+#-----------------------------------------------------------------------------------------
 
 """
     CompressedSparseOperator{F,T,M,N}
@@ -121,16 +120,16 @@ and `col_index` are public but not automatically exported by `LazyAlgebra`.
 # format. Whatever the format, `T` is the element type, `M` is the number of output
 # dimensions, and `N` is the number of input dimensions.
 
-const AnyCSR{T,M,N} = Union{CompressedSparseOperator{:CSR,T,M,N},
-                            Adjoint{<:CompressedSparseOperator{:CSC,T,N,M}}}
+const AnySparseCSR{T,M,N} = Union{CompressedSparseOperator{:CSR,T,M,N},
+                                  Adjoint{<:CompressedSparseOperator{:CSC,T,N,M}}}
 
-const AnyCSC{T,M,N} = Union{CompressedSparseOperator{:CSC,T,M,N},
-                            Adjoint{<:CompressedSparseOperator{:CSR,T,N,M}}}
+const AnySparseCSC{T,M,N} = Union{CompressedSparseOperator{:CSC,T,M,N},
+                                  Adjoint{<:CompressedSparseOperator{:CSR,T,N,M}}}
 
-const AnyCOO{T,M,N} = Union{CompressedSparseOperator{:COO,T,M,N},
-                            Adjoint{<:CompressedSparseOperator{:COO,T,N,M}}}
+const AnySparseCOO{T,M,N} = Union{CompressedSparseOperator{:COO,T,M,N},
+                                  Adjoint{<:CompressedSparseOperator{:COO,T,N,M}}}
 
-const CSRorCSC = Union{AnyCSR,AnyCSC,SparseMatrixCSC}
+const AnySparseCSRorCSC = Union{AnySparseCSR,AnySparseCSC,SparseMatrixCSC}
 
 #-----------------------------------------------------------------------------------------
 # Accessors and basic methods.
@@ -260,7 +259,7 @@ function copy_row_indices(A::SparseOperator)
     unsafe_vcopy!(Vector{Int}(undef, size(rows)), rows)
 end
 function copy_row_indices(A::CompressedSparseOperator{:CSR})
-    rows = Vector{Int}(undef, length(nonzeros(A)))
+    rows = Vector{Int}(undef, nnz(A))
     @inbounds for i in each_row_index(A)
         @simd for k in each_nz_index(A, i)
             rows[k] = i
@@ -296,7 +295,7 @@ function copy_col_indices(A::SparseOperator)
     unsafe_vcopy!(Vector{Int}(undef, size(cols)), cols)
 end
 function copy_col_indices(A::Union{CompressedSparseOperator{:CSC},SparseMatrixCSC})
-    cols = Vector{Int}(undef, length(nonzeros(A)))
+    cols = Vector{Int}(undef, nnz(A))
     @inbounds for j in each_col_index(A)
         @simd for k in each_nz_index(A, j)
             cols[k] = j
@@ -347,37 +346,39 @@ sparse operator `A` stored in a *Compressed Sparse Row* (CSR) format.
 
 @inline last_nz_index(A::Union{SparseOperatorCOO,Adjoint{<:SparseOperatorCOO}}) = nnz(A)
 
-@inline function first_nz_index(A::CSRorCSC, ij::Int)
+@inline function first_nz_index(A::AnySparseCSRorCSC, ij::Int)
     @boundscheck check_offset_index(A, ij)
     return unsafe_first_nz_index(A, ij)
 end
 
-@inline function last_nz_index(A::CSRorCSC, ij::Int)
+@inline function last_nz_index(A::AnySparseCSRorCSC, ij::Int)
     @boundscheck check_offset_index(A, ij)
     return unsafe_last_nz_index(A, ij)
 end
 
-@inline function each_nz_index(A::CSRorCSC, ij::Int)
+@inline function each_nz_index(A::AnySparseCSRorCSC, ij::Int)
     @boundscheck check_offset_index(A, ij)
     return unsafe_each_nz(A, ij)
 end
 
 # Management of offsets in compressed sparse operator in CSC- or CSR-like formats.
 
-@inline check_offset_index(::Type{Bool}, A::CSRorCSC, ij::Int) =
+@inline check_offset_index(::Type{Bool}, A::AnySparseCSRorCSC, ij::Int) =
     1 ≤ ij < length(offsets(A))
 
-@inline check_offset_index(A::AnyCSR, i::Int) =
+@inline check_offset_index(A::AnySparseCSR, i::Int) =
     check_offset_index(Bool, A, i) ? nothing : out_of_range_row_index(A, i)
 
-@inline check_offset_index(A::Union{AnyCSC,SparseMatrixCSC}, j::Int) =
+@inline check_offset_index(A::Union{AnySparseCSC,SparseMatrixCSC}, j::Int) =
     check_offset_index(Bool, A, j) ? nothing : out_of_range_column_index(A, i)
 
-@inline unsafe_first_nz_index(A::Union{AnyCSR,AnyCSC}, ij::Int) = @inbounds offsets(A)[ij] + 1
+@inline unsafe_first_nz_index(A::Union{AnySparseCSR,AnySparseCSC}, ij::Int) =
+    @inbounds offsets(A)[ij] + 1
 
-@inline unsafe_last_nz_index(A::Union{AnyCSR,AnyCSC}, ij::Int) = @inbounds offsets(A)[ij + 1]
+@inline unsafe_last_nz_index(A::Union{AnySparseCSR,AnySparseCSC}, ij::Int) =
+    @inbounds offsets(A)[ij + 1]
 
-@inline unsafe_each_nz(A::Union{AnyCSR,AnyCSC}, ij::Int) =
+@inline unsafe_each_nz(A::Union{AnySparseCSR,AnySparseCSC}, ij::Int) =
     UnitRange(unsafe_first_nz_index(A, ij), unsafe_last_nz_index(A, ij))
 
 @noinline out_of_range_row_index(A, i::Integer) =
@@ -420,7 +421,7 @@ yields the linear row index of the `k`-th entry of the sparse operator `A` store
 sparse operators in CSR format).
 
 """
-@propagate_inbounds row_index(A::Union{AnyCOO,AnyCSC}, k::Int) = row_indices(A)[k]
+@propagate_inbounds row_index(A::Union{AnySparseCOO,AnySparseCSC}, k::Int) = row_indices(A)[k]
 
 """
     col_index(A, k) -> j
@@ -430,7 +431,7 @@ yields the linear column index of the `k`-th entry of the sparse operator `A` st
 sparse operators in CSC format).
 
 """
-@propagate_inbounds col_index(A::Union{AnyCOO,AnyCSR}, k::Int) = col_indices(A)[k]
+@propagate_inbounds col_index(A::Union{AnySparseCOO,AnySparseCSR}, k::Int) = col_indices(A)[k]
 
 # Implement partial API of abstract vectors to access the nonzeros by their linear index `k`.
 
@@ -465,7 +466,7 @@ end
 
 # Iterators to deliver (v,i,j).
 
-@inline function Base.iterate(A::AnyCSR, (i, k, kmax)::Tuple{Int,Int,Int} = (0,0,0))
+@inline function Base.iterate(A::AnySparseCSR, (i, k, kmax)::Tuple{Int,Int,Int} = (0,0,0))
     @inbounds begin
         k += 1
         while k > kmax
@@ -479,7 +480,7 @@ end
     end
 end
 
-@inline function Base.iterate(A::AnyCSC, (j, k, kmax)::Tuple{Int,Int,Int} = (0,0,0))
+@inline function Base.iterate(A::AnySparseCSC, (j, k, kmax)::Tuple{Int,Int,Int} = (0,0,0))
     @inbounds begin
         k += 1
         while k > kmax
@@ -493,7 +494,7 @@ end
     end
 end
 
-@inline function Base.iterate(A::AnyCOO, (k, kmax)::Tuple{Int,Int} = (0, nnz(A)))
+@inline function Base.iterate(A::AnySparseCOO, (k, kmax)::Tuple{Int,Int} = (0, nnz(A)))
     @inbounds begin
         k < kmax || return nothing
         k += 1
@@ -1666,8 +1667,7 @@ throw_dimension_mismatch(mesg::AbstractString) =
 # 3. α and β have been converted to a suitable type.
 
 function unsafe_vmul!(α::Number,
-                      A::Union{CompressedSparseOperator{:CSR,Ta,M,N},
-                               Adjoint{<:CompressedSparseOperator{:CSC,Ta,N,M}}},
+                      A::AnySparseCSR{Ta,M,N},
                       x::AbstractArray{Tx,N},
                       β::Number,
                       y::AbstractArray{Ty,M}) where {Ta,Tx,Ty,M,N}
@@ -1684,8 +1684,7 @@ function unsafe_vmul!(α::Number,
 end
 
 function unsafe_vmul!(α::Number,
-                      A::Union{CompressedSparseOperator{:CSC,Ta,M,N},
-                               Adjoint{<:CompressedSparseOperator{:CSR,Ta,N,M}}},
+                      A::AnySparseCSC{Ta,M,N},
                       x::AbstractArray{Tx,N},
                       β::Number,
                       y::AbstractArray{Ty,M}) where {Ta,Tx,Ty,M,N}
@@ -1703,8 +1702,7 @@ function unsafe_vmul!(α::Number,
 end
 
 function unsafe_vmul!(α::Number,
-                      A::Union{CompressedSparseOperator{:COO,Ta,M,N},
-                               Adjoint{<:CompressedSparseOperator{:COO,Ta,N,M}}},
+                      A::AnySparseCOO{Ta,M,N},
                       x::AbstractArray{Tx,N},
                       β::Number,
                       y::AbstractArray{Ty,M}) where {Ta,Tx,Ty,M,N}
