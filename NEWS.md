@@ -30,7 +30,21 @@ and changes.
 - **Non-linear mappings** have not been found to be really useful and are no longer
   supported. As a result all operators, their adjoint, their inverse, their sums, their
   compositions, or a mixture of all these are linear operators. This simplifies a lot of
-  things. Abstract type `Operator` replaces `LinearMapping`.
+  things. Hence, `LazyAlgebra` now consider only 3 different kinds of objects:
+
+  - **Linear operators** are instances of `Operator` and can be arbitrarily associated in
+    sums and compositions. The coefficients of these operators may not be explicitly
+    stored. Adjoint, inverse, sums and compositions of operators are lazily remembered.
+
+  - **Vectors** are instances of `AbstractArray` and can be multiplied (in a similar sense
+    as the matrix-vector multiplication) by operators or linearly combined to produce
+    other *vectors*. For `LazyAlgebra` *vectors* are not necessarily 1-dimensional.
+
+  - **Multipliers** are scalar factors represented by instances of `Number` and can
+    multiply (or scale) operators and vectors. In operations that involve the scaling of a
+    vector by a scalar factor, the numerical precision (not the units if any) of the
+    factor is converted to be the same as that of the vector. Hence, no unwanted
+    conversions occur due to the precision of a multiplier.
 
 - **Simplifications** that are automatically done by`LazyAlgebra` (i.e., at construction
   time of operators) must be **type-stable**. They may change multipliers but must not
@@ -43,30 +57,15 @@ and changes.
   would depend on the value, not on the type, of `λ`), while `simplify(λ*A)` yields `A` if
   `λ = 1`.
 
-- `LazyAlgebra` consider 3 different kinds of objects:
+- **Dimensionful numbers**, that is numbers with units, should be fully supported with
+  their usual meaning in linear algebra.
 
-  - **Linear operators** are instances of `Operator` which can be arbitrarily associated
-    in sums and compositions. The coefficients of these operators may not be explicitly
-    stored. Adjoint, inverse, sums and compositions of operators are lazily remembered.
-
-  - **Vectors** are instances of `AbstractArray` which can be multiplied (in a similar
-    sense as the matrix-vector multiplication) by operators or linearly combined to
-    produce other *vectors*.
-
-  - **Multipliers** are scalar factors represented by instances of `Number` and which can
-    multiply (or scale) operators and vectors. In operations that involve the scaling of a
-    vector by a scalar factor, the storage type (not the units if any) of the factor is
-    converted to be the same as the floating-point precision of the vector. Hence no
-    unwanted conversion occurs due to the precision of a multiplier.
-
-- Using neutral numbers (from the [`Neutrals.jl`](https://github.com/emmt/LazyAlgebra.jl)
-  package) for the multipliers considerably simplifies the code and reduces its size and
-  the number of alternatives to consider. For example, [`src/diff.jl`](src/diff.jl) is now
-  around 800 lines, compared to 1300 previously. This reduction is without sacrificing
-  performances and with a gain in generality as the methods accept dimensionful values.
-
-- Number may have units and complex numbers should be fully supported with their usual
-  meaning in linear algebra.
+- Using **neutral numbers** (from the
+  [`Neutrals.jl`](https://github.com/emmt/LazyAlgebra.jl) package) for the multipliers
+  considerably simplifies the code and reduces its size and the number of alternatives to
+  consider. For example, [`src/diff.jl`](src/diff.jl) is now around 800 lines, compared to
+  1300 previously. This reduction is without sacrificing performances and with a gain in
+  generality as the methods accept dimensionful values.
 
 
 ### Removed
@@ -77,14 +76,17 @@ and changes.
 
 - Type `NonuniformScaling` replaced by its alias `Diag`.
 
-- The `unveil` function has been removed. Call `parent(A)` for adjoint, inverse, or Gram
+- `Gram` type has been removed. Use the syntax `G = A'*A` to build a Gram operator `G`
+  from the operator `A`.
+
+- The `unveil` function has been removed. Call `parent(A)` for adjoint, or inverse
   operators and `parent(parent(A))` on inverse-adjoint operators.
 
 - The `coefficients` function has been removed. Call `parent(A)` for diagonal operator or
   pseudo-matrix `A`.
 
-- `GeneralMatrix` has been replaced by `FlexibleMatrix` which is a special case of
-  the `PseudoMatrix` operator.
+- `GeneralMatrix` has been replaced by `FlexibleMatrix` which is a special case of the
+  `PseudoMatrix` operator.
 
 
 ### Changed
@@ -135,11 +137,10 @@ and changes.
   operators are not meant to be seen as abstract matrices (unlike Julia sparse matrices),
   so the syntax `A[i,j]` to access the value at row `i` and column `j` is not implemented.
   Instead, `A[k]` is used to directly access the `k`-th structural non-zero and is a
-  shortcut to `nonzeros(A)[k]` which is valid for sparse operators and sparse matrices.
-  For convenience, `nonzeros(A')` yields a lazily conjugated array for a sparse operator
-  `A` and `A'[k]` yields `conj(A[k])` while `A'[k] = v` amounts to `A[k] = conj(v)`. The
-  changes are summarized by the following table which also compares the new API with that
-  of `SparseArrays`:
+  shortcut to `nonzeros(A)[k]`. For convenience, `nonzeros(A')` yields a lazily conjugated
+  array for a sparse operator `A` and `A'[k]` yields `conj(A[k])` while `A'[k] = v`
+  amounts to `A[k] = conj(v)`. The changes are summarized by the following table which
+  also compares the new API with that of `SparseArrays`:
 
 
   | Old `LazyAlgebra` API | New `LazyAlgebra` API    | `SparseArrays`       |
@@ -160,13 +161,13 @@ and changes.
   | `nnz(A)`              | `nnz(A)`                 | `nnz(A)`             |
   | `set_val!(A, k, v)`   | `A[k] = v`               | `nonzeros(A)[k] = v` |
 
-  with:
+  Notation:
 
-  - `A` is the sparse matrix (Julia `SparseArrays`) or operator (`LazyAlgebra` or `ASAP`);
+  - `A` is a sparse matrix (Julia `SparseArrays`) or operator (`LazyAlgebra` or `ASAP`);
   - `i` is a row index;
   - `j` is a column index;
   - `ij` is a row or column index depending on the storage format of `A`;
-  - `k` is an index into the array of nonzeros;
+  - `k` is an index into the array of structural non-zeros;
 
   With the new API, the code for the sparse operators is now around 1800 lines, compared
   to 2500 previously.
