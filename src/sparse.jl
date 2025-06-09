@@ -130,8 +130,6 @@ const AnySparseCSC{T,M,N} = Union{CompressedSparseOperator{:CSC,T,M,N},
 const AnySparseCOO{T,M,N} = Union{CompressedSparseOperator{:COO,T,M,N},
                                   Adjoint{<:CompressedSparseOperator{:COO,T,N,M}}}
 
-const AnySparseCSRorCSC = Union{AnySparseCSR,AnySparseCSC,SparseMatrixCSC}
-
 #-----------------------------------------------------------------------------------------
 # Accessors and basic methods.
 
@@ -295,31 +293,31 @@ sparse operator `A` stored in a *Compressed Sparse Row* (CSR) format.
 
 @inline last_nz_index(A::Union{SparseOperatorCOO,Adjoint{<:SparseOperatorCOO}}) = nnz(A)
 
-@inline function first_nz_index(A::AnySparseCSRorCSC, ij::Int)
+@inline function first_nz_index(A::Union{AnySparseCSR,AnySparseCSC}, ij::Int)
     @boundscheck check_offset_index(A, ij)
     return unsafe_first_nz_index(A, ij)
 end
 
-@inline function last_nz_index(A::AnySparseCSRorCSC, ij::Int)
+@inline function last_nz_index(A::Union{AnySparseCSR,AnySparseCSC}, ij::Int)
     @boundscheck check_offset_index(A, ij)
     return unsafe_last_nz_index(A, ij)
 end
 
-@inline function each_nz_index(A::AnySparseCSRorCSC, ij::Int)
+@inline function each_nz_index(A::Union{AnySparseCSR,AnySparseCSC}, ij::Int)
     @boundscheck check_offset_index(A, ij)
     return unsafe_each_nz(A, ij)
 end
 
 # Management of offsets in compressed sparse operator in CSC- or CSR-like formats.
 
-@inline check_offset_index(::Type{Bool}, A::AnySparseCSRorCSC, ij::Int) =
-    1 ≤ ij < length(offsets(A))
+@inline check_offset_index(::Type{Bool}, A::Union{AnySparseCSR,AnySparseCSC}, k::Int) =
+    1 ≤ k < length(offsets(A))
 
 @inline check_offset_index(A::AnySparseCSR, i::Int) =
     check_offset_index(Bool, A, i) ? nothing : out_of_range_row_index(A, i)
 
 @inline check_offset_index(A::Union{AnySparseCSC,SparseMatrixCSC}, j::Int) =
-    check_offset_index(Bool, A, j) ? nothing : out_of_range_column_index(A, i)
+    check_offset_index(Bool, A, j) ? nothing : out_of_range_column_index(A, j)
 
 @inline unsafe_first_nz_index(A::Union{AnySparseCSR,AnySparseCSC}, ij::Int) =
     @inbounds offsets(A)[ij] + 1
@@ -384,7 +382,10 @@ sparse operators in CSC format).
 
 # Implement partial API of abstract vectors to access the nonzeros by their linear index `k`.
 
-# FIXME Base.ndims, size, length, axes, eachindex, etc.
+Base.length(A::CompressedSparseOperator) = nnz(A)
+
+Base.eltype(::Type{<:CompressedSparseOperator{F,T}}) where {F,T} = T
+
 @inline function Base.getindex(A::CompressedSparseOperator, k::Int)
     vals = nonzeros(A)
     @boundscheck checkbounds(vals, k)
@@ -418,11 +419,10 @@ end
 # As an iterator, a sparse operator behaves as a vector of the structural non-zero values.
 Base.IteratorSize(::Type{<:CompressedSparseOperator}) = Base.HasLength()
 Base.IteratorEltype(::Type{<:CompressedSparseOperator}) = Base.HasEltype()
-Base.length(A::CompressedSparseOperator) = nnz(A)
-Base.eltype(::Type{<:CompressedSparseOperator{F,T}}) where {F,T} = T
-@inline function Base.iterate(A::CompressedSparseOperator, k::Int = 0)
-    k += 1
-    check_offset_index(Bool, A, k) ? (@inbounds(A[k]), k) : nothing
+
+@inline function Base.iterate(A::CompressedSparseOperator, k::Int = firstindex(A))
+    vals = nonzeros(A)
+    checkbounds(Bool, vals, k) ? (@inbounds(vals[k]), k + 1) : nothing
 end
 
 # Iterator over the row/column indices of a sparse operator with CSR or CSC storage.
@@ -481,11 +481,11 @@ row_size(A::SparseMatrixCSC) = (nrows(A),)
 col_size(A::SparseMatrixCSC) = (ncols(A),)
 each_col_index(A::SparseMatrixCSC) = 𝟙:ncols(A)
 
-# Provide a specific versions of `check_offset_index`, `unsafe_first_nz_index`, and
+# Provide specific versions of `check_offset_index`, `unsafe_first_nz_index`, and
 # `unsafe_last_nz_index` because offsets have a slightly different definition for
 # `SparseMatrixCSC` than for our CSC format.
 @inline check_offset_index(::Type{Bool}, A::SparseMatrixCSC, j::Int) =
-     1 ≤ j < length(offsets(A))
+    1 ≤ j < length(offsets(A))
 @inline unsafe_first_nz_index(A::SparseMatrixCSC, j::Int) = @inbounds offsets(A)[j]
 @inline unsafe_last_nz_index(A::SparseMatrixCSC, j::Int) = @inbounds offsets(A)[j + 1] - 1
 
