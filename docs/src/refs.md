@@ -46,7 +46,4 @@ LazyAlgebra.row_indices
 LazyAlgebra.col_index
 LazyAlgebra.col_indices
 LazyAlgebra.offsets
-LazyAlgebra.copy_row_indices
-LazyAlgebra.copy_col_indices
-LazyAlgebra.copy_nonzeros
 ```

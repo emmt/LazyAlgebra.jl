@@ -143,23 +143,23 @@ and changes.
   also compares the new API with that of `SparseArrays`:
 
 
-  | Old `LazyAlgebra` API | New `LazyAlgebra` API    | `SparseArrays`       |
-  |:----------------------|:-------------------------|:---------------------|
-  | `copy_cols(A)`        | `copy_col_indices(A)`    |                      |
-  | `copy_rows(A)`        | `copy_row_indices(A)`    |                      |
-  | `copy_vals(A)`        | `copy_nonzeros(A)`       |                      |
-  | `each_col(A)`         | `each_col_index(A)`      |                      |
-  | `each_off(A[, ij])`   | `each_nz_index(A[, ij])` | `nzrange(A, j)`      |
-  | `each_row(A)`         | `each_row_index(A)`      |                      |
-  | `get_col(A, k)`       | `col_index(A, k)`        |                      |
-  | `get_cols(A)`         | `col_indices(A)`         |                      |
-  | `get_offs(A)`         | `offsets(A)`             | `getcolptr(A)`       |
-  | `get_row(A, k)`       | `row_index(A, k)`        |                      |
-  | `get_rows(A)`         | `row_indices(A)`         | `rowvals(A)`         |
-  | `get_val(A, k)`       | `A[k]`                   | `nonzeros(A)[k]`     |
-  | `get_vals(A)`         | `nonzeros(A)`            | `nonzeros(A)`        |
-  | `nnz(A)`              | `nnz(A)`                 | `nnz(A)`             |
-  | `set_val!(A, k, v)`   | `A[k] = v`               | `nonzeros(A)[k] = v` |
+  | Old `LazyAlgebra` API | New `LazyAlgebra` API     | `SparseArrays`       |
+  |:----------------------|:--------------------------|:---------------------|
+  | `copy_cols(A)`        | `collect(col_indices(A))` |                      |
+  | `copy_rows(A)`        | `collect(row_indices(A))` |                      |
+  | `copy_vals(A)`        | `copy(nonzeros(A))`       |                      |
+  | `each_col(A)`         | `each_col_index(A)`       |                      |
+  | `each_off(A[, ij])`   | `each_nz_index(A[, ij])`  | `nzrange(A, j)`      |
+  | `each_row(A)`         | `each_row_index(A)`       |                      |
+  | `get_col(A, k)`       | `col_index(A, k)`         |                      |
+  | `get_cols(A)`         | `col_indices(A)`          |                      |
+  | `get_offs(A)`         | `offsets(A)`              | `getcolptr(A)`       |
+  | `get_row(A, k)`       | `row_index(A, k)`         |                      |
+  | `get_rows(A)`         | `row_indices(A)`          | `rowvals(A)`         |
+  | `get_val(A, k)`       | `A[k]`                    | `nonzeros(A)[k]`     |
+  | `get_vals(A)`         | `nonzeros(A)`             | `nonzeros(A)`        |
+  | `nnz(A)`              | `nnz(A)`                  | `nnz(A)`             |
+  | `set_val!(A, k, v)`   | `A[k] = v`                | `nonzeros(A)[k] = v` |
 
   Notation:
 

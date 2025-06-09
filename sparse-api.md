@@ -1,29 +1,28 @@
-| Proposed new API       | `SparseArrays`       | Old `LazyAlgebra` API | Old `ASAP` API        | `SparseOperators` |
-|:-----------------------|:---------------------|:----------------------|:----------------------|:------------------|
-| `nnz(A)`               | `nnz(A)`             | `nnz(A)`              | `nnz(A)`              |                   |
-| `nonzeros(A)`          | `nonzeros(A)`        | `get_vals(A)`         | `get_vals(A)`         |                   |
-| `offsets(A)`           | `getcolptr(A)`       | `get_offs(A)`         | `get_offs(A)`         |                   |
-| `row_indices(A)`       | `rowvals(A)`         | `get_rows(A)`         | `get_rows(A)`         |                   |
-| `col_indices(A)`       |                      | `get_cols(A)`         | `get_cols(A)`         |                   |
-| `permutations(A)`      |                      |                       | `get_perm(A)`         |                   |
-| `ranks(A)`             |                      |                       | `get_rank(A)`         |                   |
-| `each_nz_index(A,...)` | `nzrange(A, j)`      | `each_nz(A[, ij])`    | `each_nz(A, r)`       |                   |
-| `each_row_index(A)`    |                      | `each_row(A)`         |                       |                   |
-| `each_col_index(A)`    |                      | `each_col(A)`         |                       |                   |
-| `each_rank(A)`         |                      |                       | `each_rank(A)`        |                   |
-| `row_index(A, rk)`     |                      |                       | `get_row(A, r)`       |                   |
-| `col_index(A, rk)`     |                      |                       | `get_col(A, r)`       |                   |
-| `A[k]`                 | `nonzeros(A)[k]`     | `get_val(A, k)`       | `get_val(A, k)`       |                   |
-| `A[k] = v`             | `nonzeros(A)[k] = v` | `set_val!(A, k, v)`   | `set_val!(A, k, v)`   |                   |
-| `diag_nz_index(A, r)`  |                      |                       | `diag_nz(A, r)`       |                   |
-| `split_nz_range(A, r)` |                      |                       | `split_nz(A,)`        |                   |
-| `rank_to_index(A, r)`  |                      |                       | `rank_to_index(A, r)` |                   |
-| `index_to_rank(A, ij)` |                      |                       | `get_rank(A, ij)`     |                   |
-| `valid_nodes(A)`       |                      |                       | `valid_nodes(A)`      |                   |
-| `copy_nonzeros(A)`     |                      | `copy_vals(A)`        |                       |                   |
-| `copy_row_indices(A)`  |                      | `copy_rows(A)`        |                       |                   |
-| `copy_col_indices(A)`  |                      | `copy_cols(A)`        |                       |                   |
-
+| Proposed new API          | `SparseArrays`       | Old `LazyAlgebra` API | Old `ASAP` API        | `SparseOperators` |
+|:--------------------------|:---------------------|:----------------------|:----------------------|:------------------|
+| `nnz(A)`                  | `nnz(A)`             | `nnz(A)`              | `nnz(A)`              |                   |
+| `nonzeros(A)`             | `nonzeros(A)`        | `get_vals(A)`         | `get_vals(A)`         |                   |
+| `offsets(A)`              | `getcolptr(A)`       | `get_offs(A)`         | `get_offs(A)`         |                   |
+| `row_indices(A)`          | `rowvals(A)`         | `get_rows(A)`         | `get_rows(A)`         |                   |
+| `col_indices(A)`          |                      | `get_cols(A)`         | `get_cols(A)`         |                   |
+| `permutations(A)`         |                      |                       | `get_perm(A)`         |                   |
+| `ranks(A)`                |                      |                       | `get_rank(A)`         |                   |
+| `each_nz_index(A,...)`    | `nzrange(A, j)`      | `each_nz(A[, ij])`    | `each_nz(A, r)`       |                   |
+| `each_row_index(A)`       |                      | `each_row(A)`         |                       |                   |
+| `each_col_index(A)`       |                      | `each_col(A)`         |                       |                   |
+| `each_rank(A)`            |                      |                       | `each_rank(A)`        |                   |
+| `row_index(A, rk)`        |                      |                       | `get_row(A, r)`       |                   |
+| `col_index(A, rk)`        |                      |                       | `get_col(A, r)`       |                   |
+| `A[k]`                    | `nonzeros(A)[k]`     | `get_val(A, k)`       | `get_val(A, k)`       |                   |
+| `A[k] = v`                | `nonzeros(A)[k] = v` | `set_val!(A, k, v)`   | `set_val!(A, k, v)`   |                   |
+| `diag_nz_index(A, r)`     |                      |                       | `diag_nz(A, r)`       |                   |
+| `split_nz_range(A, r)`    |                      |                       | `split_nz(A,)`        |                   |
+| `rank_to_index(A, r)`     |                      |                       | `rank_to_index(A, r)` |                   |
+| `index_to_rank(A, ij)`    |                      |                       | `get_rank(A, ij)`     |                   |
+| `valid_nodes(A)`          |                      |                       | `valid_nodes(A)`      |                   |
+| `copy(nonzeros(A))`       |                      | `copy_vals(A)`        |                       |                   |
+| `collect(row_indices(A))` |                      | `copy_rows(A)`        |                       |                   |
+| `collect(col_indices(A))` |                      | `copy_cols(A)`        |                       |                   |
 
 Notation:
 

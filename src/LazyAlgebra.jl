@@ -117,9 +117,6 @@ using TypeUtils: @public
 @public col_size
 @public convert_inplace_multiplier
 @public convert_multiplier
-@public copy_col_indices
-@public copy_nonzeros
-@public copy_row_indices
 @public create_output
 @public default_cropping_offset
 @public default_cropping_offset

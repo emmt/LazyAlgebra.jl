@@ -4,8 +4,9 @@
 
 * Rationalize names of structures for sparse operators.
 
-* `nonzeros`, `row_indices`, and `col_indices` always yield internal storage or, perhaps,
-  an iterator, never a new array.
+* By default, store internal sparse structure as fast non-resizable vectors `Memory{T}`.
+
+* Checking types of sparse operator members should be done at build time.
 
 * Define `const RealComplex{T<:Real} = Union{T,Complex{T}}` and use better
   names for `Reals`, `Floats` and `Complexes`.
@@ -31,10 +32,6 @@
 
 * Implement *preconditioned* conjugate gradient.
 
-* Simplify left/right multiplication of a sparse/diagonal operator by a diagonal
-  operator. Same thing for sparse interpolator.  Take care of scaling by
-  a multiplier (otherwise this makes little sense).
-
 * Provide means to convert a sparse operator to a `SparseMatrixCSC`.
 
 * Write an implementation of the L-BFGS operator and of the SR1 operator and
@@ -42,11 +39,6 @@
 
 * Use more extensively BLAS subroutines.  Fix usage of BLAS `dot` and `axpy`
   routines for dense arrays (use flat arrays).
-
-* `SelfAdjoint` should not be a trait? Perhaps better to extend `adjoint(A::T) = A` when
-  `T` is self-adjoint.
-
-* Optimize `FiniteDifferences` for other multipliers.
 
 * Make a demo like:
 

@@ -61,17 +61,18 @@ where given parameters `T`, `M` and `N`, arguments `args...` and optional keywor
 [`SparseOperatorCSC`](@ref) or [`SparseOperatorCSR`](@ref) corresponding to the format
 `F`.
 
-It is possible to use a compressed sparse operator `A` as an iterator:
+A simple (but slow for CSR and CSC strage formats) method to loop over the coordinates and
+values of the structural non-zero of a sparse operator `A` is to write:
 
 ```julia
-for (Aij,i,j) in A # simple but slow for CSR and CSC
+using LazyAlgebra: row_indices, col_indices
+for (i,j,Aij) in zip(row_indices(A), col_indices(A), nonzeros(A))
     ...
 end
 ```
 
-to retrieve the values `Aij` and respective row `i` and column `j` indices for all the
-entries stored in `A`. It is however more efficient to access them according to their
-storage order which depends on the compressed format.
+Except for COO storage format, It is however more efficient to access the structural
+non-zeros according to their storage order which depends on the compressed format.
 
 - If `A` is in CSC format or is the adjoint of a sparse operator in CSR format:
 
@@ -145,11 +146,6 @@ col_size(A::SparseOperator) = getfield(A, :colsiz) # alias to input_size
 row_axes(A::SparseOperator) = map(Base.OneTo, row_size(A)) # alias to output_axes
 col_axes(A::SparseOperator) = map(Base.OneTo, col_size(A)) # alias to input_axes
 
-# FIXME Base.ndims(A::SparseOperator{T,M,N}) where {T,M,N} = M + N
-# FIXME Base.length(A::SparseOperator) = nrows(A)*ncols(A)
-# FIXME Base.size(A::SparseOperator) = (row_size(A)..., col_size(A)...)
-# FIXME Base.axes(A::SparseOperator) = map(Base.OneTo, size(A))
-
 # Use constructors to perform conversion (the first method is to resolve ambiguities).
 Base.convert(::Type{T}, A::T) where {T<:SparseOperator} = A
 Base.convert(::Type{T}, A) where {T<:SparseOperator} = T(A)
@@ -180,22 +176,30 @@ end
 # Assume that a `copy` of a compressed sparse operator is to keep the same structure for
 # the structural non-zeros but possibly change the values. So only duplicate the value
 # part. For a `deepcopy` of a compressed sparse operator, all the fields are copied.
-for (func, rows, cols, offs) in ((:copy,     :row_indices,      :col_indices,      :offsets),
-                                 (:deepcopy, :copy_row_indices, :copy_col_indices, :copy_offs))
-    @eval begin
-        Base.$func(A::SparseOperatorCSR) =
-            _SparseOperatorCSR(nrows(A), ncols(A), copy_nonzeros(A), $cols(A), $offs(A),
-                               row_size(A), col_size(A))
 
-        Base.$func(A::SparseOperatorCSC{T,M,N}) where {T,M,N} =
-            _SparseOperatorCSC(nrows(A), ncols(A), copy_nonzeros(A), $rows(A), $offs(A),
-                               row_size(A), col_size(A))
+Base.copy(A::SparseOperatorCSR) = _SparseOperatorCSR(
+    nrows(A), ncols(A), copy(nonzeros(A)), col_indices(A), offsets(A),
+    row_size(A), col_size(A))
 
-        Base.$func(A::SparseOperatorCOO{T,M,N}) where {T,M,N} =
-            _SparseOperatorCOO(nrows(A), ncols(A), copy_nonzeros(A), $rows(A), $cols(A),
-                               row_size(A), col_size(A))
-    end
-end
+Base.copy(A::SparseOperatorCSC{T,M,N}) where {T,M,N} = _SparseOperatorCSC(
+    nrows(A), ncols(A), copy(nonzeros(A)), row_indices(A), offsets(A),
+    row_size(A), col_size(A))
+
+Base.copy(A::SparseOperatorCOO{T,M,N}) where {T,M,N} = _SparseOperatorCOO(
+    nrows(A), ncols(A), copy(nonzeros(A)), row_indices(A), col_indices(A),
+    row_size(A), col_size(A))
+
+Base.deepcopy(A::SparseOperatorCSR) = _SparseOperatorCSR(
+    nrows(A), ncols(A), copy(nonzeros(A)), copy(col_indices(A)), copy(offsets(A)),
+    row_size(A), col_size(A))
+
+Base.deepcopy(A::SparseOperatorCSC{T,M,N}) where {T,M,N} = _SparseOperatorCSC(
+    nrows(A), ncols(A), copy(nonzeros(A)), copy(row_indices(A)), copy(offsets(A)),
+    row_size(A), col_size(A))
+
+Base.deepcopy(A::SparseOperatorCOO{T,M,N}) where {T,M,N} = _SparseOperatorCOO(
+    nrows(A), ncols(A), copy(nonzeros(A)), copy(row_indices(A)), copy(col_indices(A)),
+    row_size(A), col_size(A))
 
 # `findnz(A) -> I,J,V` yields the row and column indices and the values of the stored
 # values in `A`.
@@ -211,98 +215,43 @@ SparseArrays.nnz(A::Adjoint{<:SparseOperator}) = length(nonzeros(parent(A)))
     SparseArrays.nonzeros(A::LazyAlgebra.SparseOperator)
 
 yields the array storing the structural non-zeros of the compressed sparse operator `A`.
-The returned array is shared with `A`, call [`LazyAlgebra.copy_nonzeros(A)`](@ref
-LazyAlgebra.copy_nonzeros) instead if you want to modify the contents of the returned array
-with no side effects on `A`.
+The returned array is shared with `A`, call `copy(nonzeros(A))` or `collect(nonzeros(A))`
+instead if you want to modify the contents of the returned array with no side effects on
+`A`.
 
 """
 SparseArrays.nonzeros(A::SparseOperator) = getfield(A, :vals)
-SparseArrays.nonzeros(A::Adjoint{<:SparseOperator}) = LazyMap{eltype(A)}(conj, nonzeros(parent(A)))
+SparseArrays.nonzeros(A::Adjoint{<:SparseOperator}) =
+    LazyMap{eltype(A)}(conj, nonzeros(parent(A)))
 
 """
-    LazyAlgebra.copy_nonzeros([T = eltype(A),] A) -> vals
+    LazyAlgebra.row_indices(A) -> I
 
-yields a copy of the values of the structural non-zeros of the sparse operator `A`
-converted to type `T`. The result is a vector that is not shared by `A`, the caller may
-thus modify its contents with no side effects on `A`.
-
-"""
-copy_nonzeros(A::SparseOperator{T}) where {T} = copy_nonzeros(T, A)
-function copy_nonzeros(::Type{T}, A::SparseOperator) where {T}
-    vals = nonzeros(A)
-    unsafe_vcopy!(similar(vals, T), vals)
-end
-
-"""
-    LazyAlgebra.row_indices(A)
-
-yields the row indices of the structural non-zeros of the sparse operator `A`. The
-returned array may be shared with `A`, call [`LazyAlgebra.copy_row_indices(A)`](@ref
-LazyAlgebra.copy_row_indices) instead if you want to modify the contents of the returned
-array with no side effects on `A`.
+yields the row indices of the structural non-zeros of the sparse operator `A`. If `A` is a
+sparse operator in CSR or COO storage format, the result `I` is a vector of indices shared
+with `A`; otherwise, `I` is an iterator. In any case, the caller shall not attempt to
+modify the contents of `I`. Call `collect(row_indices(A))` to get a vector of row indices
+that can be modified with no side effects on `A`.
 
 """
 row_indices(A::Union{SparseOperatorCSC,SparseOperatorCOO}) = getfield(A, :rows)
-row_indices(A::CompressedSparseOperator{:CSR}) = copy_row_indices(A) # FIXME: yield an iterator
+row_indices(A::CompressedSparseOperator{:CSR}) = SparseIndexIterator(A)
 row_indices(A::Adjoint{<:SparseOperator}) = col_indices(parent(A))
 
 """
-    LazyAlgebra.copy_row_indices(A) -> rows
+    LazyAlgebra.col_indices(A) -> J
 
-yields a copy of the linear row indices of the structural non-zeros of the sparse operator
-`A`. The result is a vector that is not shared by `A`, the caller may thus modify its
-contents with no side effects on `A`.
-
-"""
-function copy_row_indices(A::SparseOperator)
-    rows = row_indices(A)
-    unsafe_vcopy!(Vector{Int}(undef, size(rows)), rows)
-end
-function copy_row_indices(A::CompressedSparseOperator{:CSR})
-    rows = Vector{Int}(undef, nnz(A))
-    @inbounds for i in each_row_index(A)
-        @simd for k in each_nz_index(A, i)
-            rows[k] = i
-        end
-    end
-    return rows
-end
-
-"""
-    LazyAlgebra.col_indices(A)
-
-yields the column indices of the structural non-zeros of the sparse operator `A`. The
-returned array may be shared with `A`, call [`LazyAlgebra.copy_col_indices(A)`](@ref
-LazyAlgebra.copy_col_indices) instead if you want to modify the contents of the returned
-array with no side effects on `A`.
+yields the column indices of the structural non-zeros of the sparse operator `A`. If `A`
+is a sparse operator in CSC or COO storage format, the result `J` is a vector of indices
+shared with `A`; otherwise, `J` is an iterator. In any case, the caller shall not attempt
+to modify the contents of `J`. Call `collect(col_indices(A))` to get a vector of column
+indices that can be modified with no side effects on `A`.
 
 """
 col_indices(A::Union{SparseOperatorCSR,SparseOperatorCOO}) = getfield(A, :cols)
 col_indices(A::Union{CompressedSparseOperator{:CSC},SparseMatrixCSC}) =
-    copy_col_indices(A) # FIXME: yield an iterator
+    SparseIndexIterator(A) # FIXME: check this works SparseMatrixCSC
 col_indices(A::Adjoint{<:SparseOperator}) = row_indices(parent(A))
-
-"""
-    LazyAlgebra.copy_col_indices(A) -> cols
-
-yields a copy of the linear column indices of the structural non-zeros of the sparse
-operator `A`. The result is a vector that is not shared by `A`, the caller may thus modify
-its contents with no side effects on `A`.
-
-"""
-function copy_col_indices(A::SparseOperator)
-    cols = col_indices(A)
-    unsafe_vcopy!(Vector{Int}(undef, size(cols)), cols)
-end
-function copy_col_indices(A::Union{CompressedSparseOperator{:CSC},SparseMatrixCSC})
-    cols = Vector{Int}(undef, nnz(A))
-    @inbounds for j in each_col_index(A)
-        @simd for k in each_nz_index(A, j)
-            cols[k] = j
-        end
-    end
-    return cols
-end
 
 """
     LazyAlgebra.offsets(A)
@@ -464,42 +413,60 @@ end
     return A
 end
 
-# Iterators to deliver (v,i,j).
+#----------------------------------------------------------------------------- ITERATORS -
 
-@inline function Base.iterate(A::AnySparseCSR, (i, k, kmax)::Tuple{Int,Int,Int} = (0,0,0))
-    @inbounds begin
-        k += 1
-        while k > kmax
-            i < nrows(A) || return nothing
-            i += 1
-            kmax = last_nz_index(A, i)
-        end
-        v = A[k]
-        j = col_index(A, k)
-        return ((v, i, j), (i, k, kmax))
-    end
+# As an iterator, a sparse operator behaves as a vector of the structural non-zero values.
+Base.IteratorSize(::Type{<:CompressedSparseOperator}) = Base.HasLength()
+Base.IteratorEltype(::Type{<:CompressedSparseOperator}) = Base.HasEltype()
+Base.length(A::CompressedSparseOperator) = nnz(A)
+Base.eltype(::Type{<:CompressedSparseOperator{F,T}}) where {F,T} = T
+@inline function Base.iterate(A::CompressedSparseOperator, k::Int = 0)
+    k += 1
+    check_offset_index(Bool, A, k) ? (@inbounds(A[k]), k) : nothing
 end
 
-@inline function Base.iterate(A::AnySparseCSC, (j, k, kmax)::Tuple{Int,Int,Int} = (0,0,0))
-    @inbounds begin
-        k += 1
-        while k > kmax
-            j < ncols(A) || return nothing
-            j += 1
-            kmax = last_nz_index(A, j)
-        end
-        v = A[k]
-        i = row_index(A, k)
-        return ((v, i, j), (j, k, kmax))
+# Iterator over the row/column indices of a sparse operator with CSR or CSC storage.
+struct SparseIndexIterator{S<:Union{AnySparseCSR,AnySparseCSC}}
+    parent::S
+end
+Base.parent(iter::SparseIndexIterator) = getfield(iter, :parent)
+
+Base.IteratorSize(::Type{<:SparseIndexIterator}) = Base.HasLength()
+Base.IteratorEltype(::Type{<:SparseIndexIterator}) = Base.HasEltype()
+Base.length(iter::SparseIndexIterator) = nnz(parent(iter))
+Base.eltype(::Type{<:SparseIndexIterator}) = Int
+
+function Base.iterate(iter::SparseIndexIterator{<:AnySparseCSR},
+                      (i, k, l)::Tuple{Int,Int,Int} = (
+                          1, 0, unsafe_last_nz_index(parent(iter), 1)))
+    k += 1
+    while k > l
+        i += 1
+        check_offset_index(Bool, parent(iter), i) || return nothing
+        l = unsafe_last_nz_index(parent(iter), i)
     end
+    return i, (i, k, l)
 end
 
-@inline function Base.iterate(A::AnySparseCOO, (k, kmax)::Tuple{Int,Int} = (0, nnz(A)))
-    @inbounds begin
-        k < kmax || return nothing
-        k += 1
-        return ((A[k], row_index(A, k), col_index(A, k)), (k, kmax))
+function Base.iterate(iter::SparseIndexIterator{<:AnySparseCSC},
+                      (j, k, l)::Tuple{Int,Int,Int} = (
+                          1, 0, unsafe_last_nz_index(parent(iter), 1)))
+    k += 1
+    while k > l
+        j += 1
+        check_offset_index(Bool, parent(iter), j) || return nothing
+        l = unsafe_last_nz_index(parent(iter), j)
     end
+    return j, (j, k, l)
+end
+
+# Optimized version of `collect`.
+function Base.collect(iter::SparseIndexIterator)
+    vect = Vector{eltype(iter)}(undef, length(iter))
+    @inbounds for (k, index) in enumerate(iter)
+        vect[k] = index
+    end
+    return vect
 end
 
 #-----------------------------------------------------------------------------------------
@@ -1149,33 +1116,35 @@ end
 # side-effects, they must be copied first. Unless values are converted, there is no needs
 # to copy when converting to a compressed sparse coordinate (COO) format.
 
-SparseOperatorCSR{T}(A::SparseOperator) where {T} =
-    coo_to_csr!(copy_nonzeros(T, A),
-                copy_row_indices(A),
-                copy_col_indices(A),
+SparseOperatorCSR{T}(A::SparseOperator) where {T} = # FIXME convert adjoint as well
+    coo_to_csr!(copy_with_eltype(T, nonzeros(A)),
+                collect(row_indices(A)),
+                collect(col_indices(A)),
                 row_size(A),
                 col_size(A))
 
-SparseOperatorCSC{T}(A::SparseOperator) where {T} =
-    coo_to_csc!(copy_nonzeros(T, A),
-                copy_row_indices(A),
-                copy_col_indices(A),
+SparseOperatorCSC{T}(A::SparseOperator) where {T} = # FIXME convert adjoint as well
+    coo_to_csc!(copy_with_eltype(T, nonzeros(A)),
+                collect(row_indices(A)),
+                collect(col_indices(A)),
                 row_size(A),
                 col_size(A))
 
 SparseOperatorCOO{T}(A::SparseOperator) where {T} =
-    SparseOperatorCOO(copy_nonzeros(T, A),
-                      row_indices(A),
-                      col_indices(A),
-                      row_size(A),
-                      col_size(A))
+    _SparseOperatorCOO(nrows(A), ncols(A),
+                       with_eltype(T, nonzeros(A)),
+                       as_vector(row_indices(A)),
+                       as_vector(col_indices(A)),
+                       row_size(A),
+                       col_size(A))
 
-SparseOperatorCOO{T}(A::SparseOperator{T}) where {T} =
-    SparseOperatorCOO(nonzeros(A),
-                      row_indices(A),
-                      col_indices(A),
-                      row_size(A),
-                      col_size(A))
+with_eltype(::Type{T}, A::AbstractArray{T}) where {T} = A
+with_eltype(::Type{T}, A::AbstractArray) where {T} = copy_with_eltype(T, A)
+
+copy_with_eltype(::Type{T}, A::AbstractArray) where {T} = copyto!(similar(A, T), A)
+
+as_vector(vect::AbstractVector) = vect
+as_vector(iter::SparseIndexIterator) = collect(iter)
 
 """
     coo_to_csr!(vals, rows, cols, rowsiz, colsiz [, op]) -> A
@@ -1269,11 +1238,6 @@ function sort_and_reduce!(vals::AbstractVector,
                           major::AbstractVector{Int},
                           minor::AbstractVector{Int},
                           op::Function)
-    # Check dimensions.
-    axes(vals) == axes(major) == axes(minor) || throw(DimensionMismatch(
-        "arguments must have the same axes"))
-    isempty(vals) && return 0
-
     # Sort entries in order (this also ensures that all arrays have the same dimensions).
     sort!(ZippedArray(vals, major, minor);
           # In the provided "less-than" method, arguments are 3-tuples `(v,maj,min)` with
@@ -1531,10 +1495,10 @@ mostly used by converters and other constructors.
 
 """
 function _SparseOperatorCSR(vals::AbstractVector,
-                    cols::AbstractVector{Int},
-                    offs::AbstractVector{Int},
-                    rowsiz::Dims{M},
-                    colsiz::Dims{N}) where {M,N}
+                            cols::AbstractVector{Int},
+                            offs::AbstractVector{Int},
+                            rowsiz::Dims{M},
+                            colsiz::Dims{N}) where {M,N}
     _SparseOperatorCSR(prod(rowsiz), prod(colsiz), vals, cols, offs, rowsiz, colsiz)
 end
 
