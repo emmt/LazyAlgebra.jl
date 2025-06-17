@@ -877,3 +877,81 @@ function unsafe_vcombine!(z::AbstractArray{Tz,N},
     end
     return z
 end
+
+#---------------------------------------------------------------------------------- VMAP -
+
+"""
+    LazyAlgebra.vmap!(y, α, f, w, x) -> y
+
+overwrites `y` with `α*f.(w, x)` and returns `y`. Other possibility:
+
+    LazyAlgebra.vmap!(α, f, w, x, β, y) -> y
+
+to overwrite `y` with `α*f.(w, x) + β*y`. An exception is thrown if `w`, `x`, and `y` do
+not have the same axes.
+
+See also [`LazyAlgebra.unsafe_vmap!`](@ref).
+
+"""
+vmap!(y::AbstractArray, α::Number, f::Function, w::AbstractArray, x::AbstractArray) =
+    vmap!(α, f, w, x, 𝟘, y)
+
+# Stages for `vmap!(α, f, w, x, β, y)`:
+#   0. Check axes.
+#   1. Convert `α`.
+#   2. Dispatch on `α`.
+#   3. If `α` is zero, call `vscale!(y,β)` and stop; otherwise, convert `β` and proceed
+#      with next stage.
+#   4. Dispatch on `β` to call the unsafe method.
+function vmap!(α::Number, f::Function, w::AbstractArray, x::AbstractArray,
+               β::Number, y::AbstractArray)
+    @assert_same_axes w x y
+    return vmap!(Stage(1), α, f, w, x, β, y)
+end
+function vmap!(::Stage{1},
+               α::Number, f::Function, w::AbstractArray{Tw,N}, x::AbstractArray{Tx,N},
+               β::Number, y::AbstractArray{Ty,N}) where {Tw,Tx,Ty,N}
+    α′ = convert_multiplier(α, Base.promote_op(f, eltype(w), eltype(x)))
+    return vmap!(Stage(2), α′, f, w, x, β, y)
+end
+function vmap!(::Stage{2},
+               α::Number, f::Function, w::AbstractArray{Tw,N}, x::AbstractArray{Tx,N},
+               β::Number, y::AbstractArray{Ty,N}) where {Tw,Tx,Ty,N}
+    @dispatch_on_multiplier α vmap!(Stage(3), α, f, w, x, β, y)
+    return y
+end
+function vmap!(::Stage{3},
+               α::Number, f::Function, w::AbstractArray{Tw,N}, x::AbstractArray{Tx,N},
+               β::Number, y::AbstractArray{Ty,N}) where {Tw,Tx,Ty,N}
+    if α isa StaticMultiplier{0}
+        vscale!(y, β)
+    else
+        β′ = convert_inplace_multiplier(β, eltype(y))
+        vmap!(Stage(4), α, f, w, x, β′, y)
+    end
+    return y
+end
+function vmap!(::Stage{4},
+               α::Number, f::Function, w::AbstractArray{Tw,N}, x::AbstractArray{Tx,N},
+               β::Number, y::AbstractArray{Ty,N}) where {Tw,Tx,Ty,N}
+    @dispatch_on_multiplier β unsafe_vmap!(α, f, w, x, β, y)
+    return y
+end
+
+"""
+    LazyAlgebra.unsafe_vmap!(α, f, w, x, β, y) -> y
+
+overwrite `y` with `y[i] = α*f(w[i], x[i]) + β*y[i])` and returns `y`.
+
+!!! warning
+    This method assumes that `w`, `x`, and `y` have the same axes, and that multipliers
+    `α` and `β` have efficient types.
+
+"""
+function unsafe_vmap!(α::Number, f::Function, w::AbstractArray{Tw,N}, x::AbstractArray{Tx,N},
+                      β::Number, y::AbstractArray{Ty,N}) where {Tw,Tx,Ty,N}
+    @inbounds @simd for i in eachindex(w, x, y)
+        y[i] = α*f(w[i], x[i]) + β*y[i]
+    end
+    return y
+end
