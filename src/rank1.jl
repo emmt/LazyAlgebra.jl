@@ -92,7 +92,7 @@ end
 
 # Precision for rank-1 operators.
 get_precision(::Type{T}) where {T<:AbstractRankOneOperator} = get_precision(eltype(T))
-_with_precision(::Type{T}, A::RankOneOperator) where {T<:AbstractFloat} =
-    RankOneOperator(_with_precision(T, first(A)), _with_precision(T, last(A)))
-_with_precision(::Type{T}, A::SymmetricRankOneOperator) where {T<:AbstractFloat} =
-    SymmetricRankOneOperator(_with_precision(T, first(A)))
+adapt_precision(::Type{T}, A::RankOneOperator) where {T<:AbstractFloat} =
+    RankOneOperator(force_precision(T, first(A)), force_precision(T, last(A)))
+adapt_precision(::Type{T}, A::SymmetricRankOneOperator) where {T<:AbstractFloat} =
+    SymmetricRankOneOperator(force_precision(T, first(A)))

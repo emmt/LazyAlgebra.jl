@@ -120,11 +120,9 @@ fft_length(A::Union{Adjoint{F},Inverse{F}}) where {F<:FFT} = nrows(A)
 
 # Precision.
 get_precision(::Type{<:FFT{T}}) where {T} = real(T)
-_with_precision(::Type{T}, A::FFT{<:Union{T,Complex{T}}}) where {T<:AbstractFloat} = A
-_with_precision(::Type{T}, A::FFT{<:Real}) where {T<:AbstractFloat} =
-    FFT{T}(A)
-_with_precision(::Type{T}, A::FFT{<:Complex}) where {T<:AbstractFloat} =
-    FFT{Complex{T}}(A)
+adapt_precision(::Type{T}, A::FFT{<:Union{T,Complex{T}}}) where {T<:Precision} = A
+adapt_precision(::Type{T}, A::FFT{<:Real}) where {T<:Precision} = FFT{T}(A)
+adapt_precision(::Type{T}, A::FFT{<:Complex}) where {T<:Precision} = FFT{Complex{T}}(A)
 
 function unsafe_vmul!(α::Number, A::Union{F,Adjoint{F}},
                       x::AbstractArray{<:Any,N}, β::Number, y::AbstractArray{<:Any,N},
@@ -135,7 +133,7 @@ end
 function unsafe_vmul!(α::Number, A::Union{Inverse{F},InverseAdjoint{F}},
                       x::AbstractArray{<:Any,N}, β::Number, y::AbstractArray{<:Any,N},
                       scratch::Bool = false) where {T,C,N,F<:FFT{T,C,N}}
-    λ = with_precision(get_precision(A), divide(α, fft_length(A)))
+    λ = convert_multiplier(divide(α, fft_length(A)), T)
     return unsafe_vmul!(λ, get_plan(A), x, β, y, scratch)
 end
 

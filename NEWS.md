@@ -193,7 +193,7 @@ and changes.
 - `FlexibleMatrix` is a pseudo-matrix whose number of row dimensions depends on its
   input argument.
 
-- Exported functions `get_precision(A)` and `with_precision(T, A)` to retrieve the
+- Exported functions `get_precision(A)` and `adapt_precision(T, A)` to retrieve the
   numerical precision of `A` and to change the numerical precision of `A` to be the
   floating-point type `T`.
 

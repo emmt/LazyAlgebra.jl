@@ -27,6 +27,7 @@ export
     Id,
     Identity,
     Operator,
+    Precision,
     PseudoMatrix,
     RankOneOperator,
     #SingularSystem,
@@ -37,6 +38,7 @@ export
     SymbolicOperator,
     SymmetricRankOneOperator,
     ZeroPaddingOperator,
+    adapt_precision,
     conjgrad!,
     conjgrad,
     diag, # re-export from LinearAlgebra
@@ -82,8 +84,7 @@ export
     vswap!,
     vupdate!,
     vzeros!,
-    vzeros,
-    with_precision
+    vzeros
 
 # Non-exported but public API.
 using TypeUtils: @public

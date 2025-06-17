@@ -84,7 +84,7 @@ yield the numerical precision of number/object `x`. If `x` is a floating-point v
 floating-point type is returned; if `x` stores floating-point values, their promoted
 floating-point type is returned; otherwise, `AbstractFloat` is returned.
 
-See also [`with_precision`](@ref).
+See also [`adapt_precision`](@ref).
 
 """
 get_precision(x::Any) = get_precision(typeof(x))
@@ -114,7 +114,7 @@ get_precision(::Type{<:AbstractQuantity{T}}) where {T} = get_precision(T)
 end
 
 """
-    with_precision(T::Type{<:AbstractFloat}, x) -> y
+    adapt_precision(T::Type{<:AbstractFloat}, x) -> y
 
 yields an object `y` similar to `x` but with numerical precision specified by the
 floating-point type `T`. If `x` has already the required precision or if setting its
@@ -127,78 +127,75 @@ Argument `x` may also be a type to infer the corresponding type with precision `
 Example:
 
 ```julia
-julia> with_precision(Float32, (1, 0x7, ("hello", 1.0, 1im)))
-(1.0f0, 7.0f0, ("hello", 1.0f0, 0.0f0 + 1.0f0im))
+julia> adapt_precision(Float32, (1, 0x07, ("hello", 1.0, 3.0 - 2.0im, π)))
+(1, 0x07, ("hello", 1.0f0, 3.0f0 - 2.0f0im, 3.1415927f0))
 ```
 
+As can be seen, only floating-point and irrational values are converted.
+
+
 !!! note
-    For new object types, extend `_with_precision` (not directly `with_precision`). This
-    auxiliary function shall only be called with a concrete floating-point type.
+    For objects of foreign type, say `ForeignType`, method `adapt_precision(::Type{T},
+    x::ForeignType) where {T<:Precision}` shall be extended to make sure it is only called
+    with a concrete floating-point type `T`.
 
 See also [`get_precision`](@ref).
 
 """
-with_precision(::Type{AbstractFloat}, x::Any) = with_precision(default_precision, x)
-with_precision(::Type{T}, x::Any) where{T<:AbstractFloat} = _with_precision(T, x)
-with_precision(::Type{T}, x::Any) where {T} = throw_not_floating_point(T)
+adapt_precision(::Type{AbstractFloat}, x::Any) = adapt_precision(default_precision, x)
+adapt_precision(::Type{T}, x::Any) where{T<:Precision} = x # pass-through by default
+adapt_precision(::Type{T}, x::Any) where {T} = throw_not_precision(T)
 
-@noinline throw_not_floating_point(::Type{T}) where {T} = throw(ArgumentError(
-    "type `$T` is not a floating-point type"))
+@noinline throw_not_precision(::Type{T}) where {T} = throw(ArgumentError(
+    "type `$T` is not a precision type"))
 
 """
-    f = with_precision(T)
+    f = adapt_precision(T)
 
-builds a callable object `f` such that `f(x)` is equivalent to `with_precision(T, x)`. If
+builds a callable object `f` such that `f(x)` is equivalent to `adapt_precision(T, x)`. If
 `T` is `AbstractFloat`, the default floating-point type `$default_precision` is assumed.
 
 """
-with_precision(::Type{AbstractFloat}) = with_precision(default_precision)
-with_precision(::Type{T}) where {T<:AbstractFloat} = _with_precision(T)
-with_precision(::Type{T}) where {T} = throw_not_floating_point(T)
+adapt_precision(::Type{AbstractFloat}) = adapt_precision(default_precision)
+adapt_precision(::Type{T}) where {T<:Precision} = TypeUtils.Converter(adapt_precision, T)
+adapt_precision(::Type{T}) where {T} = throw_not_precision(T)
 
-# NOTE Auxiliary function `_with_precision` is needed to avoid ambiguities. This auxiliary
-#      function shall only be called with a concrete floating-point type. This auxiliary
-#      function is the one to extend.
-_with_precision(::Type{T}, x::Any) where {T<:AbstractFloat} = x # pass-through by default
-
-# Converter.
-_with_precision(::Type{T}) where {T<:AbstractFloat} = TypeUtils.Converter(_with_precision, T)
-
-# Set precision of numbers.
-_with_precision(::Type{T}, x::T) where {T<:AbstractFloat} = x
-_with_precision(::Type{T}, x::Real) where {T<:AbstractFloat} = T(x)
-_with_precision(::Type{T}, x::Complex{T}) where {T<:AbstractFloat} = x
-_with_precision(::Type{T}, x::Complex) where {T<:AbstractFloat} = Complex{T}(real(x), imag(x))
-_with_precision(::Type{T}, x::Number) where {T<:AbstractFloat} = convert_real_type(T, x)
+# Set precision of floating-point or irrational numbers.
+adapt_precision(::Type{T}, x::T) where {T<:Precision} = x
+adapt_precision(::Type{T}, x::AbstractFloat) where {T<:Precision} = T(x)
+adapt_precision(::Type{T}, x::Irrational) where {T<:Precision} = T(x)
+adapt_precision(::Type{T}, x::Complex{T}) where {T<:Precision} = x
+adapt_precision(::Type{T}, x::Complex{<:Union{AbstractFloat,Irrational}}) where {T<:Precision} =
+    Complex{T}(real(x), imag(x))
 
 # Set precision of numeric arrays.
-_with_precision(::Type{T}, A::AbstractArray{T}) where {T<:AbstractFloat} = A
-_with_precision(::Type{T}, A::AbstractArray{S}) where {T<:AbstractFloat,S} =
-    convert_eltype(_with_precision(T, S), A)
+adapt_precision(::Type{T}, A::AbstractArray{T}) where {T<:Precision} = A
+adapt_precision(::Type{T}, A::AbstractArray{S}) where {T<:Precision,S} =
+    convert_eltype(adapt_precision(T, S), A)
 
 # Set precision of types.
-_with_precision(::Type{T}, ::Type{S}) where {T<:AbstractFloat,S} = S # pass-through by default
-_with_precision(::Type{T}, ::Type{<:Real}) where {T<:AbstractFloat} = T
-_with_precision(::Type{T}, ::Type{<:Complex}) where {T<:AbstractFloat} = Complex{T}
-_with_precision(::Type{T}, ::Type{Array{S,N}}) where {T<:AbstractFloat,S,N} =
-    Array{_with_precision{T, S}, N}
-_with_precision(::Type{T}, ::Type{S}) where {T<:AbstractFloat,S<:Number} =
-    convert_real_type(T, S)
-_with_precision(::Type{T}, ::Type{Quantity{S,D,U}}) where {T<:AbstractFloat,S,D,U} =
-    Quantity{_with_precision(T, S), D, U}
-_with_precision(::Type{T}, x::Quantity{T,D,U}) where {T<:AbstractFloat,D,U} = x
-_with_precision(::Type{T}, x::Quantity{S,D,U}) where {T<:AbstractFloat,S,D,U} =
-    Quantity{_with_precision(T, S), D, U}(x)
+adapt_precision(::Type{T}, ::Type{S}) where {T<:Precision,S} = S # pass-through by default
+adapt_precision(::Type{T}, ::Type{<:AbstractFloat}) where {T<:Precision} = T
+adapt_precision(::Type{T}, ::Type{<:Irrational}) where {T<:Precision} = T
+adapt_precision(::Type{T}, ::Type{<:Complex}) where {T<:Precision} = Complex{T}
+adapt_precision(::Type{T}, ::Type{Array{S,N}}) where {T<:Precision,S,N} =
+    Array{adapt_precision{T, S}, N}
+
+adapt_precision(::Type{T}, ::Type{Quantity{S,D,U}}) where {T<:Precision,S,D,U} =
+    Quantity{adapt_precision(T, S), D, U}
+adapt_precision(::Type{T}, x::Quantity{T,D,U}) where {T<:Precision,D,U} = x
+adapt_precision(::Type{T}, x::Quantity{S,D,U}) where {T<:Precision,S,D,U} =
+    Quantity{adapt_precision(T, S), D, U}(x)
 
 ## In other cases, map converter if object is an iterator and return the object otherwise.
-#_with_precision(::Type{T}, x::Any) where {T<:AbstractFloat} =
-#    isiterable(x) ? maybe_unroll_map(_with_precision(T), x) : x
+#adapt_precision(::Type{T}, x::Any) where {T<:Precision} =
+#    isiterable(x) ? maybe_unroll_map(adapt_precision(T), x) : x
 
 # Set precision for tuples.
-_with_precision(::Type{T}, x::NamedTuple) where {T<:AbstractFloat} =
-    map(_with_precision(T), x)
-_with_precision(::Type{T}, x::Tuple) where {T<:AbstractFloat} =
-    maybe_unroll_map(_with_precision(T), x)
+adapt_precision(::Type{T}, x::NamedTuple) where {T<:Precision} =
+    map(adapt_precision(T), x)
+adapt_precision(::Type{T}, x::Tuple) where {T<:Precision} =
+    maybe_unroll_map(adapt_precision(T), x)
 
 maybe_unroll_map(f, x::Any) = map(f, x)
 @inline maybe_unroll_map(f, x::Tuple) = length(x) ≤ 20 ? unroll_map(f, x) : map(f, x)
@@ -211,18 +208,30 @@ unroll_map(f, x::Tuple{Any}) = (f(first(x)),)
 # InverseAdjoint.
 for W in (:Adjoint, :Inverse)
     @eval begin
-        _with_precision(::Type{T}, A::$W) where {T<:AbstractFloat} =
-            $W(_with_precision(T, parent(A)))
+        adapt_precision(::Type{T}, A::$W) where {T<:Precision} =
+            $W(_adapt_precision(T, parent(A)))
     end
 end
 
 # Set precision for Sum.
-_with_precision(::Type{T}, (A,B)::Prod) where {T<:AbstractFloat} =
-    _with_precision(T, A) * _with_precision(T, B)
+adapt_precision(::Type{T}, (A,B)::Prod) where {T<:Precision} =
+    adapt_precision(T, A) * adapt_precision(T, B)
 
 # Set precision for Prod.
-_with_precision(::Type{T}, (A,B)::Sum) where {T<:AbstractFloat} =
-    _with_precision(T, A) + _with_precision(T, B)
+adapt_precision(::Type{T}, (A,B)::Sum) where {T<:Precision} =
+    adapt_precision(T, A) + adapt_precision(T, B)
+
+# Like `adapt_precision` except that all numeric types may be converted.
+force_precision(::Type{T}, ::Type{T}) where {T<:Precision} = T
+force_precision(::Type{T}, ::Type{S}) where {T<:Precision,S<:Number} =
+    convert_real_type(T, S)
+
+force_precision(::Type{T}, x::T) where {T<:Precision} = x
+force_precision(::Type{T}, x::Number) where {T<:Precision} = convert_real_type(T, x)
+
+force_precision(::Type{T}, A::AbstractArray{T}) where {T<:Precision} = A
+forcet_precision(::Type{T}, A::AbstractArray{S}) where {T<:Precision,S<:Number} =
+    convert_eltype(convert_real_type(T, S), A)
 
 #-----------------------------------------------------------------------------------------
 

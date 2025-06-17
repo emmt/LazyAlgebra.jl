@@ -171,6 +171,21 @@ for f in (:(==), :isequal)
     end
 end
 
+adapt_precision(::Type{T}, A::SparseOperator{S}) where {T<:Precision,S} =
+    convert_eltype(convert_real_type(T, S), A)
+
+for (type, (getfield1, getfield2)) in (:SparseOperatorCSR => (:col_indices, :offsets),
+                                       :SparseOperatorCSC => (:row_indices, :offsets),
+                                       :SparseOperatorCOO => (:row_indices, :col_indices))
+    _type = Symbol("_",type)
+    @eval begin
+        TypeUtils.convert_eltype(::Type{T}, A::$type{T}) where {T} = A
+        TypeUtils.convert_eltype(::Type{T}, A::$type{S}) where {T,S} =
+            $_type(nrows(A), ncols(A), convert_eltype(T, nonzeros(A)),
+                   $getfield1(A), $getfield2(A), row_size(A), col_size(A))
+    end
+end
+
 # Assume that a `copy` of a compressed sparse operator is to keep the same structure for
 # the structural non-zeros but possibly change the values. So only duplicate the value
 # part. For a `deepcopy` of a compressed sparse operator, all the fields are copied.

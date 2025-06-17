@@ -1,5 +1,14 @@
 # Definition of types and constants for `LazyAlgebra`.
 
+"""
+    Precision
+
+is the union of concrete floating-point types that can be used to specify the precision
+with [`adapt_precision`](@ref).
+
+"""
+const Precision = Union{Float16,Float32,Float64,BigFloat}
+
 # Union of multiplier types that are left unchanged by `convert_multiplier`.
 const StaticMultiplier{v} = Union{Neutral{v},AbstractQuantity{Neutral{v}}}
 

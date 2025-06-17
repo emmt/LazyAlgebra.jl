@@ -140,5 +140,5 @@ end
 
 # Precision of pseudo-matrices and flexible matrices.
 get_precision(::Type{T}) where {T<:PseudoMatrix} = get_precision(eltype(T))
-_with_precision(::Type{T}, A::PseudoMatrix{<:Any,M}) where {T<:AbstractFloat,M} =
-    PseudoMatrix(_with_precision(T, parent(A)), M === Colon ? Colon() : Dims{M})
+adapt_precision(::Type{T}, A::PseudoMatrix{S,M}) where {T<:Precision,S,M} =
+    PseudoMatrix(force_precision(T, parent(A)), M === Colon ? Colon() : Dims{M})

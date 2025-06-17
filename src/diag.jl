@@ -82,5 +82,5 @@ end
 
 # Precision for diagonal operators.
 get_precision(::Type{T}) where {T<:Diag} = get_precision(eltype(T))
-_with_precision(::Type{T}, A::Diag) where {T<:AbstractFloat} =
-    Diag(_with_precision(T, diag(A)))
+adapt_precision(::Type{T}, A::Diag) where {T<:Precision} =
+    Diag(force_precision(T, diag(A)))

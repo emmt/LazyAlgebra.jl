@@ -58,12 +58,12 @@ function runtests(; rng::AbstractRNG = MersenneTwister(314159),
             # Set precision.
             if real_type(eltype(A)) <: AbstractFloat
                 @test get_precision(A) === real_type(eltype(A))
-                @test @inferred(with_precision(real_type(eltype(A)), A)) === A
+                @test @inferred(adapt_precision(real_type(eltype(A)), A)) === A
             else
                 @test get_precision(A) === AbstractFloat
             end
             Tp = real(eltype(A)) === Float32 ? Float64 : Float32
-            Ap = @inferred(with_precision(Tp, A))
+            Ap = @inferred(adapt_precision(Tp, A))
             @test real(eltype(Ap)) === Tp
             @test parent(Ap) ≈ parent(A) rtol=rtol
 
