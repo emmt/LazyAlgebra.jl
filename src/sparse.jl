@@ -1,6 +1,6 @@
 # `sparse.jl` implements various format of compressed sparse linear operators, an API to
 # deal with sparse operators, and methods to apply sparse operators and convert between
-# different sparse format. This goes beyond Julia's `SparseArrays` standard package which
+# different sparse formats. This goes beyond Julia's `SparseArrays` standard package which
 # only provides "Compressed Sparse Column" (CSC) format.
 #
 # See https://en.wikipedia.org/wiki/Sparse_matrix.
@@ -179,11 +179,11 @@ Base.copy(A::SparseOperatorCSR) = _SparseOperatorCSR(
     nrows(A), ncols(A), copy(nonzeros(A)), col_indices(A), offsets(A),
     row_size(A), col_size(A))
 
-Base.copy(A::SparseOperatorCSC{T,M,N}) where {T,M,N} = _SparseOperatorCSC(
+Base.copy(A::SparseOperatorCSC) = _SparseOperatorCSC(
     nrows(A), ncols(A), copy(nonzeros(A)), row_indices(A), offsets(A),
     row_size(A), col_size(A))
 
-Base.copy(A::SparseOperatorCOO{T,M,N}) where {T,M,N} = _SparseOperatorCOO(
+Base.copy(A::SparseOperatorCOO) = _SparseOperatorCOO(
     nrows(A), ncols(A), copy(nonzeros(A)), row_indices(A), col_indices(A),
     row_size(A), col_size(A))
 
@@ -191,11 +191,11 @@ Base.deepcopy(A::SparseOperatorCSR) = _SparseOperatorCSR(
     nrows(A), ncols(A), copy(nonzeros(A)), copy(col_indices(A)), copy(offsets(A)),
     row_size(A), col_size(A))
 
-Base.deepcopy(A::SparseOperatorCSC{T,M,N}) where {T,M,N} = _SparseOperatorCSC(
+Base.deepcopy(A::SparseOperatorCSC) = _SparseOperatorCSC(
     nrows(A), ncols(A), copy(nonzeros(A)), copy(row_indices(A)), copy(offsets(A)),
     row_size(A), col_size(A))
 
-Base.deepcopy(A::SparseOperatorCOO{T,M,N}) where {T,M,N} = _SparseOperatorCOO(
+Base.deepcopy(A::SparseOperatorCOO) = _SparseOperatorCOO(
     nrows(A), ncols(A), copy(nonzeros(A)), copy(row_indices(A)), copy(col_indices(A)),
     row_size(A), col_size(A))
 
@@ -248,7 +248,7 @@ indices that can be modified with no side effects on `A`.
 """
 col_indices(A::Union{SparseOperatorCSR,SparseOperatorCOO}) = getfield(A, :cols)
 col_indices(A::Union{CompressedSparseOperator{:CSC},SparseMatrixCSC}) =
-    SparseIndexIterator(A) # FIXME: check this works SparseMatrixCSC
+    SparseIndexIterator(A) # FIXME: check whether this works SparseMatrixCSC
 col_indices(A::Adjoint{<:SparseOperator}) = row_indices(parent(A))
 
 """
@@ -289,6 +289,14 @@ sparse operator `A` stored in a *Compressed Sparse Row* (CSR) format.
 """
 @inline each_nz_index(A::Union{SparseOperatorCOO,Adjoint{<:SparseOperatorCOO}}) = 𝟙:nnz(A)
 
+@inline function each_nz_index(A::Union{AnySparseCSR,AnySparseCSC}, ij::Int)
+    @boundscheck check_offset_index(A, ij)
+    return unsafe_each_nz(A, ij)
+end
+
+@inline unsafe_each_nz(A::Union{AnySparseCSR,AnySparseCSC}, ij::Int) =
+    UnitRange(unsafe_first_nz_index(A, ij), unsafe_last_nz_index(A, ij))
+
 @inline first_nz_index(A::Union{SparseOperatorCOO,Adjoint{<:SparseOperatorCOO}}) = 1
 
 @inline last_nz_index(A::Union{SparseOperatorCOO,Adjoint{<:SparseOperatorCOO}}) = nnz(A)
@@ -303,12 +311,11 @@ end
     return unsafe_last_nz_index(A, ij)
 end
 
-@inline function each_nz_index(A::Union{AnySparseCSR,AnySparseCSC}, ij::Int)
-    @boundscheck check_offset_index(A, ij)
-    return unsafe_each_nz(A, ij)
-end
+@inline unsafe_first_nz_index(A::Union{AnySparseCSR,AnySparseCSC}, ij::Int) =
+    @inbounds offsets(A)[ij] + 1
 
-# Management of offsets in compressed sparse operator in CSC- or CSR-like formats.
+@inline unsafe_last_nz_index(A::Union{AnySparseCSR,AnySparseCSC}, ij::Int) =
+    @inbounds offsets(A)[ij + 1]
 
 @inline check_offset_index(::Type{Bool}, A::Union{AnySparseCSR,AnySparseCSC}, k::Int) =
     1 ≤ k < length(offsets(A))
@@ -318,15 +325,6 @@ end
 
 @inline check_offset_index(A::Union{AnySparseCSC,SparseMatrixCSC}, j::Int) =
     check_offset_index(Bool, A, j) ? nothing : out_of_range_column_index(A, j)
-
-@inline unsafe_first_nz_index(A::Union{AnySparseCSR,AnySparseCSC}, ij::Int) =
-    @inbounds offsets(A)[ij] + 1
-
-@inline unsafe_last_nz_index(A::Union{AnySparseCSR,AnySparseCSC}, ij::Int) =
-    @inbounds offsets(A)[ij + 1]
-
-@inline unsafe_each_nz(A::Union{AnySparseCSR,AnySparseCSC}, ij::Int) =
-    UnitRange(unsafe_first_nz_index(A, ij), unsafe_last_nz_index(A, ij))
 
 @noinline out_of_range_row_index(A, i::Integer) =
     throw(ErrorException(string("out of range row index ", i,
