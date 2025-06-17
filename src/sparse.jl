@@ -271,17 +271,17 @@ offsets(A::Adjoint{<:CompressedSparseOperator{:CSR}}) = offsets(parent(A))
 offsets(A::Adjoint{<:CompressedSparseOperator{:CSC}}) = offsets(parent(A))
 
 """
-    each_nz_index(A)
+    LazyAlgebra.each_nz_index(A)
 
 yields an iterator over the indices of the structural non-zeros of the sparse operator `A`
 stored in a *Compressed Sparse Coordinate* (COO) format.
 
-    each_nz_index(A, j)
+    LazyAlgebra.each_nz_index(A, j)
 
 yields an iterator over the indices of the structural non-zeros of the `j`-th column of
 the sparse operator `A` stored in a *Compressed Sparse Column* (CSC) format.
 
-    each_nz_index(A, i)
+    LazyAlgebra.each_nz_index(A, i)
 
 yields an iterator over the indices of the structural non-zeros of the `i`-th row of the
 sparse operator `A` stored in a *Compressed Sparse Row* (CSR) format.
@@ -297,14 +297,48 @@ end
 @inline unsafe_each_nz(A::Union{AnySparseCSR,AnySparseCSC}, ij::Int) =
     UnitRange(unsafe_first_nz_index(A, ij), unsafe_last_nz_index(A, ij))
 
-@inline first_nz_index(A::Union{SparseOperatorCOO,Adjoint{<:SparseOperatorCOO}}) = 1
+"""
+    LazyAlgebra.first_nz_index(A)
 
-@inline last_nz_index(A::Union{SparseOperatorCOO,Adjoint{<:SparseOperatorCOO}}) = nnz(A)
+yields the index of the first structural non-zero of the sparse operator `A` stored in a
+*Compressed Sparse Coordinate* (COO) format.
+
+    LazyAlgebra.first_nz_index(A, j)
+
+yields the index of the first structural non-zero of the `j`-th column of the sparse
+operator `A` stored in a *Compressed Sparse Column* (CSC) format.
+
+    LazyAlgebra.first_nz_index(A, i)
+
+yields the index of the first structural non-zero of the `i`-th row of the sparse operator
+`A` stored in a *Compressed Sparse Row* (CSR) format.
+
+"""
+@inline first_nz_index(A::Union{SparseOperatorCOO,Adjoint{<:SparseOperatorCOO}}) = 1
 
 @inline function first_nz_index(A::Union{AnySparseCSR,AnySparseCSC}, ij::Int)
     @boundscheck check_offset_index(A, ij)
     return unsafe_first_nz_index(A, ij)
 end
+
+"""
+    LazyAlgebra.last_nz_index(A)
+
+yields the index of the last structural non-zero of the sparse operator `A` stored in a
+*Compressed Sparse Coordinate* (COO) format.
+
+    LazyAlgebra.last_nz_index(A, j)
+
+yields the index of the last structural non-zero of the `j`-th column of the sparse
+operator `A` stored in a *Compressed Sparse Column* (CSC) format.
+
+    LazyAlgebra.last_nz_index(A, i)
+
+yields the index of the last structural non-zero of the `i`-th row of the sparse operator
+`A` stored in a *Compressed Sparse Row* (CSR) format.
+
+"""
+@inline last_nz_index(A::Union{SparseOperatorCOO,Adjoint{<:SparseOperatorCOO}}) = nnz(A)
 
 @inline function last_nz_index(A::Union{AnySparseCSR,AnySparseCSC}, ij::Int)
     @boundscheck check_offset_index(A, ij)
@@ -337,7 +371,7 @@ end
                                 ncols(A), " columns")))
 
 """
-    each_row_index(A)
+    LazyAlgebra.each_row_index(A)
 
 yields an iterator over the linear row indices of the structural non-zeros of the sparse
 operator `A` stored in a *Compressed Sparse Row* (CSR) format, this includes the adjoint
@@ -348,7 +382,7 @@ each_row_index(A::CompressedSparseOperator{:CSR}) = 𝟙:nrows(A)
 each_row_index(A::Adjoint{<:CompressedSparseOperator{:CSC}}) = each_col_index(parent(A))
 
 """
-    each_col_index(A)
+    LazyAlgebra.each_col_index(A)
 
 yields an iterator over the linear column indices of the structural non-zeros of the
 sparse operator `A` stored in a *Compressed Sparse Column* (CSC) format, this includes the
@@ -359,7 +393,7 @@ each_col_index(A::CompressedSparseOperator{:CSC}) = 𝟙:ncols(A)
 each_col_index(A::Adjoint{<:CompressedSparseOperator{:CSR}}) = each_row_index(parent(A))
 
 """
-    row_index(A, k) -> i
+    LazyAlgebra.row_index(A, k) -> i
 
 yields the linear row index of the `k`-th entry of the sparse operator `A` stored in a
 *Compressed Sparse Column* (CSC) or *Coordinate* (COO) formats (this includes adjoint of
@@ -369,7 +403,7 @@ sparse operators in CSR format).
 @propagate_inbounds row_index(A::Union{AnySparseCOO,AnySparseCSC}, k::Int) = row_indices(A)[k]
 
 """
-    col_index(A, k) -> j
+    LazyAlgebra.col_index(A, k) -> j
 
 yields the linear column index of the `k`-th entry of the sparse operator `A` stored in a
 *Compressed Sparse Row* (CSR) or *Coordinate* (COO) formats (this includes adjoint of
