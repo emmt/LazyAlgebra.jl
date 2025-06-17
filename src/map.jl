@@ -1,42 +1,4 @@
 """
-    B = LazyAlgebra.LazyMap(f, A)
-    B = LazyAlgebra.LazyMap{T}(f, A)
-
-given a function `f` and an array `A`, build a lightweight abstract array `B` such that
-`B[i]` yields `as(T,f(A[i]))` for any index `i` of `A`. Optional type parameter `T` is the
-guaranteed element type of `B`; if not specified, it is inferred from `f` and the element
-type of `A`.
-
-The index style of `B` is the same as that of `A`.
-
-"""
-LazyMap(f::Function, A::AbstractArray) = LazyMap{Base.promote_op(f, eltype(A))}(f, A)
-
-Base.length(A::LazyMap) = length(A.arr)
-Base.size(A::LazyMap) = size(A.arr)
-Base.axes(A::LazyMap) = axes(A.arr)
-for (L, S, Idecl, Icall) in ((false, :IndexCartesian, :(I::Vararg{Int,N}), :(I...)),
-                             (true,  :IndexLinear,    :(i::Int),           :(i)))
-    @eval begin
-        Base.IndexStyle(::Type{<:LazyMap{T,N,$L}}) where {T,N} = $S()
-        @inline function Base.getindex(A::LazyMap{T,N,$L}, $Idecl) where {T,N}
-            @boundscheck checkbounds(A, $Icall)
-            x = @inbounds getindex(A.arr, $Icall)
-            return as(T, A.func(x))
-        end
-        @inline function Base.setindex!(A::LazyMap{T,N,$L}, x, $Idecl) where {T,N}
-            @boundscheck checkbounds(A, $Icall)
-            error("attempt to write read-only array")
-            return A
-        end
-    end
-end
-
-Base.similar(A::LazyMap, ::Type{T}) where {T} = similar(A.arr, T)
-Base.similar(A::LazyMap, ::Type{T}, shape::Union{Dims,ArrayAxes}) where {T} =
-    similar(A.arr, T, shape)
-
-"""
     LazyAlgebra.vmap!(y, α, f, w, x) -> y
 
 overwrites `y` with `α*f.(w, x)` and returns `y`. Other possibility:

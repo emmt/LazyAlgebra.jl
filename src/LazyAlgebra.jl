@@ -101,7 +101,6 @@ using TypeUtils: @public
 @public InputShapeUnknown
 @public Inverse
 @public InverseAdjoint
-@public LazyMap
 @public OutputEltype
 @public OutputEltypeUnknown
 @public OutputShape
@@ -162,6 +161,7 @@ using TypeUtils: @public
 
 using Printf
 using ArrayTools
+using LazyMaps
 using Neutrals
 using Test
 using StructuredArrays

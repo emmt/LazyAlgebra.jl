@@ -248,13 +248,6 @@ end
 
 const DiagonalOperator = Union{Diag,Adjoint{<:Diag},Inverse{<:Diag},InverseAdjoint{<:Diag}}
 
-struct LazyMap{T,N,L,F,A<:AbstractArray{<:Any,N}} <: AbstractArray{T,N}
-    func::F
-    arr::A
-    LazyMap{T}(func::F, arr::A) where {T,N,F<:Function,A<:AbstractArray{<:Any,N}} =
-        new{T,N,IndexStyle(A)==IndexLinear(),F,A}(func, arr)
-end
-
 abstract type AbstractRankOneOperator{U<:AbstractArray,V<:AbstractArray} <: Operator end
 
 @callable struct RankOneOperator{U,V} <: AbstractRankOneOperator{U,V}

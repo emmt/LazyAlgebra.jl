@@ -220,7 +220,7 @@ instead if you want to modify the contents of the returned array with no side ef
 """
 SparseArrays.nonzeros(A::SparseOperator) = getfield(A, :vals)
 SparseArrays.nonzeros(A::Adjoint{<:SparseOperator}) =
-    LazyMap{eltype(A)}(conj, nonzeros(parent(A)))
+    lazymap(eltype(A), conj, nonzeros(parent(A)))
 
 """
     LazyAlgebra.row_indices(A) -> I
