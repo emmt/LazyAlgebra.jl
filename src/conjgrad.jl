@@ -9,6 +9,12 @@ const default_conjgrad_ftol = 1e-8
 const default_conjgrad_gtol = (0.0, 0.0)
 const default_conjgrad_xtol = 0.0
 
+struct NonPositiveDefinite <: Exception
+    msg::String
+end
+Base.showerror(io::IO, err::NonPositiveDefinite) =
+    print(io, "non-positive definite operator (", err.msg, ")")
+
 """
     conjgrad(A, b, x0 = vzeros(b)) -> x
 
@@ -186,7 +192,7 @@ function conjgrad!(x::AbstractArray{<:Any,N}, A,
             break
         elseif k > maxiter
             verb && @printf(io, "# %s\n", "Too many iteration(s).")
-            quiet || warn("too many (", k, " conjugate gradient iteration(s)")
+            quiet || warn("too many conjugate gradient iteration(s)")
             break
         end
         if rem(k, restart) == 1
@@ -234,3 +240,5 @@ function conjgrad!(x::AbstractArray{<:Any,N}, A,
     end
     return x
 end
+
+warn(x...) = println(stderr, "WARNING: ", x...)
