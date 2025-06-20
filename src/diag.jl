@@ -81,6 +81,6 @@ for (T, B, f) in ((:(                 Diag ), :(              A),   :(*)),
 end
 
 # Precision for diagonal operators.
-get_precision(::Type{T}) where {T<:Diag} = get_precision(eltype(T))
-adapt_precision(::Type{T}, A::Diag) where {T<:Precision} =
-    Diag(force_precision(T, diag(A)))
+TypeUtils.get_precision(::Type{A}) where {A<:Diag} = get_precision(eltype(A))
+TypeUtils.adapt_precision(::Type{T}, A::Diag) where {T<:TypeUtils.Precision} =
+    Diag(adapt_precision(T, diag(A)))

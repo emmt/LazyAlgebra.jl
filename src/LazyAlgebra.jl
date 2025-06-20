@@ -27,7 +27,6 @@ export
     Id,
     Identity,
     Operator,
-    Precision,
     PseudoMatrix,
     RankOneOperator,
     #SingularSystem,
@@ -38,17 +37,11 @@ export
     SymbolicOperator,
     SymmetricRankOneOperator,
     ZeroPaddingOperator,
-    adapt_precision,
     conjgrad!,
     conjgrad,
-    diag, # re-export from LinearAlgebra
-    #fftfreq,
-    fftshift, # re-export from AbstractFFTs
     #goodfftdim,
     #goodfftdims,
-    ifftshift, # re-export from AbstractFFTs
     #rfftdims,
-    get_precision,
     #is_diagonal,
     #is_endomorphism,
     #is_selfadjoint,
@@ -57,10 +50,7 @@ export
     #lgemv!,
     #lgemv,
     #multiplier,
-    nnz, # re-export from SparseArrays
-    nonzeros, # re-export from SparseArrays
     simplify,
-    sparse, # re-export from SparseArrays
     vcombine!,
     vcombine,
     vcopy!,
@@ -84,7 +74,24 @@ export
     vswap!,
     vupdate!,
     vzeros!,
-    vzeros
+    vzeros,
+
+    # Re-exports from LinearAlgebra:
+    diag,
+
+    # Re-exports from TypeUtils:
+    adapt_precision,
+    get_precision,
+
+    # Re-exports from AbstractFFTs:
+    #fftfreq,
+    fftshift,
+    ifftshift,
+
+    # Re-exports from SparseArrays:
+    nnz,
+    nonzeros,
+    sparse
 
 # Non-exported but public API.
 using TypeUtils: @public
@@ -167,6 +174,7 @@ using Neutrals
 using Test
 using StructuredArrays
 using TypeUtils
+using Unitful
 using Unitful: AbstractQuantity, Quantity, NoDims, unit, ustrip
 using ZippedArrays
 using AbstractFFTs, FFTW
@@ -202,6 +210,7 @@ include("sparse.jl")
 include("fft.jl")
 include("simplify.jl")
 include("conjgrad.jl")
+include("piracy.jl")
 #include("genmult.jl")
 #import .GenMult: lgemm!, lgemm, lgemv!, lgemv
 #include("blas.jl")

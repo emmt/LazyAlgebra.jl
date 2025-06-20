@@ -171,8 +171,9 @@ for f in (:(==), :isequal)
     end
 end
 
-adapt_precision(::Type{T}, A::SparseOperator{S}) where {T<:Precision,S} =
-    convert_eltype(convert_real_type(T, S), A)
+TypeUtils.get_precision(::Type{A}) where {A<:SparseOperator} = get_precision(eltype(A))
+TypeUtils.adapt_precision(::Type{T}, A::SparseOperator) where {T<:TypeUtils.Precision} =
+    convert_eltype(adapt_precision(T, eltype(A)), A)
 
 for (type, (getfield1, getfield2)) in (:SparseOperatorCSR => (:col_indices, :offsets),
                                        :SparseOperatorCSC => (:row_indices, :offsets),

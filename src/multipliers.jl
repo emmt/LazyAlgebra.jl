@@ -1,14 +1,14 @@
 """
     LazyAlgebra.convert_multiplier(α::Number, T::Type)
 
-yields the multiplier `α` converted to the same floating-point precision as `T`.
-If `T` has no concrete floating-point type, `$default_precision` is assumed.
+yields the multiplier `α` converted to the same floating-point precision as `T`. If `T`
+has no concrete floating-point type, `TypeUtils.default_precision` is assumed.
 
 See also [`LazyAlgebra.multiplier_type`](@ref) and [`LazyAlgebra.output_eltype`](@ref).
 
 """
 convert_multiplier(α::Number, ::Type{T}) where {T<:Number} =
-    with_precision(get_precision(T), α)
+    adapt_precision(get_precision(T), α)
 
 # Leave "static multipliers" unchanged.
 convert_multiplier(α::StaticMultiplier, ::Type{<:Number}) = α

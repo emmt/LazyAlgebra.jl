@@ -119,10 +119,10 @@ fft_length(A::Union{F,InverseAdjoint{F}}) where {F<:FFT} = ncols(A)
 fft_length(A::Union{Adjoint{F},Inverse{F}}) where {F<:FFT} = nrows(A)
 
 # Precision.
-get_precision(::Type{<:FFT{T}}) where {T} = real(T)
-adapt_precision(::Type{T}, A::FFT{<:Union{T,Complex{T}}}) where {T<:Precision} = A
-adapt_precision(::Type{T}, A::FFT{<:Real}) where {T<:Precision} = FFT{T}(A)
-adapt_precision(::Type{T}, A::FFT{<:Complex}) where {T<:Precision} = FFT{Complex{T}}(A)
+TypeUtils.get_precision(::Type{<:FFT{T}}) where {T} = get_precision(T)
+TypeUtils.adapt_precision(::Type{T}, A::FFT{<:Union{T,Complex{T}}}) where {T<:TypeUtils.Precision} = A
+TypeUtils.adapt_precision(::Type{T}, A::FFT{<:Real}) where {T<:TypeUtils.Precision} = FFT{T}(A)
+TypeUtils.adapt_precision(::Type{T}, A::FFT{<:Complex}) where {T<:TypeUtils.Precision} = FFT{Complex{T}}(A)
 
 function unsafe_vmul!(α::Number, A::Union{F,Adjoint{F}},
                       x::AbstractArray{<:Any,N}, β::Number, y::AbstractArray{<:Any,N},

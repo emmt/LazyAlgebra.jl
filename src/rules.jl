@@ -146,8 +146,7 @@ Prod(A::Prod{<:Number},   B::Prod{<:Number}) = (A[1] * B[1]) * (A[2] * B[2])
 Sum( A::Sum,  B::Operator) = A[1] + (A[2] + B)
 Prod(A::Prod, B::Operator) = A[1] * (A[2] * B)
 
-#-----------------------------------------------------------------------------------------
-# NEUTRAL ELEMENTS
+#---------------------------------------------------------------------- NEUTRAL ELEMENTS -
 
 # The neutral element ("zero") for the addition is zero times a mapping of the
 # proper type.
@@ -162,3 +161,23 @@ Base.one(::Union{Operator,Type{<:Operator}}) = Id
 
 Base.isone(::Identity) = true
 Base.isone(::Operator) = false
+
+#----------------------------------------------------------------------------- PRECISION -
+
+# Precision for adjoint, and inverse. Thanks to recursion, this also works for
+# inverse-adjoint.
+for W in (:Adjoint, :Inverse)
+    @eval begin
+        TypeUtils.get_precision(::Type{$W{A}}) where {A} = get_precision(A)
+        TypeUtils.adapt_precision(::Type{T}, A::$W) where {T<:TypeUtils.Precision} =
+            $W(adapt_precision(T, parent(A)))
+    end
+end
+
+# Precision for sums and compositions.
+TypeUtils.get_precision(::Type{Sum{A,B}}) where {A,B} = get_precision(A, B)
+TypeUtils.get_precision(::Type{Prod{A,B}}) where {A,B} = get_precision(A, B)
+TypeUtils.adapt_precision(::Type{T}, (A,B)::Sum) where {T<:TypeUtils.Precision} =
+    adapt_precision(T, A) + adapt_precision(T, B)
+TypeUtils.adapt_precision(::Type{T}, (A,B)::Prod) where {T<:TypeUtils.Precision} =
+    adapt_precision(T, A) * adapt_precision(T, B)
