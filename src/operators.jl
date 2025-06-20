@@ -687,6 +687,18 @@ function vmul!(::Stage{4},
     return y
 end
 
+# This stage is for `unsafe_vmul!(α, A::Scaled, x, β, y)`, there are no needs to dispatch
+# on `β`.
+function vmul!(::Stage{5},
+               α::Number, A::Operator, x::AbstractArray, β::Number, y::AbstractArray)
+    if α isa StaticMultiplier{0}
+        vscale!(y, β)
+    else
+        unsafe_vmul!(α, A, x, β, y)
+    end
+    return y
+end
+
 """
     LazyAlgebra.check_input_axes(x, inp_axes) -> nothing
     LazyAlgebra.check_input_axes(axes(x), inp_axes) -> nothing
@@ -789,8 +801,22 @@ function unsafe_vmul!(α::Number, A::Sum, x::AbstractArray, β::Number, y::Abstr
 end
 
 @noinline function unsafe_vmul!(α::Number, A::Union{Inverse{<:Sum},InverseAdjoint{<:Sum}},
-                                 x::AbstractArray, β::Number, y::AbstractArray)
+                                x::AbstractArray, β::Number, y::AbstractArray)
     error("automatic dispatching of the inverse of a sum of operators is not supported")
+end
+
+# Deal with products of operators.
+function unsafe_vmul!(α::Number, (λ,A)::Scaled, x::AbstractArray, β::Number, y::AbstractArray)
+    # Avoid re-converting multipliers and re-dispatching on their values.
+    αλ = convert_multiplier(α*λ, output_eltype(A, x))
+    @dispatch_on_multiplier αλ vmul!(Stage(5), αλ, A, x, β, y)
+    return y
+end
+
+function unsafe_vmul!(α::Number, (A,B)::Prod, x::AbstractArray, β::Number, y::AbstractArray)
+    # FIXME In principle, there are no needs to recheck axes, convert multipliers, and
+    #       dispatch on their values.
+    return vmul!(α, A, vmul(B, x), β, y)
 end
 
 """
