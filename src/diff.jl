@@ -321,7 +321,7 @@ end
 #               0   0   0  -1   1 ]
 #
 function unsafe_vmul!(α::Number,
-                      A::Prod{𝒟,Adjoint{𝒟}}, # Gram
+                      A::Prod{Adjoint{𝒟},𝒟}, # Gram
                       x::AbstractArray,
                       β::Number,
                       y::AbstractArray,
