@@ -395,9 +395,9 @@ function vscale(α::Number, x::AbstractArray)
     T = prod_type(typeof(α), eltype(x))
     y = similar(x, T)
 
-    # Call in-place method at stage 1 to dispatch on the value of `α` because array axes
+    # Call in-place method at a stage to dispatch on the value of `α` because array axes
     # are guaranteed to be the same.
-    return vscale!(Stage(1), y, α, x)
+    return vscale!(Job(DISPATCH_ALPHA), y, α, x)
 end
 
 """
@@ -419,40 +419,36 @@ See also [`vscale`](@ref), [`vzeros!`](@ref), [`LinearAlgebra.rmul!](@ref), and
 
 """
 vscale!(α::Number, x::AbstractArray) = vscale!(x, α)
-
-# Stages of in-place scaling:
-#   0. Convert multiplier.
-#   1. Dispatch on multiplier.
-#   2. Call `unsafe_vscale!` if necessary.
-function vscale!(x::AbstractArray, α::Number)
-    α′ = convert_inplace_multiplier(α, eltype(x))
-    return vscale!(Stage(1), x, α′)
-end
-function vscale!(::Stage{1}, x::AbstractArray, α::Number)
-    @dispatch_on_multiplier α vscale!(Stage(2), x, α)
-    return x
-end
-function vscale!(::Stage{2}, x::AbstractArray, α::Number)
-    α == 𝟙 || unsafe_vscale!(x, α)
+vscale!(x::AbstractArray, α::Number) = vscale!(Job(CONVERT_ALPHA), x, α)
+function vscale!(::Job{S}, x::AbstractArray, α::Number) where {S}
+    # See comments about the job bits in the implementation of the `vmul!` method.
+    if (S & CONVERT_ALPHA) != 𝟘
+        α′ = convert_inplace_multiplier(α, eltype(x))
+        vscale!(Job(DISPATCH_ALPHA), x, α′)
+    elseif (S & DISPATCH_ALPHA) != 𝟘
+        @dispatch_on_multiplier α vscale!(Job(0), x, α)
+    elseif α != 𝟙
+        unsafe_vscale!(x, α)
+    end
     return x
 end
 
-# Stages of out-of-place scaling:
-#   0. Call in-place scaling if `x` and `y` are the same thing; otherwise, check axes and
-#      proceed with stage 1.
-#   1. Convert multiplier.
-#   2. Dispatch on multiplier to call `unsafe_vscale!`.
-function vscale!(y::AbstractArray, α::Number, x::AbstractArray)
-    y === x && return vscale!(x, α)
-    @assert_same_axes x y
-    return vscale!(Stage(1), y, α, x)
-end
-function vscale!(::Stage{1}, y::AbstractArray, α::Number, x::AbstractArray)
-    α′ = convert_multiplier(α, eltype(x))
-    return vscale!(Stage(2), y, α′, x)
-end
-function vscale!(::Stage{2}, y::AbstractArray, α::Number, x::AbstractArray)
-    @dispatch_on_multiplier α unsafe_vscale!(y, α, x)
+vscale!(y::AbstractArray, α::Number, x::AbstractArray) =
+    y === x ? vscale!(x, α) : vscale!(Job(CHECK_INDICES|CONVERT_ALPHA), y, α, x)
+
+function vscale!(::Job{S}, y::AbstractArray, α::Number, x::AbstractArray) where {S}
+    # See comments about the job bits in the implementation of the `vmul!` method.
+    if (S & CHECK_INDICES) != 𝟘
+        @assert_same_axes x y
+    end
+    if (S & CONVERT_ALPHA) != 𝟘
+        α′ = convert_multiplier(α, eltype(x))
+        vscale!(Job(DISPATCH_ALPHA), y, α′, x)
+    elseif (S & DISPATCH_ALPHA) != 𝟘
+        @dispatch_on_multiplier α unsafe_vscale!(y, α, x)
+    else
+        unsafe_vscale!(y, α, x)
+    end
     return y
 end
 
@@ -595,58 +591,46 @@ if an index is repeated, the operation will be performed several times at this l
 
 See also [`vscale!`](@ref), [`vcombine!](@ref), and [`LazyAlgebra.unsafe_vupdate!](@ref).
 
-""" vupdate!
+"""
+vupdate!(y::AbstractArray, α::Number, x::AbstractArray) =
+    vupdate!(Job(CHECK_INDICES|CONVERT_ALPHA), y, α, x)
 
-# Stages of updating:
-#   0. Check axes.
-#   1. Convert multiplier `α`.
-#   2. Dispatch on the value of the multiplier `α`.
-#   3. Call unsafe method if multiplier `α` is non-zero.
-
-function vupdate!(y::AbstractArray, α::Number, x::AbstractArray)
-    @assert_same_axes x y
-    return vupdate!(Stage(1), y, α, x)
-end
-function vupdate!(::Stage{1},
-                  y::AbstractArray{Ty,N}, α::Number, x::AbstractArray{Tx,N}) where {Tx,Ty,N}
-    α′ = convert_multiplier(α, eltype(x))
-    return vupdate!(Stage(2), y, α′, x)
-end
-function vupdate!(::Stage{2},
-                  y::AbstractArray{Ty,N}, α::Number, x::AbstractArray{Tx,N}) where {Tx,Ty,N}
-    @dispatch_on_multiplier α vupdate!(Stage(3), y, α, x)
-    return y
-end
-function vupdate!(::Stage{3},
-                  y::AbstractArray{Ty,N}, α::Number, x::AbstractArray{Tx,N}) where {Tx,Ty,N}
-    α isa StaticMultiplier{0} || unsafe_vupdate!(y, α, x)
+function vupdate!(::Job{S}, y::AbstractArray, α::Number, x::AbstractArray) where {S}
+    # See comments about the job bits in the implementation of the `vmul!` method.
+    if (S & CHECK_INDICES) != 𝟘
+        @assert_same_axes x y
+    end
+    if (S & CONVERT_ALPHA) != 𝟘
+        α′ = convert_multiplier(α, eltype(x))
+        vupdate!(Job(DISPATCH_ALPHA), y, α′, x)
+    elseif (S & DISPATCH_ALPHA) != 𝟘
+        @dispatch_on_multiplier α vupdate!(Job(0), y, α, x)
+    elseif !iszero(α) # FIXME α isa StaticMultiplier{0}
+        unsafe_vupdate!(y, α, x)
+    end
     return y
 end
 
 # Idem with a selection of indices.
+vupdate!(y::AbstractArray, sel::AbstractVector{Int}, α::Number, x::AbstractArray) =
+    vupdate!(Job(CHECK_INDICES|CONVERT_ALPHA), y, sel, α, x)
 
-function vupdate!(y::AbstractArray, sel::AbstractVector{Int},
-                  α::Number, x::AbstractArray)
-    @assert_same_axes x y
-    imin, imax = extrema(sel)
-    ((firstindex(x) ≤ imin) & (imax ≤ lastindex(x))) || out_of_range_selection()
-    return vupdate!(Stage(1), y, sel, α, x)
-end
-function vupdate!(::Stage{1},
-                  y::AbstractArray{Ty,N}, sel::AbstractVector{Int},
-                  α::Number, x::AbstractArray{Tx,N}) where {Tx,Ty,N}
-    α′ = convert_multiplier(α, eltype(x))
-    return vupdate!(Stage(2), y, sel, α′, x)
-end
-function vupdate!(::Stage{2},
-                  y::AbstractArray{Ty,N}, sel::AbstractVector{Int},
-                  α::Number, x::AbstractArray{Tx,N}) where {Tx,Ty,N}
-    @dispatch_on_multiplier α vupdate!(Stage(3), y, sel, α, x)
-    return y
-end
-function vupdate!(::Stage{3}, y::AbstractArray{Ty,N}, sel::AbstractVector{Int},
-                  α::Number, x::AbstractArray{Tx,N}) where {Tx,Ty,N}
-    α isa StaticMultiplier{0} || unsafe_vupdate!(y, sel, α, x)
+function vupdate!(::Job{S}, y::AbstractArray, sel::AbstractVector{Int},
+                  α::Number, x::AbstractArray) where {S}
+    # See comments about the job bits in the implementation of the `vmul!` method.
+    if (S & CHECK_INDICES) != 𝟘
+        @assert_same_axes x y
+        imin, imax = extrema(sel)
+        ((firstindex(x) ≤ imin) & (imax ≤ lastindex(x))) || out_of_range_selection()
+    end
+    if (S & CONVERT_ALPHA) != 𝟘
+        α′ = convert_multiplier(α, eltype(x))
+        vupdate!(Job(DISPATCH_ALPHA), y, sel, α′, x)
+    elseif (S & DISPATCH_ALPHA) != 𝟘
+        @dispatch_on_multiplier α vupdate!(Job(0), y, sel, α, x)
+    elseif !iszero(α) # FIXME α isa StaticMultiplier{0}
+        unsafe_vupdate!(y, sel, α, x)
+    end
     return y
 end
 
@@ -707,18 +691,15 @@ function vcombine(α::Number, x::AbstractArray, β::Number, y::AbstractArray)
     # Array arguments must have the same axes.
     @assert_same_axes x y
 
-    # Convert multipliers to infer the element type of the result. The extra cost of
-    # converting the multipliers twice (if any, since further conversions should leave the
-    # multipliers unchanged) is certainly negligible compared to the allocation and
-    # computation times.
+    # Convert multipliers to infer the element type of the result.
     α = convert_multiplier(α, eltype(x))
     β = convert_multiplier(β, eltype(y))
     Tz = sum_type(prod_type(typeof(α), eltype(x)), prod_type(typeof(β), eltype(y)))
-    z = similar(x, Tz) # FIXME type of array does not depend on y
+    z = similar(x, Tz) # type of array based on `x`, not on `y`...
 
-    # Call in-place method at stage 1 to dispatch on the values of `α` and `β` because
-    # array axes have already been checked.
-    return vcombine!(Stage(1), z, α, x, β, y)
+    # Call in-place method to dispatch on the values of `α` and `β` because array axes
+    # have already been checked and multipliers have suitable precision.
+    return vcombine!(Job(DISPATCH_ALPHA|DISPATCH_BETA), z, α, x, β, y)
 end
 
 """
@@ -745,89 +726,62 @@ types.
 See also [`vcombine`](@ref), [`vscale!`](@ref), [`vupdate!](@ref),
 [`LazyAlgebra.vcombine!](@ref), and [`LazyAlgebra.unsafe_vcombine!](@ref).
 
-""" vcombine!
+"""
+vcombine!(α::Number, x::AbstractArray, β::Number, y::AbstractArray) =
+    vcombine!(Job(CHECK_INDICES|CONVERT_ALPHA|CONVERT_BETA), α, x, β, y)
 
-# Stages for `vcombine!(α,x,β,y)`:
-#   0. Check axes.
-#   1. Convert `α`.
-#   2. Dispatch on `α`.
-#   3. Call `vscal!` if `α` is zero; convert `β` and proceed with next stage otherwise.
-#   4. Dispatch on `β` and call the unsafe method.
-
-function vcombine!(α::Number, x::AbstractArray,
-                   β::Number, y::AbstractArray)
-    @assert_same_axes x y
-    return vcombine!(Stage(1), α, x, β, y)
-end
-function vcombine!(::Stage{1},
-                   α::Number, x::AbstractArray{Tx,N},
-                   β::Number, y::AbstractArray{Ty,N}) where {Tx,Ty,N}
-    α′ = convert_multiplier(α, eltype(x))
-    return vcombine!(Stage(2), α′, x, β, y)
-end
-function vcombine!(::Stage{2},
-                   α::Number, x::AbstractArray{Tx,N},
-                   β::Number, y::AbstractArray{Ty,N}) where {Tx,Ty,N}
-    @dispatch_on_multiplier α vcombine!(Stage(3), α, x, β, y)
-    return y
-end
-function vcombine!(::Stage{3},
-                   α::Number, x::AbstractArray{Tx,N},
-                   β::Number, y::AbstractArray{Ty,N}) where {Tx,Ty,N}
-    if α isa StaticMultiplier{0}
-        vscale!(y, β)
-    else
-        β′ = convert_inplace_multiplier(β, eltype(y))
-        vcombine!(Stage(4), α, x, β′, y)
+function vcombine!(::Job{S},
+                   α::Number, x::AbstractArray,
+                   β::Number, y::AbstractArray) where {S}
+    # See comments about the job bits in the implementation of the `vmul!` method.
+    if (S & CHECK_INDICES) != 𝟘
+        @assert_same_axes x y
     end
-    return y
-end
-function vcombine!(::Stage{4},
-                   α::Number, x::AbstractArray{Tx,N},
-                   β::Number, y::AbstractArray{Ty,N}) where {Tx,Ty,N}
-    @dispatch_on_multiplier β unsafe_vcombine!(α, x, β, y)
+    if (S & CONVERT_ALPHA) != 𝟘
+        α′ = convert_multiplier(α, eltype(x))
+        vcombine!(Job((S & ~(CHECK_INDICES|CONVERT_ALPHA)) | DISPATCH_ALPHA),
+                  α′, x, β, y)
+    elseif (S & DISPATCH_ALPHA) != 𝟘
+        @dispatch_on_multiplier α vcombine!(Job(S & ~(CHECK_INDICES|DISPATCH_ALPHA)),
+                                            α, x, β, y)
+    elseif (S & CONVERT_BETA) != 𝟘
+        β′ = convert_inplace_multiplier(β, eltype(y))
+        vcombine!(Job((S & ~(CHECK_INDICES|CONVERT_BETA)) | DISPATCH_BETA),
+                  α, x, β′, y)
+    elseif (S & DISPATCH_BETA) != 𝟘
+        @dispatch_on_multiplier β unsafe_vcombine!(α, x, β, y)
+    else
+        unsafe_vcombine!(α, x, β, y)
+    end
     return y
 end
 
 # Idem for `vcombine!(z, α,x,β,y)`:
+vcombine!(z::AbstractArray, α::Number, x::AbstractArray, β::Number, y::AbstractArray) =
+    vcombine!(Job(CHECK_INDICES|CONVERT_ALPHA|CONVERT_BETA), z, α, x, β, y)
 
-function vcombine!(z::AbstractArray,
-                   α::Number, x::AbstractArray,
-                   β::Number, y::AbstractArray)
-    @assert_same_axes x y z
-    return vcombine!(Stage(1), z, α, x, β, y)
-end
-function vcombine!(::Stage{1},
-                   z::AbstractArray{Tz,N},
-                   α::Number, x::AbstractArray{Tx,N},
-                   β::Number, y::AbstractArray{Ty,N})  where {Tx,Ty,Tz,N}
-    α′ = convert_multiplier(α, eltype(x))
-    return vcombine!(Stage(2), z, α′, x, β, y)
-end
-function vcombine!(::Stage{2},
-                   z::AbstractArray{Tz,N},
-                   α::Number, x::AbstractArray{Tx,N},
-                   β::Number, y::AbstractArray{Ty,N}) where {Tx,Ty,Tz,N}
-    @dispatch_on_multiplier α vcombine!(Stage(3), z, α, x, β, y, )
-    return z
-end
-function vcombine!(::Stage{3},
-                   z::AbstractArray{Tz,N},
-                   α::Number, x::AbstractArray{Tx,N},
-                   β::Number, y::AbstractArray{Ty,N}) where {Tx,Ty,Tz,N}
-    if α isa StaticMultiplier{0}
-        vscale!(Stage(1), z, β, y)
-    else
-        β′ = convert_multiplier(β, eltype(y))
-        vcombine!(Stage(4), z, α, x, β′, y)
+function vcombine!(::Job{S}, z::AbstractArray, α::Number, x::AbstractArray,
+                   β::Number, y::AbstractArray) where {S}
+    # See comments about the job bits in the implementation of the `vmul!` method.
+    if (S & CHECK_INDICES) != 𝟘
+        @assert_same_axes x y z
     end
-    return z
-end
-function vcombine!(::Stage{4},
-                   z::AbstractArray{Tz,N},
-                   α::Number, x::AbstractArray{Tx,N},
-                   β::Number, y::AbstractArray{Ty,N}) where {Tx,Ty,Tz,N}
-    @dispatch_on_multiplier β unsafe_vcombine!(z, α, x, β, y)
+    if (S & CONVERT_ALPHA) != 𝟘
+        α′ = convert_multiplier(α, eltype(x))
+        vcombine!(Job((S & ~(CHECK_INDICES|CONVERT_ALPHA)) | DISPATCH_ALPHA),
+                  z, α′, x, β, y)
+    elseif (S & DISPATCH_ALPHA) != 𝟘
+        @dispatch_on_multiplier α vcombine!(Job(S & ~(CHECK_INDICES|DISPATCH_ALPHA)),
+                                            z, α, x, β, y)
+    elseif (S & CONVERT_BETA) != 𝟘
+        β′ = convert_multiplier(β, eltype(y))
+        vcombine!(Job((S & ~(CHECK_INDICES|CONVERT_BETA)) | DISPATCH_BETA),
+                  z, α, x, β′, y)
+    elseif (S & DISPATCH_BETA) != 𝟘
+        @dispatch_on_multiplier β unsafe_vcombine!(z, α, x, β, y)
+    else
+        unsafe_vcombine!(z, α, x, β, y)
+    end
     return z
 end
 
@@ -896,45 +850,36 @@ See also [`LazyAlgebra.unsafe_vmap!`](@ref).
 vmap!(y::AbstractArray, α::Number, f::Function, w::AbstractArray, x::AbstractArray) =
     vmap!(α, f, w, x, 𝟘, y)
 
-# Stages for `vmap!(α, f, w, x, β, y)`:
-#   0. Check axes.
-#   1. Convert `α`.
-#   2. Dispatch on `α`.
-#   3. If `α` is zero, call `vscale!(y,β)` and stop; otherwise, convert `β` and proceed
-#      with next stage.
-#   4. Dispatch on `β` to call the unsafe method.
 function vmap!(α::Number, f::Function, w::AbstractArray, x::AbstractArray,
                β::Number, y::AbstractArray)
-    @assert_same_axes w x y
-    return vmap!(Stage(1), α, f, w, x, β, y)
+    return vmap!(Job(CHECK_INDICES|CONVERT_ALPHA|CONVERT_BETA), α, f, w, x, β, y)
 end
-function vmap!(::Stage{1},
-               α::Number, f::Function, w::AbstractArray{Tw,N}, x::AbstractArray{Tx,N},
-               β::Number, y::AbstractArray{Ty,N}) where {Tw,Tx,Ty,N}
-    α′ = convert_multiplier(α, Base.promote_op(f, eltype(w), eltype(x)))
-    return vmap!(Stage(2), α′, f, w, x, β, y)
-end
-function vmap!(::Stage{2},
-               α::Number, f::Function, w::AbstractArray{Tw,N}, x::AbstractArray{Tx,N},
-               β::Number, y::AbstractArray{Ty,N}) where {Tw,Tx,Ty,N}
-    @dispatch_on_multiplier α vmap!(Stage(3), α, f, w, x, β, y)
-    return y
-end
-function vmap!(::Stage{3},
-               α::Number, f::Function, w::AbstractArray{Tw,N}, x::AbstractArray{Tx,N},
-               β::Number, y::AbstractArray{Ty,N}) where {Tw,Tx,Ty,N}
-    if α isa StaticMultiplier{0}
-        vscale!(y, β)
-    else
-        β′ = convert_inplace_multiplier(β, eltype(y))
-        vmap!(Stage(4), α, f, w, x, β′, y)
+
+function vmap!(::Job{S}, α::Number, f::Function, w::AbstractArray, x::AbstractArray,
+               β::Number, y::AbstractArray) where {S}
+    # See comments about the job bits in the implementation of the `vmul!` method.
+    if (S & CHECK_INDICES) != 𝟘
+        @assert_same_axes w x y
     end
-    return y
-end
-function vmap!(::Stage{4},
-               α::Number, f::Function, w::AbstractArray{Tw,N}, x::AbstractArray{Tx,N},
-               β::Number, y::AbstractArray{Ty,N}) where {Tw,Tx,Ty,N}
-    @dispatch_on_multiplier β unsafe_vmap!(α, f, w, x, β, y)
+    if (S & CONVERT_ALPHA) != 𝟘
+        α′ = convert_multiplier(α, Base.promote_op(f, eltype(w), eltype(x)))
+        vmap!(Job((S & ~(CHECK_INDICES|CONVERT_ALPHA)) | DISPATCH_ALPHA),
+              α′, f, w, x, β, y)
+    elseif (S & DISPATCH_ALPHA) != 𝟘
+        @dispatch_on_multiplier α vmap!(Job(S & ~(CHECK_INDICES|DISPATCH_ALPHA)),
+                                        α, f, w, x, β, y)
+    elseif (S & CONVERT_BETA) != 𝟘
+        β′ = convert_inplace_multiplier(β, eltype(y))
+        vmap!(Job((S & ~(CHECK_INDICES|CONVERT_BETA)) | DISPATCH_BETA),
+              α, f, w, x, β′, y)
+    elseif (S & DISPATCH_BETA) != 𝟘
+        @dispatch_on_multiplier β vmap!(Job(0), α, f, w, x, β, y)
+    elseif α == 𝟘
+        # Do not ever call `f` in that case.
+        unsafe_vscale!(y, β)
+    else
+        unsafe_vmap!(α, f, w, x, β, y)
+    end
     return y
 end
 

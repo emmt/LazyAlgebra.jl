@@ -128,8 +128,8 @@ flatten_sum!(A::AbstractVector{Operator}, (λ,B)::Prod{<:Number,<:Sum}) =
     # Distribute multiplication by a scalar over the terms of a sum.
     isone(λ) ? flatten_sum!(A, B) : flatten_sum!(flatten_sum!(A, λ*B[1]), λ*B[2])
 flatten_sum!(A::AbstractVector{Operator}, B::Operator) =
-    flatten_sum!(Stage(1), A, simplify(B))
-function flatten_sum!(::Stage{1}, A::AbstractVector{Operator}, B::Operator)
+    flatten_sum!(Val(1), A, simplify(B))
+function flatten_sum!(::Val{1}, A::AbstractVector{Operator}, B::Operator)
     # This version is called when `B` is not a sum and has been simplified. First, attempt
     # to combine `B` with any preceding terms of the sum; if this fails, `B` is appended
     # to the list of terms.

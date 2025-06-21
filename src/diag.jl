@@ -73,9 +73,9 @@ for (T, B, f) in ((:(                 Diag ), :(              A),   :(*)),
     @eval begin
         function unsafe_vmul!(α::Number, A::$T, x::AbstractArray,
                               β::Number, y::AbstractArray)
-            # Call `vmap!` at stage 1 to dispatch on the multipliers because
-            # axes of array arguments have already been checked.
-            return vmap!(Stage(1), α, $f, diag($B), x, β, y)
+            # Axes have been checked, `α` and `β` have been converted, and `α` is not
+            # zero, so we can directly call `unsafe_vmap!`.
+            return unsafe_vmap!(α, $f, diag($B), x, β, y)
         end
     end
 end

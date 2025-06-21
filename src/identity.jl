@@ -59,9 +59,7 @@ output_axes(A::Identity) = input_axes(A)
 output_size(A::Identity) = input_size(A)
 
 unsafe_vmul!(α::Number, A::Identity, x::AbstractArray, β::Number, y::AbstractArray) =
-    # Call `vcombine!` at stage 1 to dispatch on the values of `α` and `β` because array
-    # axes have already been checked.
-    vcombine!(Stage(1), y, α, x, β, y)
+    unsafe_vcombine!(α, x, β, y)
 
 # Taking the adjoint or the inverse of the identity (whatever the i/o shape) does
 # nothing.

@@ -483,20 +483,20 @@ function unsafe_vmul!(α::Number,
         if β == 𝟘
             # Use `y` as a workspace.
             mul!(y, H.forward, x) # out-of-place forward FFT of x in y
-            vmul!(Stage(1), y, α/n, d) # in-place multiply y by mtf/n
+            vmul!(Job(CONVERT_ALPHA), y, α/n, d) # in-place multiply y by mtf/n
             mul!(y, H.backward, y) # in-place backward FFT of y
         else
             # Must allocate a workspace.
             z = Array{Complex{T}}(undef, H.zdims) # allocate temporary
             mul!(z, H.forward, x) # out-of-place forward FFT of x in z
-            vmul!(Stage(1), z, α/n, d) # in-place multiply z by mtf/n
+            vmul!(Job(CONVERT_ALPHA), z, α/n, d) # in-place multiply z by mtf/n
             mul!(z, H.backward, z) # in-place backward FFT of z
             vcombine!(y, 𝟙, z, β, y)
         end
     else
         z = Array{Complex{T}}(undef, H.zdims) # allocate temporary
         mul!(z, H.forward, x) # out-of-place forward FFT of x in z
-        vmul!(Stage(1), z, α/n, d) # in-place multiply z by mtf/n
+        vmul!(Job(CONVERT_ALPHA), z, α/n, d) # in-place multiply z by mtf/n
         if β == 𝟘
             mul!(y, H.backward, z) # out-of-place backward FFT of z in y
         else

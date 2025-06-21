@@ -3,18 +3,24 @@
 # Union of multiplier types that are left unchanged by `convert_multiplier`.
 const StaticMultiplier{v} = Union{Neutral{v},AbstractQuantity{Neutral{v}}}
 
-# Lightweight structure to keep track of some algorithm stage.
-# Can be used to jump or branch to a given stage.
-#
-# For example:
-# • 0 -> 1 check indices;
-# • 1 -> 2 dispatch on 1st multiplier;
-# • 2 -> 3 dispatch on 2nd multiplier;
-# • etc. and eventually call the `unsafe_*` method.
-struct Stage{N}
+# Lightweight structure to keep track of an algorithm stage and which can be used to jump
+# or branch to a given stage. As an example, the parameter `N` can be set with bits
+# indicating the remaining jobs to perform.
+struct Job{N}
     # The inner constructor is to restrict the type of the parameter value.
-    Stage(N::Int) = new{N}()
+    Job(N::Int) = new{N}()
 end
+
+# The following constants encode the bits corresponding to the operations that remain to
+# be performed in methods such as `vmul!` before calling the "unsafe" method. The reason
+# to separate the conversion of a multiplier and the dispatching on its value is to cope
+# with the possibility that the result of the conversion, by `convert_multiplier` or by
+# `convert_inplace_multiplier`, may not be inferable.
+const CHECK_INDICES  = (1 << 0) # must check array indices
+const CONVERT_ALPHA  = (1 << 1) # must convert α
+const DISPATCH_ALPHA = (1 << 2) # must dispatch on α
+const CONVERT_BETA   = (1 << 3) # must convert β
+const DISPATCH_BETA  = (1 << 4) # must dispatch on β
 
 """
     Operator
