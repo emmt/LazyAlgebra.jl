@@ -613,13 +613,16 @@ store the result even though it is not initialized.
 Multiplier `β` must be dimensionless; it can be complex if `y` also has complex element
 type, and must be real otherwise.
 
-Another supported syntax is:
+Other supported calls are:
 
     vmul!(y::AbstractArray, [α::Number=𝟙], A::Operator, x::AbstractArray) -> y
+    vmul!(z::AbstractArray, α::Number, A::Operator, x::AbstractArray, β::Number, y::AbstractArray) -> z
 
-to overwrite `y` with `α*A*x`, this is a shortcut for:
+to respectively overwrite `y` with `α*A*x` and `z` with `α*A⋅x + β*y`, these are shortcuts
+for:
 
     vmul!(α, A, x, 0, y)
+    vmul!(α, A, x, 1, vscale!(z, β, y))
 
 The `vmul!` method can be seen as a generalization of the `LinearAlgebra.mul!` method.
 
@@ -690,6 +693,18 @@ function vmul!(::Job{S}, α::Number, A::Operator, x::AbstractArray,
         unsafe_vmul!(α, A, x, β, y)
     end
     return y
+end
+
+function vmul!(z::AbstractArray, α::Number, A::Operator, x::AbstractArray,
+               β::Number, y::AbstractArray)
+    @assert_same_axes y z
+    β′ = convert_inplace_multiplier(β, eltype(y))
+    if β′ == 𝟘
+        vmul!(α, A, x, 𝟘, z)
+    else
+        vmul!(α, A, x, 𝟙, unsafe_vscale!(z, β′, y))
+    end
+    return z
 end
 
 """
