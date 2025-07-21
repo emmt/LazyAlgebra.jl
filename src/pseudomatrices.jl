@@ -125,11 +125,13 @@ end
 
 function unsafe_vmul!(α::Number, A::Adjoint{<:PseudoMatrix}, x::AbstractArray,
                       β::Number, y::AbstractArray)
-    C = parent(A') # array storing the coefficients
+    C = parent(parent(A)) # array storing the coefficients
     I = CartesianIndices(axes(x))
     J = CartesianIndices(axes(y))
+    t = zero(eltype(C))*zero(eltype(x))
+    T = typeof(t + t) # type of accumulator
     @inbounds for j in J
-        s = 0*zero(eltype(C))*zero(eltype(x))
+        s = zero(T)
         @inbounds @fastmath @simd for i in I
             s += conj(C[i,j])*x[i]
         end
