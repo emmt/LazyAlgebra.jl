@@ -66,9 +66,10 @@ Base.ndims(::HasInputShape{N}) where {N} = N
     throw_argument_error("unknown number of input dimensions")
 
 """
+    LazyAlgebra.InputShape(A)
     LazyAlgebra.InputShape(typeof(A))
 
-given the type of an operator `A`, yields one of:
+depending on the type of operator `A`, yield one of:
 
 * `LazyAlgebra.InputShapeUnknown()` if the shape of the input of `A` cannot be determined
   in advance. This is the assumed default.
@@ -87,9 +88,10 @@ InputShape(::Type{A}) where {A<:Union{Adjoint,Inverse}} =
     transpose(OutputShape(parent(A)))
 
 """
+    LazyAlgebra.OutputShape(A)
     LazyAlgebra.OutputShape(typeof(A))
 
-given the type of an operator `A`, yields one of:
+depending on the type of operator `A`, yield one of:
 
 * `LazyAlgebra.OutputShapeUnknown()` if the shape of the output of `A` cannot be
   determined in advance.
@@ -100,7 +102,7 @@ given the type of an operator `A`, yields one of:
 
 !!! note
     In any case, the output shape of `A*x` can be determined by
-    `LazyAlgebra.output_axes(A,x)`.
+    `LazyAlgebra.output_axes(A, x)`.
 
 See also [`LazyAlgebra.OutputEltype](@ref), [`LazyAlgebra.InputShape](@ref), and
 [`LazyAlgebra.output_axes](@ref).
@@ -113,9 +115,10 @@ OutputShape(::Type{A}) where {A<:Union{Adjoint,Inverse}} =
     transpose(InputShape(parent(A)))
 
 """
+    LazyAlgebra.InputEltype(A)
     LazyAlgebra.InputEltype(typeof(A))
 
-given the type of an operator `A`, yields one of:
+depending on the type of operator `A`, yield one of:
 
 * `LazyAlgebra.InputEltypeUnknown()` if the element type of the input of `A` cannot be
   determined in advance. This is the assumed default.
@@ -133,9 +136,10 @@ InputEltype(::Type{A}) where {A<:Union{Adjoint,Inverse}} =
     transpose(OutputEltype(parent(A)))
 
 """
+    LazyAlgebra.OutputEltype(A)
     LazyAlgebra.OutputEltype(typeof(A))
 
-given the type of an operator `A`, yields one of:
+depending on the type of operator `A`, yield one of:
 
 * `LazyAlgebra.OutputEltypeUnknown()` if the element type of the output of `A` cannot be
   determined in advance. This is the assumed default.
@@ -167,7 +171,7 @@ To implement this trait for an operator, the following two methods shall be spec
 
 ```julia
 LazyAlgebra.InputEltype(typeof(A)) = LazyAlgebra.HasInputEltype()
-LazyAlgebra.input_eltype(typeof(A)) = ...
+LazyAlgebra.input_eltype(typeof(A)) = T
 ```
 
 If this trait is implemented, argument `x` with a different element type is automatically
@@ -192,14 +196,14 @@ input_eltype(::Type{A}) where {A<:Union{Adjoint,Inverse}} = output_eltype(parent
     LazyAlgebra.output_eltype(A) -> T
     LazyAlgebra.output_eltype(typeof(A)) -> T
 
-yields the element type `T` of the result of `A*x` for operator `A` and for any acceptable
+yields the element type `T` of the result of `A*x` for operator `A` and any acceptable
 `x`. Not all operators implement this trait.
 
 To implement this trait for an operator, the following two methods shall be specialized:
 
 ```julia
 LazyAlgebra.OutputEltype(typeof(A)) = LazyAlgebra.HasOutputEltype()
-LazyAlgebra.output_eltype(typeof(A)) = ...
+LazyAlgebra.output_eltype(typeof(A)) = T
 ```
 
 !!! warning
