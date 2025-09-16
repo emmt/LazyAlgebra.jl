@@ -34,13 +34,14 @@ mark(A::Prod{<:Number}) = A[1]*mark(A[2])
 mark(A::Prod{<:Operator}) = mark(A[1])*mark(A[2])
 mark(A::Operator) = A
 
+# Reverst the effects of `mark`.
 unmark(A::Marked) = parent(A)
 unmark(A::Prod{<:Number}) = A[1]*unmark(A)
 unmark(A::Prod{<:Operator}) = unmark(A[1])*unmark(A[2])
 unmark(A::Operator) = A
 
 function unmark!(A::AbstractVector{Operator})
-    for i in eachindex(A)
+    @inbounds for i in eachindex(A)
         A[i] = unmark(A[i])
     end
     return A
@@ -61,10 +62,14 @@ simplify(A::Operator) = something(try_simplify(A), A)
 
 # Simplify a composition of operators.
 function simplify(A::Prod{<:Operator})
-    # Fist try to simplify the whole composition. If this fails, apply a hierarchical
-    # strategy.
+    # Fist try to simplify the whole composition. If this fails, attempt to simplify
+    # sub-expressions of decreasing lengths.
     B = try_simplify(A)
-    is_something(B) ? B : simplify_prod(flatten_prod!(𝟙, Operator[], A)..., false)
+    if is_something(B)
+        return B
+    else
+        return simplify_prod(flatten_prod!(𝟙, Operator[], A)..., false)
+    end
 end
 
 flatten_prod!(λ::Number, A::AbstractVector{Operator}, B::Prod{<:Number}) =
@@ -95,8 +100,10 @@ function simplify_prod(λ::Number, A::AbstractVector{Operator}, whole::Bool)
         # them again.
         for i in firstindex(A):(lastindex(A) - n + 1)
             B = try_simplify(foldr(Prod, view(A, i:i+n-1)))
-            is_something(B) && return simplify_prod(
-                λ, view(A, firstindex(A):i-1), mark(B), view(A, i+n:lastindex(A)))
+            if is_something(B)
+                return simplify_prod(λ, view(A, firstindex(A):i-1),
+                                     mark(B), view(A, i+n:lastindex(A)))
+            end
         end
         n -= 1
     end
@@ -108,15 +115,17 @@ end
 
 function simplify_prod(λ::Number, A::AbstractVector{Operator}, B::Operator,
                        C::AbstractVector{Operator})
-    A′ = Operator[]
+    # Accumulate all operators of the composition `λ*prod(A)*B*prod(C)` in `R` and the
+    # product of multipliers in `μ`.
+    R = Operator[]
     for Aᵢ in A
-        push!(A′, Aᵢ)
+        push!(R, Aᵢ)
     end
-    λ′, _ = flatten_prod!(λ, A′, B)
+    μ, _ = flatten_prod!(λ, R, B)
     for Cᵢ in C
-        push!(A′, Cᵢ)
+        push!(R, Cᵢ)
     end
-    return simplify_prod(λ′, A′, true)
+    return simplify_prod(μ, R, true)
 end
 
 # Simplify a sum of any number of terms.
