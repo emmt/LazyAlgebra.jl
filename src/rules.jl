@@ -58,7 +58,7 @@ Inverse(α::Neutral       ) = inv(α)
 Base.:(+)(A::Operator) = A
 #
 Base.:(-)(A::Prod{<:Number}) = (-A[1]) * A[2]
-Base.:(-)(A::Operator) = (-1) * A
+Base.:(-)(A::Operator) = (-𝟙) * A
 
 # Addition (+) and subtraction (-) of operators yield a Sum.
 Base.:(+)(A::Operator, B::Operator) = Sum(A, B)
@@ -150,8 +150,8 @@ Prod(A::Prod, B::Operator) = A[1] * (A[2] * B)
 
 # The neutral element ("zero") for the addition is zero times a mapping of the
 # proper type.
-Base.zero(A::Operator) = 0 * A
-Base.zero(A::Prod{<:Number}) = zero(A[2])
+Base.zero(A::Operator) = 𝟘 * A
+Base.zero(A::Prod{<:Number}) = zero(A[1]) * A[2]
 
 Base.iszero(A::Prod{<:Number}) = iszero(A[1])
 Base.iszero(::Operator) = false
