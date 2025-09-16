@@ -621,8 +621,8 @@ Other supported calls are:
 to respectively overwrite `y` with `α*A*x` and `z` with `α*A⋅x + β*y`, these are shortcuts
 for:
 
-    vmul!(α, A, x, 0, y)
-    vmul!(α, A, x, 1, vscale!(z, β, y))
+    vmul!(α, A, x, 𝟘, y)
+    vmul!(α, A, x, 𝟙, vscale!(z, β, y))
 
 The `vmul!` method can be seen as a generalization of the `LinearAlgebra.mul!` method.
 
