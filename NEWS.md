@@ -48,14 +48,14 @@ and changes.
 
 - **Simplifications** that are automatically done by`LazyAlgebra` (i.e., at construction
   time of operators) must be **type-stable**. They may change multipliers but must not
-  change the coefficients of the mappings. Call `simplify(A)` to apply further
+  change the coefficients of the operators. Call `simplify(A)` to apply further
   simplifications that are allowed to not be type-stable and that may change the
   coefficients of the mappings in `A`. For instance, assuming `a` is an array,
   `inv(Diag(a))` automatically yields `Inverse(Diag(a))` while `simplify(inv(Diag(a)))`
-  yields `Diag(1 ./ a)`. Another example, assuming `A` is a simple operator and `λ` a
-  number, `λ*A` is not automatically simplified into `A` if `λ = 1` (because the result
-  would depend on the value, not on the type, of `λ`), while `simplify(λ*A)` yields `A` if
-  `λ = 1`.
+  yields `Diag(𝟙 ./ a)`. Another example, assuming `A` is a simple operator and `λ` a
+  number, `λ*A` is not automatically simplified into `A` if `isone(λ)` holds (because the
+  result would depend on the value, not on the type, of `λ`), while `simplify(λ*A)` yields
+  `A` if `isone(λ)` holds.
 
 - **Dimensionful numbers**, that is numbers with units, should be fully supported with
   their usual meaning in linear algebra.
@@ -68,35 +68,21 @@ and changes.
   generality as the methods accept dimensionful values.
 
 
-### Removed
+### Breaking changes
 
 - Non-linear mappings are no longer supported. As a result, the `Jacobian` type, the
   `jacobian`, `∇`, `primitive`, `variables`, and `is_linear` functions, and the
   `LinearType` trait and its sub-types `Linear`, and `NonLinear` have been suppressed.
 
+- Abstract type `LinearMapping` renamed `Operator`.
+
 - Type `NonuniformScaling` replaced by its alias `Diag`.
-
-- `Gram` type has been removed. Use the syntax `G = A'*A` to build a Gram operator `G`
-  from the operator `A`.
-
-- The `unveil` function has been removed. Call `parent(A)` for adjoint, or inverse
-  operators and `parent(parent(A))` on inverse-adjoint operators.
-
-- The `coefficients` function has been removed. Call `parent(A)` for diagonal operator or
-  pseudo-matrix `A`.
 
 - `GeneralMatrix` has been replaced by `FlexibleMatrix` which is a special case of the
   `PseudoMatrix` operator.
 
-
-### Changed
-
-- Abstract type `LinearMapping` renamed `Operator`.
-
-- Scalar multipliers, array elements, and operator coefficients may have units.
-
 - Methods `vmul`, `vmul!`, and `LazyAlgebra.unsafe_vmul!` replace `LazyAlgebra.apply` and
-  `LazyAlgebra.apply!`. `vmul`, and `vmul!` were already existing wand were exported by
+  `LazyAlgebra.apply!`. `vmul`, and `vmul!` were already existing and were exported by
   `using LazyAlgebra`. Instead of extending `vmul!` directly for each operator type, it is
   sufficient to specialize `LazyAlgebra.unsafe_vmul!(α, A, x, β, y)` which is called after
   checking that `x` and `y` have suitable dimensions or axes and after converting the
@@ -116,8 +102,8 @@ and changes.
   `α*A*x + β*y`.
 
 - The inner product computed by `vdot` and the norms computed by `vnorm1`, `vnorm2`, and
-  `vnorminf` treat complexes as usually done in linear algebra. The only difference is that
-  multi-dimensional arguments are considered as *vectors*.
+  `vnorminf` now treat complexes as usually done in linear algebra. The only difference is
+  that multi-dimensional arguments are considered as *vectors*.
 
 - Extending vectorized methods to other *vector* types shall only require to specialize
   the *unsafe* version of the methods (the ones with the `unsafe_` prefix).
@@ -167,11 +153,24 @@ and changes.
   - `i` is a row index;
   - `j` is a column index;
   - `ij` is a row or column index depending on the storage format of `A`;
-  - `k` is an index into the array of structural non-zeros;
+  - `k` is an index into the array of structural non-zeros.
 
   With the new API, the code for the sparse operators is now around 1800 lines, compared
   to 2500 previously.
 
+- The `unveil` function has been removed. Call `parent(A)` for adjoint, or inverse
+  operators and `parent(parent(A))` on inverse-adjoint operators.
+
+- The `coefficients` function has been removed. Call `parent(A)` for diagonal operator or
+  pseudo-matrix `A`.
+
+- `Gram` type has been removed. Use the syntax `G = A'*A` to build a Gram operator `G`
+  from the operator `A`.
+
+
+### Non-breaking changes
+
+- Scalar multipliers, array elements, and operator coefficients may have units.
 
 ### Added
 
