@@ -6,40 +6,40 @@
 #
 #-----------------------------------------------------------------------------------------
 
-# Accessors for Adjoint, Inverse, Sum, and Prod.
-Base.parent(A::Union{Adjoint,Inverse}) = getfield(A, :parent)
-Base.getindex(A::Union{Adjoint,Inverse}) = parent(A)
-Base.Tuple(A::Union{Sum,Prod}) = getfield(A, :operands)
-for Wrapper in (:Adjoint, :Inverse)
+# Accessors and base methods for Adjoint and Inverse.
+for S in (:Adjoint, :Inverse)
     @eval begin
+        Base.parent(A::$S) = getfield(A, :parent)
+        Base.getindex(A::$S) = parent(A)
         # Make `parent` also applicable to types of wrapped operators.
-        Base.parent(::Type{$Wrapper{T}}) where {T} = T
+        Base.parent(::Type{$S{T}}) where {T} = T
     end
 end
 
-# Make Sum and Prod iterable.
-Base.first(A::Union{Sum,Prod}) = @inbounds A[1]
-Base.last( A::Union{Sum,Prod}) = @inbounds A[2]
-Base.firstindex(A::Union{Sum,Prod}) = 1
-Base.lastindex( A::Union{Sum,Prod}) = 2
-Base.length(A::Union{Sum,Prod}) = 2
-Base.IteratorSize(::Type{<:Union{Sum,Prod}}) = Base.HasLength()
-@inline Base.iterate(A::Union{Sum,Prod}, i::Int = 1) =
-    1 ≤ i ≤ 2 ? (unsafe_getindex(A, i), i + 1) : nothing
-@inline Base.getindex(A::Union{Sum,Prod}, i::Integer) =
-    1 ≤ i ≤ 2 ? unsafe_getindex(A, i) : throw(BoundsError(A, i))
-
-@inline unsafe_getindex(A::Union{Sum,Prod}, i::Integer) =
-    @inbounds getindex(Tuple(A), Int(i))
+# Accessors for Sum, Prod, and Scaled and make them iterable.
+for S in (:Sum, :Prod, :Scaled)
+    @eval begin
+        Base.Tuple(A::$S) = getfield(A, :operands)
+        Base.first(A::$S) = @inbounds A[1]
+        Base.last( A::$S) = @inbounds A[2]
+        Base.firstindex(A::$S) = 1
+        Base.lastindex( A::$S) = 2
+        Base.length(A::$S) = 2
+        Base.IteratorSize(::Type{<:$S}) = Base.HasLength()
+        @inline Base.iterate(A::$S, i::Int = 1) =
+            1 ≤ i ≤ 2 ? ((@inbounds Tuple(A)[i]), i + 1) : nothing
+        @inline Base.getindex(A::$S, i::Integer) =
+            1 ≤ i ≤ 2 ? (@inbounds Tuple(A)[i]) : throw(BoundsError(A, i))
+    end
+end
 
 # Extend `A'` to call `Adjoint(A)` for any operator `A`, automatically simplify taking the
 # adjoint of the adjoint of an operator and propagate the adjoint in products and in sums.
 Base.adjoint(A::Operator ) = Adjoint(A)
-Adjoint(A::Adjoint       ) = parent(A)
-Adjoint(A::Prod{<:Number}) = conj(A[1]) * Adjoint(A[2])
-Adjoint(A::Prod          ) = Adjoint(A[2]) * Adjoint(A[1])
-Adjoint(A::Sum           ) = Adjoint(A[1]) + Adjoint(A[2])
-Adjoint(α::Number        ) = conj(α)
+Adjoint(A::Adjoint) = parent(A)
+Adjoint(A::Scaled ) = conj(A[1]) * Adjoint(A[2])
+Adjoint(A::Prod   ) = Adjoint(A[2]) * Adjoint(A[1])
+Adjoint(A::Sum    ) = Adjoint(A[1]) + Adjoint(A[2])
 
 # Maintain inverse on top of adjoint.
 Adjoint(A::Inverse           ) = Inverse(Adjoint(parent(A)))
@@ -47,17 +47,15 @@ Adjoint(A::Inverse{<:Adjoint}) = inv(parent(parent(A)))
 
 # Extend `inv(A)` to call `Inverse(A)` for any operator `A`. Automatically simplify taking
 # the inverse of the inverse of an operator and propagate the inverse in products.
-Base.inv(A::Operator     ) = Inverse(A)
-Inverse(A::Inverse       ) = parent(A)
-Inverse(A::Prod{<:Number}) = A[1] \ Inverse(A[2])
-Inverse(A::Prod          ) = Inverse(A[2]) * Inverse(A[1])
-Inverse(α::Number        ) = is_rationalizable(α) ? one(α)//α : inv(α)
-Inverse(α::Neutral       ) = inv(α)
+Base.inv(A::Operator) = Inverse(A)
+Inverse(A::Inverse  ) = parent(A)
+Inverse(A::Scaled   ) = A[1] \ Inverse(A[2])
+Inverse(A::Prod     ) = Inverse(A[2]) * Inverse(A[1])
 
 # Unary plus and minus of operators.
 Base.:(+)(A::Operator) = A
 #
-Base.:(-)(A::Prod{<:Number}) = (-A[1]) * A[2]
+Base.:(-)(A::Scaled) = (-A[1]) * A[2]
 Base.:(-)(A::Operator) = (-𝟙) * A
 
 # Addition (+) and subtraction (-) of operators yield a Sum.
@@ -69,14 +67,14 @@ Base.:(-)(A::Operator, B::Operator) = A + (-B)
 # the multiplication are automatically done by the `Prod` constructor. Hence, divisions
 # are re-expressed as multiplications.
 Base.:(∘)(A::Operator, B::Operator) = A * B
+Base.:(*)(A::Operator, B::Operator) = Prod(A, B)
 Base.:(*)(A::Operator, β::Number  ) = β * A
-Base.:(*)(A::Operand,  B::Operator) = Prod(A, B)
-Base.:(*)(α::Number,   B::Operator) = Prod(α, B)
+Base.:(*)(α::Number,   B::Operator) = Scaled(α, B)
 #
-Base.:(/)(A::Operator,       β::Number) = Inverse(β) * A
-Base.:(/)(A::Prod{<:Number}, β::Number) = divide(A[1], β) * A[2]
-Base.:(/)(A::Operator,       B::Operator) = A * inv(B)
-Base.:(/)(α::Number,         B::Operator) = error(
+Base.:(/)(A::Operator, β::Number) = inverse(β) * A
+Base.:(/)(A::Scaled,   β::Number) = divide(A[1], β) * A[2]
+Base.:(/)(A::Operator, B::Operator) = A * inv(B)
+Base.:(/)(α::Number,   B::Operator) = error(
     "`A\\β` and `β/A` for a linear operator `A` and a number `β` intentionally not supported, write `β*inv(A)` or `β*Id/A` if that is the intention")
 #
 # Default rule for left-division in base Julia is: x\y -> adjoint(adjoint(y)/adjoint(x))
@@ -85,11 +83,20 @@ Base.:(\)(A::Operator, B::Operator) = inv(A) * B
 Base.:(\)(α::Number,   B::Operator) = B / α
 Base.:(\)(A::Operator, β::Number  ) = β / A
 
-# Equality. If no more specific rules exist, consider that two operators are different by
-# default unless they are the same object.
+# Equality.
+#
+# If no more specific rules exist, consider that two operators are different by default
+# unless they are the same object. This can be overridden for more specific operator
+# types.
 Base.:(==)(A::T, B::T) where {T<:Operator} = A === B
 Base.:(==)(A::Operator, B::Operator) = false
 Base.isequal(A::Operator, B::Operator) = A == B
+#
+# For sums, compositions, adjoint, inverse, etc., `isequal` is mostly used to simplify
+# expressions like sums of operators and products of an operator and an inverse operator.
+# Hence, comparisons can be implemented by very simple rules. The only restriction is that
+# the result shall only be accurate after full simplification rules have been applied to
+# both operands.
 for eq in (:(==), :isequal)
     @eval begin
         # Equality for sums of operators.
@@ -101,29 +108,45 @@ for eq in (:(==), :isequal)
         # been "simplified" (and thus their terms sorted).
         Base.$eq(A::Sum, B::Sum) = ($eq(A[1], B[1]) && $eq(A[2], B[2]))
         #
-        # For comparing a sum and another operator, it is lazily assumed that the i/o
-        # sizes of the terms of the sum are compatible. Again, the number of considered
-        # cases are not meant to be exhaustive, just to be sufficient if A and B have been
-        # simplified.
-        Base.$eq(A::Operator, B::Sum) = $eq(B, A)
-        Base.$eq(A::Sum, B::Operator) =
-            (iszero(A[1]) && $eq(A[2], B)) || (iszero(A[2]) && $eq(A[1], B))
-
-        # Equality for scaled operators and compositions of operators.
+        # Equality for scaled operators.
+        Base.$eq(A::Scaled, B::Scaled) = $eq(A[1], B[1]) && (iszero(A[1]) || $eq(A[2], B[2]))
+        #
+        # Equality for compositions of operators.
         Base.$eq(A::Prod, B::Prod) = $eq(A[1], B[1]) && $eq(A[2], B[2])
-        Base.$eq(A::Prod, B::Operator) = isone(A[1]) && $eq(A[2], B)
-        Base.$eq(A::Operator, B::Prod) = $eq(B, A)
-
-        # Equality between sums and products.
-        Base.$eq(A::Sum, B::Prod) = $eq(B, A)
-        Base.$eq(A::Prod, B::Sum) = isone(A[1]) && $eq(A[2], B)
-
+        #
         # Equality for adjoint and inverse (accounting for inverse-adjoint results from
         # these rules).
         Base.$eq(A::Adjoint, B::Adjoint) = $eq(parent(A), parent(B))
         Base.$eq(A::Inverse, B::Inverse) = $eq(parent(A), parent(B))
+        #
+        # Comparing operators of mixed kinds is delegated to an auxiliary function to
+        # reduce the cases to handle. We consider `Scaled` to be the most specific, then
+        # `Sum`, then others.
+        Base.$eq(A::Sum,      B::Scaled  ) = $eq(B, A)
+        Base.$eq(A::Prod,     B::Scaled  ) = $eq(B, A)
+        Base.$eq(A::Operator, B::Scaled  ) = $eq(B, A)
+        Base.$eq(A::Scaled,   B::Sum     ) = compare_with($eq, A, B)
+        Base.$eq(A::Scaled,   B::Prod    ) = compare_with($eq, A, B)
+        Base.$eq(A::Scaled,   B::Operator) = compare_with($eq, A, B)
+        #
+        Base.$eq(A::Prod,     B::Sum     ) = $eq(B, A)
+        Base.$eq(A::Operator, B::Sum     ) = $eq(B, A)
+        Base.$eq(A::Sum,      B::Prod    ) = compare_with($eq, A, B)
+        Base.$eq(A::Sum,      B::Operator) = compare_with($eq, A, B)
     end
 end
+
+# Comparing scaled with others.
+compare_with(f::Union{typeof(==),typeof(isequal)}, A::Scaled, B::Operator) =
+    isone(A[1]) && f(A[2], B)
+
+# For comparing a sum and another operator for equality, it is lazily assumed that the i/o
+# sizes of the terms of the sum are compatible. Again, the number of considered cases are
+# not meant to be exhaustive, just to be sufficient if A and B have been simplified.
+compare_with(f::Union{typeof(==),typeof(isequal)}, A::Sum, B::Operator) =
+    (iszero(A[1]) && f(A[2], B)) || (iszero(A[2]) && f(A[1], B))
+
+compare_with(f::Union{typeof(==),typeof(isequal)}, A::Operator, B::Operator) = false
 
 # Simplification rules for products and sums.
 #
@@ -132,12 +155,9 @@ end
 #   `simplify`.
 #
 # - Number operands are moved to the leftmost part of products and factorized.
-Prod(α::Number,           β::Number        ) = α * β
-Prod(A::Operator,         β::Number        ) = Prod(β, A)
-Prod(α::Number,           B::Prod{<:Number}) = (α * B[1]) * B[2]
-Prod(A::Operator,         B::Prod{<:Number}) = B[1] * (A * B[2])
-Prod(A::Prod{<:Operator}, B::Prod{<:Number}) = B[1] * (A * B[2])
-Prod(A::Prod{<:Number},   B::Prod{<:Number}) = (A[1] * B[1]) * (A[2] * B[2])
+Prod(A::Operator, B::Scaled  ) = B[1] * (A * B[2])
+Prod(A::Scaled,   B::Operator) = A[1] * (A[2] * B)
+Prod(A::Scaled,   B::Scaled  ) = (A[1] * B[1]) * (A[2] * B[2])
 #
 # - Right-associativity is applied to keep product and sum of operators in the expected
 #   order for applying these constructions to an argument. See `unsafe_vmul!` method for
@@ -146,20 +166,24 @@ Prod(A::Prod{<:Number},   B::Prod{<:Number}) = (A[1] * B[1]) * (A[2] * B[2])
 Sum( A::Sum,  B::Operator) = A[1] + (A[2] + B)
 Prod(A::Prod, B::Operator) = A[1] * (A[2] * B)
 
+# The following constructor insures that the right operand is always an unscaled operator.
+Scaled(α::Number, B::Scaled) = Scaled(α * B[1], B[2])
+
 #---------------------------------------------------------------------- NEUTRAL ELEMENTS -
 
 # The neutral element ("zero") for the addition is zero times a mapping of the proper
 # type.
 Base.zero(A::Operator) = 𝟘 * A
-Base.zero(A::Prod{<:Number}) = zero(A[1]) * A[2]
 
-Base.iszero(A::Prod{<:Number}) = iszero(A[1])
+Base.iszero(A::Scaled) = iszero(A[1])
 Base.iszero(::Operator) = false
 
-# The neutral element ("one") for the composition is the identity.
+# The neutral element ("one") for the composition is the identity even though it is "too
+# universal".
 Base.one(::Union{Operator,Type{<:Operator}}) = Id
 
 Base.isone(::Identity) = true
+Base.isone(A::Scaled{<:Number,<:Identity}) = isone(multiplier(A))
 Base.isone(::Operator) = false
 
 #----------------------------------------------------------------------------- PRECISION -
@@ -181,3 +205,8 @@ TypeUtils.adapt_precision(::Type{T}, (A,B)::Sum) where {T<:TypeUtils.Precision} 
     adapt_precision(T, A) + adapt_precision(T, B)
 TypeUtils.adapt_precision(::Type{T}, (A,B)::Prod) where {T<:TypeUtils.Precision} =
     adapt_precision(T, A) * adapt_precision(T, B)
+
+# Precision of a scaled operator does not depend on the multiplier.
+TypeUtils.get_precision(::Type{Scaled{<:Number,A}}) where {A} = get_precision(A)
+TypeUtils.adapt_precision(::Type{T}, (λ,A)::Scaled) where {T<:TypeUtils.Precision} =
+    adapt_precision(T, λ) * adapt_precision(T, A)

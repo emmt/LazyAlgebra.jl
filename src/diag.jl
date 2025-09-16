@@ -45,7 +45,7 @@ Diag(A::DiagonalOperator) = A
 
 # Constructors for identity and uniform scaling.
 Diag(A::Identity) = A
-Diag(A::Prod{<:Number,<:Identity}) = A
+Diag(A::Scaled{<:Number,<:Identity}) = A
 Diag(A::UniformScaling) = Operator(A)
 
 # API for operators.

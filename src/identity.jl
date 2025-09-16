@@ -71,7 +71,7 @@ Inverse(A::Identity) = A
 # be checked against that of the other arguments).
 #
 Prod(A::typeof(Id), B::typeof(Id)) = Id
-for T in (:Operator, :(Prod{<:Operator}), :(Prod{<:Number}))
+for T in (:Operator, :(Prod{<:Operator}), :Scaled)
     @eval begin
         Prod(A::$T, B::typeof(Id)) = A
         Prod(A::typeof(Id), B::$T) = B
@@ -79,6 +79,6 @@ for T in (:Operator, :(Prod{<:Operator}), :(Prod{<:Number}))
 end
 #
 Sum(A::typeof(Id),                B::typeof(Id)               ) = 2Id
-Sum(A::Prod{<:Number,typeof(Id)}, B::typeof(Id)               ) = (A[1] + 𝟙) * Id
-Sum(A::typeof(Id),                B::Prod{<:Number,typeof(Id)}) = (B[1] + 𝟙) * Id
-Sum(A::Prod{<:Number,typeof(Id)}, B::Prod{<:Number,typeof(Id)}) = (A[1] + B[1]) * Id
+Sum(A::Scaled{<:Number,typeof(Id)}, B::typeof(Id)               ) = (A[1] + 𝟙) * Id
+Sum(A::typeof(Id),                B::Scaled{<:Number,typeof(Id)}) = (B[1] + 𝟙) * Id
+Sum(A::Scaled{<:Number,typeof(Id)}, B::Scaled{<:Number,typeof(Id)}) = (A[1] + B[1]) * Id

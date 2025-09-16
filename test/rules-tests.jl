@@ -3,7 +3,13 @@ using Test
 using LinearAlgebra
 using Neutrals
 
-using LazyAlgebra: Adjoint, Inverse, Prod, Sum
+using LazyAlgebra: Adjoint, Inverse, Prod, Sum, Scaled, divide, inverse
+
+function plain(x)
+    io = IOBuffer()
+    show(io, MIME"text/plain"(), x)
+    return String(take!(io))
+end
 
 @testset "Arithmetic rules" begin
     @testset "Multipliers" begin
@@ -74,11 +80,11 @@ using LazyAlgebra: Adjoint, Inverse, Prod, Sum
         @test (A + B + C) + D === A + B + C + D
 
         # Sums and differences.
-        @test A - B === A + (-1)*B
-        @test A + B - C === A + B + (-1)*C
-        @test A - B - C === A + (-1)*B + (-1)*C
-        @test A - (B + C) === A + (-1)*(B + C)
-        @test -A + B - (C + D) === (-1)*A + B + (-1)*(C + D)
+        @test A - B === A + (-𝟙)*B
+        @test A + B - C === A + B + (-𝟙)*C
+        @test A - B - C === A + (-𝟙)*B + (-𝟙)*C
+        @test A - (B + C) === A + (-𝟙)*(B + C)
+        @test -A + B - (C + D) === (-𝟙)*A + B + (-𝟙)*(C + D)
 
         @testset "Product of $N terms" for N in (2, 3, 4)
             S = N == 2 ? @inferred(A * B) :
@@ -138,9 +144,6 @@ using LazyAlgebra: Adjoint, Inverse, Prod, Sum
         @test A * B / (C * D) === A * B * inv(D) * inv(C)
         @test A * B \ C * D === inv(A * B) * C * D # FIXME not `A * inv(B) * C * D` due to Julia associative rules
 
-        # Adjoint of a number
-        @test @inferred(Adjoint(42)) === 42
-        @test @inferred(Adjoint(4.0 - 2.0im)) === 4.0 + 2.0im
         # Adjoint of an operator
         @test typeof(A') <: Adjoint
         @test A' === adjoint(A)
@@ -171,8 +174,8 @@ using LazyAlgebra: Adjoint, Inverse, Prod, Sum
         @test (A * B * C * D)'[2][2][2] === A'
 
         # Inverse of a number
-        @test @inferred(Inverse(2)) === 1//2
-        @test @inferred(Inverse(3.0 - 2.0im)) ≈ (3.0 + 2.0im)/13.0
+        @test @inferred(inverse(2)) === 1//2
+        @test @inferred(inverse(3.0 - 2.0im)) ≈ (3.0 + 2.0im)/13.0
         # Inverse of an operator
         @test typeof(inv(A)) <: Inverse
         @test @inferred(inv(inv(A))) === A
@@ -212,41 +215,41 @@ using LazyAlgebra: Adjoint, Inverse, Prod, Sum
         # Scalar times operator.
         @testset "Scalar (λ=$λ) times $X" for λ in (0x0, true, 𝟙, -1, 1//2, pi, 2.3f0, 2.0 - 3.0im), X in (A, A + B, A*B)
             @test @inferred(λ*X) === @inferred(X*λ)
-            @test typeof(λ*X) <: Prod{typeof(λ),typeof(X)}
+            @test typeof(λ*X) <: Scaled{typeof(λ),typeof(X)}
             @test  first(λ*X) === λ
             @test   last(λ*X) === X
             #
             @test @inferred(X/λ) === @inferred(λ\X)
-            @test typeof(X/λ) <: Prod{<:Number,typeof(X)}
-            @test  first(X/λ) === Inverse(λ)
+            @test typeof(X/λ) <: Scaled{<:Number,typeof(X)}
+            @test  first(X/λ) === inverse(λ)
             @test   last(X/λ) === X
             #
             @test @inferred(adjoint((λ*X))) === (λ*X)'
             @test @inferred(adjoint((X*λ))) === (X*λ)'
             @test @inferred(conj(λ)*X') ===  (λ*X)'
-            @test typeof((λ*X)') <: Prod{<:Number,typeof(X')}
+            @test typeof((λ*X)') <: Scaled{<:Number,typeof(X')}
             @test  first((λ*X)') === conj(λ)
             @test   last((λ*X)') === X'
             #
-            @test @inferred(inv(λ*X)) === @inferred(Inverse(λ)*inv(X))
-            @test @inferred(inv(X*λ)) === @inferred(Inverse(λ)*inv(X))
-            @test typeof(inv(λ*X)) <: Prod{<:Number,typeof(inv(X))}
-            @test  first(inv(λ*X)) === Inverse(λ)
+            @test @inferred(inv(λ*X)) === @inferred(inverse(λ)*inv(X))
+            @test @inferred(inv(X*λ)) === @inferred(inverse(λ)*inv(X))
+            @test typeof(inv(λ*X)) <: Scaled{<:Number,typeof(inv(X))}
+            @test  first(inv(λ*X)) === inverse(λ)
             @test   last(inv(λ*X)) === inv(X)
             #
             @test (X/λ)' === @inferred(adjoint((X/λ)))
             @test (λ\X)' === @inferred(adjoint((X/λ)))
-            @test typeof((X/λ)') <: Prod{<:Number,typeof(X')}
-            @test  first((X/λ)') === Inverse(conj(λ))
+            @test typeof((X/λ)') <: Scaled{<:Number,typeof(X')}
+            @test  first((X/λ)') === inverse(conj(λ))
             @test   last((X/λ)') === X'
             #
             @test @inferred(inv(λ\X)) === @inferred(inv(X/λ))
-            @test typeof(inv(X/λ)) <: Prod{<:Number,typeof(inv(X))}
+            @test typeof(inv(X/λ)) <: Scaled{<:Number,typeof(inv(X))}
             @test  first(inv(X/λ)) ≈ λ
             @test   last(inv(X/λ)) === inv(X)
             #
             @test @inferred(inv((λ\X)')) === @inferred(inv((X/λ)'))
-            @test typeof(inv((X/λ)')) <: Prod{<:Number,typeof(inv(X'))}
+            @test typeof(inv((X/λ)')) <: Scaled{<:Number,typeof(inv(X'))}
             @test  first(inv((X/λ)')) ≈ conj(λ)
             @test   last(inv((X/λ)')) === inv(X')
         end
@@ -255,24 +258,24 @@ using LazyAlgebra: Adjoint, Inverse, Prod, Sum
         α, β = 3//4, -2.0 + 3.0im
         X, Y = B + C*D, A - D
         @test @inferred(A*α) === @inferred(α*A)
-        @test typeof(α*A) <: Prod{typeof(α),typeof(A)}
+        @test typeof(α*A) <: Scaled{typeof(α),typeof(A)}
         @test (A*B)*α === A*(B*α) === A*(α*B) === (A*α)*B === (α*A)*B === α*(A*B) === α*A*B
-        @test typeof(α*A*B) <: Prod{typeof(α),typeof(A*B)}
+        @test typeof(α*A*B) <: Scaled{typeof(α),typeof(A*B)}
         @test (A*X)*α === A*(X*α) === A*(α*X) === (A*α)*X === (α*A)*X === α*(A*X) === α*A*X
-        @test typeof(α*A*X) <: Prod{typeof(α),typeof(A*X)}
+        @test typeof(α*A*X) <: Scaled{typeof(α),typeof(A*X)}
         @test (A*B)/α === A*(B/α) === A*(α\B) === (A/α)*B === (α\A)*B === α\(A*B)
-        @test typeof(α\(A*B)) <: Prod{<:Number,typeof(A*B)}
+        @test typeof(α\(A*B)) <: Scaled{<:Number,typeof(A*B)}
         #
         @test @inferred(α*X + Y*β) === @inferred(α*X + β*Y)
         @test @inferred(X*α + β*Y) === @inferred(α*X + β*Y)
         @test @inferred(X*α + Y*β) === @inferred(α*X + β*Y)
-        @test typeof(α*X + β*Y) <: Sum{Prod{typeof(α),typeof(X)},Prod{typeof(β),typeof(Y)}}
+        @test typeof(α*X + β*Y) <: Sum{Scaled{typeof(α),typeof(X)},Scaled{typeof(β),typeof(Y)}}
         #
         @test @inferred((α*X)*(β*Y)) === @inferred((α*β)*(X*Y))
         @test @inferred((α*X)*(Y*β)) === @inferred((α*β)*(X*Y))
         @test @inferred((X*α)*(β*Y)) === @inferred((α*β)*(X*Y))
         @test @inferred((X*α)*(Y*β)) === @inferred((α*β)*(X*Y))
-        @test typeof((α*β)*(X*Y)) <: Prod{<:Number,typeof(X*Y)}
+        @test typeof((α*β)*(X*Y)) <: Scaled{<:Number,typeof(X*Y)}
 
         # `A\β` and `β/A` intentionally not supported.
         β = 3
@@ -289,43 +292,44 @@ using LazyAlgebra: Adjoint, Inverse, Prod, Sum
         @test A\(𝟙*B) === 𝟙*inv(A)*B
 
         # Showing expressions.
-        @test string(A) == "A"
-        @test string(A + B) == "A + B"
-        @test string(A * B) == "A*B"
-        @test string(A * B + C - D) == "A*B + C - D"
-        @test string(A * (B + C - D)) == "A*(B + C - D)"
-        @test string(A * (B + C * D)) == "A*(B + C*D)"
-        @test string(2A * (B + (-2 + 1im)C * D)) == "2*A*(B + (-2 + 1im)*C*D)"
-        @test string(-4A * (1*B - 3C * D)) == "-4*A*(B - 3*C*D)"
+        @test string(A) == "SymbolicOperator(:A)"
+        @test plain(A) == "A"
+        @test plain(A + B) == "A + B"
+        @test plain(A * B) == "A*B"
+        @test plain(A * B + C - D) == "A*B + C - D"
+        @test plain(A * (B + C - D)) == "A*(B + C - D)"
+        @test plain(A * (B + C * D)) == "A*(B + C*D)"
+        @test plain(2A * (B + (-2 + 1im)C * D)) == "2*A*(B + (-2 + 1im)*C*D)"
+        @test plain(-4A * (1*B - 3C * D)) == "-4*A*(B - 3*C*D)"
 
         # Unary plus and minus.
         @testset "Unary plus and minus on $X" for X in (A, A + B, A + B*C, A*(B + C*D))
             @test +X === X
-            @test -X === (-1)*X
-            @test typeof(-X) <: Prod{Int,typeof(X)}
+            @test -X === (-𝟙)*X
+            @test typeof(-X) <: Scaled{typeof(-𝟙),typeof(X)}
         end
 
         # Only type-stable simplifications are applied by constructors.
         @test @inferred(A + A) != @inferred(2A)
         @test typeof(A + A) <: Sum{typeof(A),typeof(A)}
-        @test typeof(2A) <: Prod{Int,typeof(A)}
+        @test typeof(2A) <: Scaled{Int,typeof(A)}
         #
         @test @inferred(A - A) != @inferred(0A)
-        @test @inferred(A - A) === @inferred(A + (-1)*A)
-        @test typeof(A - A) <: Sum{typeof(A),<:Prod{Int,typeof(A)}}
-        @test typeof(0A) <: Prod{Int,typeof(A)}
+        @test @inferred(A - A) === @inferred(A + (-𝟙)*A)
+        @test typeof(A - A) <: Sum{typeof(A),<:Scaled{typeof(-𝟙),typeof(A)}}
+        @test typeof(0A) <: Scaled{Int,typeof(A)}
         #
         @test @inferred(Id + Id) === 2Id
-        @test typeof(Id + Id) <: Prod{Int,typeof(Id)}
+        @test typeof(Id + Id) <: Scaled{Int,typeof(Id)}
         #
-        @test @inferred(Id - Id) === @inferred(0*Id)
-        @test typeof(Id - Id) <: Prod{<:Number,typeof(Id)}
+        @test @inferred(Id - Id) === @inferred(𝟘*Id)
+        @test typeof(Id - Id) <: Scaled{typeof(𝟘),typeof(Id)}
         #
         @test @inferred(Id + 3Id - 2Id) === @inferred(2Id)
-        @test typeof(2Id) <: Prod{<:Number,typeof(Id)}
+        @test typeof(2Id) <: Scaled{<:Number,typeof(Id)}
 
         # Neutral element for the addition.
-        @test zero(A) === 0*A
+        @test zero(A) === 𝟘*A
         @test zero(π*A) === zero(A)
         @test !iszero(A)
         @test !iszero(A - A) # because automatic simplifications must be type-stable
@@ -340,6 +344,8 @@ using LazyAlgebra: Adjoint, Inverse, Prod, Sum
         @test !isone(π*A + B*C)
         @test isone(Id)
         @test isone(Identity(3,4,5))
+        @test isone(1*Id)
+        @test !isone(-1*Id)
 
     end
 
@@ -382,10 +388,10 @@ using LazyAlgebra: Adjoint, Inverse, Prod, Sum
         @test A∘I === I.λ*A
         @test I*A === I.λ*A
         @test I∘A === I.λ*A
-        @test typeof(@inferred(A/I))   <: Prod{<:Number,typeof(A)}
-        @test typeof(@inferred(A/I*B)) <: Prod{<:Number,typeof(A*B)}
-        @test typeof(@inferred(I\A))   <: Prod{<:Number,typeof(A)}
-        @test typeof(@inferred(A*I\B)) <: Prod{<:Number,typeof(A\B)}
+        @test typeof(@inferred(A/I))   <: Scaled{<:Number,typeof(A)}
+        @test typeof(@inferred(A/I*B)) <: Scaled{<:Number,typeof(A*B)}
+        @test typeof(@inferred(I\A))   <: Scaled{<:Number,typeof(A)}
+        @test typeof(@inferred(A*I\B)) <: Scaled{<:Number,typeof(A\B)}
         @test Id + I === 2Id
         @test Id - I === 0Id
         @test I + Id === 2Id

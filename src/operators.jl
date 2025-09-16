@@ -422,7 +422,7 @@ output_axes(A::InverseAdjoint) = output_axes(A[][])
 input_axes( A::InverseAdjoint) = input_axes(A[][])
 
 # Output axes for products assuming right-associativity.
-output_axes(A::Prod{<:Number}, J::ArrayAxes) = output_axes(A[2], J)
+output_axes(A::Scaled, J::ArrayAxes) = output_axes(A[2], J)
 output_axes(A::Prod, J::ArrayAxes) = output_axes(A[1], output_axes(A[2], J))
 
 # Output axes for sums assuming right-associativity.
@@ -487,7 +487,7 @@ multiplier `λ`.
 
 """
 unscaled(A::Operator) = A
-unscaled(A::Prod{<:Number}) = A[2]
+unscaled(A::Scaled) = A[2]
 unscaled(A::UniformScaling) = Id
 
 """
@@ -499,7 +499,7 @@ an operator; otherwise yields `𝟙`. This method is also applicable to instance
 `B`.
 
 """
-multiplier(A::Prod{<:Number}) = A[1]
+multiplier(A::Scaled) = A[1]
 multiplier(A::Operator) = 𝟙
 multiplier(A::UniformScaling) = getfield(A, :λ)
 

@@ -140,7 +140,7 @@ function runtests()
             @test simplify(A'*inv(A*B)'*B') === Id
 
             @test simplify(inv(B'*A')*(A*B)') === Id
-            @test simplify(inv(A'*B')*B'*A') === Id
+            @test simplify(inv(A'*B')*A'*B') === Id
             @test simplify(A'*inv((A*B)')*B') === Id
 
             # Intentionally not supported `β/A` and `A\β`.

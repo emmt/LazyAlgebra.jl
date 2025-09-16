@@ -80,8 +80,13 @@ dimensionless(x::AbstractQuantity{T,NoDims,U}) where {T,U} = uconvert(NoUnits, x
 is_rationalizable(x::Number) = is_rationalizable(typeof(x))
 is_rationalizable(::Type{T}) where {T<:Number} = bare_type(T) <: Union{Integer, Rational}
 
+# Divide 2 multipliers.
 divide(num::Number, den::Number) =
     is_rationalizable(num) && is_rationalizable(den) ? num//den : num/den
+
+# Inverse a multiplier.
+inverse(α::Number ) = is_rationalizable(α) ? one(α)//α : inv(α)
+inverse(α::Neutral) = inv(α)
 
 #-----------------------------------------------------------------------------------------
 

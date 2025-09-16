@@ -22,17 +22,17 @@ Base.show(io::IO, A::Operator) = show(io, typeof(A))
 Base.show(io::IO, mime::MIME"text/plain", A::Operator) =
     print(io, parameterless(typeof(A)))
 
-for T in (:Sum, :Prod, :Adjoint, :Inverse)
+for S in (:Sum, :Prod, :Scaled, :Adjoint, :Inverse)
     @eval begin
-        Base.show(io::IO, mime::MIME, A::$T) = show(ShowContext(io, mime), A)
-        Base.show(io::IO, mime::MIME"text/plain", A::$T) = show(ShowContext(io, mime), A)
-        Base.show(io::IO, A::$T) = show(ShowContext(io), A)
+        Base.show(io::IO, mime::MIME, A::$S) = show(ShowContext(io, mime), A)
+        Base.show(io::IO, mime::MIME"text/plain", A::$S) = show(ShowContext(io, mime), A)
+        Base.show(io::IO, A::$S) = show(ShowContext(io), A)
     end
 end
 
 function Base.show(ctx::ShowContext, A::Adjoint)
     B = parent(A)
-    show_paren(ctx, B, B isa Union{Sum,Prod,Adjoint})
+    show_paren(ctx, B, B isa Union{Sum,Prod,Scaled,Adjoint})
     write(ctx, '\'')
 end
 
@@ -42,22 +42,24 @@ function Base.show(ctx::ShowContext, A::Inverse)
     write(ctx, ')')
 end
 
-function Base.show(ctx::ShowContext, A::Prod)
-    protect = A[2] isa Sum
-    if A[1] isa Number
-        λ = A[1]
-        if λ == -1
-            write(ctx, '-')
-        elseif λ == 1
-            protect = false
-        else
-            show_multiplier(ctx, λ)
-            write(ctx, '*')
-        end
+function Base.show(ctx::ShowContext, A::Scaled)
+    λ = A[1]
+    if λ == -1
+        write(ctx, '-')
+    elseif λ == 1
+        protect = false
     else
-        show_in_prod(ctx, A[1])
+        show_multiplier(ctx, λ)
         write(ctx, '*')
     end
+    protect = A[2] isa Sum
+    show_paren(ctx, A[2], protect)
+end
+
+function Base.show(ctx::ShowContext, A::Prod)
+    show_in_prod(ctx, A[1])
+    write(ctx, '*')
+    protect = A[2] isa Sum
     show_paren(ctx, A[2], protect)
 end
 
@@ -91,24 +93,25 @@ function show_next_in_sum(ctx::ShowContext, A::Sum)
     show_next_in_sum(ctx, A[2])
 end
 
-function show_next_in_sum(ctx::ShowContext, A::Prod)
-    if A[1] isa Number
-        λ = A[1]
-        if isreal(λ) && λ < zero(λ)
-            λ = -λ
-            write(ctx, " - ")
-        else
-            write(ctx, " + ")
-        end
-        if λ != one(λ)
-            show_multiplier(ctx, λ)
-            write(ctx, '*')
-        end
+function show_next_in_sum(ctx::ShowContext, A::Scaled)
+    λ = A[1]
+    if isreal(λ) && λ < zero(λ)
+        λ = -λ
+        write(ctx, " - ")
     else
         write(ctx, " + ")
-        show_in_prod(ctx, A[1])
+    end
+    if λ != one(λ)
+        show_multiplier(ctx, λ)
         write(ctx, '*')
     end
+    show_in_prod(ctx, A[2])
+end
+
+function show_next_in_sum(ctx::ShowContext, A::Prod)
+    write(ctx, " + ")
+    show_in_prod(ctx, A[1])
+    write(ctx, '*')
     show_in_prod(ctx, A[2])
 end
 

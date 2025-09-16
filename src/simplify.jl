@@ -10,7 +10,7 @@ is_nothing(::Any) = false
 is_something(x) = !is_nothing(x)
 
 order_in_sum(A::Operator) = hash(A)
-order_in_sum(A::Prod{<:Number}) = hash(A[2])
+order_in_sum(A::Scaled) = hash(A[2])
 
 # Structure to protect a sum from further simplifications.
 struct Marked{T<:Sum} <: Operator
@@ -30,14 +30,14 @@ end
 # operator remains a scaled operator and a marked composition of operators remains a
 # composition of operators.
 mark(A::Sum) = Marked(A)
-mark(A::Prod{<:Number}) = A[1]*mark(A[2])
-mark(A::Prod{<:Operator}) = mark(A[1])*mark(A[2])
+mark(A::Scaled) = A[1]*mark(A[2])
+mark(A::Prod) = mark(A[1])*mark(A[2])
 mark(A::Operator) = A
 
-# Reverst the effects of `mark`.
+# Revert the effects of `mark`.
 unmark(A::Marked) = parent(A)
-unmark(A::Prod{<:Number}) = A[1]*unmark(A)
-unmark(A::Prod{<:Operator}) = unmark(A[1])*unmark(A[2])
+unmark(A::Scaled) = A[1]*unmark(A)
+unmark(A::Prod) = unmark(A[1])*unmark(A[2])
 unmark(A::Operator) = A
 
 function unmark!(A::AbstractVector{Operator})
@@ -61,7 +61,7 @@ simplification rules applied by `LazyAlgebra.simplify`.
 simplify(A::Operator) = something(try_simplify(A), A)
 
 # Simplify a composition of operators.
-function simplify(A::Prod{<:Operator})
+function simplify(A::Prod)
     # Fist try to simplify the whole composition. If this fails, attempt to simplify
     # sub-expressions of decreasing lengths.
     B = try_simplify(A)
@@ -72,9 +72,9 @@ function simplify(A::Prod{<:Operator})
     end
 end
 
-flatten_prod!(λ::Number, A::AbstractVector{Operator}, B::Prod{<:Number}) =
+flatten_prod!(λ::Number, A::AbstractVector{Operator}, B::Scaled) =
     flatten_prod!(λ*B[1], A, B[2])
-flatten_prod!(λ::Number, A::AbstractVector{Operator}, B::Prod{<:Operator}) =
+flatten_prod!(λ::Number, A::AbstractVector{Operator}, B::Prod) =
     flatten_prod!(flatten_prod!(λ, A, B[1])..., B[2])
 flatten_prod!(λ::Number, A::AbstractVector{Operator}, B::Operator) =
     λ, push!(A, B)
@@ -133,7 +133,7 @@ simplify(A::Sum) = simplify_sum!(flatten_sum!(Operator[], A))
 
 flatten_sum!(A::AbstractVector{Operator}, B::Sum) =
     flatten_sum!(flatten_sum!(A, B[1]), B[2])
-flatten_sum!(A::AbstractVector{Operator}, (λ,B)::Prod{<:Number,<:Sum}) =
+flatten_sum!(A::AbstractVector{Operator}, (λ,B)::Scaled{<:Number,<:Sum}) =
     # Distribute multiplication by a scalar over the terms of a sum.
     isone(λ) ? flatten_sum!(A, B) : flatten_sum!(flatten_sum!(A, λ*B[1]), λ*B[2])
 flatten_sum!(A::AbstractVector{Operator}, B::Operator) =
@@ -260,14 +260,13 @@ end
 # Try to simplify a scaled operator. It is assumed that the whole expression cannot be
 # simplified by another more specific rule (otherwise this method would not have been
 # called).
-function try_simplify(A::Prod{<:Number})
+function try_simplify((λ, A)::Scaled)
     # Try to simplify the right-hand side and to eliminate the multiplier.
-    λ = multiplier(A)
-    B = try_simplify(unscaled(A))
-    if is_something(B)
+    B = try_simplify(A)
+    if is_something(B) # FIXME also check for 0 and -1?
         return isone(λ) ? B : λ*B
     else
-        return isone(λ) ? unscaled(A) : nothing
+        return isone(λ) ? A : nothing
     end
 end
 
@@ -310,7 +309,7 @@ function try_simplify((A,B)::Prod{<:DiagonalOperator,<:DiagonalOperator})
     end
 end
 
-function try_simplify((λ,A)::Prod{<:Number,<:DiagonalOperator})
+function try_simplify((λ,A)::Scaled{<:Number,<:DiagonalOperator})
     isone(λ) && return simplify(A)
     f = Base.Fix1(*, convert_multiplier(λ, eltype(A)))
     return Diag(map(f, diag(A)))
@@ -330,7 +329,7 @@ function try_simplify((A,B)::Sum{<:DiagonalOperator,<:DiagonalOperator})
 end
 
 function try_simplify((A,B)::Sum{<:MaybeScaled{<:DiagonalOperator},<:MaybeScaled{<:Identity}})
-    if B isa Union{ShapedIdentity,Prod{<:Number,<:ShapedIdentity}}
+    if B isa Union{ShapedIdentity,Scaled{<:Number,<:ShapedIdentity}}
         input_axes(A) == input_axes(B) || return nothing
     end
     a = diag(A)

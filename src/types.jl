@@ -164,12 +164,10 @@ const Operand = Union{Number,Operator}
 
 """
     C = A*B
-    C = LazyAlgebra.Prod(A::Union{Number,Operator}, B::Union{Number,Operator})
+    C = A∘B
+    C = LazyAlgebra.Prod(A::Operator, B::Operator)
 
-yield the result of multiplying operand `A` by operand `B`. If both operands are numbers,
-the result is a number; otherwise, if at least one of `A` or `B` is a linear operator, an
-instance of `Prod` is returned. If both operands are linear operators, `A∘B` and `A*B`
-yield the same result.
+yield the result of multiplying operator `A` by operator `B`.
 
 If `C` is an instance of `LazyAlgebra.Prod`, then `C[1]` and `C[2]` respectively yield the
 left and right operands of `C`. However, due to simplifications that may occur, these are
@@ -185,21 +183,34 @@ A*(B*C) -> Prod(A, Prod(B, C))
 ```
 
 """
-struct Prod{L<:Operand,R<:Operator} <: Operator
-    # In a `Prod` object, only the left operand can be a scalar, the right operand must be
-    # an operator. This is to force factorization of scalar multipliers to the left of
-    # products.
+struct Prod{L<:Operator,R<:Operator} <: Operator
     operands::Tuple{L,R}
-    Prod(left::L, right::R) where {L<:Operand,R<:Operator} = new{L,R}((left, right))
+    Prod(left::L, right::R) where {L<:Operator,R<:Operator} = new{L,R}((left, right))
 end
 
 @callable Prod
 
-# Alias representing `λ*A`, the linear operator `A` multiplied by a scalar `λ`. Call
-# [`LazyAlgebra.multiplier(B)`](@ref) and [`unscaled(B)`](@ref) with a scaled operator
-# `B = λ*A` to retrieve `λ` and `A` respectively.
-const Scaled{T<:Operator} = Prod{<:Number,T}
-const MaybeScaled{T<:Operator} = Union{T,Scaled{T}}
+"""
+    B = λ*A
+    B = LazyAlgebra.Scaled(λ::Number, A::Operator)
+
+yield the result of multiplying number `λ` by operator `A`.
+
+If `B` is an instance of `LazyAlgebra.Prod`, then `B[1]` (or
+[`LazyAlgebra.multiplier(B)`](@ref)) and `B[2]` ([`unscaled(B)`](@ref)) respectively yield
+the multiplier and the operator in `B`. However, due to simplifications that may occur,
+these are not necessarily `λ` and `A`.
+
+"""
+struct Scaled{L<:Number,R<:Operator} <: Operator
+    operands::Tuple{L,R}
+    Scaled(left::L, right::R) where {L<:Number,R<:Operator} = new{L,R}((left, right))
+end
+
+@callable Scaled
+
+# Alias representing `A` or `λ*A`, the linear operator `A` multiplied by a scalar `λ`.
+const MaybeScaled{A<:Operator} = Union{A,Scaled{<:Number,A}}
 
 abstract type InputShape end
 struct InputShapeUnknown <: InputShape end
