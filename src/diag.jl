@@ -39,7 +39,7 @@ LinearAlgebra.diag(A::Adjoint{<:Diag}) = lazymap(conj, diag(A[]))
 LinearAlgebra.diag(A::Inverse{<:Diag}) = lazymap(inv, diag(A[]))
 LinearAlgebra.diag(A::InverseAdjoint{<:Diag}) = lazymap(inv∘conj, diag(A[][]))
 
-# Conversion constructors. The rational is that `Diag(A) -> A` if `A` behaves as a
+# Conversion constructors. The rationale is that `Diag(A) -> A` if `A` behaves as a
 # diagonal operator and implements `diag(A)`.
 Diag(A::DiagonalOperator) = A
 

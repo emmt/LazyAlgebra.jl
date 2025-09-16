@@ -52,7 +52,7 @@ argument. For example:
 * `B = inv(A)`, `B = Id/A`, and `B = A\\Id` (where [`Id`](@ref) represents the *universal
   identity*) , build an operator `B` such that `B*x` yields the same result as `inv(A)*x`.
 
-* `B = α*A` (where `α` is a real) builds an operator `B` which behaves as `A` times `α`;
+* `B = α*A` (where `α` is a number) builds an operator `B` which behaves as `A` times `α`;
   that is `B*x` yields the same result as `α*(A*x)`.
 
 * `C = A + B + ...` builds an operator `C` which behaves as the sum of the operators `A`,
@@ -145,7 +145,7 @@ const AnyVariant{A} = Union{A,Adjoint{A},Inverse{A},InverseAdjoint{A}}
     C = A + B
     C = LazyAlgebra.Sum(A::Operator, B::Operator)
 
-yields a linear operator `C` representing the sum of the linear operators `A` and `B`.
+yield a linear operator `C` representing the sum of the linear operators `A` and `B`.
 
 If `C` is an instance of `LazyAlgebra.Sum`, then `C[1]` and `C[2]` respectively yield the
 left and right operands of `C`. However, due to simplifications that may occur, these are
@@ -195,9 +195,9 @@ end
 
 @callable Prod
 
-# Alias representing `λ*A`, the linear operator `A` multiplied by a scalar `λ`.
-# Call [`LazyAlgebra.multiplier(B)`](@ref) and [`unscaled(B)`](@ref) with a scaled
-# operator `B = λ*A` to retrieve `λ` and `A` respectively.
+# Alias representing `λ*A`, the linear operator `A` multiplied by a scalar `λ`. Call
+# [`LazyAlgebra.multiplier(B)`](@ref) and [`unscaled(B)`](@ref) with a scaled operator
+# `B = λ*A` to retrieve `λ` and `A` respectively.
 const Scaled{T<:Operator} = Prod{<:Number,T}
 const MaybeScaled{T<:Operator} = Union{T,Scaled{T}}
 

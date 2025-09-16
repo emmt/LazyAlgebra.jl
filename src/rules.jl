@@ -9,7 +9,7 @@
 # Accessors for Adjoint, Inverse, Sum, and Prod.
 Base.parent(A::Union{Adjoint,Inverse}) = getfield(A, :parent)
 Base.getindex(A::Union{Adjoint,Inverse}) = parent(A)
-Base.Tuple( A::Union{Sum,Prod}) = getfield(A, :operands)
+Base.Tuple(A::Union{Sum,Prod}) = getfield(A, :operands)
 for Wrapper in (:Adjoint, :Inverse)
     @eval begin
         # Make `parent` also applicable to types of wrapped operators.
@@ -148,8 +148,8 @@ Prod(A::Prod, B::Operator) = A[1] * (A[2] * B)
 
 #---------------------------------------------------------------------- NEUTRAL ELEMENTS -
 
-# The neutral element ("zero") for the addition is zero times a mapping of the
-# proper type.
+# The neutral element ("zero") for the addition is zero times a mapping of the proper
+# type.
 Base.zero(A::Operator) = 𝟘 * A
 Base.zero(A::Prod{<:Number}) = zero(A[1]) * A[2]
 

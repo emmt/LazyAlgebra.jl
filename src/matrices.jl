@@ -1,4 +1,4 @@
-# Extend LazyAlgebra to regular matrices and vectors and provide methods that generalize
+# Extend LazyAlgebra to regular matrices and vectors and provide methods to generalize
 # the API for matrices and vectors.
 
 # Extend `vmul!` for regular matrices.
@@ -46,7 +46,7 @@ input_size(A::Operator) = map(length, input_axes(A))
     LazyAlgebra.row_ndims(typeof(A))
 
 yield the number of dimensions of the result of applying the linear operator `A` or
-multiplying by the matrix `A`. This method is an alias to
+multiplying by the matrix `A`. This function is an alias to
 [`LazyAlgebra.output_ndims`](@ref).
 
 """
@@ -57,7 +57,7 @@ const row_ndims = output_ndims
     LazyAlgebra.col_ndims(typeof(A))
 
 yield the number of dimensions of the input argument `x` to compute `A*x` with the matrix
-or linear operator `A`. This method is an alias to [`LazyAlgebra.input_ndims`](@ref).
+or linear operator `A`. This function is an alias to [`LazyAlgebra.input_ndims`](@ref).
 
 """
 const col_ndims = input_ndims
@@ -66,7 +66,7 @@ const col_ndims = input_ndims
     LazyAlgebra.row_axes(A)
 
 yields the axes of the result of applying the linear operator `A` or of multiplying by the
-matrix `A`. This method is an alias to [`LazyAlgebra.output_axes`](@ref).
+matrix `A`. This function is an alias to [`LazyAlgebra.output_axes`](@ref).
 
 """
 const row_axes = output_axes
@@ -75,7 +75,7 @@ const row_axes = output_axes
     LazyAlgebra.col_axes(A)
 
 yields the axes of the input argument `x` to compute `A*x` with the matrix or linear
-operator `A`. This method is an alias to [`LazyAlgebra.input_axes`](@ref).
+operator `A`. This function is an alias to [`LazyAlgebra.input_axes`](@ref).
 
 """
 const col_axes = input_axes
@@ -84,7 +84,7 @@ const col_axes = input_axes
     LazyAlgebra.row_size(A)
 
 yields the dimensions of the result of applying the linear operator `A` or of multiplying
-by the matrix `A`. This method is an alias to [`LazyAlgebra.output_size`](@ref).
+by the matrix `A`. This function is an alias to [`LazyAlgebra.output_size`](@ref).
 
 """
 const row_size = output_size
@@ -93,7 +93,7 @@ const row_size = output_size
     LazyAlgebra.col_size(A)
 
 yields the dimensions of the input argument `x` to compute `A*x` with the matrix or linear
-operator `A`. This method is an alias to [`LazyAlgebra.input_size`](@ref).
+operator `A`. This function is an alias to [`LazyAlgebra.input_size`](@ref).
 
 """
 const col_size = input_size
@@ -101,12 +101,10 @@ const col_size = input_size
 """
     LazyAlgebra.nrows(A)
 
-yields the *equivalent* number of rows of the matrix or linear operator `A`. Not all
-operators implement this method.
+yields the *equivalent* number of rows of the matrix or linear operator `A` that is the
+number of elements of the result of `A*x` whatever its number of dimensions.
 
-In the implemented generalization of linear operators, the equivalent number of rows is
-the number of element of the result of applying the operator be it single- or
-multi-dimensional.
+This method is only applicable to operators whose output size is fixed.
 
 """
 nrows(A::Operator) = prod(row_size(A))
@@ -115,11 +113,10 @@ nrows(A::AbstractMatrix) = size(A, 1)
 """
     LazyAlgebra.ncols(A)
 
-yields the *equivalent* number of columns of the linear operator `A`. Not all operators
-implement this method.
+yields the *equivalent* number of columns of the linear operator `A` that is the number of
+elements of any valid input `x` for `A*x` whatever the number of dimensions of `x`.
 
-In the implemented generalization of linear operators, the equivalent number of columns is
-the number of element of an argument of the operator be it single- or multi-dimensional.
+This method is only applicable to operators whose input size is fixed.
 
 """
 ncols(A::Operator) = prod(col_size(A))
