@@ -8,7 +8,7 @@
 # Conversion constructors.
 Operator(A::Operator) = A
 Operator(A::LinearAlgebra.UniformScaling) = multiplier(A) * Id
-Operator(A::AbstractMatrix) = PseudoMatrix(A, Val(1))
+Operator(A::AbstractMatrix) = PseudoMatrix(A, Dims{1})
 
 Base.convert(::Type{Operator}, A::Operator) = A
 Base.convert(::Type{Operator}, A) = Operator(A)
