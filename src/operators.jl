@@ -659,18 +659,22 @@ vmul!(α::Number, A::Prod, x::AbstractArray, β::Number, y::AbstractArray) =
 
 # Now, implement `vmul!(α,A,x,β,y)` with `A` a non-scaled and non-product operator.
 vmul!(α::Number, A::Operator, x::AbstractArray, β::Number, y::AbstractArray) =
-    vmul!(Job(CHECK_INDICES|CONVERT_ALPHA|CONVERT_BETA), α, A, x, β, y)
+    vmul!(Job(CHECK_ARGS|CONVERT_ALPHA|CONVERT_BETA), α, A, x, β, y)
 
 function vmul!(::Job{S}, α::Number, A::Operator, x::AbstractArray,
                β::Number, y::AbstractArray) where {S}
-    # Bits set in `S` indicate which operations remain to perform before calling the
+    # Bits set in `S` indicate which operation(s) remain to perform before calling the
     # "unsafe" method. Since these bits are part of the method signature, we rely on the
     # optimizer to get rid of unnecessary parts of the code.
-    if (S & CHECK_INDICES) != 𝟘
-        # Checking axes do not change anything and can thus be done without
-        # re-dispatching. We therefore do not return after this operation but we have to
-        # make sure that the `CHECK_INDICES` bit is cleared in the following jobs.
+    if (S & CHECK_ARGS) != 𝟘
+        # Checking arguments indices, type, and units does not change anything and can
+        # thus be done without re-dispatching. We therefore do not return after this
+        # operation but we have to make sure that the `CHECK_ARGS` bit is cleared in the
+        # following jobs.
         check_output_axes(y, output_axes(A, x))
+        # The following is to check the compatibility of types and units.
+        _ = convert(eltype(y), zero(α)*zero(output_eltype(A, x))
+                    + zero(β)*zero(eltype(y)))::eltype(y)
     end
 
     # If any of the multipliers, `α` or `β`, has not yet been converted or dispatched on
@@ -680,14 +684,14 @@ function vmul!(::Job{S}, α::Number, A::Operator, x::AbstractArray,
     # been checked and that the multiplier has been converted.
     if (S & CONVERT_ALPHA) != 𝟘
         α′ = convert_multiplier(α, output_eltype(A, x))
-        vmul!(Job((S & ~(CHECK_INDICES|CONVERT_ALPHA)) | DISPATCH_ALPHA),
+        vmul!(Job((S & ~(CHECK_ARGS|CONVERT_ALPHA)) | DISPATCH_ALPHA),
               α′, A, x, β, y)
     elseif (S & DISPATCH_ALPHA) != 𝟘
-        @dispatch_on_multiplier α vmul!(Job(S & ~(CHECK_INDICES|DISPATCH_ALPHA)),
+        @dispatch_on_multiplier α vmul!(Job(S & ~(CHECK_ARGS|DISPATCH_ALPHA)),
                                         α, A, x, β, y)
     elseif (S & CONVERT_BETA) != 𝟘
-        β′ = convert_inplace_multiplier(β, eltype(y))
-        vmul!(Job((S & ~(CHECK_INDICES|CONVERT_BETA)) | DISPATCH_BETA),
+        β′ = convert_multiplier(β, eltype(y))
+        vmul!(Job((S & ~(CHECK_ARGS|CONVERT_BETA)) | DISPATCH_BETA),
               α, A, x, β′, y)
     elseif (S & DISPATCH_BETA) != 𝟘
         @dispatch_on_multiplier β vmul!(Job(0), α, A, x, β, y)
@@ -702,7 +706,7 @@ end
 function vmul!(z::AbstractArray, α::Number, A::Operator, x::AbstractArray,
                β::Number, y::AbstractArray)
     @assert_same_axes y z
-    β′ = convert_inplace_multiplier(β, eltype(y))
+    β′ = convert_multiplier(β, eltype(y))
     if β′ == 𝟘
         vmul!(α, A, x, 𝟘, z)
     else

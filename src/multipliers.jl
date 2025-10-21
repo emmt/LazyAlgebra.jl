@@ -83,8 +83,3 @@ inplace_multiplier(α::AbstractQuantity, ::Type{x}) where {x} =
 @noinline inplace_multiplier(α::Number, ::Type{x}) where {x<:Number} =
     throw(ArgumentError(
         "multiplier of type `$(typeof(α))` is not suitable to scale in-place an array with elements of type `$x`"))
-
-convert_inplace_multiplier(α::Number, x::AbstractArray) =
-    convert_inplace_multiplier(α, eltype(x))
-convert_inplace_multiplier(α::Number, ::Type{x}) where {x} =
-    convert_multiplier(inplace_multiplier(α, x), x)

@@ -121,7 +121,6 @@ using TypeUtils: @public
         col_indices,
         col_ndims,
         col_size,
-        convert_inplace_multiplier,
         convert_multiplier,
         create_output,
         default_cropping_offset,

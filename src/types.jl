@@ -14,9 +14,9 @@ end
 # The following constants encode the bits corresponding to the operations that remain to
 # be performed in methods such as `vmul!` before calling the "unsafe" method. The reason
 # to separate the conversion of a multiplier and the dispatching on its value is to cope
-# with the possibility that the result of the conversion, by `convert_multiplier` or by
-# `convert_inplace_multiplier`, may not be inferable.
-const CHECK_INDICES  = (1 << 0) # must check array indices
+# with the possibility that the result of the conversion, by `convert_multiplier`, may not
+# be inferable.
+const CHECK_ARGS     = (1 << 0) # must check arguments indices, type, and units
 const CONVERT_ALPHA  = (1 << 1) # must convert α
 const DISPATCH_ALPHA = (1 << 2) # must dispatch on α
 const CONVERT_BETA   = (1 << 3) # must convert β
