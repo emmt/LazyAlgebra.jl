@@ -53,24 +53,24 @@ end
 """
      LazyAlgebra.@dispatch_on_multiplier var expr
 
-This macro expands to code dispatching expression `expr` depending on the value and type
-of the multiplier in variable named `var`.
+Expand to code dispatching expression `expr` depending on the value and type of the
+multiplier in variable named `var`.
 
 For example:
 
 ```julia
-@dispatch_on_multiplier β eltype(y) unsafe_vcombine!(α, x, β, y)
+@dispatch_on_multiplier β unsafe_vcombine!(α, x, β, y)
 ```
 
 expands to (with comments removed):
 
 ```julia
-if !(β isa LazyAlgebra.StaticMultiplier) && iszero(β)
-    unsafe_vcombine!(α, x, 𝟘*unit(β), y)
-elseif !(β isa LazyAlgebra.StaticMultiplier) && β == oneunit(β)
-    unsafe_vcombine!(α, x, 𝟙*unit(β), y)
-elseif !(β isa LazyAlgebra.StaticMultiplier) && is_signed(β) && β == -oneunit(β)
-    unsafe_vcombine!(α, x, -𝟙*unit(β), y)
+if !(β isa LazyAlgebra.StaticMultiplier) && Base.iszero(β)
+    unsafe_vcombine!(α, x, Neutrals.Neutral{0}()*Unitful.unit(β), y)
+elseif !(β isa LazyAlgebra.StaticMultiplier) && β == Base.oneunit(β)
+    unsafe_vcombine!(α, x, Neutrals.Neutral{1}()*Unitful.unit(β), y)
+elseif !(β isa LazyAlgebra.StaticMultiplier) && TypeUtils.is_signed(β) && β == -Base.oneunit(β)
+    unsafe_vcombine!(α, x, Neutrals.Neutral{-1}()*Unitful.unit(β), y)
 else
     unsafe_vcombine!(α, x, β, y)
 end
@@ -84,12 +84,13 @@ This can be checked thanks to `@macroexpand`:
 
 """
 macro dispatch_on_multiplier(var::Union{Symbol,QuoteNode}, expr::Expr)
-    esc(:(if !($var isa LazyAlgebra.StaticMultiplier) && iszero($var)
-              $(substitute(expr, var => :(𝟘*unit($var))))
-          elseif !($var isa LazyAlgebra.StaticMultiplier) && $var == oneunit($var)
-              $(substitute(expr, var => :(𝟙*unit($var))))
-          elseif !($var isa LazyAlgebra.StaticMultiplier) && is_signed($var) && $var == -oneunit($var)
-              $(substitute(expr, var => :(-𝟙*unit($var))))
+    esc(:(if !($var isa LazyAlgebra.StaticMultiplier) && Base.iszero($var)
+              $(substitute(expr, var => :(Neutrals.Neutral{0}()*Unitful.unit($var))))
+          elseif !($var isa LazyAlgebra.StaticMultiplier) && $var == Base.oneunit($var)
+              $(substitute(expr, var => :(Neutrals.Neutral{1}()*Unitful.unit($var))))
+          elseif !($var isa LazyAlgebra.StaticMultiplier) && TypeUtils.is_signed($var) &&
+                 $var == -Base.oneunit($var)
+              $(substitute(expr, var => :(Neutrals.Neutral{-1}()*Unitful.unit($var))))
           else
               $expr
           end))
