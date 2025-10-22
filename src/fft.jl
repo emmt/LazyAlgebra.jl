@@ -478,31 +478,31 @@ function unsafe_vmul!(α::Number,
                                                              F<:CirculantConvolution{
                                                                  Complex{T},Complex{T},N}}
     n = length(x)
-    d = H isa Adjoint ? Diag(H.mtf)' : Diag(H.mtf)
+    D = H isa Adjoint ? Diag(H.mtf)' : Diag(H.mtf)
     if F <: CirculantConvolution{<:Complex}
         if β == 𝟘
             # Use `y` as a workspace.
             mul!(y, H.forward, x) # out-of-place forward FFT of x in y
-            vmul!(Job(CONVERT_ALPHA), y, α/n, d) # in-place multiply y by mtf/n
+            unsafe_vmul!(Val(:alpha), α/n, D, y, 𝟘, y) # in-place multiply y by mtf/n
             mul!(y, H.backward, y) # in-place backward FFT of y
         else
             # Must allocate a workspace.
             z = Array{Complex{T}}(undef, H.zdims) # allocate temporary
             mul!(z, H.forward, x) # out-of-place forward FFT of x in z
-            vmul!(Job(CONVERT_ALPHA), z, α/n, d) # in-place multiply z by mtf/n
+            unsafe_vmul!(Val(:alpha), α/n, D, z, 𝟘, z) # in-place multiply z by mtf/n
             mul!(z, H.backward, z) # in-place backward FFT of z
-            vcombine!(y, 𝟙, z, β, y)
+            unsafe_vcombine!(y, 𝟙, z, β, y)
         end
     else
         z = Array{Complex{T}}(undef, H.zdims) # allocate temporary
         mul!(z, H.forward, x) # out-of-place forward FFT of x in z
-        vmul!(Job(CONVERT_ALPHA), z, α/n, d) # in-place multiply z by mtf/n
+        unsafe_vmul!(Val(:alpha), α/n, D, z, 𝟘, z) # in-place multiply z by mtf/n
         if β == 𝟘
             mul!(y, H.backward, z) # out-of-place backward FFT of z in y
         else
             w = Array{T}(undef, H.dims) # allocate another temporary
             mul!(w, H.backward, z) # out-of-place backward FFT of z in y
-            vcombine!(y, 1, w, β, y)
+            unsafe_vcombine!(y, 𝟙, w, β, y)
         end
     end
     return y

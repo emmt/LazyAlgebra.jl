@@ -1,6 +1,7 @@
 SOURCES = \
     Project.toml \
     make.jl \
+    src/devel.md \
     src/index.md \
     src/introduction.md \
     src/operators.md \

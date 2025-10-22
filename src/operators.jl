@@ -590,11 +590,7 @@ vmul(α::Number, A::Prod, x::AbstractArray) = vmul(α, A[1], vmul(A[2], x))
 # Finally, consider `vmul(α,A,x)` for non-scaled, non-product operator `A`.
 function vmul(α::Number, A::Operator, x::AbstractArray)
     # Convert multiplier before creating output.
-    α′ = convert_multiplier(α, output_eltype(A, x))
-    return vmul(Job(DISPATCH_ALPHA), α′, A, x)
-end
-
-function vmul(::Job{DISPATCH_ALPHA}, α::Number, A::Operator, x::AbstractArray)
+    α = convert_multiplier(α, output_eltype(A, x))
     # Create output and apply operator unless `α` is zero.
     y = create_output(α, A, x)
     if iszero(α)
@@ -658,59 +654,60 @@ vmul!(α::Number, A::Prod, x::AbstractArray, β::Number, y::AbstractArray) =
     vmul!(α, A[1], vmul(A[2], x), β, y)
 
 # Now, implement `vmul!(α,A,x,β,y)` with `A` a non-scaled and non-product operator.
-vmul!(α::Number, A::Operator, x::AbstractArray, β::Number, y::AbstractArray) =
-    vmul!(Job(CHECK_ARGS|CONVERT_ALPHA|CONVERT_BETA), α, A, x, β, y)
+function vmul!(α::Number, A::Operator, x::AbstractArray, β::Number, y::AbstractArray)
+    # Check arguments indices.
+    check_output_axes(y, output_axes(A, x))
+    # Check the compatibility of types and units.
+    _ = convert(eltype(y), zero(α)*zero(output_eltype(A, x)) + zero(β)*zero(eltype(y)))::eltype(y)
+    # Deal with multipliers.
+    unsafe_vmul!(Val(:alpha_beta), α, x, β, y)
+    return y
+end
 
-function vmul!(::Job{S}, α::Number, A::Operator, x::AbstractArray,
-               β::Number, y::AbstractArray) where {S}
-    # Bits set in `S` indicate which operation(s) remain to perform before calling the
-    # "unsafe" method. Since these bits are part of the method signature, we rely on the
-    # optimizer to get rid of unnecessary parts of the code.
-    if (S & CHECK_ARGS) != 𝟘
-        # Checking arguments indices, type, and units does not change anything and can
-        # thus be done without re-dispatching. We therefore do not return after this
-        # operation but we have to make sure that the `CHECK_ARGS` bit is cleared in the
-        # following jobs.
-        check_output_axes(y, output_axes(A, x))
-        # The following is to check the compatibility of types and units.
-        _ = convert(eltype(y), zero(α)*zero(output_eltype(A, x))
-                    + zero(β)*zero(eltype(y)))::eltype(y)
-    end
+function unsafe_vmul!(::Val{:alpha_beta},
+                      α::Number, A::Operator, x::AbstractArray,
+                      β::Number, y::AbstractArray)
+    # Deal with `β` than `α`.
+    β = convert_multiplier(β, eltype(y))
+    @dispatch_on_multiplier β unsafe_vmul!(Val(:alpha), α, A, x, β, y)
+end
 
-    # If any of the multipliers, `α` or `β`, has not yet been converted or dispatched on
-    # its value, this method will be recalled. We follow the same pattern for `α` and `β`:
-    # we first convert the multiplier, if needed, and manage to dispatch on its value by
-    # setting the bits of the next job and clearing the bits to indicate that indices have
-    # been checked and that the multiplier has been converted.
-    if (S & CONVERT_ALPHA) != 𝟘
-        α′ = convert_multiplier(α, output_eltype(A, x))
-        vmul!(Job((S & ~(CHECK_ARGS|CONVERT_ALPHA)) | DISPATCH_ALPHA),
-              α′, A, x, β, y)
-    elseif (S & DISPATCH_ALPHA) != 𝟘
-        @dispatch_on_multiplier α vmul!(Job(S & ~(CHECK_ARGS|DISPATCH_ALPHA)),
-                                        α, A, x, β, y)
-    elseif (S & CONVERT_BETA) != 𝟘
-        β′ = convert_multiplier(β, eltype(y))
-        vmul!(Job((S & ~(CHECK_ARGS|CONVERT_BETA)) | DISPATCH_BETA),
-              α, A, x, β′, y)
-    elseif (S & DISPATCH_BETA) != 𝟘
-        @dispatch_on_multiplier β vmul!(Job(0), α, A, x, β, y)
-    elseif iszero(α) # FIXME α isa StaticMultiplier{0}
+function unsafe_vmul!(::Val{:alpha},
+                      α::Number, A::Operator, x::AbstractArray,
+                      β::Number, y::AbstractArray)
+    α = convert_multiplier(α, output_eltype(A, x))
+    if iszero(α)
+        # Skip computing `α*A*x`.
         unsafe_vscale!(y, β)
     else
-        unsafe_vmul!(α, A, x, β, y)
+        @dispatch_on_multiplier α unsafe_vmul!(α, A, x, β, y)
     end
-    return y
+end
+
+function unsafe_vmul!(::Val{:beta},
+                      α::Number, A::Operator, x::AbstractArray,
+                      β::Number, y::AbstractArray)
+    β = convert_multiplier(β, eltype(y))
+    if iszero(α)
+        # Skip computing `α*A*x`.
+        @dispatch_on_multiplier β unsafe_vscale!(y, β)
+    else
+        @dispatch_on_multiplier β unsafe_vmul!(α, A, x, β, y)
+    end
 end
 
 function vmul!(z::AbstractArray, α::Number, A::Operator, x::AbstractArray,
                β::Number, y::AbstractArray)
+    # Check compatibility of arguments `β`, `y`m and `z`.
     @assert_same_axes y z
-    β′ = convert_multiplier(β, eltype(y))
-    if β′ == 𝟘
+    _ = convert(eltype(z), zero(β)*zero(eltype(y)))::eltype(z)
+
+    β = convert_multiplier(β, eltype(y))
+    if iszero(β)
         vmul!(α, A, x, 𝟘, z)
     else
-        vmul!(α, A, x, 𝟙, unsafe_vscale!(z, β′, y))
+        @dispatch_on_multiplier β unsafe_vscale!(z, β, y)
+        vmul!(α, A, x, 𝟙, z)
     end
     return z
 end
@@ -823,7 +820,7 @@ end
 
 # Deal with scaled operator.
 unsafe_vmul!(α::Number, (λ,A)::Scaled, x::AbstractArray, β::Number, y::AbstractArray) =
-    vmul!(Job(CONVERT_ALPHA), α*λ, A, x, β, y)
+    unsafe_vmul!(Val(:alpha), α*λ, A, x, β, y)
 
 # Deal with products of operators. FIXME In principle, there are no needs to recheck
 # indices, convert multipliers, and dispatch on their values.

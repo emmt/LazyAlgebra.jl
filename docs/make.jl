@@ -13,7 +13,7 @@ makedocs(
     authors = "Éric Thiébaut and contributors",
     pages = ["index.md", "install.md", "introduction.md",
              "vectors.md", "operators.md", "sparse.md",
-             "simplifications.md", "refs.md"]
+             "simplifications.md", "devel.md", "refs.md"]
 )
 
 if DEPLOYDOCS

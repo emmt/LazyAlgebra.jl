@@ -14,6 +14,7 @@ Pages = [
     "operators.md",
     "sparse.md",
     "simplifications.md",
+    "devel.md",
     "refs.md"]
 ```
 
