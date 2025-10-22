@@ -127,14 +127,14 @@ TypeUtils.adapt_precision(::Type{T}, A::FFT{<:Complex}) where {T<:TypeUtils.Prec
 function unsafe_vmul!(α::Number, A::Union{F,Adjoint{F}},
                       x::AbstractArray{<:Any,N}, β::Number, y::AbstractArray{<:Any,N},
                       scratch::Bool = false) where {T,C,N,F<:FFT{T,C,N}}
-    return unsafe_vmul!(α, get_plan(A), x, β, y, scratch)
+    unsafe_vmul!(α, get_plan(A), x, β, y, scratch)
 end
 
 function unsafe_vmul!(α::Number, A::Union{Inverse{F},InverseAdjoint{F}},
                       x::AbstractArray{<:Any,N}, β::Number, y::AbstractArray{<:Any,N},
                       scratch::Bool = false) where {T,C,N,F<:FFT{T,C,N}}
     λ = convert_multiplier(divide(α, fft_length(A)), T)
-    return unsafe_vmul!(λ, get_plan(A), x, β, y, scratch)
+    unsafe_vmul!(λ, get_plan(A), x, β, y, scratch)
 end
 
 # 2 FFT operators yield the same result if they operate on arguments with the same element

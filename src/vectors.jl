@@ -394,7 +394,8 @@ function vscale(α::Number, x::AbstractArray)
 
     # Call in-place method at a stage to dispatch on the value of `α` because array axes
     # are guaranteed to be the same.
-    return vscale!(Val(:alpha), similar(x, T), α, x)
+    unsafe_vscale!(Val(:alpha), similar(x, T), α, x)
+    return x
 end
 
 """

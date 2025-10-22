@@ -75,7 +75,8 @@ for (T, B, f) in ((:(                 Diag ), :(              A),   :(*)),
                               β::Number, y::AbstractArray)
             # Axes have been checked, `α` and `β` have been converted, and `α` is not
             # zero, so we can directly call `unsafe_vmap!`.
-            return unsafe_vmap!(α, $f, diag($B), x, β, y)
+            unsafe_vmap!(α, $f, diag($B), x, β, y)
+            return y
         end
     end
 end

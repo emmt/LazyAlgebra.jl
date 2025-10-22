@@ -84,7 +84,8 @@ function unsafe_vmul!(α::Number, A::Union{K,Adjoint{K}}, x::AbstractArray,
                       β::Number, y::AbstractArray) where {K <: AbstractRankOneOperator}
     # Call `vcombine!` knowing that indices have been checked and `β` converted and
     # dispatched, so it just remains to converted `α` and dispatch on its value.
-    return unsafe_vcombine!(Val(:alpha), α*vdot(last(A), x), first(A), β, y)
+    unsafe_vcombine!(Val(:alpha), α*vdot(last(A), x), first(A), β, y)
+    return y
 end
 
 # Precision for rank-1 operators.
