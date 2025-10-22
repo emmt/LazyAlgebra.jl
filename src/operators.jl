@@ -249,8 +249,7 @@ is called to infer the type of the coefficients of `A` and which assumes that th
 type of `A*x` is that of the floating-point conversion of the multiplication of two values
 of respective types `eltype(typeof(A))` and `eltype(x)`.
 
-See also [`LazyAlgebra.output_axes`](@ref), [`LazyAlgebra.create_output`](@ref), and
-[`LazyAlgebra.multiplier_type`](@ref).
+See also [`LazyAlgebra.output_axes`](@ref) and [`LazyAlgebra.create_output`](@ref).
 
 """
 output_eltype(α::Number, A::Operator, x::AbstractArray) =
@@ -265,7 +264,7 @@ output_eltype(::Type{α}, ::Type{A}, ::Type{x}) where {α<:Number, A<:Operator, 
 # Output element type for scaling a vector. NOTE This should be the same for `vscale`.
 output_eltype(α::Number, x::AbstractArray) = output_eltype(typeof(α), typeof(x))
 output_eltype(::Type{α}, ::Type{x}) where {α<:Number, x<:AbstractArray} =
-    prod_type(multiplier_type(α, x), eltype(x))
+    prod_type(convert_floating_point_type(eltype(x), α), eltype(x))
 
 # Fallback method, assumes that one of `output_eltype(A)` or `eltype(A)` is applicable.
 output_eltype(::Type{A}, ::Type{x}) where {A<:Operator, x<:AbstractArray} =

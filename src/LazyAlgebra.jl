@@ -136,7 +136,6 @@ using TypeUtils: @public
         input_size,
         last_nz_index,
         multiplier,
-        multiplier_type,
         ncols,
         nrows,
         offsets,

@@ -12,20 +12,6 @@ function plain(x)
 end
 
 @testset "Arithmetic rules" begin
-    @testset "Multipliers" begin
-        let multiplier_type = LazyAlgebra.multiplier_type
-            @test @inferred(multiplier_type(BigFloat, Vector{Float32})) === Float32
-            @test @inferred(multiplier_type(Float64, AbstractMatrix{Complex{Float32}})) === Float32
-            @test @inferred(multiplier_type(Int, AbstractMatrix{Complex{Float32}})) === Float32
-            @test @inferred(multiplier_type(Rational, AbstractMatrix{Complex{Float32}})) === Float32
-            @test @inferred(multiplier_type(Complex{Float64}, AbstractMatrix{Float32})) === Complex{Float32}
-            @test @inferred(multiplier_type(Complex{Int}, AbstractMatrix{Complex{Float32}})) === Complex{Float32}
-            @test @inferred(multiplier_type(Complex{Float64}, AbstractMatrix{Complex{Float32}})) === Complex{Float32}
-            @test @inferred(multiplier_type(Complex{Rational}, AbstractMatrix{Complex{Float32}})) === Complex{Float32}
-            @test @inferred(multiplier_type(Int, AbstractVector{Int})) === Float64
-        end
-    end
-
     @testset "Arithmetic rules" begin
         A, B, C, D = SymbolicOperator.((:A, :B, :C, :D))
         @test typeof(A) <: Operator
