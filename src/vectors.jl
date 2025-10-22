@@ -390,7 +390,7 @@ function vscale(α::Number, x::AbstractArray)
     # the multiplier unchanged) is certainly negligible compared to the allocation and
     # computation times.
     α = convert_multiplier(α, eltype(x))
-    T = prod_type(typeof(α), eltype(x))
+    T = output_eltype(α, x)
 
     # Call in-place method at a stage to dispatch on the value of `α` because array axes
     # are guaranteed to be the same.
@@ -680,7 +680,7 @@ function vcombine(α::Number, x::AbstractArray, β::Number, y::AbstractArray)
     # Convert multipliers to infer the element type of the result.
     α = convert_multiplier(α, eltype(x))
     β = convert_multiplier(β, eltype(y))
-    T = sum_type(prod_type(typeof(α), eltype(x)), prod_type(typeof(β), eltype(y))) # FIXME
+    T = sum_type(output_eltype(α, x), output_eltype(β, y))
 
     # Call unsafe method to dispatch on the values of `α` and `β` because indices, types,
     # and units have been checked,
