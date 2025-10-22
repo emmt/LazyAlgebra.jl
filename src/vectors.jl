@@ -391,11 +391,12 @@ function vscale(α::Number, x::AbstractArray)
     # computation times.
     α = convert_multiplier(α, eltype(x))
     T = output_eltype(α, x)
+    y = similar(x, T)
 
     # Call in-place method at a stage to dispatch on the value of `α` because array axes
     # are guaranteed to be the same.
-    unsafe_vscale!(Val(:alpha), similar(x, T), α, x)
-    return x
+    unsafe_vscale!(Val(:alpha), y, α, x)
+    return y
 end
 
 """
@@ -681,11 +682,12 @@ function vcombine(α::Number, x::AbstractArray, β::Number, y::AbstractArray)
     α = convert_multiplier(α, eltype(x))
     β = convert_multiplier(β, eltype(y))
     T = sum_type(output_eltype(α, x), output_eltype(β, y))
+    z = similar(x, T)
 
     # Call unsafe method to dispatch on the values of `α` and `β` because indices, types,
     # and units have been checked,
-    unsafe_vcombine!(Val(:alpha_beta), similar(x, T), α, x, β, y)
-    return y
+    unsafe_vcombine!(Val(:alpha_beta), z, α, x, β, y)
+    return z
 end
 
 """
