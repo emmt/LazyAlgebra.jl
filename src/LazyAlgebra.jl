@@ -206,7 +206,6 @@ include("sparse.jl")
 include("fft.jl")
 include("simplify.jl")
 include("conjgrad.jl")
-include("piracy.jl")
 #include("genmult.jl")
 #import .GenMult: lgemm!, lgemm, lgemv!, lgemv
 #include("blas.jl")
