@@ -78,7 +78,7 @@ for T in (:Operator, :(Prod{<:Operator}), :Scaled)
     end
 end
 #
-Sum(A::typeof(Id),                B::typeof(Id)               ) = 2Id
-Sum(A::Scaled{<:Number,typeof(Id)}, B::typeof(Id)               ) = (A[1] + 𝟙) * Id
-Sum(A::typeof(Id),                B::Scaled{<:Number,typeof(Id)}) = (B[1] + 𝟙) * Id
+Sum(A::typeof(Id),                  B::typeof(Id)                 ) = 2 * Id
+Sum(A::Scaled{<:Number,typeof(Id)}, B::typeof(Id)                 ) = (A[1] + 𝟙) * Id
+Sum(A::typeof(Id),                  B::Scaled{<:Number,typeof(Id)}) = (𝟙 + B[1]) * Id
 Sum(A::Scaled{<:Number,typeof(Id)}, B::Scaled{<:Number,typeof(Id)}) = (A[1] + B[1]) * Id

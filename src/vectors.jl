@@ -9,7 +9,7 @@
 """
     vnorm1([T::Type,] x)
 
-yields the 1-norm of `x` treated as a *vector*, that is the sum of the absolute values of
+Return the 1-norm of `x` treated as a *vector*, that is the sum of the absolute values of
 the elements of `x`. An equivalent formulation is:
 
     mapreduce(abs, +, x)
@@ -32,7 +32,7 @@ vnorm1(x::Number) = abs(x)
 """
     vnorm2([T::Type,] x)
 
-yields the Euclidean norm of `x` treated as a *vector*, that is the square root of the sum
+Return the Euclidean norm of `x` treated as a *vector*, that is the square root of the sum
 of the squared absolute values of the elements of `x`. An equivalent formulation is:
 
     sqrt(mapreduce(abs2, +, x))
@@ -56,7 +56,7 @@ vnorm2(x::Number) = abs(x)
 """
     vnorminf([T::Type,] x)
 
-yields the infinite-norm of `x` treated as a *vector*, that is the maximum absolute value
+Return the infinite-norm of `x` treated as a *vector*, that is the maximum absolute value
 of the elements of `x`. An equivalent formulation is:
 
     mapreduce(abs, max, x)
@@ -88,7 +88,7 @@ end
 """
      vdot([T::Type,] [w::AbstractArray,] x::AbstractArray, y::AbstractArray)
 
-yields the inner product of `w`, `x`, and `y` treated as *vectors*; that is, the sum of
+Return the inner product of `w`, `x`, and `y` treated as *vectors*; that is, the sum of
 `conj(x[i])*y[i]` or, if `w` is specified, the sum of `w[i]*conj(x[i])*y[i]` (`w` shall
 have real-valued elements), for all indices `i`. Optional argument `T` is to impose the
 floating-point type of the result.
@@ -113,7 +113,7 @@ end
 """
     vdot([w::Real,] x::Union{Real,Complex}, y::Union{Real,Complex})
 
-yields the inner product of `w`, `x`, and `y` both treated as 1-element *vectors*; that
+Return the inner product of `w`, `x`, and `y` both treated as 1-element *vectors*; that
 is, `conj(x)*y` or, if `w` is specified, the `w*conj(x)*y` (`w` shall have real-valued
 elements). This method is intended to be called by [`LazyAlgebra.unsafe_vdot`](@ref) on
 the entries of its input *vectors*. This method may be extended for specific number types.
@@ -132,7 +132,7 @@ vdot(w::Real, x::Complex, y::Complex) = w*conj(x)*y
 """
     LazyAlgebra.unsafe_vdot([w::AbstractArray,] x::AbstractArray, y::AbstractArray)
 
-yields the scalar product of `x` by `y` both treated as *vectors*. This method shall only
+Return the scalar product of `x` by `y` both treated as *vectors*. This method shall only
 be called after having asserted that `axes(x) == axes(y)` holds. This method may be
 extended for specific array types.
 
@@ -158,7 +158,7 @@ end
 """
     vdot([T,] sel::AbstractVector{Int}, x::AbstractArray, y::AbstractArray)
 
-yields the inner product of `x` and `y` restricted to the indices in `sel`; that is, the
+Return the inner product of `x` and `y` restricted to the indices in `sel`; that is, the
 sum of `vdot(x[i], y[i])` for all `i ∈ sel`.
 
 """
@@ -195,7 +195,7 @@ end
 """
     vcopy(x::AbstractArray)
 
-yields a fresh copy of `x`. Compared to `copy(x)`, the element type of the result is
+Return a fresh copy of `x`. Compared to `copy(x)`, the element type of the result is
 guaranteed to be floating-point.
 
 See also [`vcopy!`](@ref), [`vcreate`](@ref), and [`LazyAlgebra.unsafe_vcopy!`](@ref).
@@ -206,7 +206,7 @@ vcopy(x) = unsafe_vcopy!(vcreate(x), x)
 """
     vcopy!(dst, src) -> dst
 
-copies the contents of `src` into `dst` and returns `dst`. An exception is thrown if `dst`
+Copy the content of `src` into `dst` and return `dst` throwing  an exception if `dst`
 and `src` do not have the same axes.
 
 See also [`copyto!`](@ref), [`vcopy`](@ref), [`vswap!`](@ref), and
@@ -224,7 +224,7 @@ end
 """
     LazyAlgebra.unsafe_vcopy!(dst::AbstractArray, src::AbstractArray)
 
-copies the values of `src` into `dst`.
+Copy the values of `src` into `dst`.
 
 !!! warning
     This function shall only be called if `dst` and `src` are different objects with the
@@ -241,7 +241,7 @@ unsafe_vcopy!(dst::AbstractArray, src::AbstractArray) =
 """
     vcreate(x::AbstractArray)
 
-yields an array similar to `x` and with elements of floating-point type.
+Create an array similar to `x` and with elements of floating-point type.
 
 See also [`vcopy`](@ref).
 
@@ -253,7 +253,7 @@ vcreate(x::AbstractArray) = similar(x, float(eltype(x)))
 """
     vswap!(x, y)
 
-exchanges the contents of `x` and `y`. An exception is thrown if `x` and `y` do not have
+Exchange the contents of `x` and `y` throwing an exception is if `x` and `y` do not have
 the same axes.
 
 See also [`vcopy!`](@ref) and [`LazyAlgebra.unsafe_vswap!`](@ref).
@@ -270,7 +270,7 @@ end
 """
     LazyAlgebra.unsafe_vswap!(x::AbstractArray, y::AbstractArray)
 
-swaps the values of `x` and `y`.
+Swap the values of `x` and `y`.
 
 !!! warning
     This function shall only be called by if `x` and `y` are different objects with the
@@ -292,7 +292,7 @@ end
 """
     vfill!(x, α) -> x
 
-sets all elements of `x` with the scalar value `α` and return `x`. The default
+Set all elements of `x` with the scalar value `α` and return `x`. The default
 implementation just calls `fill!` with `α` convereted to `eltype(x)` but this method may
 be specialized for specific types of variables `x`.
 
@@ -306,9 +306,8 @@ vfill!(x::AbstractArray, α::Number) = fill!(x, as(eltype(x), α))
 """
     vzeros!(x) -> x
 
-fills `x` with zeros and returns it. The default implementation just calls
-`fill!(x, zero(eltype(x)))` but this method may be specialized for specific types of
-variables `x`.
+Fill `x` with zeros and return it. The default implementation just calls `fill!(x,
+zero(eltype(x)))` but this method may be specialized for specific types of variables `x`.
 
 See also [`vfill!`](@ref) and [`vzeros`](@ref).
 
@@ -318,7 +317,7 @@ vzeros!(x::AbstractArray) = vfill!(x, zero(eltype(x)))
 """
     vzeros(x)
 
-yields an array similar to `x` but filled with zeros and of floating-point type.
+Return an array similar to `x` but filled with zeros and of floating-point type.
 
 See also [`vones`](@ref), [`vfill!`](@ref), and [`vcreate`](@ref).
 
@@ -328,9 +327,8 @@ vzeros(x::AbstractArray) = vzeros!(vcreate(x))
 """
     vones!(x) -> x
 
-fills `x` with ones and returns it. The default implementation just calls
-`fill!(x, one(eltype(x)))` but this method may be specialized for specific types of
-variables `x`.
+Fill `x` with ones and return it. The default implementation just calls `fill!(x,
+one(eltype(x)))` but this method may be specialized for specific types of variables `x`.
 
 See also [`vfill!`](@ref) and [`vones`](@ref).
 
@@ -340,7 +338,7 @@ vones!(x::AbstractArray) = vfill!(x, one(eltype(x)))
 """
     vones(x)
 
-yields an array similar to `x` but filled with ones and of floating-point type.
+Return an array similar to `x` but filled with ones and of floating-point type.
 
 See also [`vzeros`](@ref) and [`vfill!`](@ref).
 
@@ -350,7 +348,7 @@ vones(x::AbstractArray) = vones!(vcreate(x))
 """
     vnans(x)
 
-yields an array similar to `x` but filled with NaNs and of floating-point type.
+Return an array similar to `x` but filled with NaNs and of floating-point type.
 
 See also [`vones`](@ref), [`vfill!`](@ref), and [`vcreate`](@ref).
 
@@ -360,7 +358,7 @@ vnans(x::AbstractArray) = vnans!(vcreate(x))
 """
     vnans!(x) -> x
 
-fills `x` with NaNs and returns it. The default implementation just calls `fill!(x,
+Fill `x` with NaNs and returns it. The default implementation just calls `fill!(x,
 NaN*zero(eltype(x)))` but this method may be specialized for specific types of variables
 `x`.
 
@@ -375,7 +373,7 @@ vnans!(x::AbstractArray) = vfill!(x, NaN*zero(eltype(x)))
     y = vscale(α, x)
     y = vscale(x, α)
 
-yield a new array `y` whose elements are those of array `x` multiplied by the scalar `α`
+Return a new array `y` whose elements are those of array `x` multiplied by the scalar `α`
 following the conventions:
 
 - The floating-point type of the result only depends on the type of the elements of `x`.
@@ -403,7 +401,7 @@ end
     vscale!(x, α) -> x
     vscale!(α, x) -> x
 
-overwrite `x` with `α*x` and returns `x`. Another possibility is:
+Overwrite `x` with `α*x` and return `x`. Another possibility is:
 
     vscale!(y, α, x) -> y
 
@@ -491,7 +489,7 @@ end
 """
     vproduct(x, y) -> z
 
-yields the element-wise multiplication (Hadamar product) of `x` by `y`.
+Return the element-wise multiplication (Hadamar product) of `x` by `y`.
 
 See also [`vproduct!`](@ref) and [`LazyAlgebra.unsafe_vproduct`](@ref).
 
@@ -508,7 +506,7 @@ end
 """
     vproduct!(dst, [sel,] x, y) -> dst
 
-overwrites `dst` with the elementwise multiplication (Hadamar product) of `x` by `y`.
+Overwrite `dst` with the elementwise multiplication (Hadamar product) of `x` by `y`.
 
 Optional argument `sel` is a selection of indices to which apply the operation. The
 destination is left unchanged for indices not in `sel`. The behavior is unpredictable if
@@ -539,7 +537,7 @@ end
 """
     LazyAlgebra.unsafe_vproduct!(dst, [sel,] x, y)
 
-overwrites `dst` with the elementwise multiplication (Hadamar product) of `x` by `y`. This
+Overwrite `dst` with the elementwise multiplication (Hadamar product) of `x` by `y`. This
 method is called by [`vproduct!`](@ref) and [`vproduct`](@ref) after checking all
 arguments so that `@inbounds` can be assumed for performing the operation.
 
@@ -705,8 +703,8 @@ used.
 The source(s) and the destination can be the same. For instance, the following lines
 of code all produce the same result (stored in `y`):
 
-    vcombine!(y, α, x, 1, y)
-    vcombine!(α, x, 1, y)
+    vcombine!(y, α, x, 𝟙, y)
+    vcombine!(α, x, 𝟙, y)
     vupdate!(y, α, x)
 
 The [`LazyAlgebra.unsafe_vcombine!](@ref) may be extended to implement specific array

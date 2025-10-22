@@ -69,7 +69,7 @@ Base.ndims(::HasInputShape{N}) where {N} = N
     LazyAlgebra.InputShape(A)
     LazyAlgebra.InputShape(typeof(A))
 
-depending on the type of operator `A`, yield one of:
+Depending on the type of operator `A`, return one of:
 
 * `LazyAlgebra.InputShapeUnknown()` if the shape of the input of `A` cannot be determined
   in advance. This is the assumed default.
@@ -91,7 +91,7 @@ InputShape(::Type{A}) where {A<:Union{Adjoint,Inverse}} =
     LazyAlgebra.OutputShape(A)
     LazyAlgebra.OutputShape(typeof(A))
 
-depending on the type of operator `A`, yield one of:
+Depending on the type of operator `A`, return one of:
 
 * `LazyAlgebra.OutputShapeUnknown()` if the shape of the output of `A` cannot be
   determined in advance.
@@ -118,7 +118,7 @@ OutputShape(::Type{A}) where {A<:Union{Adjoint,Inverse}} =
     LazyAlgebra.InputEltype(A)
     LazyAlgebra.InputEltype(typeof(A))
 
-depending on the type of operator `A`, yield one of:
+Depending on the type of operator `A`, return one of:
 
 * `LazyAlgebra.InputEltypeUnknown()` if the element type of the input of `A` cannot be
   determined in advance. This is the assumed default.
@@ -139,7 +139,7 @@ InputEltype(::Type{A}) where {A<:Union{Adjoint,Inverse}} =
     LazyAlgebra.OutputEltype(A)
     LazyAlgebra.OutputEltype(typeof(A))
 
-depending on the type of operator `A`, yield one of:
+Depending on the type of operator `A`, return one of:
 
 * `LazyAlgebra.OutputEltypeUnknown()` if the element type of the output of `A` cannot be
   determined in advance. This is the assumed default.
@@ -164,8 +164,8 @@ OutputEltype(::Type{A}) where {A<:Union{Adjoint,Inverse}} =
     LazyAlgebra.input_eltype(A) -> T
     LazyAlgebra.input_eltype(typeof(A)) -> T
 
-yields the element type `T` of `x` for computing `A*x` with operator `A`. Not all operators
-implement this trait.
+Return the element type `T` of `x` for computing `A*x` with operator `A`. Not all
+operators implement this trait.
 
 To implement this trait for an operator, the following two methods shall be specialized:
 
@@ -189,14 +189,14 @@ See also [`vmul`](@ref), [`vmul!`](@ref), [`LazyAlgebra.InputEltype`](@ref) and
 """
 input_eltype(A) = input_eltype(typeof(A))
 input_eltype(::Type{A}) where {A<:Union{Adjoint,Inverse}} = output_eltype(parent(A))
-@noinline input_eltype(::Type{T}) where {T} =
-    error("`LazyAlgebra.input_eltype(T)` not defined for objects of type `T=$T`")
+@noinline input_eltype(::Type{T}) where {T<:Operator} =
+    error("`LazyAlgebra.input_eltype(T)` not defined for operators of type `T=$T`")
 
 """
     LazyAlgebra.output_eltype(A) -> T
     LazyAlgebra.output_eltype(typeof(A)) -> T
 
-yields the element type `T` of the result of `A*x` for operator `A` and any acceptable
+Return the element type `T` of the result of `A*x` for operator `A` and any acceptable
 `x`. Not all operators implement this trait.
 
 To implement this trait for an operator, the following two methods shall be specialized:
@@ -218,14 +218,14 @@ See also [`vmul`](@ref), [`vmul!`](@ref), [`LazyAlgebra.OutputEltype`](@ref) and
 """
 output_eltype(A) = output_eltype(typeof(A))
 output_eltype(::Type{A}) where {A<:Union{Adjoint,Inverse}} = input_eltype(parent(A))
-@noinline output_eltype(::Type{T}) where {T} =
-    error("`LazyAlgebra.output_eltype(T)` not defined for objects of type `T=$T`")
+@noinline output_eltype(::Type{T}) where {T<:Operator} =
+    error("`LazyAlgebra.output_eltype(T)` not defined for operators of type `T=$T`")
 
 """
     LazyAlgebra.output_eltype([α::Number,] A::Operator, x::AbstractArray) -> T
     LazyAlgebra.output_eltype([typeof(α),] typeof(A), typeof(x)) -> T
 
-yield the element type `T` of the result of `A*x` or of `α*A*x` if the multiplier `α` is
+Return the element type `T` of the result of `A*x` or of `α*A*x` if the multiplier `α` is
 specified.
 
 As a simplification, it is assumed that the element type of `A*x` is a *trait* that only
@@ -298,7 +298,7 @@ output_eltype(::Type{Prod{L,R}}, ::Type{x}) where {L<:Number,R,x<:AbstractArray}
     LazyAlgebra.output_ndims(A)
     LazyAlgebra.output_ndims(typeof(A))
 
-yield the number dimensions of the result of `A*x` based on the type of `A`.
+Return the number dimensions of the result of `A*x` based on the type of `A`.
 
 !!! note
     If the number `M` of dimensions of `A*x` is known in advance, do not extend this
@@ -317,7 +317,7 @@ output_ndims(A) = ndims(OutputShape(A))
     LazyAlgebra.input_ndims(A)
     LazyAlgebra.input_ndims(typeof(A))
 
-yield the number dimensions of the input `x` for `A*x` based on the type of `A`.
+Return the number dimensions of the input `x` for `A*x` based on the type of `A`.
 
 !!! note
     If the number `N` of dimensions of `x` to compute `A*x` is known in advance, do not
@@ -335,7 +335,7 @@ input_ndims(A) = ndims(InputShape(A))
 """
     LazyAlgebra.output_axes(A::Operator, x::AbstractArray)
 
-yields the axes of the result of `A*x`.
+Return the axes of the result of `A*x`.
 
 As a simplification, it is assumed that the axes of `A*x` only depend on the operator `A`
 and on the axes of the input array `x`. Following this assumption, this method returns the
@@ -391,7 +391,7 @@ end
 """
     LazyAlgebra.input_axes(A::Operator)
 
-yields the axes that `x` must have to compute `A*x`. Not all operators `A` implement this.
+Return the axes that `x` must have to compute `A*x`. Not all operators `A` implement this.
 
 To implement this method for an operator, the following two methods shall be specialized:
 
@@ -442,9 +442,9 @@ output_axes_in_sum(I::ArrayAxes, A::Operator, J::ArrayAxes) =
 """
     y = LazyAlgebra.create_output([α::Number,] A::Operator, x::AbstractArray)
 
-creates an array `y` to store the result of `A*x` or of `α*A*x` if the multiplier `α` is
-specified. In this latter case, it shall be assumed that `α` has been already converted
-by [`LazyAlgebra.convert_multiplier`](@ref).
+Create a new array `y` to store the result of `A*x` or of `α*A*x` if the multiplier `α` is
+specified. In this latter case, it shall be assumed that `α` has been already converted by
+[`LazyAlgebra.convert_multiplier`](@ref).
 
 The method may be specialized in the operator type. The default implementations are:
 
@@ -480,9 +480,9 @@ create_output(α::Number, A::Operator, x) =
 """
     LazyAlgebra.unscaled(A)
 
-yields the operator `B` of the *scaled operator* `A = λ*B` where `λ` is a number;
-otherwise yields `A`. This method is also applicable to instances of
-`LinearAlgebra.UniformScaling`. Call [`LazyAlgebra.multiplier`](@ref) to get the
+If `A = λ*B` is a *scaled operator* with `B` an operator and `λ` a number, returns the
+operator `B`; otherwise returns operator `A`. This method is also applicable to instances
+of `LinearAlgebra.UniformScaling`. Call [`LazyAlgebra.multiplier`](@ref) to get the
 multiplier `λ`.
 
 """
@@ -493,8 +493,8 @@ unscaled(A::UniformScaling) = Id
 """
     LazyAlgebra.multiplier(A)
 
-yields the multiplier `λ` of the *scaled operator* `A = λ*B` where `λ` is a number and `B`
-an operator; otherwise yields `𝟙`. This method is also applicable to instances of
+If `A = λ*B` is a *scaled operator* with `B` an operator and `λ` a number, returns the
+multiplier `λ`; otherwise returns `𝟙`. This method is also applicable to instances of
 `LinearAlgebra.UniformScaling`. Call [`LazyAlgebra.unscaled`](@ref) to get the operator
 `B`.
 
@@ -506,28 +506,26 @@ multiplier(A::UniformScaling) = getfield(A, :λ)
 """
     LazyAlgebra.check_vmul(y, A, x) -> (v1, v2, v1 - v2)
 
-yields `v1 = vdot(y, A*x)`, `v2 = vdot(A'*y, x)` and their difference for `A` a linear
+Return `v1 = vdot(y, A*x)`, `v2 = vdot(A'*y, x)` and their difference for `A` a linear
 operator, `y` a *vector* of the output space of `A` and `x` a *vector* of the input space
 of `A`. In principle, the two inner products should be equal whatever `x` and `y`;
 otherwise the implementation of the operator has a bug.
 
-Simple linear operators operating on Julia arrays can be tested on random
-*vectors* with:
+Simple linear operators operating on Julia arrays can be tested on random *vectors* with:
 
     check_vmul([T=Float64,] outdims, A, inpdims) -> (v1, v2, v1 - v2)
 
-with `outdims` and `outdims` the dimensions of the output and input *vectors*
-for `A`. Optional argument `T` is the element type.
+with `outdims` and `outdims` the dimensions of the output and input *vectors* for `A`.
+Optional argument `T` is the element type.
 
-If `A` operates on Julia arrays and methods `input_eltype`, `input_size`,
-`output_eltype` and `output_size` have been specialized for `A`, then:
+If `A` operates on Julia arrays and methods `input_eltype`, `input_size`, `output_eltype`
+and `output_size` have been specialized for `A`, then:
 
     check_vmul(A) -> (v1, v2, v1 - v2)
 
 is sufficient to check `A` against automatically generated random arrays.
 
-See also: [`vdot`](@ref), [`vcreate`](@ref), [`vmul!`](@ref),
-[`input_type`](@ref).
+See also: [`vdot`](@ref), [`vcreate`](@ref), [`vmul!`](@ref), [`input_type`](@ref).
 
 """
 function check_vmul(y::Ty, A::Operator, x::Tx) where {Tx, Ty}
@@ -554,15 +552,12 @@ check_vmul(A::Operator) =
                randn(input_eltype(A), input_size(A)))
 
 """
-    y = A*x
-    y = vmul(A, x)
+    A*x
+    vmul(A, x)
+    (α*A)*x
+    vmul(α, A, x)
 
-or:
-
-    y = (α*A)*x
-    y = vmul(α, A, x)
-
-yield the result of applying the linear operator `A` or the scaled linear operator `α*A`
+Return the result of applying the linear operator `A` or the scaled linear operator `α*A`
 to the argument `x`.
 
 !!! warning
@@ -606,14 +601,14 @@ end
 """
     vmul!(α::Number, A::Operator, x::AbstractArray, β::Number, y::AbstractArray) -> y
 
-overwrites `y` with `α*A⋅x + β*y` and returns `y`. The convention is that the prior
-contents of `y` is not used at all if `iszero(β)` holds so `y` can be directly used to
-store the result even though it is not initialized.
+Overwrite `y` with `α*A⋅x + β*y` and return `y`.
 
 Multiplier `β` must be dimensionless; it can be complex if `y` also has complex element
-type, and must be real otherwise.
+type, and must be real otherwise. The convention is that the prior content of `y` is not
+used at all if `iszero(β)` holds so `y` can be directly used to store the result even
+though it is not initialized.
 
-Other supported calls are:
+Other supported methods are:
 
     vmul!(y::AbstractArray, [α::Number=𝟙], A::Operator, x::AbstractArray) -> y
     vmul!(z::AbstractArray, α::Number, A::Operator, x::AbstractArray, β::Number, y::AbstractArray) -> z
@@ -767,7 +762,7 @@ end
     LazyAlgebra.unsafe_vmul!(α::Number, A::Operator, x::AbstractArray,
                              β::Number, y::AbstractArray)
 
-overwrites `y` with `α*A⋅x + β*y`. This method (not [`vmul`](@ref) nor [`vmul!`](@ref))
+Overwrite `y` with `α*A⋅x + β*y`. This method (not [`vmul`](@ref) nor [`vmul!`](@ref))
 is supposed to be specialized for any supported operator type.
 
 This method is called by [`vmul`](@ref) and [`vmul!`](@ref) after checking that arguments
@@ -830,9 +825,9 @@ unsafe_vmul!(α::Number, (A,B)::Prod, x::AbstractArray, β::Number, y::AbstractA
 """
     LazyAlgebra.test_API(A::Operator, x, y)
 
-tests that operator API is correctly implemented for `A`. `x` is a chosen input for `A`
-and `y` is the expected output. The shapes and element types of `x` and `y` must be
-correct. The returned value is that of a `@testset`.
+Test that operator API is correctly implemented for `A`. `x` is a chosen input for `A` and
+`y` is the expected output. The shapes and element types of `x` and `y` must be correct.
+The returned value is that of a `@testset`.
 
 Keywords `alphas` and `betas` are tuples of values for `α` and `β` to test
 `LazyAgebra.vmul(α, A, x)`, `LazyAgebra.vmul!(dst, α, A, x)`, and `LazyAgebra.vmul!(α, A,
