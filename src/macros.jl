@@ -51,10 +51,10 @@ function try_get_struct_name_from_definition(ex::Expr)
 end
 
 """
-     LazyAlgebra.@dispatch_on_multiplier var expr
+     LazyAlgebra.@dispatch_on_multiplier sym expr
 
 Expand to code dispatching expression `expr` depending on the value and type of the
-multiplier in variable named `var`.
+multiplier bound to symbol `sym`.
 
 For example:
 
@@ -83,14 +83,13 @@ This can be checked thanks to `@macroexpand`:
 ```
 
 """
-macro dispatch_on_multiplier(var::Union{Symbol,QuoteNode}, expr::Expr)
-    esc(:(if !($var isa LazyAlgebra.StaticMultiplier) && Base.iszero($var)
-              $(substitute(expr, var => :(Neutrals.Neutral{0}()*Unitful.unit($var))))
-          elseif !($var isa LazyAlgebra.StaticMultiplier) && $var == Base.oneunit($var)
-              $(substitute(expr, var => :(Neutrals.Neutral{1}()*Unitful.unit($var))))
-          elseif !($var isa LazyAlgebra.StaticMultiplier) && TypeUtils.is_signed($var) &&
-                 $var == -Base.oneunit($var)
-              $(substitute(expr, var => :(Neutrals.Neutral{-1}()*Unitful.unit($var))))
+macro dispatch_on_multiplier(sym::Union{Symbol,QuoteNode}, expr::Expr)
+    esc(:(if !($sym isa LazyAlgebra.StaticMultiplier) && Base.isequal($sym, Base.zero($sym))
+              $(substitute(expr, sym => :(Neutrals.Neutral{0}()*Unitful.unit($sym))))
+          elseif !($sym isa LazyAlgebra.StaticMultiplier) && Base.isequal($sym, Base.oneunit($sym))
+              $(substitute(expr, sym => :(Neutrals.Neutral{1}()*Unitful.unit($sym))))
+          elseif !($sym isa LazyAlgebra.StaticMultiplier) && TypeUtils.is_signed($sym) && Base.isequal($sym, -Base.oneunit($sym))
+              $(substitute(expr, sym => :(Neutrals.Neutral{-1}()*Unitful.unit($sym))))
           else
               $expr
           end))
