@@ -45,30 +45,65 @@ using Unitful: km, cm, mm, μm, °, s
     end
 
     @testset "Inner Products" begin
-        # Test real vectors
+        # Test real/complex vectors
+        w = [0.5, 1.0, 2.0]  # weights
         x = [1.0, -2.0, 3.0]
         y = [2.0, 1.0, -1.0]
-        w = [0.5, 1.0, 2.0]  # weights
+        xc = [1.0 + 1im, -2.0 - 2im, 3.0 + 4.0im]
+        yc = [2.0 - 1im, 1.0 + 1im, -1.0 - 2.0im]
+        ux = mm/s # units for x
+        uy = s    # units for y
 
         # Test vdot without weights
         @test @inferred(vdot(x, y)) ≈ dot(x, y)
-        @test @inferred(vdot(Float32, x, y)) ≈ Float32(dot(x, y))
+        @test @inferred(vdot(x.*ux, y)) == vdot(x, y)*ux
+        @test @inferred(vdot(x, y.*uy)) == vdot(x, y)*uy
+        @test @inferred(vdot(x.*ux, y.*uy)) == vdot(x, y)*ux*uy
+
+        @test @inferred(vdot(xc, y)) ≈ dot(xc, y)
+        @test @inferred(vdot(xc.*ux, y)) == vdot(xc, y)*ux
+        @test @inferred(vdot(xc, y.*uy)) == vdot(xc, y)*uy
+        @test @inferred(vdot(xc.*ux, y.*uy)) == vdot(xc, y)*ux*uy
+
+        @test @inferred(vdot(x, yc)) ≈ dot(x, yc)
+        @test @inferred(vdot(x.*ux, yc)) == vdot(x, yc)*ux
+        @test @inferred(vdot(x, yc.*uy)) == vdot(x, yc)*uy
+        @test @inferred(vdot(x.*ux, yc.*uy)) == vdot(x, yc)*ux*uy
+
+        @test @inferred(vdot(xc, yc)) ≈ dot(xc, yc)
+        @test @inferred(vdot(xc.*ux, yc)) == vdot(xc, yc)*ux
+        @test @inferred(vdot(xc, yc.*uy)) == vdot(xc, yc)*uy
+        @test @inferred(vdot(xc.*ux, yc.*uy)) == vdot(xc, yc)*ux*uy
+
+        @test @inferred(vdot(Float32, x, y)) === Float32(vdot(x, y))
 
         # Test vdot with weights
         @test @inferred(vdot(w, x, y)) ≈ sum(w .* x .* y)
-        @test @inferred(vdot(Float32, w, x, y)) ≈ Float32(sum(w .* x .* y))
+        @test @inferred(vdot(w, x.*ux, y)) == vdot(w, x, y)*ux
+        @test @inferred(vdot(w, x, y.*uy)) == vdot(w, x, y)*uy
+        @test @inferred(vdot(w, x.*ux, y.*uy)) == vdot(w, x, y)*ux*uy
 
-        # Test complex vectors
-        xc = [1.0 + 1im, -2.0 - 2im]
-        yc = [2.0 - 1im, 1.0 + 1im]
+        @test @inferred(vdot(w, xc, y)) ≈ sum(w .* conj.(xc) .* y)
+        @test @inferred(vdot(w, xc.*ux, y)) == vdot(w, xc, y)*ux
+        @test @inferred(vdot(w, xc, y.*uy)) == vdot(w, xc, y)*uy
+        @test @inferred(vdot(w, xc.*ux, y.*uy)) == vdot(w, xc, y)*ux*uy
 
-        @test @inferred(vdot(xc, yc)) ≈ dot(xc, yc)
-        @test @inferred(vdot(w[1:2], xc, yc)) ≈ sum(w[1:2] .* conj.(xc) .* yc)
+        @test @inferred(vdot(w, x, yc)) ≈ sum(w .* x .* yc)
+        @test @inferred(vdot(w, x.*ux, yc)) == vdot(w, x, yc)*ux
+        @test @inferred(vdot(w, x, yc.*uy)) == vdot(w, x, yc)*uy
+        @test @inferred(vdot(w, x.*ux, yc.*uy)) == vdot(w, x, yc)*ux*uy
+
+        @test @inferred(vdot(w, xc, yc)) ≈ sum(w .* conj.(xc) .* yc)
+        @test @inferred(vdot(w, xc.*ux, yc)) == vdot(w, xc, yc)*ux
+        @test @inferred(vdot(w, xc, yc.*uy)) == vdot(w, xc, yc)*uy
+        @test @inferred(vdot(w, xc.*ux, yc.*uy)) == vdot(w, xc, yc)*ux*uy
+
+        @test @inferred(vdot(Float32, w, x, y)) === Float32(vdot(w, x, y))
 
         # Test with scalar inputs
         @test @inferred(vdot(2.0, 3.0)) == 6.0
-        @test @inferred(vdot(2.0, 3.0 + 1im)) == 6.0
-        @test @inferred(vdot(2.0 + 1im, 3.0)) == 6.0
+        @test @inferred(vdot(2.0, 3.0 + 1im)) == 6.0 + 2.0im
+        @test @inferred(vdot(2.0 + 1im, 3.0)) == 6.0 - 3.0im
         @test @inferred(vdot(2.0 + 1im, 3.0 + 1im)) == conj(2.0 + 1im) * (3.0 + 1im)
     end
 

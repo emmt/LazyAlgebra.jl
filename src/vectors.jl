@@ -119,14 +119,27 @@ the entries of its input *vectors*. This method may be extended for specific num
 
 """
 vdot(x::Real,    y::Real   ) = x*y
-vdot(x::Real,    y::Complex) = x*real(y)
-vdot(x::Complex, y::Real   ) = real(x)*y
+vdot(x::Real,    y::Complex) = x*y
+vdot(x::Complex, y::Real   ) = conj(x)*y
 vdot(x::Complex, y::Complex) = conj(x)*y
 
-vdot(w::Real, x::Real,    y::Real   ) = w*x*y
-vdot(w::Real, x::Real,    y::Complex) = w*x*real(y)
-vdot(w::Real, x::Complex, y::Real   ) = w*real(x)*y
-vdot(w::Real, x::Complex, y::Complex) = w*conj(x)*y
+function vdot(x::Tx, y::Ty) where {Tx<:AbstractQuantity,Ty<:Number}
+    ux = unit(Tx)
+    return vdot(ustrip(ux, x),y)*ux
+end
+
+function vdot(x::Tx, y::Ty) where {Tx<:AbstractQuantity,Ty<:AbstractQuantity}
+    ux = unit(Tx)
+    uy = unit(Ty)
+    return vdot(ustrip(ux, x), ustrip(uy, y))*(ux*uy)
+end
+
+function vdot(x::Tx, y::Ty) where {Tx<:Number,Ty<:AbstractQuantity}
+    uy = unit(Ty)
+    return vdot(x, ustrip(uy, y))*uy
+end
+
+vdot(w::Union{<:Real,AbstractQuantity{<:Real}}, x::Number,  y::Number) = w*vdot(x, y)
 
 """
     LazyAlgebra.unsafe_vdot([w::AbstractArray,] x::AbstractArray, y::AbstractArray)
@@ -172,7 +185,8 @@ end
 
 function unsafe_vdot(sel::AbstractVector{Int}, x::AbstractArray, y::AbstractArray)
     # NOTE We cannot use `@simd` here due to scattering.
-    s = 0*vdot(zero(eltype(x)), zero(eltype(y)))
+    T = typeof(vdot(zero(eltype(x)), zero(eltype(y)))*1)
+    s = zero(T)
     if IndexStyle(x, y) == IndexLinear()
         @inbounds @fastmath for j in eachindex(sel)
             i = sel[j]
