@@ -12,13 +12,28 @@ using Printf
 using Statistics
 using BenchmarkTools
 using LazyAlgebra
+using LazyAlgebra: convert_multiplier, @dispatch_on_multiplier
 using ThreadPinning
 using LinearAlgebra
 using LinearAlgebra: BLAS
 
 include("benchmarking.jl")
 
-function runtests(; T::Type = Float32, dims = 10_123)
+function bcast_add!(z::AbstractArray, x::AbstractArray, y::AbstractArray)
+    @. z = x + y
+end
+function bcast_sub!(z::AbstractArray, x::AbstractArray, y::AbstractArray)
+    @. z = x - y
+end
+function bcast_mul!(z::AbstractArray, x::AbstractArray, y::AbstractArray)
+    @. z = x * y
+end
+function bcast_scale!(z::AbstractArray, α::Number, x::AbstractArray)
+    α = convert_multiplier(α, eltype(x))
+    @. z = α*x
+end
+
+function runtests(; T::Type = Float32, dims = 10_123, what=:min)
     w = rand(T, dims)
     x = rand(T, dims)
     y = rand(T, dims)
@@ -27,7 +42,7 @@ function runtests(; T::Type = Float32, dims = 10_123)
 
     pinthreads(:cores);
     BLAS.set_num_threads(1);
-    opts = (; what=:min, pad=48);
+    opts = (; what=what, pad=48);
     lazy = :yellow;
 
     title("Benchmark tests with T=$T and n=$n"; color=:blue)
@@ -87,6 +102,7 @@ function runtests(; T::Type = Float32, dims = 10_123)
         @check vscale!(α, vcopy!(z, x)) ≈ α*x
         @check x == x_cpy
         prt("vscale!(z, $α, x)", @benchmark(vscale!($z, $α, $x)); nops=n, opts..., color=lazy)
+        prt("@. z = α*y", (@benchmark bcast_scale!($z, $α, $y)); nops=n, opts...)
     end
 
     println()
@@ -97,7 +113,8 @@ function runtests(; T::Type = Float32, dims = 10_123)
     @check vproduct!(z, x, y) === z
     @check x == x_cpy && y == y_cpy
     @check vproduct!(z, x, y) ≈ x .* y
-    prt("vproduct!!(z, x, y)", @benchmark(vproduct!($z, $x, $y)); nops=n, opts..., color=lazy)
+    prt("vproduct!(z, x, y)", @benchmark(vproduct!($z, $x, $y)); nops=n, opts..., color=lazy)
+    prt("@. z = x*y", (@benchmark bcast_mul!($z, $x, $y)); nops=n, opts...)
 
     println()
     u = y ./ 10_000; # to avoid overflows
@@ -123,6 +140,10 @@ function runtests(; T::Type = Float32, dims = 10_123)
             @benchmark(vcombine!($z, $α, $x, $β, $y)); nops=nops, opts..., color=lazy)
         if (α, β) == (1, 0)
             prt("copyto!(z, x)", (@benchmark copyto!($z, $x)); nops=n, opts...)
+        elseif (α, β) == (1, 1)
+            prt("@. z = x + y", (@benchmark bcast_add!($z, $x, $y)); nops=n, opts...)
+        elseif (α, β) == (1, -1)
+            prt("@. z = x - y", (@benchmark bcast_sub!($z, $x, $y)); nops=n, opts...)
         elseif (α, β) == (0, 0)
             prt("fill!(z, 𝟘)", (@benchmark fill!($z, $(zero(eltype(z))))); nops=n, opts...)
         end
