@@ -2,6 +2,8 @@ using LazyAlgebra
 using Test
 using Neutrals
 using LinearAlgebra
+using Unitful
+using Unitful: km, cm, mm, μm, °, s
 
 @testset "Vectorized operations in `LazyAlgebra`" begin
     @testset "Vector Norms" begin
@@ -73,6 +75,7 @@ using LinearAlgebra
     @testset "Vector Operations" begin
         x = [5.0, -2.0,  3.0]
         y = [2.0,  4.0, -1.0]
+        u = cm/s
 
         # Test vcopy and vcopy!
         z = similar(x)
@@ -91,9 +94,16 @@ using LinearAlgebra
             @test typeof(t) === typeof(x)
             @test all(iszero, t)
         end
+        @test @inferred(vzeros(x)) == fill(0.0, size(x))
+        @test @inferred(vzeros(x.*u)) == fill(0.0*u, size(x))
 
         # Test vones
-        @test @inferred(vones(x)) == [1.0, 1.0, 1.0]
+        @test @inferred(vones(x)) == fill(1.0, size(x))
+        @test @inferred(vones(x.*u)) == fill(1.0*u, size(x))
+
+        # Test vnans
+        @test all(xy -> isequal(xy...), zip(@inferred(vnans(x)), fill(NaN, size(x))))
+        @test all(xy -> isequal(xy...), zip(@inferred(vnans(x.*u)), fill(NaN*u, size(x))))
 
         # Test vscale and vscale!
         @testset "`vscale` and `vscale!` with α=$α" for α in (0, 1, -1, 2 #=, 𝟘, 𝟙, -𝟙 =#)

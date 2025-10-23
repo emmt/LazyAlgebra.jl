@@ -336,12 +336,13 @@ vzeros(x::AbstractArray) = vzeros!(vcreate(x))
     vones!(x) -> x
 
 Fill `x` with ones and return it. The default implementation just calls `fill!(x,
-one(eltype(x)))` but this method may be specialized for specific types of variables `x`.
+oneunit(eltype(x)))` but this method may be specialized for specific types of variables
+`x`.
 
 See also [`vfill!`](@ref) and [`vones`](@ref).
 
 """
-vones!(x::AbstractArray) = vfill!(x, one(eltype(x)))
+vones!(x::AbstractArray) = vfill!(x, oneunit(eltype(x)))
 
 """
     vones(x)
@@ -367,13 +368,13 @@ vnans(x::AbstractArray) = vnans!(vcreate(x))
     vnans!(x) -> x
 
 Fill `x` with NaNs and returns it. The default implementation just calls `fill!(x,
-NaN*zero(eltype(x)))` but this method may be specialized for specific types of variables
+NaN*unit(eltype(x)))` but this method may be specialized for specific types of variables
 `x`.
 
 See also [`vfill!`](@ref) and [`vnans`](@ref).
 
 """
-vnans!(x::AbstractArray) = vfill!(x, NaN*zero(eltype(x)))
+vnans!(x::AbstractArray) = vfill!(x, NaN*unit(eltype(x)))
 
 #-------------------------------------------------------------------------------- VSCALE -
 
