@@ -4,6 +4,7 @@ using Neutrals
 using LinearAlgebra
 using Unitful
 using Unitful: km, cm, mm, μm, °, s
+using TypeUtils
 
 @testset "Vectorized operations in `LazyAlgebra`" begin
     @testset "Vector Norms" begin
@@ -12,28 +13,22 @@ using Unitful: km, cm, mm, μm, °, s
         y = [2.0 + 1im, -1.0 - 2im]
 
         # Test vnorm1
-        @test @inferred(vnorm1(x)) ≈ sum(abs.(x))
-        @test @inferred(vnorm1(y)) ≈ sum(abs.(y))
-        let v = @inferred(vnorm1(Float32, x))
-            @test v isa Float32
-            @test v ≈ Float32(sum(abs.(x)))
-        end
+        @test @inferred(vnorm1(x)) ≈ norm(x, 1)
+        @test @inferred(vnorm1(y)) ≈ norm(y, 1)
+        @test @inferred(vnorm1(Float32, x)) === adapt_precision(Float32, vnorm1(x))
+        @test @inferred(vnorm1(Float32, y)) === adapt_precision(Float32, vnorm1(y))
 
         # Test vnorm2
-        @test @inferred(vnorm2(x)) ≈ sqrt(mapreduce(abs2, +, x))
-        @test @inferred(vnorm2(y)) ≈ sqrt(mapreduce(abs2, +, y))
-        let v = @inferred(vnorm2(Float32, x))
-            @test v isa Float32
-            @test v ≈ Float32(sqrt(mapreduce(abs2, +, x)))
-        end
+        @test @inferred(vnorm2(x)) ≈ norm(x, 2)
+        @test @inferred(vnorm2(y)) ≈ norm(y, 2)
+        @test @inferred(vnorm2(Float32, x)) === adapt_precision(Float32, vnorm2(x))
+        @test @inferred(vnorm2(Float32, y)) === adapt_precision(Float32, vnorm2(y))
 
         # Test vnorminf
-        @test @inferred(vnorminf(x)) ≈ mapreduce(abs, max, x)
-        @test @inferred(vnorminf(y)) ≈ mapreduce(abs, max, y)
-        let v = @inferred(vnorminf(Float32, x))
-            @test v isa Float32
-            @test v ≈ Float32(mapreduce(abs, max, x))
-        end
+        @test @inferred(vnorminf(x)) ≈ norm(x, Inf)
+        @test @inferred(vnorminf(y)) ≈ norm(y, Inf)
+        @test @inferred(vnorminf(Float32, x)) === adapt_precision(Float32, vnorminf(x))
+        @test @inferred(vnorminf(Float32, y)) === adapt_precision(Float32, vnorminf(y))
 
         # Test with scalar inputs
         @test @inferred(vnorm1(-2.0)) == 2.0
