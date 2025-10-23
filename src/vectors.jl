@@ -202,7 +202,11 @@ guaranteed to be floating-point.
 See also [`vcopy!`](@ref), [`vcreate`](@ref), and [`LazyAlgebra.unsafe_vcopy!`](@ref).
 
 """
-vcopy(x) = unsafe_vcopy!(vcreate(x), x)
+function vcopy(x)
+    y = vcreate(x)
+    unsafe_vcopy!(y, x)
+    return y
+end
 
 """
     vcopy!(dst, src) -> dst
@@ -234,8 +238,10 @@ Copy the values of `src` into `dst`.
 See also [`vcopy!](@ref).
 
 """
-unsafe_vcopy!(dst::AbstractArray, src::AbstractArray) =
+function unsafe_vcopy!(dst::AbstractArray, src::AbstractArray)
     copyto!(dst, firstindex(dst), src, firstindex(src), length(dst))
+    return nothing
+end
 
 #------------------------------------------------------------------------------- VCREATE -
 
@@ -286,6 +292,7 @@ function unsafe_vswap!(x::AbstractArray, y::AbstractArray)
         x[i] = y[i]
         y[i] = temp
     end
+    return nothing
 end
 
 #--------------------------------------------------------------------------------- VFILL -
@@ -432,6 +439,7 @@ function unsafe_vscale!(::Val{:alpha},
                         x::AbstractArray, α::Number)
     α = convert_multiplier(α, eltype(x))
     @dispatch_on_multiplier α unsafe_vscale!(x, α)
+    return nothing
 end
 
 function vscale!(y::AbstractArray, α::Number, x::AbstractArray)
@@ -449,6 +457,7 @@ function unsafe_vscale!(::Val{:alpha},
                         y::AbstractArray, α::Number, x::AbstractArray)
     α = convert_multiplier(α, eltype(x))
     @dispatch_on_multiplier α unsafe_vscale!(y, α, x)
+    return nothing
 end
 
 """
@@ -479,12 +488,14 @@ function unsafe_vscale!(x::AbstractArray, α::Number)
     @inbounds @fastmath @simd for i in eachindex(x)
         x[i] *= α
     end
+    return nothing
 end
 
 function unsafe_vscale!(y::AbstractArray, α::Number, x::AbstractArray)
     @inbounds @fastmath @simd for i in eachindex(x, y)
         y[i] = α*x[i]
     end
+    return nothing
 end
 
 #------------------------------------------------------------------------------ VPRODUCT -
@@ -551,6 +562,7 @@ function unsafe_vproduct!(dst::AbstractArray{<:Any,N},
     @inbounds @fastmath @simd for i in eachindex(dst, x, y)
         dst[i] = x[i]*y[i]
     end
+    return nothing
 end
 
 function unsafe_vproduct!(dst::AbstractArray{<:Any,N},
@@ -569,6 +581,7 @@ function unsafe_vproduct!(dst::AbstractArray{<:Any,N},
             dst[i] = x[i]*y[i]
         end
     end
+    return nothing
 end
 
 #------------------------------------------------------------------------------- VUPDATE -
@@ -600,6 +613,7 @@ function unsafe_vupdate!(::Val{:alpha},
     α = convert_multiplier(α, eltype(x))
     iszero(α) && return # skip computations if `α` is zero
     @dispatch_on_multiplier α unsafe_vupdate!(y, α, x)
+    return nothing
 end
 
 # Idem with a selection of indices.
@@ -621,6 +635,7 @@ function unsafe_vupdate!(::Val{:alpha},
     α = convert_multiplier(α, eltype(x))
     iszero(α) && return # skip computations if `α` is zero
     @dispatch_on_multiplier α unsafe_vupdate!(y, sel, α, x)
+    return nothing
 end
 
 """
@@ -644,6 +659,7 @@ function unsafe_vupdate!(y::AbstractArray{Ty,N},
     @inbounds @inbounds @simd for i in eachindex(x, y)
         y[i] += α*x[i]
     end
+    return nothing
 end
 
 function unsafe_vupdate!(y::AbstractArray{Ty,N}, sel::AbstractVector{Int},
@@ -660,6 +676,7 @@ function unsafe_vupdate!(y::AbstractArray{Ty,N}, sel::AbstractVector{Int},
             y[i] += α*x[i]
         end
     end
+    return nothing
 end
 
 #------------------------------------------------------------------------------ VCOMBINE -
@@ -731,18 +748,21 @@ function unsafe_vcombine!(::Val{:alpha_beta},
                           α::Number, x::AbstractArray, β::Number, y::AbstractArray)
     α = convert_multiplier(α, eltype(x))
     @dispatch_on_multiplier α unsafe_vcombine!(Val(:beta), α, x, β, y)
+    return nothing
 end
 
 function unsafe_vcombine!(::Val{:beta},
                           α::Number, x::AbstractArray, β::Number, y::AbstractArray)
     β = convert_multiplier(β, eltype(y))
     @dispatch_on_multiplier β unsafe_vcombine!(α, x, β, y)
+    return nothing
 end
 
 function unsafe_vcombine!(::Val{:alpha},
                           α::Number, x::AbstractArray, β::Number, y::AbstractArray)
     α = convert_multiplier(α, eltype(x))
     @dispatch_on_multiplier α unsafe_vcombine!(α, x, β, y)
+    return nothing
 end
 
 # Idem for `vcombine!(z, α,x,β,y)`:
@@ -763,6 +783,7 @@ function unsafe_vcombine!(::Val{:alpha_beta},
                           β::Number, y::AbstractArray)
     α = convert_multiplier(α, eltype(x))
     @dispatch_on_multiplier α unsafe_vcombine!(Val(:beta), z, α, x, β, y)
+    return nothing
 end
 
 function unsafe_vcombine!(::Val{:alpha},
@@ -771,6 +792,7 @@ function unsafe_vcombine!(::Val{:alpha},
                           β::Number, y::AbstractArray)
     α = convert_multiplier(α, eltype(x))
     @dispatch_on_multiplier α unsafe_vcombine!(z, α, x, β, y)
+    return nothing
 end
 
 function unsafe_vcombine!(::Val{:beta},
@@ -779,6 +801,7 @@ function unsafe_vcombine!(::Val{:beta},
                           β::Number, y::AbstractArray)
     β = convert_multiplier(β, eltype(y))
     @dispatch_on_multiplier β unsafe_vcombine!(z, α, x, β, y)
+    return nothing
 end
 
 """
@@ -801,6 +824,7 @@ function unsafe_vcombine!(α::Number, x::AbstractArray,
     @inbounds @fastmath @simd for i in eachindex(x, y)
         y[i] = α*x[i] + β*y[i]
     end
+    return nothing
 end
 
 """
@@ -824,6 +848,7 @@ function unsafe_vcombine!(z::AbstractArray,
     @inbounds @fastmath @simd for i in eachindex(x, y, z)
         z[i] = α*x[i] + β*y[i]
     end
+    return nothing
 end
 
 #---------------------------------------------------------------------------------- VMAP -
@@ -861,6 +886,7 @@ function unsafe_vmap!(::Val{:alpha_beta},
     # Deal with `β` than `α`.
     β = convert_multiplier(β, eltype(y))
     @dispatch_on_multiplier β unsafe_vmap!(Val(:alpha), α, f, w, x, β, y)
+    return nothing
 end
 
 function unsafe_vmap!(::Val{:alpha},
@@ -873,6 +899,7 @@ function unsafe_vmap!(::Val{:alpha},
     else
         @dispatch_on_multiplier α unsafe_vmap!(α, f, w, x, β, y)
     end
+    return nothing
 end
 
 function unsafe_vmap!(::Val{:beta},
@@ -885,6 +912,7 @@ function unsafe_vmap!(::Val{:beta},
     else
         @dispatch_on_multiplier β unsafe_vmap!(α, f, w, x, β, y)
     end
+    return nothing
 end
 
 """
@@ -902,4 +930,5 @@ function unsafe_vmap!(α::Number, f::Function, w::AbstractArray{Tw,N}, x::Abstra
     @inbounds @simd for i in eachindex(w, x, y)
         y[i] = α*f(w[i], x[i]) + β*y[i]
     end
+    return nothing
 end
