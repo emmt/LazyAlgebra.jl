@@ -10,8 +10,9 @@
     vnorm1([T::Type,] x)
 
 Return the 1-norm of `x` treated as a *vector*, that is the sum of the absolute values of
-the elements of `x`. An equivalent formulation is:
+the elements of `x`. Equivalent formulations are:
 
+    LinearAlgebra.norm(@view(x[:]), 1)
     mapreduce(abs, +, x)
 
 The floating-point type of the result can be imposed by optional argument `T`.
@@ -27,14 +28,13 @@ function vnorm1(x::AbstractArray)
     return s
 end
 
-vnorm1(x::Number) = abs(x)
-
 """
     vnorm2([T::Type,] x)
 
 Return the Euclidean norm of `x` treated as a *vector*, that is the square root of the sum
-of the squared absolute values of the elements of `x`. An equivalent formulation is:
+of the squared absolute values of the elements of `x`. Equivalent formulations are:
 
+    LinearAlgebra.norm(@view(x[:]), 2)
     sqrt(mapreduce(abs2, +, x))
 
 The floating-point type of the result can be imposed by optional argument `T`.
@@ -51,14 +51,13 @@ function vnorm2(x::AbstractArray)
     return sqrt(s)
 end
 
-vnorm2(x::Number) = abs(x)
-
 """
     vnorminf([T::Type,] x)
 
 Return the infinite-norm of `x` treated as a *vector*, that is the maximum absolute value
-of the elements of `x`. An equivalent formulation is:
+of the elements of `x`. Equivalent formulations are:
 
+    LinearAlgebra.norm(@view(x[:]), Inf)
     mapreduce(abs, max, x)
 
 Optional argument `T` is to specify the floating-point type of the result.
@@ -74,12 +73,13 @@ function vnorminf(x::AbstractArray)
     return s
 end
 
-vnorminf(x::Number) = abs(x)
-
-# Versions with forced floating-point type of output result.
+# Versions for numbers and with forced floating-point type of output result.
 for func in (:vnorm2, :vnorm1, :vnorminf)
-    @eval $func(::Type{T}, x) where {T<:AbstractFloat} =
-        convert_floating_point_type(T, $func(x))
+    @eval begin
+        $func(x::Number) = abs(x)
+        $func(::Type{T}, x) where {T<:AbstractFloat} =
+            convert_floating_point_type(T, $func(x))
+    end
 end
 
 #---------------------------------------------------------------------------------- VDOT -
