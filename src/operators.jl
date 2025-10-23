@@ -175,7 +175,7 @@ LazyAlgebra.input_eltype(typeof(A)) = T
 ```
 
 If this trait is implemented, argument `x` with a different element type is automatically
-converted by [`vmul`](@ref) and [`vmul!`](@ref). As consequence, consider carefully
+converted by [`vmul`](@ref) and [`vmul!`](@ref). As a consequence, consider carefully
 whether this is advisable or not. In general, this is only needed if the operator is
 implemented by an external library which imposes the element type.
 
@@ -269,7 +269,7 @@ output_eltype(::Type{α}, ::Type{x}) where {α<:Number, x<:AbstractArray} =
 # Fallback method, assumes that one of `output_eltype(A)` or `eltype(A)` is applicable.
 output_eltype(::Type{A}, ::Type{x}) where {A<:Operator, x<:AbstractArray} =
     OutputEltype(A) === HasOutputEltype() ? float(output_eltype(A)) :
-    float(sumprod_type(eltype(A), eltype(x)))
+    float(sum_prod_type(eltype(A), eltype(x)))
 
 # Extend `Base.eltype` for operators and their variants. NOTE This is not necessary for
 # `Sum` and `Prod` as they implement `output_eltype` properly.
@@ -858,7 +858,7 @@ function test_API(A::Operator, x::AbstractArray, y::AbstractArray;
         else
             # `Base.eltype(typeof(A))` must not be the default implementation.
             @test eltype(A) !== Any
-            @test float(sumprod_type(eltype(A), eltype(x))) === eltype(y)
+            @test float(sum_prod_type(eltype(A), eltype(x))) === eltype(y)
         end
 
         # Input element type.

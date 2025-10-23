@@ -1683,7 +1683,7 @@ function unsafe_vmul!(α::Number,
                       x::AbstractArray{Tx,N},
                       β::Number,
                       y::AbstractArray{Ty,M}) where {Ta,Tx,Ty,M,N}
-    Ts = sumprod_type(Ta, Tx)
+    Ts = sum_prod_type(eltype(A), eltype(x))
     @inbounds for i in each_row_index(A)
         s = zero(Ts)
         for k in each_nz_index(A, i)

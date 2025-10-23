@@ -40,22 +40,53 @@ end
 
 #-----------------------------------------------------------------------------------------
 
-# Yield the type of a product of two terms of respective types `S` and `T`.
-prod_type(::Type{S}, ::Type{T}) where {S,T} = typeof(zero(S) * zero(T))
+"""
+    LazyAlgebra.sample(x::Number) -> val
+    LazyAlgebra.sample(T::Type{<:Number}) -> val
 
-# Yield the type of a sum of two terms of respective types `S` and `T`. Same as
-# `promote_type` except that the result is always concrete.
-sum_type(::Type{S}, ::Type{T}) where {S,T} = typeof(zero(S) + zero(T))
+Return a predictable numerical value of type `T` (with `T = typeof(x)` in the first above
+case). For singleton type `T`, the returned value is the only possible instance, otherwise
+the value is `oneunit(T)`.
 
-# Yield the type of a sum of terms all of type `T`. The implemented logic is that `x[1] +
-# x[2] + ...` shall have the same type as `n*x[i]` with `n` an `Int`.
-sum_type(::Type{T}) where {T} = prod_type(Int, T)
+This function is intended to be used for type inference, e.g. by
+[`LazyAlgebra.return_type`](@ref).
 
-# Yield the type of a sum of products of two terms, all of respective types `S` and `T`.
-# The implemented logic is that `x[1]*y[1] + x[2]*y[2] + ...` shall have the same type as
-# `n*x[i]*y[i]` with `n` an `Int`.
-sumprod_type(::Type{S}, ::Type{T}) where {S,T} =
-    typeof(zero(Int) * zero(S) * zero(T))
+"""
+sample(x::Number) = sample(typeof(x))
+function sample(::Type{T}) where {T<:Number}
+    isconcretetype(T) || throw(ArgumentError("`$T` is not a concrete type"))
+    return isdefined(T, :instance) ? getfield(T, :instance) : oneunit(T)
+end
+# error catcher
+sample(::Type{T}) where {T} = throw(ArgumentError("`$T` is not a numeric type"))
+
+"""
+    LazyAlgebra.return_type(f::Function, args::Type...) -> T::Type
+
+Return the type of the result returned by calling `f` with arguments of concrete numeric
+types `args...`.
+
+!!! warning
+    `f` shall be a pure function.
+
+"""
+return_type(f::Function) = typeof(f())
+@inline return_type(f::Function, args::Type...) = typeof(f(map(sample, args)...))
+
+# Return the type of a product of two terms of respective types `S` and `T`.
+prod_type(::Type{S}, ::Type{T}) where {S,T} = typeof(sample(S) * sample(T))
+
+# Return the type of a sum of two terms of respective types `S` and `T`.
+sum_type(::Type{S}, ::Type{T}) where {S,T} = typeof(sample(S) + sample(T))
+
+# Return the type of a sum of terms all of type `T`.
+function sum_type(::Type{T}) where {T}
+    x = sample(T)
+    return typeof(x + x)
+end
+
+# Return the type of a sum of products of two terms, all of respective types `S` and `T`.
+sum_prod_type(::Type{S}, ::Type{T}) where {S, T} = sum_type(prod_type(S, T))
 
 """
     LazyAlgebra.isiterable(x) -> bool

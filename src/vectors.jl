@@ -21,7 +21,8 @@ See also [`vnorm2`](@ref) and [`vnorminf`](@ref).
 
 """
 function vnorm1(x::AbstractArray)
-    s = zero(sum_type(real(eltype(x))))
+    T = sum_type(return_type(abs, eltype(x)))
+    s = zero(T)
     @inbounds @fastmath @simd for i in eachindex(x)
         s += abs(x[i])
     end
@@ -43,8 +44,8 @@ See also [`vnorm1`](@ref) and [`vnorminf`](@ref).
 
 """
 function vnorm2(x::AbstractArray)
-    R = real(eltype(x))
-    s = zero(sumprod_type(R, R))
+    T = sum_type(return_type(abs2, eltype(x)))
+    s = zero(T)
     @inbounds @fastmath @simd for i in eachindex(x)
         s += abs2(x[i])
     end
@@ -66,7 +67,8 @@ See also [`vnorm1`](@ref) and [`vnorm2`](@ref).
 
 """
 function vnorminf(x::AbstractArray)
-    s = abs(zero(eltype(x)))
+    T = return_type(abs, eltype(x))
+    s = zero(T)
     @inbounds @simd for i in eachindex(x) # do not use @fastmath for isnan to work correctly
         s = fast_max(s, abs(x[i]))
     end
@@ -152,7 +154,7 @@ See also [`LazyAlgebra.vdot`](@ref).
 
 """
 function unsafe_vdot(x::AbstractArray, y::AbstractArray)
-    T = typeof(vdot(zero(eltype(x)), zero(eltype(y)))*0)
+    T = sum_type(return_type(vdot, eltype(x), eltype(y)))
     s = zero(T)
     @inbounds @fastmath @simd for i in eachindex(x, y)
         s += vdot(x[i], y[i])
@@ -161,7 +163,7 @@ function unsafe_vdot(x::AbstractArray, y::AbstractArray)
 end
 
 function unsafe_vdot(w::AbstractArray, x::AbstractArray, y::AbstractArray)
-    T = typeof(vdot(zero(eltype(w)), zero(eltype(x)), zero(eltype(y)))*0)
+    T = sum_type(return_type(vdot, eltype(w), eltype(x), eltype(y)))
     s = zero(T)
     @inbounds @fastmath @simd for i in eachindex(w, x, y)
         s += vdot(w[i], x[i], y[i])
@@ -185,7 +187,7 @@ end
 
 function unsafe_vdot(sel::AbstractVector{Int}, x::AbstractArray, y::AbstractArray)
     # NOTE We cannot use `@simd` here due to scattering.
-    T = typeof(vdot(zero(eltype(x)), zero(eltype(y)))*1)
+    T = sum_type(return_type(vdot, eltype(x), eltype(y)))
     s = zero(T)
     if IndexStyle(x, y) == IndexLinear()
         @inbounds @fastmath for j in eachindex(sel)
@@ -444,7 +446,7 @@ vscale!(α::Number, x::AbstractArray) = vscale!(x, α)
 
 function vscale!(x::AbstractArray, α::Number)
     # Check arguments types and units.
-    _ = convert(eltype(x), zero(α)*zero(eltype(x)))::eltype(x)
+    _ = convert(eltype(x), sample(α)*sample(eltype(x)))::eltype(x)
     # Deal with the multiplier.
     unsafe_vscale!(Val(:alpha), x, α)
     return x
@@ -462,7 +464,7 @@ function vscale!(y::AbstractArray, α::Number, x::AbstractArray)
     y === x && return vscale!(x, α)
     # Check arguments indices, types, and units.
     @assert_same_axes x y
-    _ = convert(eltype(y), zero(α)*zero(eltype(x)))::eltype(y)
+    _ = convert(eltype(y), sample(α)*sample(eltype(x)))::eltype(y)
     # Deal with the multiplier.
     unsafe_vscale!(Val(:alpha), y, α, x)
     return y
@@ -525,7 +527,7 @@ See also [`vproduct!`](@ref) and [`LazyAlgebra.unsafe_vproduct`](@ref).
 """
 function vproduct(x::AbstractArray{<:Any,N}, y::AbstractArray{<:Any,N}) where {N}
     @assert_same_axes x y
-    T = prod_type(eltype(x), eltype(y))
+    T = return_type(*, eltype(x), eltype(y))
     dst = similar(x, T)
     unsafe_vproduct!(dst, x, y)
     return dst
@@ -610,7 +612,7 @@ See also [`vscale!`](@ref), [`vcombine!](@ref), and [`LazyAlgebra.unsafe_vupdate
 function vupdate!(y::AbstractArray, α::Number, x::AbstractArray)
     # Check arguments indices, types, and units.
     @assert_same_axes x y
-    _ = convert(eltype(y), zero(α)*zero(eltype(x)))::eltype(y)
+    _ = convert(eltype(y), sample(α)*sample(eltype(x)))::eltype(y)
     # Deal with multiplier.
     unsafe_vupdate!(Val(:alpha), y, α, x)
     return y
@@ -629,7 +631,7 @@ function vupdate!(y::AbstractArray, sel::AbstractVector{Int},
                   α::Number, x::AbstractArray)
     # Check arguments indices, types, and units.
     @assert_same_axes x y
-    _ = convert(eltype(y), zero(α)*zero(eltype(x)))::eltype(y)
+    _ = convert(eltype(y), sample(α)*sample(eltype(x)))::eltype(y)
     imin, imax = extrema(sel)
     ((firstindex(x) ≤ imin) & (imax ≤ lastindex(x))) || out_of_range_selection()
     # Deal with multiplier.
@@ -702,12 +704,12 @@ See also [`vcombine!`](@ref), [`vscale!`](@ref), [`vupdate!](@ref), and
 function vcombine(α::Number, x::AbstractArray, β::Number, y::AbstractArray)
     # Check arguments indices, types, and units.
     @assert_same_axes x y
-    _ = convert(eltype(y), zero(α)*zero(eltype(x)) + zero(β)*zero(eltype(y)))::eltype(y)
+    _ = convert(eltype(y), sample(α)*sample(eltype(x)) + sample(β)*sample(eltype(y)))::eltype(y)
 
     # Convert multipliers to infer the element type of the result.
     α = convert_multiplier(α, eltype(x))
     β = convert_multiplier(β, eltype(y))
-    T = sum_type(output_eltype(α, x), output_eltype(β, y))
+    T = return_type(+, output_eltype(α, x), output_eltype(β, y))
     z = similar(x, T)
 
     # Call unsafe method to dispatch on the values of `α` and `β` because indices, types,
@@ -746,7 +748,9 @@ See also [`vcombine`](@ref), [`vscale!`](@ref), [`vupdate!](@ref),
 function vcombine!(α::Number, x::AbstractArray, β::Number, y::AbstractArray)
     # Check arguments indices, types, and units.
     @assert_same_axes x y
-    _ = convert(eltype(y), zero(α)*zero(eltype(x)) + zero(β)*zero(eltype(y)))::eltype(y)
+    _ = convert(eltype(y),
+                sample(α)*sample(eltype(x))
+                + sample(β)*sample(eltype(y)))::eltype(y)
     # Deal with multipliers.
     unsafe_vcombine!(Val(:alpha_beta), α, x, β, y)
     return y
@@ -779,7 +783,9 @@ function vcombine!(z::AbstractArray,
                    β::Number, y::AbstractArray)
     # Check arguments indices, types, and units.
     @assert_same_axes x y z
-    _ = convert(eltype(z), zero(α)*zero(eltype(x)) + zero(β)*zero(eltype(y)))::eltype(z)
+    _ = convert(eltype(z),
+                sample(α)*sample(eltype(x))
+                + sample(β)*sample(eltype(y)))::eltype(z)
     # Deal with multipliers.
     unsafe_vcombine!(Val(:alpha_beta), z, α, x, β, y)
     return z
@@ -881,8 +887,9 @@ function vmap!(α::Number, f::Function, w::AbstractArray, x::AbstractArray,
                β::Number, y::AbstractArray)
     # Check arguments indices, types, and units.
     @assert_same_axes w x y
-    _ = convert(eltype(y), zero(α)*zero(Base.promote_op(f, prod_type(w, x)))
-                + zero(β)*zero(eltype(y)))::eltype(y)
+    _ = convert(eltype(y),
+                sample(α)*sample(return_type(f, prod_type(eltype(w), eltype(x))))
+                + sample(β)*sample(eltype(y)))::eltype(y)
     # Deal with multipliers.
     unsafe_vmap!(Val(:alpha_beta), α, f, w, x, β, y)
     return z
@@ -900,7 +907,7 @@ end
 function unsafe_vmap!(::Val{:alpha},
                       α::Number, f::Function, w::AbstractArray, x::AbstractArray,
                       β::Number, y::AbstractArray)
-    α = convert_multiplier(α, Base.promote_op(f, eltype(w), eltype(x)))
+    α = convert_multiplier(α, return_type(f, prod_type(eltype(w), eltype(x))))
     if iszero(α)
         # Skip computing `α*f(w[i]*x[i])`.
         unsafe_vscale!(y, β)
