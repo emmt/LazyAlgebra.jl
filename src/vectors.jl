@@ -69,8 +69,7 @@ See also [`vnorm1`](@ref) and [`vnorm2`](@ref).
 function vnorminf(x::AbstractArray)
     s = abs(zero(eltype(x)))
     @inbounds @simd for i in eachindex(x) # do not use @fastmath for isnan to work correctly
-        a = abs(x[i])
-        s = (isnan(a) | (a > s)) ? a : s
+        s = fast_max(s, abs(x[i]))
     end
     return s
 end

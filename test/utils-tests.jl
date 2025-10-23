@@ -13,6 +13,7 @@ using Random
 using Test
 
 using LazyAlgebra: convert_multiplier
+using LazyAlgebra: fast_min, fast_max
 
 @testset "Multipliers   " begin
     #
@@ -37,6 +38,42 @@ using LazyAlgebra: convert_multiplier
         @test @inferred(convert_multiplier(α*cm, x)) === α*cm
         @test @inferred(convert_multiplier(α, A, x)) === α
         @test @inferred(convert_multiplier(α*(cm/s), A, x)) === α*(cm/s)
+    end
+end # testset
+
+@testset "Fast min./max." begin
+    u = cm/s
+    for T in (Int16, Float64, Float32, Float16, BigFloat)
+        # NOTE == does not work for NaNs, === does not work for BigFloat,
+        #      but isequal works for both.
+        x, y, z = T(1), 2, 0
+        # fast_min
+        @test isequal(@inferred(fast_min(y, x)), x)
+        @test isequal(@inferred(fast_min(x, y)), x)
+        @test isequal(@inferred(fast_min(y*u, x*u)), x*u)
+        @test isequal(@inferred(fast_min(x*u, y*u)), x*u)
+        # fast_max
+        @test isequal(@inferred(fast_max(z, x)), x)
+        @test isequal(@inferred(fast_max(x, z)), x)
+        @test isequal(@inferred(fast_max(z*u, x*u)), x*u)
+        @test isequal(@inferred(fast_max(x*u, z*u)), x*u)
+        if T <: AbstractFloat
+            x, y, z = T(NaN), T(-Inf), T(Inf)
+            # fast_min
+            @test isequal(@inferred(fast_min(y, x)), x)
+            @test isequal(@inferred(fast_min(x, y)), x)
+            @test isequal(@inferred(fast_min(x, x)), x)
+            @test isequal(@inferred(fast_min(y*u, x*u)), x*u)
+            @test isequal(@inferred(fast_min(x*u, y*u)), x*u)
+            @test isequal(@inferred(fast_min(x*u, x*u)), x*u)
+            # fast_max
+            @test isequal(@inferred(fast_max(z, x)), x)
+            @test isequal(@inferred(fast_max(x, z)), x)
+            @test isequal(@inferred(fast_max(x, x)), x)
+            @test isequal(@inferred(fast_max(z*u, x*u)), x*u)
+            @test isequal(@inferred(fast_max(x*u, z*u)), x*u)
+            @test isequal(@inferred(fast_max(x*u, x*u)), T(NaN)*u)
+        end
     end
 end # testset
 

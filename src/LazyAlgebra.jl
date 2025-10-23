@@ -129,6 +129,8 @@ using TypeUtils: @public
         each_col_index,
         each_nz_index,
         each_row_index,
+        fast_max,
+        fast_min,
         first_nz_index,
         input_axes,
         input_eltype,

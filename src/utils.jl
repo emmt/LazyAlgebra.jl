@@ -1,3 +1,45 @@
+"""
+    LazyAlgebra.fast_max(x, y)
+
+Return the greatest of `x` and `y`. If any of `x` and `y` is a NaN, the result is the NaN.
+This latter behavior is not guaranteed if `@fastmath` is active.
+
+"""
+fast_max(x::Number, y::Number) = fast_max(promote(x, y)...)
+fast_max(x::T, y::T) where {T<:Integer} = y < x ? x : y
+fast_max(x::T, y::T) where {T<:Number} = ifelse(isnan(x)|(y < x), x, y)
+
+if isdefined(Base.Core.Intrinsics, :max_float)
+    const max_float = Base.Core.Intrinsics.max_float
+    fast_max(x::T, y::T) where {T<:Base.IEEEFloat} = max_float(x, y)
+    function fast_max(x::S, y::S) where {T<:Base.IEEEFloat,S<:AbstractQuantity{T}}
+        u = unit(S)
+        return max_float(ustrip(u, x), ustrip(u, y))*u
+    end
+end
+
+"""
+    LazyAlgebra.fast_min(x, y)
+
+Return the least of `x` and `y`. If any of `x` and `y` is a NaN, the result is the NaN.
+This latter behavior is not guaranteed if `@fastmath` is active.
+
+"""
+fast_min(x::Number, y::Number) = fast_min(promote(x, y)...)
+fast_min(x::T, y::T) where {T<:Integer} = x < y ? x : y
+fast_min(x::T, y::T) where {T<:Number} = ifelse(isnan(x)|(x < y), x, y)
+
+if isdefined(Base.Core.Intrinsics, :min_float)
+    const min_float = Base.Core.Intrinsics.min_float
+    fast_min(x::T, y::T) where {T<:Base.IEEEFloat} = min_float(x, y)
+    function fast_min(x::S, y::S) where {T<:Base.IEEEFloat,S<:AbstractQuantity{T}}
+        u = unit(S)
+        return min_float(ustrip(u, x), ustrip(u, y))*u
+    end
+end
+
+#-----------------------------------------------------------------------------------------
+
 # Yield the type of a product of two terms of respective types `S` and `T`.
 prod_type(::Type{S}, ::Type{T}) where {S,T} = typeof(zero(S) * zero(T))
 
