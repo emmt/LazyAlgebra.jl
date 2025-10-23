@@ -79,14 +79,14 @@ function runtests(; T::Type = Float32, dims = 10_123)
 
     println()
     x_cpy = copy(x)
-    for alpha in (-1, 0, 1, 1.3)
-        @check vscale!(vcopy!(z, x), alpha) === z
-        @check vscale!(vcopy!(z, x), alpha) ≈ alpha*x
+    for α in (-1, 0, 1, 1.3)
+        @check vscale!(vcopy!(z, x), α) === z
+        @check vscale!(vcopy!(z, x), α) ≈ α*x
         @check x == x_cpy
-        @check vscale!(alpha, vcopy!(z, x)) === z
-        @check vscale!(alpha, vcopy!(z, x)) ≈ alpha*x
+        @check vscale!(α, vcopy!(z, x)) === z
+        @check vscale!(α, vcopy!(z, x)) ≈ α*x
         @check x == x_cpy
-        prt("vscale!(z, $alpha, x)", @benchmark(vscale!($z, $alpha, $x)); nops=n, opts..., color=lazy)
+        prt("vscale!(z, $α, x)", @benchmark(vscale!($z, $α, $x)); nops=n, opts..., color=lazy)
     end
 
     println()
@@ -101,12 +101,12 @@ function runtests(; T::Type = Float32, dims = 10_123)
 
     println()
     u = y ./ 10_000; # to avoid overflows
-    for alpha in (-1, 0, 1, 1.3)
-        @check vupdate!(vcopy!(z, x), alpha, y) === z
+    for α in (-1, 0, 1, 1.3)
+        @check vupdate!(vcopy!(z, x), α, y) === z
         @check y == y_cpy
-        @check vupdate!(vcopy!(z, x), alpha, y) ≈ x + alpha*y
+        @check vupdate!(vcopy!(z, x), α, y) ≈ x + α*y
         vcopy!(z, x)
-        prt("vupdate!(x, $alpha, y)", @benchmark(vupdate!($z, $alpha, $u)); nops=2n, opts..., color=lazy)
+        prt("vupdate!(x, $α, y)", @benchmark(vupdate!($z, $α, $u)); nops=2n, opts..., color=lazy)
     end
 
     println()
