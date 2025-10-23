@@ -1,136 +1,133 @@
-# Benchmarks for vectorized operations.
+"""
 
+Module `LazyAlgebraVectorBenchmarks` is to benchmark vectorized operations.
+Usage:
+
+    LazyAlgebraVectorBenchmarks.runtests(; T::Type=Float32, dims=10_123)
+
+"""
 module LazyAlgebraVectorBenchmarks
 
+using Printf
+using Statistics
 using BenchmarkTools
 using LazyAlgebra
+using ThreadPinning
+using LinearAlgebra
+using LinearAlgebra: BLAS
 
-const Vn = LazyAlgebra
+include("benchmarking.jl")
 
-#------------------------------------------------------------------------------
-module V1
-using ArrayTools
-using LazyAlgebra:
-    Floats, vscale!, vzeros!,
-    convert_multiplier, arguments_have_incompatible_axes
+function runtests(; T::Type = Float32, dims = 10_123)
+    w = rand(T, dims)
+    x = rand(T, dims)
+    y = rand(T, dims)
+    z = similar(x)
+    n = length(x)
 
-function vupdate!(y::AbstractArray{<:Floats,N},
-                  α::Number,
-                  x::AbstractArray{<:Floats,N}) where {N}
-    I = all_indices(x, y)
-    if α == 1
-        @inbounds @simd for i in I
-            y[i] += x[i]
-        end
-    elseif α == -1
-        @inbounds @simd for i in I
-            y[i] -= x[i]
-        end
-    elseif α != 0
-        alpha = convert_multiplier(α, x)
-        @inbounds @simd for i in I
-            y[i] += alpha*x[i]
+    pinthreads(:cores);
+    BLAS.set_num_threads(1);
+    opts = (; what=:min, pad=48);
+    lazy = :yellow;
+
+    title("Benchmark tests with T=$T and n=$n"; color=:blue)
+
+    # x and y as vectors for LinearAlgebra functions
+    x_flat = reshape(x, length(x))
+    y_flat = reshape(y, length(y))
+
+    println()
+    @check vnorm1(x) ≈ LinearAlgebra.norm(x_flat,1)
+    prt("vnorm1(x)", @benchmark(vnorm1($x_flat)); nops=2n, opts..., color=lazy)
+    prt("LinearAlgebra.norm(x,1)", @benchmark(LinearAlgebra.norm($x_flat,1)); nops=2n, opts...)
+
+    println()
+    @check vnorm2(x) ≈ LinearAlgebra.norm(x_flat,2)
+    prt("vnorm2(x)", @benchmark(vnorm2($x)); nops=2n, opts..., color=lazy)
+    prt("LinearAlgebra.norm(x,2)", @benchmark(LinearAlgebra.norm($x_flat,2)); nops=2n, opts...)
+    prt("LinearAlgebra.norm(x)", @benchmark(LinearAlgebra.norm($x_flat)); nops=2n, opts...)
+
+    println()
+    @check vnorminf(x) ≈ LinearAlgebra.norm(x_flat,Inf)
+    prt("vnorminf(x)", @benchmark(vnorminf($x)); nops=2n, opts..., color=lazy)
+    prt("LinearAlgebra.norm(x,Inf)", @benchmark(LinearAlgebra.norm($x_flat,Inf)); nops=2n, opts...)
+
+    println()
+    @check vdot(x, y) ≈ LinearAlgebra.dot(x_flat, y_flat)
+    @check vdot(x, y) ≈ sum(conj.(x) .* y)
+    prt("vdot(x, y)", @benchmark(vdot($x, $y)); nops=2n, opts..., color=lazy)
+    prt("LinearAlgebra.dot(x, y)", @benchmark(LinearAlgebra.dot($x_flat, $y_flat)); nops=2n, opts...)
+    @check vdot(w, x, y) ≈ sum(w .* conj.(x) .* y)
+    prt("vdot(w, x, y)", @benchmark(vdot($w, $x, $y)); nops=3n, opts..., color=lazy)
+
+    println()
+    inds = eachindex(IndexLinear(), x_flat)[x_flat .< 0.3]
+    @check vdot(inds, x, y) ≈ sum(conj.(x[inds]) .* y[inds])
+    prt("vdot(inds, x, y)", @benchmark(vdot($inds, $x, $y)); nops=2*length(inds), opts..., color=lazy)
+
+    println()
+    vfill!(z, T <: Complex ? complex(NaN,NaN) : NaN)
+    @check vcopy!(z, x) === z && z == x
+    prt("vcopy!(z, x)", @benchmark(vcopy!($z, $x)); nops=n, opts..., color=lazy)
+    prt("copyto!(z, x)", @benchmark(copyto!($z, $x)); nops=n, opts...)
+
+    println()
+    x_swp = copy(x)
+    y_swp = copy(y)
+    @check vswap!(x_swp, y_swp) === nothing && x_swp == y && y_swp == x
+    prt("vswap!(x, y)", @benchmark(vswap!($x_swp, $y_swp)); nops=n, opts..., color=lazy)
+
+    println()
+    x_cpy = copy(x)
+    for alpha in (-1, 0, 1, 1.3)
+        @check vscale!(vcopy!(z, x), alpha) === z
+        @check vscale!(vcopy!(z, x), alpha) ≈ alpha*x
+        @check x == x_cpy
+        @check vscale!(alpha, vcopy!(z, x)) === z
+        @check vscale!(alpha, vcopy!(z, x)) ≈ alpha*x
+        @check x == x_cpy
+        prt("vscale!(z, $alpha, x)", @benchmark(vscale!($z, $alpha, $x)); nops=n, opts..., color=lazy)
+    end
+
+    println()
+    x_cpy = copy(x)
+    y_cpy = copy(y)
+    @check vproduct(x, y) ≈ x .* y
+    @check x == x_cpy && y == y_cpy
+    @check vproduct!(z, x, y) === z
+    @check x == x_cpy && y == y_cpy
+    @check vproduct!(z, x, y) ≈ x .* y
+    prt("vproduct!!(z, x, y)", @benchmark(vproduct!($z, $x, $y)); nops=n, opts..., color=lazy)
+
+    println()
+    u = y ./ 10_000; # to avoid overflows
+    for alpha in (-1, 0, 1, 1.3)
+        @check vupdate!(vcopy!(z, x), alpha, y) === z
+        @check y == y_cpy
+        @check vupdate!(vcopy!(z, x), alpha, y) ≈ x + alpha*y
+        vcopy!(z, x)
+        prt("vupdate!(x, $alpha, y)", @benchmark(vupdate!($z, $alpha, $u)); nops=2n, opts..., color=lazy)
+    end
+
+    println()
+    for (α, β, nops) in ((1.5, -2.3, 3n),
+                         (1,   -1,    n),
+                         (1,    0,    n),
+                         (0,    1,    n),
+                         (1,    0,    n),
+                         (0,    0,    n))
+        @check vcombine!(z, α, x, β, y) === z ≈ α*x + β*y
+        @check x == x_cpy && y == y_cpy
+        @check vcombine!(α, x, β, vcopy!(z, y)) === z ≈ α*x + β*y
+        @check x == x_cpy
+        prt("vcombine!(z, $α, x, $β, y)",
+            @benchmark(vcombine!($z, $α, $x, $β, $y)); nops=3n, opts..., color=lazy)
+        if (α, β) == (1, 0)
+            prt("copyto!(z, x)", (@benchmark copyto!($z, $x)); nops=n, opts...)
+        elseif (α, β) == (0, 0)
+            prt("fill!(z, 𝟘)", (@benchmark fill!($z, $(zero(eltype(z))))); nops=n, opts...)
         end
     end
-    return y
-end
-
-function vcombine!(dst::AbstractArray{<:Floats,N},
-                   α::Number,
-                   x::AbstractArray{<:Floats,N},
-                   β::Number,
-                   y::AbstractArray{<:Floats,N}) where {N}
-    if α == 0
-        axes(x) == axes(dst) || arguments_have_incompatible_axes()
-        vscale!(dst, β, y)
-    elseif β == 0
-        axes(y) == axes(dst) || arguments_have_incompatible_axes()
-        vscale!(dst, α, x)
-    else
-        I = all_indices(dst, x, y)
-        if α == 1
-            if β == 1
-                @inbounds @simd for i in I
-                    dst[i] = x[i] + y[i]
-                end
-            elseif β == -1
-                @inbounds @simd for i in I
-                    dst[i] = x[i] - y[i]
-                end
-            else
-                beta = convert_multiplier(β, y)
-                @inbounds @simd for i in I
-                    dst[i] = x[i] + beta*y[i]
-                end
-            end
-        elseif α == -1
-            if β == 1
-                @inbounds @simd for i in I
-                    dst[i] = y[i] - x[i]
-                end
-            elseif β == -1
-                @inbounds @simd for i in I
-                    dst[i] = -x[i] - y[i]
-                end
-            else
-                beta = convert_multiplier(β, y)
-                @inbounds @simd for i in I
-                    dst[i] = beta*y[i] - x[i]
-                end
-            end
-        else
-            alpha = convert_multiplier(α, x)
-            if β == 1
-                @inbounds @simd for i in I
-                    dst[i] = alpha*x[i] + y[i]
-                end
-            elseif β == -1
-                @inbounds @simd for i in I
-                    dst[i] = alpha*x[i] - y[i]
-                end
-            else
-                beta = convert_multiplier(β, y)
-                @inbounds @simd for i in I
-                    dst[i] = alpha*x[i] + beta*y[i]
-                end
-            end
-        end
-    end
-    return dst
-end
-
-end # module V1
-
-#------------------------------------------------------------------------------
-
-n = 10_000
-T = Float32
-x = rand(T,n)
-y = rand(T,n)
-z1 = similar(x)
-zn = similar(x)
-alphas = (0,1,-1,-4.0)
-betas = (0,1,-1,+2.0)
-v1_vupdate!(dst, y, alpha, x) = V1.vupdate!(vcopy!(dst, y), alpha, x)
-vn_vupdate!(dst, y, alpha, x) = LazyAlgebra.vupdate!(vcopy!(dst, y), alpha, x)
-for a in alphas
-    println("\nvupdate!(y, α=$a, x):")
-    print("  v1:  ")
-    @btime v1_vupdate!($z1,$y,$a,$x);
-    print("  new: ")
-    @btime vn_vupdate!($zn,$y,$a,$x);
-    dz = vnorm2(z1 - zn)
-    printstyled("  -> ‖z1 - zn‖ = $dz\n"; color=(dz==0 ? :green : :red))
-end
-
-for a in alphas, b in betas
-    println("\nvcombine!(z, α=$a, x, β=$b, y):")
-    print("  v1:  ")
-    @btime V1.vcombine!($z1,$a,$x,$b,$y);
-    print("  new: ")
-    @btime LazyAlgebra.vcombine!($zn,$a,$x,$b,$y);
-    dz = vnorm2(z1 - zn)
-    printstyled("  -> ‖z1 - zn‖ = $dz\n"; color=(dz==0 ? :green : :red))
 end
 
 end # module
