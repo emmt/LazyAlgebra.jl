@@ -154,7 +154,7 @@ See also [`LazyAlgebra.vdot`](@ref).
 function unsafe_vdot(x::AbstractArray, y::AbstractArray)
     T = typeof(vdot(zero(eltype(x)), zero(eltype(y)))*0)
     s = zero(T)
-    @inbounds @fastmath for i in eachindex(x, y)
+    @inbounds @fastmath @simd for i in eachindex(x, y)
         s += vdot(x[i], y[i])
     end
     return s
@@ -163,7 +163,7 @@ end
 function unsafe_vdot(w::AbstractArray, x::AbstractArray, y::AbstractArray)
     T = typeof(vdot(zero(eltype(w)), zero(eltype(x)), zero(eltype(y)))*0)
     s = zero(T)
-    @inbounds @fastmath for i in eachindex(w, x, y)
+    @inbounds @fastmath @simd for i in eachindex(w, x, y)
         s += vdot(w[i], x[i], y[i])
     end
     return s
