@@ -114,14 +114,13 @@ function runtests(; T::Type = Float32, dims = 10_123)
                          (1,   -1,    n),
                          (1,    0,    n),
                          (0,    1,    n),
-                         (1,    0,    n),
                          (0,    0,    n))
         @check vcombine!(z, α, x, β, y) === z ≈ α*x + β*y
         @check x == x_cpy && y == y_cpy
         @check vcombine!(α, x, β, vcopy!(z, y)) === z ≈ α*x + β*y
         @check x == x_cpy
         prt("vcombine!(z, $α, x, $β, y)",
-            @benchmark(vcombine!($z, $α, $x, $β, $y)); nops=3n, opts..., color=lazy)
+            @benchmark(vcombine!($z, $α, $x, $β, $y)); nops=nops, opts..., color=lazy)
         if (α, β) == (1, 0)
             prt("copyto!(z, x)", (@benchmark copyto!($z, $x)); nops=n, opts...)
         elseif (α, β) == (0, 0)
