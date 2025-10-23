@@ -523,8 +523,7 @@ Return the element-wise multiplication (Hadamar product) of `x` by `y`.
 See also [`vproduct!`](@ref) and [`LazyAlgebra.unsafe_vproduct`](@ref).
 
 """
-function vproduct(x::AbstractArray{<:Any,N},
-                  y::AbstractArray{<:Any,N}) where {N}
+function vproduct(x::AbstractArray{<:Any,N}, y::AbstractArray{<:Any,N}) where {N}
     @assert_same_axes x y
     T = prod_type(eltype(x), eltype(y))
     dst = similar(x, T)
@@ -545,17 +544,14 @@ See also [`vproduct`](@ref) and [`LazyAlgebra.unsafe_vproduct`](@ref).
 
 """
 function vproduct!(dst::AbstractArray{<:Any,N},
-                   x::AbstractArray{<:Any,N},
-                   y::AbstractArray{<:Any,N}) where {N}
+                   x::AbstractArray{<:Any,N}, y::AbstractArray{<:Any,N}) where {N}
     @assert_same_axes dst x y
     unsafe_vproduct!(dst, x, y)
     return dst
 end
 
-function vproduct!(dst::AbstractArray{<:Any,N},
-                   sel::AbstractVector{Int},
-                   x::AbstractArray{<:Any,N},
-                   y::AbstractArray{<:Any,N}) where {N}
+function vproduct!(dst::AbstractArray{<:Any,N}, sel::AbstractVector{Int},
+                   x::AbstractArray{<:Any,N}, y::AbstractArray{<:Any,N}) where {N}
     @assert_same_axes dst x y
     imin, imax = extrema(sel)
     ((firstindex(dst) ≤ imin) & (imax ≤ lastindex(dst))) || out_of_range_selection()
@@ -571,19 +567,16 @@ method is called by [`vproduct!`](@ref) and [`vproduct`](@ref) after checking al
 arguments so that `@inbounds` can be assumed for performing the operation.
 
 """
-function unsafe_vproduct!(dst::AbstractArray{<:Any,N},
-                          x::AbstractArray{<:Any,N},
-                          y::AbstractArray{<:Any,N}) where {N}
+function unsafe_vproduct!(dst::AbstractArray,
+                          x::AbstractArray, y::AbstractArray)
     @inbounds @fastmath @simd for i in eachindex(dst, x, y)
         dst[i] = x[i]*y[i]
     end
     return nothing
 end
 
-function unsafe_vproduct!(dst::AbstractArray{<:Any,N},
-                          sel::AbstractVector{Int},
-                          x::AbstractArray{<:Any,N},
-                          y::AbstractArray{<:Any,N}) where {N}
+function unsafe_vproduct!(dst::AbstractArray, sel::AbstractVector{Int},
+                          x::AbstractArray, y::AbstractArray)
     # NOTE We cannot use `@simd` here due to scattering.
     if IndexStyle(dst, x, y) == IndexLinear()
         @inbounds @fastmath for i in sel
@@ -669,16 +662,16 @@ if `iszero(α)` does not hold. This method can assume `@inbounds` in its computa
 See also [`vupdate!`](@ref).
 
 """
-function unsafe_vupdate!(y::AbstractArray{Ty,N},
-                         α::Number, x::AbstractArray{Tx,N}) where {Tx,Ty,N}
+function unsafe_vupdate!(y::AbstractArray,
+                         α::Number, x::AbstractArray)
     @inbounds @inbounds @simd for i in eachindex(x, y)
         y[i] += α*x[i]
     end
     return nothing
 end
 
-function unsafe_vupdate!(y::AbstractArray{Ty,N}, sel::AbstractVector{Int},
-                         α::Number, x::AbstractArray{Tx,N}) where {Tx,Ty,N}
+function unsafe_vupdate!(y::AbstractArray, sel::AbstractVector{Int},
+                         α::Number, x::AbstractArray)
     # NOTE We cannot use `@simd` here due to scattering.
     if IndexStyle(x, y) == IndexLinear()
         @inbounds @fastmath for i in sel
@@ -940,8 +933,8 @@ Overwrite `y` with `y[i] = α*f(w[i], x[i]) + β*y[i])`.
     `α` and `β` have efficient types.
 
 """
-function unsafe_vmap!(α::Number, f::Function, w::AbstractArray{Tw,N}, x::AbstractArray{Tx,N},
-                      β::Number, y::AbstractArray{Ty,N}) where {Tw,Tx,Ty,N}
+function unsafe_vmap!(α::Number, f::Function, w::AbstractArray, x::AbstractArray,
+                      β::Number, y::AbstractArray)
     @inbounds @simd for i in eachindex(w, x, y)
         y[i] = α*f(w[i], x[i]) + β*y[i]
     end
