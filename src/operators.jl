@@ -583,7 +583,7 @@ vmul(α::Number, A::Prod, x::AbstractArray) = vmul(α, A[1], vmul(A[2], x))
 
 # Finally, consider `vmul(α,A,x)` for non-scaled, non-product operator `A`.
 function vmul(α::Number, A::Operator, x::AbstractArray)
-    # Convert multiplier before creating output.
+    # Convert multiplier before creating output and dispatching.
     α = convert_multiplier(α, output_eltype(A, x))
     # Create output and apply operator unless `α` is zero.
     y = create_output(α, A, x)
@@ -652,7 +652,8 @@ function vmul!(α::Number, A::Operator, x::AbstractArray, β::Number, y::Abstrac
     # Check arguments indices.
     check_output_axes(y, output_axes(A, x))
     # Check the compatibility of types and units.
-    _ = convert(eltype(y), zero(α)*zero(output_eltype(A, x)) + zero(β)*zero(eltype(y)))::eltype(y)
+    _ = convert(eltype(y), sample(α)*sample(output_eltype(A, x))
+                + sample(β)*sample(eltype(y)))::eltype(y)
     # Deal with multipliers.
     unsafe_vmul!(Val(:alpha_beta), α, x, β, y)
     return y
@@ -694,7 +695,7 @@ function vmul!(z::AbstractArray, α::Number, A::Operator, x::AbstractArray,
                β::Number, y::AbstractArray)
     # Check compatibility of arguments `β`, `y`m and `z`.
     @assert_same_axes y z
-    _ = convert(eltype(z), zero(β)*zero(eltype(y)))::eltype(z)
+    _ = convert(eltype(z), sample(β)*sample(eltype(y)))::eltype(z)
 
     β = convert_multiplier(β, eltype(y))
     if iszero(β)

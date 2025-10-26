@@ -704,7 +704,9 @@ See also [`vcombine!`](@ref), [`vscale!`](@ref), [`vupdate!](@ref), and
 function vcombine(α::Number, x::AbstractArray, β::Number, y::AbstractArray)
     # Check arguments indices, types, and units.
     @assert_same_axes x y
-    _ = convert(eltype(y), sample(α)*sample(eltype(x)) + sample(β)*sample(eltype(y)))::eltype(y)
+    _ = convert(eltype(y),
+                sample(α)*sample(eltype(x))
+                + sample(β)*sample(eltype(y)))::eltype(y)
 
     # Convert multipliers to infer the element type of the result.
     α = convert_multiplier(α, eltype(x))
