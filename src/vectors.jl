@@ -115,7 +115,7 @@ end
     vdot([w::Real,] x::Union{Real,Complex}, y::Union{Real,Complex})
 
 Return the inner product of `w`, `x`, and `y` both treated as 1-element *vectors*; that
-is, `conj(x)*y` or, if `w` is specified, the `w*conj(x)*y` (`w` shall have real-valued
+is, `conj(x)*y` or, if `w` is specified, `w*conj(x)*y` (`w` shall have real-valued
 elements). This method is intended to be called by [`LazyAlgebra.unsafe_vdot`](@ref) on
 the entries of its input *vectors*. This method may be extended for specific number types.
 

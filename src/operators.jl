@@ -711,7 +711,7 @@ end
     LazyAlgebra.check_input_axes(x, inp_axes) -> nothing
     LazyAlgebra.check_input_axes(axes(x), inp_axes) -> nothing
 
-throw a `DimensionMismatch` exception if the axes of the input array `x` are not equal to
+Throw a `DimensionMismatch` exception if the axes of the input array `x` are not equal to
 the given `inp_axes`.
 
 See also [`vmul`](@ref), [`vmul!`](@ref), and [`LazyAlgebra.check_output_axes`](@ref).
@@ -728,7 +728,7 @@ check_input_axes(x_axes::ArrayAxes, inp_axes::ArrayAxes) =
     LazyAlgebra.check_output_axes(y, out_axes) -> nothing
     LazyAlgebra.check_output_axes(axes(y), out_axes) -> nothing
 
-throw a `DimensionMismatch` exception if the axes of the output array `y` are not equal to
+Throw a `DimensionMismatch` exception if the axes of the output array `y` are not equal to
 the given `out_axes`.
 
 See also [`vmul`](@ref), [`vmul!`](@ref), and [`LazyAlgebra.check_input_axes`](@ref).
@@ -743,11 +743,9 @@ check_output_axes(y_axes::ArrayAxes, out_axes::ArrayAxes) =
 
 function incompatible_axes(arg_name::AbstractString, arg_axes::ArrayAxes, ref_axes::ArrayAxes)
     io = IOBuffer()
-    write(io, "axes of ")
-    print(io, arg_name)
-    write(io, " should be ")
+    print(io, "axes of ", arg_name, " should be ")
     print_axes(io, arg_axes)
-    write(io, ", got ")
+    print(io, ", got ")
     print_axes(io, ref_axes)
     return String(take!(io))
 end
@@ -767,11 +765,11 @@ is supposed to be specialized for any supported operator type.
 
 This method is called by [`vmul`](@ref) and [`vmul!`](@ref) after checking that arguments
 `x` and `y` have correct axes (so that `@inbounds` may be assumed to compute the result
-stored in `y`), with multipliers `α` and `β` converted to suitable floating-point types,
-and only if `iszero(α)` does not hold. The convention is that the prior contents of `y` is
-not used at all if `iszero(β)` holds so that `y` can be directly used to store the result
-even though it is not initialized. `LazyAlgebra.unsafe_vmul!` shall return `nothing` (any
-returned value is ignored by [`vmul`](@ref) and [`vmul!`](@ref).
+stored in `y`), with multipliers `α` and `β` converted to suitable numbers, and only if
+`iszero(α)` does not hold. The convention is that the prior contents of `y` is not used at
+all if `iszero(β)` holds so that `y` can be directly used to store the result even though
+it is not initialized. `LazyAlgebra.unsafe_vmul!` shall return `nothing` (any returned
+value is ignored by [`vmul`](@ref) and [`vmul!`](@ref).
 
 After checking the axes of `x` and of `y` and converting the multipliers `α` and `β`,
 [`vmul`](@ref) and [`vmul!`](@ref) do something like:
@@ -810,7 +808,7 @@ end
 
 @noinline function unsafe_vmul!(α::Number, A::Union{Inverse{<:Sum},InverseAdjoint{<:Sum}},
                                 x::AbstractArray, β::Number, y::AbstractArray)
-    error("automatic dispatching of the inverse of a sum of operators is not supported")
+    error("applying the inverse of a general sum of operators is not supported")
 end
 
 # Deal with scaled operator.

@@ -1,3 +1,5 @@
+#--------------------------------------------------------------------- Minimum and maximum -
+
 """
     LazyAlgebra.fast_max(x, y)
 
@@ -38,7 +40,7 @@ if isdefined(Base.Core.Intrinsics, :min_float)
     end
 end
 
-#-----------------------------------------------------------------------------------------
+#-------------------------------------------------------------------------- Type inference -
 
 """
     LazyAlgebra.sample(x::Number) -> val
@@ -69,39 +71,74 @@ types `args...`.
 !!! warning
     `f` shall be a pure function.
 
+See also [`LazyAlgebra.sample`](@ref) and `Base.promote_op` for caveats about return type
+inference.
+
 """
 return_type(f::Function) = typeof(f())
 @inline return_type(f::Function, args::Type...) = typeof(f(map(sample, args)...))
 
-# Return the type of a product of two terms of respective types `S` and `T`.
-prod_type(::Type{S}, ::Type{T}) where {S,T} = typeof(sample(S) * sample(T))
+"""
+    LazyAlgebra.prod_type(T₁::Type, T₂::Type) -> T::Type
 
-# Return the type of a sum of two terms of respective types `S` and `T`.
-sum_type(::Type{S}, ::Type{T}) where {S,T} = typeof(sample(S) + sample(T))
+Return the type of a product of two terms of respective types `T₁` and `T₂`.
 
-# Return the type of a sum of terms all of type `T`.
+See also [`LazyAlgebra.sum_type`](@ref) and [`LazyAlgebra.sum_prod_type`](@ref).
+
+"""
+prod_type(::Type{T₁}, ::Type{T₂}) where {T₁,T₂} = typeof(sample(T₁) * sample(T₂))
+
+"""
+    LazyAlgebra.sum_type(T₁::Type, T₂::Type) -> T::Type
+
+Return the type of a sum of two terms of respective types `T₁` and `T₂`.
+
+See also [`LazyAlgebra.prod_type`](@ref) and [`LazyAlgebra.sum_prod_type`](@ref).
+
+"""
+sum_type(::Type{T₁}, ::Type{T₂}) where {T₁,T₂} = typeof(sample(T₁) + sample(T₂))
+
+"""
+    LazyAlgebra.sum_type(T₁::Type, T₂::Type) -> T::Type
+
+Return the type of a sum of terms, all of type `T`.
+
+"""
 function sum_type(::Type{T}) where {T}
     x = sample(T)
     return typeof(x + x)
 end
 
-# Return the type of a sum of products of two terms, all of respective types `S` and `T`.
-sum_prod_type(::Type{S}, ::Type{T}) where {S, T} = sum_type(prod_type(S, T))
+"""
+    LazyAlgebra.sum_type(T₁::Type, T₂::Type) -> T::Type
+
+Return the type of a sum of products of two terms, all of respective types `T₁` and `T₂`.
+
+See also [`LazyAlgebra.prod_type`](@ref) and [`LazyAlgebra.sum_type`](@ref).
 
 """
-    LazyAlgebra.isiterable(x) -> bool
-    LazyAlgebra.isiterable(typeof(x)) -> bool
+sum_prod_type(::Type{T₁}, ::Type{T₂}) where {T₁, T₂} = sum_type(prod_type(T₁, T₂))
+
+"""
+    LazyAlgebra.is_iterable(x) -> bool
+    LazyAlgebra.is_iterable(typeof(x)) -> bool
 
 yield whether `x` is iterable, i.e. `iterate(x)` can be used to start iterating on `x`.
 
 """
-isiterable(x) = isiterable(typeof(x))
-isiterable(::Type{T}) where {T} = hasmethod(Base.iterate, (T,))
+is_iterable(x) = is_iterable(typeof(x))
+is_iterable(::Type{T}) where {T} = hasmethod(Base.iterate, (T,))
+
+# Yield whether a number is a real with integer storage.
+is_rationalizable(x::Number) = is_rationalizable(typeof(x))
+is_rationalizable(::Type{T}) where {T<:Number} = bare_type(T) <: Union{Integer, Rational}
+
+#-------------------------------------------------------------------------- Ordinal suffix -
 
 """
-    LazyAlgebra.ordinal_suffix(n) -> "st" or "nd" or "rd" or "th"
+    LazyAlgebra.ordinal_suffix(n)
 
-yields the ordinal suffix for integer `n`.
+Return the ordinal suffix of integer `n`, one of: `"st"`, `"nd"`, `"rd"`, or `"th"`.
 
 """
 function ordinal_suffix(n::Integer)
@@ -118,11 +155,7 @@ function ordinal_suffix(n::Integer)
     return "th"
 end
 
-#-----------------------------------------------------------------------------------------
-
-# Yield whether a number is a real with integer storage.
-is_rationalizable(x::Number) = is_rationalizable(typeof(x))
-is_rationalizable(::Type{T}) where {T<:Number} = bare_type(T) <: Union{Integer, Rational}
+#----------------------------------------------------------------------------- Multipliers -
 
 # Divide 2 multipliers.
 divide(num::Number, den::Number) =
@@ -132,7 +165,7 @@ divide(num::Number, den::Number) =
 inverse(α::Number ) = is_rationalizable(α) ? one(α)//α : inv(α)
 inverse(α::Neutral) = inv(α)
 
-#-----------------------------------------------------------------------------------------
+#---------------------------------------------------------------------- Throwing of errors -
 
 @noinline throw_bad_argument(msg::AbstractString) = throw(ArgumentError(msg))
 @noinline throw_bad_argument(args...) = throw(ArgumentError(string(args...)))
