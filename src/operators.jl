@@ -442,8 +442,9 @@ output_axes_in_sum(I::ArrayAxes, A::Operator, J::ArrayAxes) =
     y = LazyAlgebra.create_output([α::Number,] A::Operator, x::AbstractArray)
 
 Create a new array `y` to store the result of `A*x` or of `α*A*x` if the multiplier `α` is
-specified. In this latter case, it shall be assumed that `α` has been already converted by
-[`LazyAlgebra.convert_multiplier`](@ref).
+specified. In this latter case, the returned type does not depend on the numerical
+precision of `α`, only on its units, if any, and on whether it is a real or a complex
+number.
 
 The method may be specialized in the operator type. The default implementations are:
 
