@@ -665,6 +665,7 @@ function unsafe_vmul!(::Val{:alpha_beta},
     # Deal with `β` than `α`.
     β = convert_multiplier(β, eltype(y))
     @dispatch_on_multiplier β unsafe_vmul!(Val(:alpha), α, A, x, β, y)
+    return nothing
 end
 
 function unsafe_vmul!(::Val{:alpha},
@@ -677,6 +678,7 @@ function unsafe_vmul!(::Val{:alpha},
     else
         @dispatch_on_multiplier α unsafe_vmul!(α, A, x, β, y)
     end
+    return nothing
 end
 
 function unsafe_vmul!(::Val{:beta},
@@ -689,6 +691,7 @@ function unsafe_vmul!(::Val{:beta},
     else
         @dispatch_on_multiplier β unsafe_vmul!(α, A, x, β, y)
     end
+    return nothing
 end
 
 function vmul!(z::AbstractArray, α::Number, A::Operator, x::AbstractArray,
@@ -803,7 +806,7 @@ function unsafe_vmul!(α::Number, A::Sum, x::AbstractArray, β::Number, y::Abstr
     # multiplier, `β` is dimensionless and `𝟙*unit(β)` and `𝟙` are the same thing.
     unsafe_vmul!(α, A[1], x, β, y)
     unsafe_vmul!(α, A[2], x, 𝟙, y)
-    return y
+    return nothing
 end
 
 @noinline function unsafe_vmul!(α::Number, A::Union{Inverse{<:Sum},InverseAdjoint{<:Sum}},
