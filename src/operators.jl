@@ -656,7 +656,7 @@ function vmul!(α::Number, A::Operator, x::AbstractArray, β::Number, y::Abstrac
     _ = convert(eltype(y), sample(α)*sample(output_eltype(A, x))
                 + sample(β)*sample(eltype(y)))::eltype(y)
     # Deal with multipliers.
-    unsafe_vmul!(Val(:alpha_beta), α, x, β, y)
+    unsafe_vmul!(Val(:alpha_beta), α, A, x, β, y)
     return y
 end
 
