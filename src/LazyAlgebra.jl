@@ -98,6 +98,7 @@ using TypeUtils: @public
 @public @callable,
         @dispatch_on_multiplier,
         Adjoint,
+        ConjugateGradient,
         HasInputEltype,
         HasInputShape,
         HasOutputEltype,
@@ -207,6 +208,7 @@ include("sparse.jl")
 include("fft.jl")
 include("simplify.jl")
 include("conjgrad.jl")
+import .ConjugateGradient: conjgrad, conjgrad!
 #include("genmult.jl")
 #import .GenMult: lgemm!, lgemm, lgemv!, lgemv
 #include("blas.jl")

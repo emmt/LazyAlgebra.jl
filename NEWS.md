@@ -203,6 +203,14 @@ and changes.
 
 - Sum, composition, adjoint, and inverse of diagonal operators are simplified
 
+### Changed
+
+- The linear conjugate gradient algorithm has been rewritten to:
+  - Use a context to store all work-spaces. As a consequence, it is possible to avoid any
+    subsequent allocations.
+  - Take care of units if any.
+  - Introduce an optional observer which can print information but also stop/continue
+    iterations.
 
 ## Version 0.2.7 (2024-03-08)
 
