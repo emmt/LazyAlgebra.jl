@@ -729,7 +729,7 @@ conjgrad(A, b; kwds...) = conjgrad!(A, b, vzeros(b); kwds...)
 conjgrad(A, b, x₀; kwds...) = conjgrad!(A, b, vcopy(x₀); kwds...)
 
 """
-    conjgrad!(A, b, x; preconditioner=Id) -> x
+    conjgrad!(A, b, x; kwds...) -> x
 
 Approximately solve the symmetric linear system `A⋅x = b` starting at `x` by means of the
 iterative conjugate gradient method. The result is stored in `x` which is returned.
@@ -740,19 +740,10 @@ Argument `A` implements a symmetric positive definite linear operator, it is use
 vmul!(dst, A, src) -> dst
 ```
 
-to overwrite `dst` with `A⋅rc` and yield `dst`. Linear operator `A` can be provided as a
+to overwrite `dst` with `A⋅src` and yield `dst`. Linear operator `A` can be provided as a
 Julia array (interpreted as a *flexible matrix*, see [`FlexibleMatrix`](@ref)), as an
 instance of [`Operator`](@ref), or as any object for which [`vmul!`](@ref) is extended as
 shown above.
-
-If no initial variables `x₀` are specified, the default is to start with all variables set
-to zero.
-
-Optional arguments `p`, `q`, and `r` are writable workspace *vectors*. On return, `p` is
-the last search direction, `q = A⋅p`, and `r = b - A⋅xp` with `xp` the previous or last
-solution. If provided, these workspaces must be distinct. All *vectors* must have the same
-axes. If all workspace vectors are provided, no other memory allocation is necessary
-(unless `A` needs to allocate some temporaries).
 
 Provided `A` be positive definite, the solution `x` of the equations `A⋅x = b` is also the
 minimum of the quadratic function:
@@ -761,22 +752,43 @@ minimum of the quadratic function:
 
 where `ϵ` is an arbitrary constant. The variations of `f(x)` between successive
 iterations, the norm of the gradient of `f(x)` or the variations of `x` may be used to
-decide the convergence of the algorithm (see keywords `ftol`, `gtol` and `xtol` below).
-
-## Saving memory
-
-To save memory, `x` and `x₀` can be the same object. Otherwise, if no restarting occurs
-(see keyword `restart` below), `b` can also be the same as `r` but this is not
-recommended.
-
+decide the convergence of the algorithm (see keywords `ftol`, `gtol` and `xtol` in
+[`LazyAlgebra.ConjugateGradient.configure!`](@ref)).
 
 ## Keywords
 
-There are several keywords to control the algorithm:
+The keywords `kwds...` accepted by the method are those of the constructor
+[`LazyAlgebra.ConjugateGradient.Context`](@ref) except `preconditioning` which is inferred
+from the additional keyword:
 
-* FIXME `preconditioner`
+* `preconditioner = M` to specify a preconditioner `M` different from the default `Id`.
+  Like the LHS matrix `A`, the preconditioner can be an array or must extend `vmul!` so
+  that `vmul!(dst, M, src)` writes the result of `M⋅src` into `dst`.
 
-See also: [`conjgrad`][@ref).
+## Examples
+
+To start the algorithm with initial variables `x₀` in an object different from `x`, call:
+
+```julia
+conjgrad!(A, b, vcopy!(x, x₀); kwds...)
+```
+
+To start the algorithm with all variables set to zero, call:
+
+```julia
+conjgrad!(A, b, vzeros!(x); kwds...)
+```
+
+## See also
+
+[`conjgrad`](@ref) for an out-of-place version.
+
+[`LazyAlgebra.ConjugateGradient.Context`](@ref) and
+[`LazyAlgebra.ConjugateGradient.configure!`](@ref) for allowed keywords.
+
+[`LazyAlgebra.ConjugateGradient.solve!`](@ref) for applying the algorithm with no other
+allocations (unless `A` or the preconditioner require additional allocations) than a
+context created by [`LazyAlgebra.ConjugateGradient.Context`](@ref).
 
 """
 function conjgrad!(A, b, x;
