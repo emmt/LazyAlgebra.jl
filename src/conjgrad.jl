@@ -93,8 +93,8 @@ for f in (:isless, :(<), :(<=), :(>), :(>=), :isequal, :(==))
     end
 end
 
-let expr1 = :(throw(ArgumentError("unknown status"))),
-    expr2 = :(throw(ArgumentError("unknown symbolic status")))
+let expr1 = :(throw_bad_argument("unknown status")),
+    expr2 = :(throw_bad_argument("unknown symbolic status"))
     for val in sort!(collect(instances(Status)), rev=true)
         expr1 = :(x === $(QuoteNode(Symbol(val))) ? $val : $expr1)
         expr2 = :(x === $val ? $(QuoteNode(Symbol(val))) : $expr2)
@@ -262,8 +262,8 @@ end
 function Context{T}(x::Xv, b::Gv;
                     preconditioning::Bool = (Xv != Gv),
                     kwds...) where {T<:AbstractFloat,Xv,Gv}
-    Xv === Gv || preconditioning || throw(ArgumentError(
-        "variables and residuals with different types implies to use a preconditioner"))
+    Xv === Gv || preconditioning || throw_bad_argument(
+        "variables and residuals with different types implies to use a preconditioner")
     d = similar(x)
     q = similar(b)
     r = similar(b)
@@ -372,20 +372,20 @@ function configure!(ctx::Context;
     grtol = as(typeof(ctx.grtol), gtol[2])
     xatol = as(typeof(ctx.xatol), xtol[1])
     xrtol = as(typeof(ctx.xrtol), xtol[2])
-    maxiter ≥ 0 || throw(bad_argument(
-        "bad maximum number of iterations (maxiter = ", maxiter, ")"))
-    fatol ≥ zero(fatol) || throw(bad_argument(
-        "bad function reduction absolute tolerance (ftol[1] = ", fatol, ")"))
-    𝟘 ≤ frtol < 𝟙 || throw(bad_argument(
-        "bad function reduction relative tolerance (ftol[2] = ", frtol, ")"))
-    gatol ≥ zero(gatol) || throw(bad_argument(
-        "bad gradient absolute tolerance (gtol[1] = ", gatol, ")"))
-    𝟘 ≤ grtol < 𝟙 || throw(bad_argument(
-        "bad gradient relative tolerance (gtol[2] = ", grtol, ")"))
-    xatol ≥ zero(xatol) || throw(bad_argument(
-        "bad variables change absolute tolerance (xtol[1] = ", xatol, ")"))
-    𝟘 ≤ xrtol < 𝟙 || throw(bad_argument(
-        "bad variables change relative tolerance (xtol[2] = ", xrtol, ")"))
+    maxiter ≥ 0 || throw_bad_argument(
+        "bad maximum number of iterations (maxiter = ", maxiter, ")")
+    fatol ≥ zero(fatol) || throw_bad_argument(
+        "bad function reduction absolute tolerance (ftol[1] = ", fatol, ")")
+    𝟘 ≤ frtol < 𝟙 || throw_bad_argument(
+        "bad function reduction relative tolerance (ftol[2] = ", frtol, ")")
+    gatol ≥ zero(gatol) || throw_bad_argument(
+        "bad gradient absolute tolerance (gtol[1] = ", gatol, ")")
+    𝟘 ≤ grtol < 𝟙 || throw_bad_argument(
+        "bad gradient relative tolerance (gtol[2] = ", grtol, ")")
+    xatol ≥ zero(xatol) || throw_bad_argument(
+        "bad variables change absolute tolerance (xtol[1] = ", xatol, ")")
+    𝟘 ≤ xrtol < 𝟙 || throw_bad_argument(
+        "bad variables change relative tolerance (xtol[2] = ", xrtol, ")")
     ctx.maxiter = maxiter
     ctx.restart = restart
     ctx.fatol = fatol
@@ -706,14 +706,14 @@ end
 positive_part(x::Number) = ifelse(isnan(x) | (x < zero(x)), zero(x), x)
 
 """
-    bad_argument(args...)
+    throw_bad_argument(args...)
 
-yields an `ArgumentError` exception with error message given by `args...` converted into a
-string.
+Throw an `ArgumentError` exception with error message given by `args...` converted into a
+string. This function is not in-lined.
 
 """
-@noinline bad_argument(msg::AbstractString) = ArgumentError(msg)
-@noinline bad_argument(args...) = bad_argument(string(args...))
+@noinline throw_bad_argument(msg::AbstractString) = ArgumentError(msg)
+@noinline throw_bad_argument(args...) = throw_bad_argument(string(args...))
 
 """
     conjgrad(A, b, x₀ = vzeros(b)) -> x
