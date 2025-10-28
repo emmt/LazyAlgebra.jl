@@ -226,9 +226,10 @@ SparseArrays.nnz(A::SparseOperator) = length(nonzeros(A))
 SparseArrays.nnz(A::Adjoint{<:SparseOperator}) = length(nonzeros(parent(A)))
 
 """
-    SparseArrays.nonzeros(A::LazyAlgebra.SparseOperator)
+    nonzeros(A::LazyAlgebra.SparseOperator)
 
-yields the array storing the structural non-zeros of the compressed sparse operator `A`.
+Return the array storing the structural non-zeros of the compressed sparse operator `A`.
+
 The returned array is shared with `A`, call `copy(nonzeros(A))` or `collect(nonzeros(A))`
 instead if you want to modify the contents of the returned array with no side effects on
 `A`.
@@ -241,11 +242,12 @@ SparseArrays.nonzeros(A::Adjoint{<:SparseOperator}) =
 """
     LazyAlgebra.row_indices(A) -> I
 
-yields the row indices of the structural non-zeros of the sparse operator `A`. If `A` is a
-sparse operator in CSR or COO storage format, the result `I` is a vector of indices shared
-with `A`; otherwise, `I` is an iterator. In any case, the caller shall not attempt to
-modify the contents of `I`. Call `collect(row_indices(A))` to get a vector of row indices
-that can be modified with no side effects on `A`.
+Return the row indices of the structural non-zeros of the sparse operator `A`.
+
+If `A` is a sparse operator in CSC or COO storage format, the result `I` is a vector of
+indices shared with `A`; otherwise, `I` is an iterator. In any case, the caller shall not
+attempt to modify the contents of `I`. Call `collect(row_indices(A))` to get a vector of
+row indices that can be modified with no side effects on `A`.
 
 """
 row_indices(A::Union{SparseOperatorCSC,SparseOperatorCOO}) = getfield(A, :rows)
@@ -255,11 +257,12 @@ row_indices(A::Adjoint{<:SparseOperator}) = col_indices(parent(A))
 """
     LazyAlgebra.col_indices(A) -> J
 
-yields the column indices of the structural non-zeros of the sparse operator `A`. If `A`
-is a sparse operator in CSC or COO storage format, the result `J` is a vector of indices
-shared with `A`; otherwise, `J` is an iterator. In any case, the caller shall not attempt
-to modify the contents of `J`. Call `collect(col_indices(A))` to get a vector of column
-indices that can be modified with no side effects on `A`.
+Return the column indices of the structural non-zeros of the sparse operator `A`.
+
+If `A` is a sparse operator in CSR or COO storage format, the result `J` is a vector of
+indices shared with `A`; otherwise, `J` is an iterator. In any case, the caller shall not
+attempt to modify the contents of `J`. Call `collect(col_indices(A))` to get a vector of
+column indices that can be modified with no side effects on `A`.
 
 """
 col_indices(A::Union{SparseOperatorCSR,SparseOperatorCOO}) = getfield(A, :cols)
@@ -270,7 +273,7 @@ col_indices(A::Adjoint{<:SparseOperator}) = row_indices(parent(A))
 """
     LazyAlgebra.offsets(A)
 
-yields the table of offsets of the sparse operator `A`. Not all operators extend this
+Return the table of offsets of the sparse operator `A`. Not all operators extend this
 method.
 
 !!! warning
@@ -278,8 +281,8 @@ method.
     = LazyAlgebra.offsets(A)`, then the index range of the `j`-th column of a
     `SparseMatrixCSC` is `offs[j]:(offs[j+1]-1)` while the index range is
     `(offs[j]+1):offs[j+1]` for a `SparseOperatorCSC`. For this reason, it is recommended
-    to call [`each_nz_index`](@ref) instead or to call `offsets` with 2 arguments as shown
-    below.
+    to call [`each_nz_index`](@ref) instead or to call `offsets` with 2 arguments: `A`
+    and, depending on the compressed storage format, the row or column index.
 
 """
 offsets(A::Union{SparseOperatorCSR,SparseOperatorCSC}) = getfield(A, :offs)
@@ -289,17 +292,19 @@ offsets(A::Adjoint{<:CompressedSparseOperator{:CSC}}) = offsets(parent(A))
 """
     LazyAlgebra.each_nz_index(A)
 
-yields an iterator over the indices of the structural non-zeros of the sparse operator `A`
+Return an iterator over the indices of the structural non-zeros of the sparse operator `A`
 stored in a *Compressed Sparse Coordinate* (COO) format.
 
+---
     LazyAlgebra.each_nz_index(A, j)
 
-yields an iterator over the indices of the structural non-zeros of the `j`-th column of
+Return an iterator over the indices of the structural non-zeros of the `j`-th column of
 the sparse operator `A` stored in a *Compressed Sparse Column* (CSC) format.
 
+---
     LazyAlgebra.each_nz_index(A, i)
 
-yields an iterator over the indices of the structural non-zeros of the `i`-th row of the
+Return an iterator over the indices of the structural non-zeros of the `i`-th row of the
 sparse operator `A` stored in a *Compressed Sparse Row* (CSR) format.
 
 """
@@ -316,17 +321,19 @@ end
 """
     LazyAlgebra.first_nz_index(A)
 
-yields the index of the first structural non-zero of the sparse operator `A` stored in a
+Return the index of the first structural non-zero of the sparse operator `A` stored in a
 *Compressed Sparse Coordinate* (COO) format.
 
+---
     LazyAlgebra.first_nz_index(A, j)
 
-yields the index of the first structural non-zero of the `j`-th column of the sparse
+Return the index of the first structural non-zero of the `j`-th column of the sparse
 operator `A` stored in a *Compressed Sparse Column* (CSC) format.
 
+---
     LazyAlgebra.first_nz_index(A, i)
 
-yields the index of the first structural non-zero of the `i`-th row of the sparse operator
+Return the index of the first structural non-zero of the `i`-th row of the sparse operator
 `A` stored in a *Compressed Sparse Row* (CSR) format.
 
 """
@@ -340,17 +347,19 @@ end
 """
     LazyAlgebra.last_nz_index(A)
 
-yields the index of the last structural non-zero of the sparse operator `A` stored in a
+Return the index of the last structural non-zero of the sparse operator `A` stored in a
 *Compressed Sparse Coordinate* (COO) format.
 
+---
     LazyAlgebra.last_nz_index(A, j)
 
-yields the index of the last structural non-zero of the `j`-th column of the sparse
+Return the index of the last structural non-zero of the `j`-th column of the sparse
 operator `A` stored in a *Compressed Sparse Column* (CSC) format.
 
+---
     LazyAlgebra.last_nz_index(A, i)
 
-yields the index of the last structural non-zero of the `i`-th row of the sparse operator
+Return the index of the last structural non-zero of the `i`-th row of the sparse operator
 `A` stored in a *Compressed Sparse Row* (CSR) format.
 
 """
@@ -389,7 +398,7 @@ end
 """
     LazyAlgebra.each_row_index(A)
 
-yields an iterator over the linear row indices of the structural non-zeros of the sparse
+Return an iterator over the linear row indices of the structural non-zeros of the sparse
 operator `A` stored in a *Compressed Sparse Row* (CSR) format, this includes the adjoint
 of a sparse operator in *Compressed Sparse Column* (CSC) format.
 
@@ -400,7 +409,7 @@ each_row_index(A::Adjoint{<:CompressedSparseOperator{:CSC}}) = each_col_index(pa
 """
     LazyAlgebra.each_col_index(A)
 
-yields an iterator over the linear column indices of the structural non-zeros of the
+Return an iterator over the linear column indices of the structural non-zeros of the
 sparse operator `A` stored in a *Compressed Sparse Column* (CSC) format, this includes the
 adjoint of a sparse operator in *Compressed Sparse Row* (CSR) format.
 
@@ -411,7 +420,7 @@ each_col_index(A::Adjoint{<:CompressedSparseOperator{:CSR}}) = each_row_index(pa
 """
     LazyAlgebra.row_index(A, k) -> i
 
-yields the linear row index of the `k`-th entry of the sparse operator `A` stored in a
+Return the linear row index of the `k`-th entry of the sparse operator `A` stored in a
 *Compressed Sparse Column* (CSC) or *Coordinate* (COO) formats (this includes adjoint of
 sparse operators in CSR format).
 
@@ -421,7 +430,7 @@ sparse operators in CSR format).
 """
     LazyAlgebra.col_index(A, k) -> j
 
-yields the linear column index of the `k`-th entry of the sparse operator `A` stored in a
+Return the linear column index of the `k`-th entry of the sparse operator `A` stored in a
 *Compressed Sparse Row* (CSR) or *Coordinate* (COO) formats (this includes adjoint of
 sparse operators in CSC format).
 
