@@ -83,7 +83,6 @@ See also [`LazyAlgebra.InputEltype](@ref) and [`LazyAlgebra.OutputShape](@ref).
 """
 InputShape(A) = InputShape(typeof(A))
 InputShape(::Type) = InputShapeUnknown()
-InputShape(::Type{A}) where {A<:AbstractMatrix} = HasInputShape{1}()
 InputShape(::Type{A}) where {A<:Union{Adjoint,Inverse}} =
     transpose(OutputShape(parent(A)))
 
@@ -110,7 +109,6 @@ See also [`LazyAlgebra.OutputEltype](@ref), [`LazyAlgebra.InputShape](@ref), and
 """
 OutputShape(A) = OutputShape(typeof(A))
 OutputShape(::Type) = OutputShapeUnknown()
-OutputShape(::Type{A}) where {A<:AbstractMatrix} = HasOutputShape{1}()
 OutputShape(::Type{A}) where {A<:Union{Adjoint,Inverse}} =
     transpose(InputShape(parent(A)))
 
@@ -406,12 +404,6 @@ See also [`LazyAlgebra.output_axes`](@ref) and [`LazyAlgebra.InputShape`](@ref).
 """
 @noinline input_axes(A::Operator) =
     error("`LazyAlgebra.input_axes(A)` not defined for operator `A` of type `$(typeof(A))`")
-
-# Output and input axes and size are known in advance for a regular matrix.
-output_axes(A::AbstractMatrix) = (axes(A, 1),)
-output_size(A::AbstractMatrix) = (size(A, 1),)
-input_axes( A::AbstractMatrix) = (axes(A, 2),)
-input_size( A::AbstractMatrix) = (size(A, 2),)
 
 output_axes(A::Union{Adjoint,Inverse}) =  input_axes(A[])
 input_axes( A::Union{Adjoint,Inverse}) = output_axes(A[])
