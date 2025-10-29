@@ -3,7 +3,7 @@ using Test
 using LinearAlgebra
 using Neutrals
 
-using LazyAlgebra: Adjoint, Transpose, Inverse, Prod, Sum, Scaled, divide, inverse
+using LazyAlgebra: Adjoint, Conjugate, Transpose, Inverse, Prod, Sum, Scaled, divide, inverse
 
 function plain(x)
     io = IOBuffer()
@@ -169,8 +169,8 @@ end
         @test transpose(A + B) === transpose(A) + transpose(B)
         @test typeof(transpose(A + B)) <: Sum
         @test Tuple(transpose(A + B)) === (transpose(A), transpose(B))
-        @test transpose(A + B + C + D) === transpose(A) + transpose(B) + transpose(C) + transpose(D)
         @test typeof(transpose(A + B + C + D)) <: Sum
+        @test transpose(A + B + C + D) === transpose(A) + transpose(B) + transpose(C) + transpose(D)
         @test transpose(A + B + C + D)[1] === transpose(A)
         @test transpose(A + B + C + D)[2][1] === transpose(B)
         @test transpose(A + B + C + D)[2][2][1] === transpose(C)
@@ -179,12 +179,39 @@ end
         @test transpose(A * B) === transpose(B) * transpose(A)
         @test typeof(transpose(A * B)) <: Prod
         @test Tuple(transpose(A * B)) === (transpose(B), transpose(A))
-        @test transpose(A * B * C * D) === transpose(D) * transpose(C) * transpose(B) * transpose(A)
         @test typeof(transpose(A * B * C * D)) <: Prod
+        @test transpose(A * B * C * D) === transpose(D) * transpose(C) * transpose(B) * transpose(A)
         @test transpose(A * B * C * D)[1] === transpose(D)
         @test transpose(A * B * C * D)[2][1] === transpose(C)
         @test transpose(A * B * C * D)[2][2][1] === transpose(B)
         @test transpose(A * B * C * D)[2][2][2] === transpose(A)
+
+        # Conjugate of an operator
+        @test typeof(conj(A)) <: Conjugate
+        @test @inferred(conj(conj(A))) === A
+        @test @inferred(parent(conj(A))) === A
+        @test @inferred(getindex(conj(A))) === A
+        @test conj(A)[] === A
+        # Conjugate of a sum.
+        @test conj(A + B) === conj(A) + conj(B)
+        @test typeof(conj(A + B)) <: Sum
+        @test Tuple(conj(A + B)) === (conj(A), conj(B))
+        @test typeof(conj(A + B + C + D)) <: Sum
+        @test conj(A + B + C + D) === conj(A) + conj(B) + conj(C) + conj(D)
+        @test conj(A + B + C + D)[1] === conj(A)
+        @test conj(A + B + C + D)[2][1] === conj(B)
+        @test conj(A + B + C + D)[2][2][1] === conj(C)
+        @test conj(A + B + C + D)[2][2][2] === conj(D)
+        # Conjugate of a product.
+        @test conj(A * B) === conj(A) * conj(B)
+        @test typeof(conj(A * B)) <: Prod
+        @test Tuple(conj(A * B)) === (conj(A), conj(B))
+        @test typeof(conj(A * B * C * D)) <: Prod
+        @test conj(A * B * C * D) === conj(A) * conj(B) * conj(C) * conj(D)
+        @test conj(A * B * C * D)[1] === conj(A)
+        @test conj(A * B * C * D)[2][1] === conj(B)
+        @test conj(A * B * C * D)[2][2][1] === conj(C)
+        @test conj(A * B * C * D)[2][2][2] === conj(D)
 
         # Inverse of a number
         @test @inferred(inverse(2)) === 1//2

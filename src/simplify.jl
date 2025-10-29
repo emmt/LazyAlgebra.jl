@@ -279,7 +279,10 @@ try_simplify(A::Prod{<:Inverse,<:Operator}) = isequal(A[1][], A[2]) ? Id : nothi
 # For the adjoint (resp. transpose or inverse) of an operator, first attempt to simplify
 # the parent operator and, if this succeeds, return the simplification of the adjoint
 # (resp. transpose or inverse) of the simplified parent; otherwise, return nothing.
-for (f, T) in (:adjoint => :Adjoint, :transpose => :Transpose, :inv => :Inverse)
+for (f, T) in (:adjoint   => :Adjoint,
+               :transpose => :Transpose,
+               :conj      => :Conjugate,
+               :inv       => :Inverse)
     @eval begin
         try_simplify(A::$T) =
             (B = try_simplify($f(A))) isa Nothing ? nothing : simplify($f(B))

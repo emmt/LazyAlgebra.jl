@@ -26,30 +26,56 @@ StorageOrder(::Type{<:SparseMatrixCSC}) = ColumnMajor()
 StorageOrder(::Type{<:SparseOperatorCSC}) = ColumnMajor()
 StorageOrder(::Type{<:SparseOperatorCSR}) = RowMajor()
 StorageOrder(::Type{<:Swapped{A}}) where {A} = transpose(StorageOrder(A))
+StorageOrder(::Type{<:Conjugate{A}}) where {A} = StorageOrder(A)
 StorageOrder(::Type{<:LinearAlgebra.Adjoint{<:Any,A}}) where {A} = transpose(StorageOrder(A))
 StorageOrder(::Type{<:LinearAlgebra.Transpose{<:Any,A}}) where {A} = transpose(StorageOrder(A))
 
 """
+    LazyAlgebra.StorageOrderUnknown()
+
+Singleton representing an unknown storage order.
+
+See also [`LazyAlgebra.StorageOrder`](@ref).
+
+""" StorageOrderUnknown
+
+"""
+    LazyAlgebra.RowMajor()
+
+Singleton representing column-major storage order.
+
+See also [`LazyAlgebra.StorageOrder`](@ref) and [`is_row_major`](@ref).
+
+""" RowMajor
+
+"""
+    LazyAlgebra.ColumnMajor()
+
+Singleton representing column-major storage order.
+
+See also [`LazyAlgebra.StorageOrder`](@ref) and [`is_column_major`](@ref).
+
+""" ColumnMajor
+
+"""
     LazyAlgebra.is_row_major(x)
     LazyAlgebra.is_row_major(typeof(x))
-    LazyAlgebra.is_row_major(ASAP.Format(A)) # FIXME
 
 Return whether `x` has row-major storage order.
 
 See also [`LazyAlgebra.is_column_major`](@ref) and [`LazyAlgebra.StorageOrder`](@ref) .
 
 """
-is_row_major(::RowMajor) = true
-is_row_major(::Type{<:RowMajor}) = true
-is_row_major(::StorageOrder) = false
-is_row_major(::Type{<:StorageOrder}) = false
-is_row_major(x) = is_row_major(typeof(x))
+is_row_major(x::Any) = is_row_major(typeof(x))
+is_row_major(x::RowMajor) = true
+is_row_major(x::StorageOrder) = false
 is_row_major(::Type{T}) where {T<:Any} = is_row_major(StorageOrder(T))
+is_row_major(::Type{T}) where {T<:RowMajor} = true
+is_row_major(::Type{T}) where {T<:StorageOrder} = false
 
 """
     LazyAlgebra.is_column_major(x)
     LazyAlgebra.is_column_major(typeof(x))
-    LazyAlgebra.is_column_major(ASAP.Format(A)) # FIXME
 
 Return whether `x` has column-major storage order.
 
@@ -59,12 +85,12 @@ yield whether `A` has column-major storage order. This trait is the opposite of
 [`LazyAlgebra.is_row_major`](@ref).
 
 """
-is_column_major(::ColumnMajor) = true
-is_column_major(::Type{<:ColumnMajor}) = true
-is_column_major(::StorageOrder) = false
-is_column_major(::Type{<:StorageOrder}) = false
-is_column_major(x) = is_column_major(typeof(x))
+is_column_major(x::Any) = is_column_major(typeof(x))
+is_column_major(x::ColumnMajor) = true
+is_column_major(x::StorageOrder) = false
 is_column_major(::Type{T}) where {T<:Any} = is_column_major(StorageOrder(T))
+is_column_major(::Type{T}) where {T<:ColumnMajor} = true
+is_column_major(::Type{T}) where {T<:StorageOrder} = false
 
 #----------------------------------------------------------------- Input and Output Shapes -
 
@@ -332,11 +358,13 @@ output_eltype(::Type{Prod{L,R}}, ::Type{x}) where {L<:Number,R,x<:AbstractArray}
     output_eltype(L, R, x)
 
 # Extend `Base.eltype` for operators and their variants. NOTE This is not necessary for
-# `Sum` and `Prod` as they implement `output_eltype` properly.
+# `Sum` and `Prod` as they implement `output_eltype` properly. NOTE It is assumed that
+# the conjugate of a number has the same type.
 Base.eltype(A::Operator) = eltype(typeof(A))
 Base.eltype(::Type{<:Adjoint{A}}) where {A} = eltype(A)
+Base.eltype(::Type{<:Transpose{A}}) where {A} = eltype(A)
+Base.eltype(::Type{<:Conjugate{A}}) where {A} = eltype(A)
 Base.eltype(::Type{<:Inverse{A}}) where {A} = float(eltype(A))
-Base.eltype(::Type{<:InverseAdjoint{A}}) where {A} = float(eltype(A))
 Base.eltype(::Type{<:Prod{A,B}}) where {A,B} = prod_type(eltype(A), eltype(B))
 Base.eltype(::Type{<:Sum{A,B}}) where {A,B} = sum_type(eltype(A), eltype(B))
 @noinline Base.eltype(::Type{T}) where {T<:Operator} =

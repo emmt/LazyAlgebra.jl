@@ -34,12 +34,20 @@ function Base.show(ctx::ShowContext, A::Adjoint)
     B = parent(A)
     show_paren(ctx, B, B isa Union{Sum,Prod,Scaled,Adjoint})
     write(ctx, '\'')
+    return nothing
 end
 
-function Base.show(ctx::ShowContext, A::Inverse)
-    write(ctx, "inv(")
-    show(ctx, parent(A))
-    write(ctx, ')')
+for (f, W) in (:transpose => :Transpose,
+               :conj      => :Conjugate,
+               :inv       => :Inverse)
+    @eval begin
+        function Base.show(ctx::ShowContext, A::$W)
+            write(ctx, $(string(f,"(")))
+            show(ctx, parent(A))
+            write(ctx, ')')
+            return nothing
+        end
+    end
 end
 
 function Base.show(ctx::ShowContext, A::Scaled)
@@ -54,6 +62,7 @@ function Base.show(ctx::ShowContext, A::Scaled)
     end
     protect = A[2] isa Sum
     show_paren(ctx, A[2], protect)
+    return nothing
 end
 
 function Base.show(ctx::ShowContext, A::Prod)
@@ -61,11 +70,13 @@ function Base.show(ctx::ShowContext, A::Prod)
     write(ctx, '*')
     protect = A[2] isa Sum
     show_paren(ctx, A[2], protect)
+    return nothing
 end
 
 function Base.show(ctx::ShowContext, A::Sum)
     show(ctx, A[1])
     show_next_in_sum(ctx, A[2])
+    return nothing
 end
 
 # Show a multiplier (surrounded by parentheses if not a real, i.e. if a complex).
@@ -79,18 +90,20 @@ function show_paren(ctx::ShowContext, x, paren::Bool)
     paren && print(ctx, '(')
     show(ctx, x)
     paren && print(ctx, ')')
-    nothing
+    return nothing
 end
 
 # `show_next_in_sum` shows a term in a sum (not the first one).
 function show_next_in_sum(ctx::ShowContext, A::Operator)
     write(ctx, " + ")
     show(ctx, A)
+    return nothing
 end
 
 function show_next_in_sum(ctx::ShowContext, A::Sum)
     show_next_in_sum(ctx, A[1])
     show_next_in_sum(ctx, A[2])
+    return nothing
 end
 
 function show_next_in_sum(ctx::ShowContext, A::Scaled)
@@ -106,6 +119,7 @@ function show_next_in_sum(ctx::ShowContext, A::Scaled)
         write(ctx, '*')
     end
     show_in_prod(ctx, A[2])
+    return nothing
 end
 
 function show_next_in_sum(ctx::ShowContext, A::Prod)
@@ -113,6 +127,7 @@ function show_next_in_sum(ctx::ShowContext, A::Prod)
     show_in_prod(ctx, A[1])
     write(ctx, '*')
     show_in_prod(ctx, A[2])
+    return nothing
 end
 
 print_axis(ctx::ShowContext, args...) = print_axis(ctx.io, args...)
@@ -133,7 +148,7 @@ function print_axes(io::IO, rngs::Tuple{Vararg{AbstractUnitRange{<:Integer}}})
     end
     length(rngs) == 1 && write(io, ',')
     write(io, ')')
-    nothing
+    return nothing
 end
 
 function print_shape(io::IO, shape::ArrayShape)
@@ -142,5 +157,5 @@ function print_shape(io::IO, shape::ArrayShape)
     else
         print_axes(io, shape)
     end
-    nothing
+    return nothing
 end

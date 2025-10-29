@@ -74,7 +74,8 @@ linear operator `A`.
 Taking the adjoint of `B` yields back `A`, that is `B' === A` holds. Calling `parent(B)`
 or `B[]` also reveals the linear operator `A` embedded in `B = A'`.
 
-Also see [`LazyAlgebra.Transpose`](@ref) and [`LazyAlgebra.Swapped`](@ref).
+Also see [`LazyAlgebra.Transpose`](@ref), [`LazyAlgebra.Conjugate`](@ref) and
+[`LazyAlgebra.Swapped`](@ref).
 
 """
 struct Adjoint{T<:Operator} <: Operator
@@ -113,6 +114,25 @@ Also see [`LazyAlgebra.Adjoint`](@ref) and [`LazyAlgebra.Transpose`](@ref).
 
 """
 const Swapped{T<:Operator} = Union{Adjoint{T},Transpose{T}}
+
+"""
+    B = conj(A)
+    B = LazyAlgebra.Conjugate(A)
+
+Build a linear operator `B` lazily representing the *conjugate* of the linear operator
+`A`.
+
+Taking the conjugate of `B` yields back `A`, that is `conj(B) === A` holds. Calling
+`parent(B)` or `B[]` also reveals the linear operator `A` embedded in `B = conj(A)`.
+
+Also see [`LazyAlgebra.Adjoint`](@ref).
+
+"""
+struct Conjugate{T<:Operator} <: Operator
+    parent::T
+end
+
+@callable Conjugate
 
 """
     B = inv(A)
@@ -161,6 +181,21 @@ See also [`LazyAlgebra.Transpose`](@ref) and [`LazyAlgebra.Inverse`](@ref).
 
 """
 const InverseTranspose{T} = Inverse{Transpose{T}}
+
+"""
+    LazyAlgebra.InverseConjugate{T} ≡ LazyAlgebra.Inverse{LazyAlgebra.Conjugate{T}}
+
+Alias for the type of an operator that is the inverse conjugate of an operator of type `T`.
+
+!!! note
+    Construction rules imply that `conj(inv(A))` is always built as `inv(conj(A))`. In
+    other words, conjugate inverse is always automatically converted into an inverse
+    conjugate.
+
+See also [`LazyAlgebra.Conjugate`](@ref) and [`LazyAlgebra.Inverse`](@ref).
+
+"""
+const InverseConjugate{T} = Inverse{Conjugate{T}}
 
 # Union of types for any of A, A', transpose(A), inv(A), inv(A'), inv(A)',
 # inv(transpose(A)), or transpose(inv(A)).

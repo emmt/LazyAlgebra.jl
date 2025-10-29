@@ -6,13 +6,17 @@
 #
 #-----------------------------------------------------------------------------------------
 
-# Accessors and base methods for Adjoint, Transpose, and Inverse.
-for S in (:Adjoint, :Transpose, :Inverse)
+# Accessors and base methods for Adjoint, Transpose, Conjugate, and Inverse wrappers.
+for (f, W) in (:adjoint   => :Adjoint,
+               :transpose => :Transpose,
+               :conj      => :Conjugate,
+               :inv       => :Inverse)
     @eval begin
-        Base.parent(A::$S) = getfield(A, :parent)
-        Base.getindex(A::$S) = parent(A)
-        # Make `parent` also applicable to types of wrapped operators.
-        Base.parent(::Type{$S{T}}) where {T} = T
+        Base.parent(A::$W) = getfield(A, :parent)
+        Base.parent(::Type{$W{T}}) where {T} = T # parent is also applicable to type
+        Base.getindex(A::$W) = parent(A)
+        Base.$f(A::Operator) = $W(A)
+        $W(A::$W) = parent(A) # wrapper constructor is also the unwrapper
     end
 end
 
@@ -33,35 +37,40 @@ for S in (:Sum, :Prod, :Scaled)
     end
 end
 
-# Extend `A'` to call `Adjoint(A)` for any operator `A`, automatically simplify taking the
-# adjoint of the adjoint of an operator and propagate the adjoint in products and in sums.
-Base.adjoint(A::Operator) = Adjoint(A)
-Adjoint(A::Adjoint) = parent(A)
+# Propagate the adjoint in products and in sums.
 Adjoint((α,B)::Scaled) = conj(α) * Adjoint(B)
 Adjoint((A,B)::Prod) = Adjoint(B) * Adjoint(A)
 Adjoint((A,B)::Sum) = Adjoint(A) + Adjoint(B)
 
-# Similarly for transpose.
-Base.transpose(A::Operator) = Transpose(A)
-Transpose(A::Transpose) = parent(A)
+# Propagate the transpose in products and in sums.
 Transpose((α,B)::Scaled) = α * Transpose(B)
 Transpose((A,B)::Prod) = Transpose(B) * Transpose(A)
 Transpose((A,B)::Sum) = Transpose(A) + Transpose(B)
 
-# Maintain inverse on top of adjoint and transpose.
-for S in (:Adjoint, :Transpose)
+# Propagate the conjugate in products and in sums.
+Conjugate((α,B)::Scaled) = conj(α) * Conjugate(B)
+Conjugate((A,B)::Prod) =  Conjugate(A) * Conjugate(B)
+Conjugate((A,B)::Sum) = Conjugate(A) + Conjugate(B)
+
+# Propagate the inverse in products.
+Inverse((α,B)::Scaled) = α \ Inverse(B)
+Inverse((A,B)::Prod) = Inverse(B) * Inverse(A)
+
+# Maintain inverse on top of adjoint, transpose, and conjugate.
+for W in (:Adjoint, :Transpose, :Conjugate)
     @eval begin
-        $S(A::Inverse{<:Any}) = Inverse($S(parent(A)))
-        $S(A::Inverse{<:$S}) = inv(parent(parent(A)))
+        $W(A::Inverse{<:Any}) = Inverse($W(parent(A)))
+        $W(A::Inverse{<:$W}) = inv(parent(parent(A)))
     end
 end
 
-# Extend `inv(A)` to call `Inverse(A)` for any operator `A`. Automatically simplify taking
-# the inverse of the inverse of an operator and propagate the inverse in products.
-Base.inv(A::Operator) = Inverse(A)
-Inverse(A::Inverse) = parent(A)
-Inverse((α,B)::Scaled) = α \ Inverse(B)
-Inverse((A,B)::Prod) = Inverse(B) * Inverse(A)
+# Other automatic simplification rules between adjoint, transpose, and conjugate.
+Adjoint(A::Conjugate) = Transpose(parent(A))
+Conjugate(A::Adjoint) = Transpose(parent(A))
+Transpose(A::Conjugate) = Adjoint(parent(A))
+Conjugate(A::Transpose) = Adjoint(parent(A))
+Adjoint(A::Transpose) = Conjugate(parent(A))
+Transpose(A::Adjoint) = Conjugate(parent(A))
 
 # Unary plus and minus of operators.
 Base.:(+)(A::Operator) = A
@@ -129,6 +138,7 @@ for eq in (:(==), :isequal)
         # results from these rules).
         Base.$eq(A::Adjoint,   B::Adjoint) = $eq(parent(A), parent(B))
         Base.$eq(A::Transpose, B::Transpose) = $eq(parent(A), parent(B))
+        Base.$eq(A::Conjugate, B::Conjugate) = $eq(parent(A), parent(B))
         Base.$eq(A::Inverse,   B::Inverse) = $eq(parent(A), parent(B))
         #
         # Comparing operators of mixed kinds is delegated to an auxiliary function to
