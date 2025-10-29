@@ -122,13 +122,13 @@ and `col_index` are public but not automatically exported by `LazyAlgebra`.
 # dimensions, and `N` is the number of input dimensions.
 
 const AnySparseCSR{T,M,N} = Union{CompressedSparseOperator{:CSR,T,M,N},
-                                  Adjoint{<:CompressedSparseOperator{:CSC,T,N,M}}}
+                                  Swapped{<:CompressedSparseOperator{:CSC,T,N,M}}}
 
 const AnySparseCSC{T,M,N} = Union{CompressedSparseOperator{:CSC,T,M,N},
-                                  Adjoint{<:CompressedSparseOperator{:CSR,T,N,M}}}
+                                  Swapped{<:CompressedSparseOperator{:CSR,T,N,M}}}
 
 const AnySparseCOO{T,M,N} = Union{CompressedSparseOperator{:COO,T,M,N},
-                                  Adjoint{<:CompressedSparseOperator{:COO,T,N,M}}}
+                                  Swapped{<:CompressedSparseOperator{:COO,T,N,M}}}
 
 #-----------------------------------------------------------------------------------------
 # Accessors and basic methods.
@@ -223,7 +223,7 @@ SparseArrays.findnz(A::SparseOperator) = (row_indices(A), col_indices(A), nonzer
 # by the sparse structure which may or not be equal to zero, un-stored entries are always
 # considered as being strictly equal to zero.
 SparseArrays.nnz(A::SparseOperator) = length(nonzeros(A))
-SparseArrays.nnz(A::Adjoint{<:SparseOperator}) = length(nonzeros(parent(A)))
+SparseArrays.nnz(A::Swapped{<:SparseOperator}) = length(nonzeros(parent(A)))
 
 """
     nonzeros(A::LazyAlgebra.SparseOperator)
@@ -236,6 +236,7 @@ instead if you want to modify the contents of the returned array with no side ef
 
 """
 SparseArrays.nonzeros(A::SparseOperator) = getfield(A, :vals)
+SparseArrays.nonzeros(A::Transpose{<:SparseOperator}) = nonzeros(parent(A))
 SparseArrays.nonzeros(A::Adjoint{<:SparseOperator}) =
     lazymap(eltype(A), conj, nonzeros(parent(A)))
 
@@ -252,7 +253,7 @@ row indices that can be modified with no side effects on `A`.
 """
 row_indices(A::Union{SparseOperatorCSC,SparseOperatorCOO}) = getfield(A, :rows)
 row_indices(A::CompressedSparseOperator{:CSR}) = SparseIndexIterator(A)
-row_indices(A::Adjoint{<:SparseOperator}) = col_indices(parent(A))
+row_indices(A::Swapped{<:SparseOperator}) = col_indices(parent(A))
 
 """
     LazyAlgebra.col_indices(A) -> J
@@ -268,7 +269,7 @@ column indices that can be modified with no side effects on `A`.
 col_indices(A::Union{SparseOperatorCSR,SparseOperatorCOO}) = getfield(A, :cols)
 col_indices(A::Union{CompressedSparseOperator{:CSC},SparseMatrixCSC}) =
     SparseIndexIterator(A) # FIXME: check whether this works SparseMatrixCSC
-col_indices(A::Adjoint{<:SparseOperator}) = row_indices(parent(A))
+col_indices(A::Swapped{<:SparseOperator}) = row_indices(parent(A))
 
 """
     LazyAlgebra.offsets(A)
@@ -286,8 +287,8 @@ method.
 
 """
 offsets(A::Union{SparseOperatorCSR,SparseOperatorCSC}) = getfield(A, :offs)
-offsets(A::Adjoint{<:CompressedSparseOperator{:CSR}}) = offsets(parent(A))
-offsets(A::Adjoint{<:CompressedSparseOperator{:CSC}}) = offsets(parent(A))
+offsets(A::Swapped{<:CompressedSparseOperator{:CSR}}) = offsets(parent(A))
+offsets(A::Swapped{<:CompressedSparseOperator{:CSC}}) = offsets(parent(A))
 
 """
     LazyAlgebra.each_nz_index(A)
@@ -308,7 +309,7 @@ Return an iterator over the indices of the structural non-zeros of the `i`-th ro
 sparse operator `A` stored in a *Compressed Sparse Row* (CSR) format.
 
 """
-@inline each_nz_index(A::Union{SparseOperatorCOO,Adjoint{<:SparseOperatorCOO}}) = 𝟙:nnz(A)
+@inline each_nz_index(A::Union{SparseOperatorCOO,Swapped{<:SparseOperatorCOO}}) = 𝟙:nnz(A)
 
 @inline function each_nz_index(A::Union{AnySparseCSR,AnySparseCSC}, ij::Int)
     @boundscheck check_offset_index(A, ij)
@@ -337,7 +338,7 @@ Return the index of the first structural non-zero of the `i`-th row of the spars
 `A` stored in a *Compressed Sparse Row* (CSR) format.
 
 """
-@inline first_nz_index(A::Union{SparseOperatorCOO,Adjoint{<:SparseOperatorCOO}}) = 1
+@inline first_nz_index(A::Union{SparseOperatorCOO,Swapped{<:SparseOperatorCOO}}) = 1
 
 @inline function first_nz_index(A::Union{AnySparseCSR,AnySparseCSC}, ij::Int)
     @boundscheck check_offset_index(A, ij)
@@ -363,7 +364,7 @@ Return the index of the last structural non-zero of the `i`-th row of the sparse
 `A` stored in a *Compressed Sparse Row* (CSR) format.
 
 """
-@inline last_nz_index(A::Union{SparseOperatorCOO,Adjoint{<:SparseOperatorCOO}}) = nnz(A)
+@inline last_nz_index(A::Union{SparseOperatorCOO,Swapped{<:SparseOperatorCOO}}) = nnz(A)
 
 @inline function last_nz_index(A::Union{AnySparseCSR,AnySparseCSC}, ij::Int)
     @boundscheck check_offset_index(A, ij)
@@ -404,7 +405,7 @@ of a sparse operator in *Compressed Sparse Column* (CSC) format.
 
 """
 each_row_index(A::CompressedSparseOperator{:CSR}) = 𝟙:nrows(A)
-each_row_index(A::Adjoint{<:CompressedSparseOperator{:CSC}}) = each_col_index(parent(A))
+each_row_index(A::Swapped{<:CompressedSparseOperator{:CSC}}) = each_col_index(parent(A))
 
 """
     LazyAlgebra.each_col_index(A)
@@ -415,7 +416,7 @@ adjoint of a sparse operator in *Compressed Sparse Row* (CSR) format.
 
 """
 each_col_index(A::CompressedSparseOperator{:CSC}) = 𝟙:ncols(A)
-each_col_index(A::Adjoint{<:CompressedSparseOperator{:CSR}}) = each_row_index(parent(A))
+each_col_index(A::Swapped{<:CompressedSparseOperator{:CSR}}) = each_row_index(parent(A))
 
 """
     LazyAlgebra.row_index(A, k) -> i
@@ -450,6 +451,13 @@ Base.eltype(::Type{<:CompressedSparseOperator{F,T}}) where {F,T} = T
     return v
 end
 
+@inline function Base.getindex(A::Transpose{<:CompressedSparseOperator}, k::Int)
+    vals = nonzeros(parent(A))
+    @boundscheck checkbounds(vals, k)
+    v = @inbounds vals[k]
+    return v
+end
+
 @inline function Base.getindex(A::Adjoint{<:CompressedSparseOperator}, k::Int)
     vals = nonzeros(parent(A))
     @boundscheck checkbounds(vals, k)
@@ -459,6 +467,13 @@ end
 
 @inline function Base.setindex!(A::CompressedSparseOperator, v, k::Int)
     vals = nonzeros(A)
+    @boundscheck checkbounds(vals, k)
+    @inbounds vals[k] = v
+    return A
+end
+
+@inline function Base.setindex!(A::Transpose{<:CompressedSparseOperator}, v, k::Int)
+    vals = nonzeros(parent(A))
     @boundscheck checkbounds(vals, k)
     @inbounds vals[k] = v
     return A
@@ -551,9 +566,9 @@ each_col_index(A::SparseMatrixCSC) = 𝟙:ncols(A)
     each_nz_index(A, ij)
 
 function SparseArrays.rowvals(A::Union{CompressedSparseOperator{:COO},
-                                       Adjoint{<:CompressedSparseOperator{:COO}},
+                                       Swapped{<:CompressedSparseOperator{:COO}},
                                        CompressedSparseOperator{:CSC},
-                                       Adjoint{<:CompressedSparseOperator{:CSR}}})
+                                       Swapped{<:CompressedSparseOperator{:CSR}}})
     row_indices(A)
 end
 

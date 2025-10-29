@@ -276,17 +276,24 @@ try_simplify(A::Prod{<:Inverse,<:Inverse}) = nothing
 try_simplify(A::Prod{<:Operator,<:Inverse}) = isequal(A[1], A[2][]) ? Id : nothing
 try_simplify(A::Prod{<:Inverse,<:Operator}) = isequal(A[1][], A[2]) ? Id : nothing
 
-# For the adjoint (resp. inverse) of an operator, first attempt to simplify the parent
-# operator and, if this succeeds, return the simplification of the adjoint (resp. inverse)
-# of the simplified parent; otherwise, return nothing.
+# For the adjoint (resp. transpose or inverse) of an operator, first attempt to simplify
+# the parent operator and, if this succeeds, return the simplification of the adjoint
+# (resp. transpose or inverse) of the simplified parent; otherwise, return nothing.
 try_simplify(A::Adjoint) =
     (B = try_simplify(A')) isa Nothing ? nothing : simplify(B')
+
+try_simplify(A::Transpose) =
+    (B = try_simplify(transpose(A))) isa Nothing ? nothing : simplify(transpose(B))
 
 try_simplify(A::Inverse) =
     (B = try_simplify(inv(A))) isa Nothing ? nothing : simplify(inv(B))
 
 try_simplify(A::InverseAdjoint) =
     !((B = try_simplify(A')) isa Nothing) ? simplify(B') :
+    !((B = try_simplify(inv(A))) isa Nothing) ? simplify(inv(B)) : nothing
+
+try_simplify(A::InverseTranspose) =
+    !((B = try_simplify(transpose(A))) isa Nothing) ? simplify(transpose(B)) :
     !((B = try_simplify(inv(A))) isa Nothing) ? simplify(inv(B)) : nothing
 
 is_complex(::Type{T}) where {T<:Number} = is_complex(bare_type(T))

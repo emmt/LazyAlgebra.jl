@@ -3,7 +3,7 @@ using Test
 using LinearAlgebra
 using Neutrals
 
-using LazyAlgebra: Adjoint, Inverse, Prod, Sum, Scaled, divide, inverse
+using LazyAlgebra: Adjoint, Transpose, Inverse, Prod, Sum, Scaled, divide, inverse
 
 function plain(x)
     io = IOBuffer()
@@ -158,6 +158,33 @@ end
         @test (A * B * C * D)'[2][1] === C'
         @test (A * B * C * D)'[2][2][1] === B'
         @test (A * B * C * D)'[2][2][2] === A'
+
+        # Transpose of an operator
+        @test typeof(transpose(A)) <: Transpose
+        @test @inferred(transpose(transpose(A))) === A
+        @test @inferred(parent(transpose(A))) === A
+        @test @inferred(getindex(transpose(A))) === A
+        @test transpose(A)[] === A
+        # Transpose of a sum.
+        @test transpose(A + B) === transpose(A) + transpose(B)
+        @test typeof(transpose(A + B)) <: Sum
+        @test Tuple(transpose(A + B)) === (transpose(A), transpose(B))
+        @test transpose(A + B + C + D) === transpose(A) + transpose(B) + transpose(C) + transpose(D)
+        @test typeof(transpose(A + B + C + D)) <: Sum
+        @test transpose(A + B + C + D)[1] === transpose(A)
+        @test transpose(A + B + C + D)[2][1] === transpose(B)
+        @test transpose(A + B + C + D)[2][2][1] === transpose(C)
+        @test transpose(A + B + C + D)[2][2][2] === transpose(D)
+        # Transpose of a product.
+        @test transpose(A * B) === transpose(B) * transpose(A)
+        @test typeof(transpose(A * B)) <: Prod
+        @test Tuple(transpose(A * B)) === (transpose(B), transpose(A))
+        @test transpose(A * B * C * D) === transpose(D) * transpose(C) * transpose(B) * transpose(A)
+        @test typeof(transpose(A * B * C * D)) <: Prod
+        @test transpose(A * B * C * D)[1] === transpose(D)
+        @test transpose(A * B * C * D)[2][1] === transpose(C)
+        @test transpose(A * B * C * D)[2][2][1] === transpose(B)
+        @test transpose(A * B * C * D)[2][2][2] === transpose(A)
 
         # Inverse of a number
         @test @inferred(inverse(2)) === 1//2

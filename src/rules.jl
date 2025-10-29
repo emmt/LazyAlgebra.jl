@@ -6,8 +6,8 @@
 #
 #-----------------------------------------------------------------------------------------
 
-# Accessors and base methods for Adjoint and Inverse.
-for S in (:Adjoint, :Inverse)
+# Accessors and base methods for Adjoint, Transpose, and Inverse.
+for S in (:Adjoint, :Transpose, :Inverse)
     @eval begin
         Base.parent(A::$S) = getfield(A, :parent)
         Base.getindex(A::$S) = parent(A)
@@ -35,22 +35,33 @@ end
 
 # Extend `A'` to call `Adjoint(A)` for any operator `A`, automatically simplify taking the
 # adjoint of the adjoint of an operator and propagate the adjoint in products and in sums.
-Base.adjoint(A::Operator ) = Adjoint(A)
+Base.adjoint(A::Operator) = Adjoint(A)
 Adjoint(A::Adjoint) = parent(A)
-Adjoint(A::Scaled ) = conj(A[1]) * Adjoint(A[2])
-Adjoint(A::Prod   ) = Adjoint(A[2]) * Adjoint(A[1])
-Adjoint(A::Sum    ) = Adjoint(A[1]) + Adjoint(A[2])
+Adjoint((α,B)::Scaled) = conj(α) * Adjoint(B)
+Adjoint((A,B)::Prod) = Adjoint(B) * Adjoint(A)
+Adjoint((A,B)::Sum) = Adjoint(A) + Adjoint(B)
 
-# Maintain inverse on top of adjoint.
-Adjoint(A::Inverse           ) = Inverse(Adjoint(parent(A)))
-Adjoint(A::Inverse{<:Adjoint}) = inv(parent(parent(A)))
+# Similarly for transpose.
+Base.transpose(A::Operator) = Transpose(A)
+Transpose(A::Transpose) = parent(A)
+Transpose((α,B)::Scaled) = α * Transpose(B)
+Transpose((A,B)::Prod) = Transpose(B) * Transpose(A)
+Transpose((A,B)::Sum) = Transpose(A) + Transpose(B)
+
+# Maintain inverse on top of adjoint and transpose.
+for S in (:Adjoint, :Transpose)
+    @eval begin
+        $S(A::Inverse{<:Any}) = Inverse($S(parent(A)))
+        $S(A::Inverse{<:$S}) = inv(parent(parent(A)))
+    end
+end
 
 # Extend `inv(A)` to call `Inverse(A)` for any operator `A`. Automatically simplify taking
 # the inverse of the inverse of an operator and propagate the inverse in products.
 Base.inv(A::Operator) = Inverse(A)
-Inverse(A::Inverse  ) = parent(A)
-Inverse(A::Scaled   ) = A[1] \ Inverse(A[2])
-Inverse(A::Prod     ) = Inverse(A[2]) * Inverse(A[1])
+Inverse(A::Inverse) = parent(A)
+Inverse((α,B)::Scaled) = α \ Inverse(B)
+Inverse((A,B)::Prod) = Inverse(B) * Inverse(A)
 
 # Unary plus and minus of operators.
 Base.:(+)(A::Operator) = A
@@ -114,10 +125,11 @@ for eq in (:(==), :isequal)
         # Equality for compositions of operators.
         Base.$eq(A::Prod, B::Prod) = $eq(A[1], B[1]) && $eq(A[2], B[2])
         #
-        # Equality for adjoint and inverse (accounting for inverse-adjoint results from
-        # these rules).
-        Base.$eq(A::Adjoint, B::Adjoint) = $eq(parent(A), parent(B))
-        Base.$eq(A::Inverse, B::Inverse) = $eq(parent(A), parent(B))
+        # Equality for adjoint, transpose, and inverse (accounting for inverse-adjoint
+        # results from these rules).
+        Base.$eq(A::Adjoint,   B::Adjoint) = $eq(parent(A), parent(B))
+        Base.$eq(A::Transpose, B::Transpose) = $eq(parent(A), parent(B))
+        Base.$eq(A::Inverse,   B::Inverse) = $eq(parent(A), parent(B))
         #
         # Comparing operators of mixed kinds is delegated to an auxiliary function to
         # reduce the cases to handle. We consider `Scaled` to be the most specific, then
@@ -155,19 +167,19 @@ compare_with(f::Union{typeof(==),typeof(isequal)}, A::Operator, B::Operator) = f
 #   `simplify`.
 #
 # - Number operands are moved to the leftmost part of products and factorized.
-Prod(A::Operator, B::Scaled  ) = B[1] * (A * B[2])
-Prod(A::Scaled,   B::Operator) = A[1] * (A[2] * B)
-Prod(A::Scaled,   B::Scaled  ) = (A[1] * B[1]) * (A[2] * B[2])
+Prod(A::Operator, (β,B)::Scaled) = β * (A * B)
+Prod((α,A)::Scaled, B::Operator) = α * (A * B)
+Prod((α,A)::Scaled, (β,B)::Scaled) = (α * β) * (A * B)
 #
 # - Right-associativity is applied to keep product and sum of operators in the expected
 #   order for applying these constructions to an argument. See `unsafe_vmul!` method for
 #   these constructions. As a result, the left-hand side of a `Sum` (resp. a `Prod`) shall
 #   never be a `Sum` (resp. a `Prod`).
-Sum( A::Sum,  B::Operator) = A[1] + (A[2] + B)
-Prod(A::Prod, B::Operator) = A[1] * (A[2] * B)
+Sum((A,B)::Sum,  C::Operator) = A + (B + C)
+Prod((A,B)::Prod, C::Operator) = A * (B * C)
 
 # The following constructor insures that the right operand is always an unscaled operator.
-Scaled(α::Number, B::Scaled) = Scaled(α * B[1], B[2])
+Scaled(α::Number, (β,B)::Scaled) = (α * β) * B
 
 #---------------------------------------------------------------------- NEUTRAL ELEMENTS -
 
@@ -190,7 +202,7 @@ Base.isone(::Operator) = false
 
 # Precision for adjoint, and inverse. Thanks to recursion, this also works for
 # inverse-adjoint.
-for W in (:Adjoint, :Inverse)
+for W in (:Adjoint, :Transpose, :Inverse)
     @eval begin
         TypeUtils.get_precision(::Type{$W{A}}) where {A} = get_precision(A)
         TypeUtils.adapt_precision(::Type{T}, A::$W) where {T<:TypeUtils.Precision} =

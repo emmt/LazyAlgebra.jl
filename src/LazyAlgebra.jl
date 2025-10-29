@@ -24,6 +24,7 @@ export
     Diff,
     FFT,
     FlexibleMatrix,
+    Gram,
     Id,
     Identity,
     Operator,
@@ -98,6 +99,7 @@ using TypeUtils: @public
 @public @callable,
         @dispatch_on_multiplier,
         Adjoint,
+        ColumnMajor,
         ConjugateGradient,
         HasInputEltype,
         HasInputShape,
@@ -109,12 +111,18 @@ using TypeUtils: @public
         InputShapeUnknown,
         Inverse,
         InverseAdjoint,
+        InverseTranspose,
         OutputEltype,
         OutputEltypeUnknown,
         OutputShape,
         OutputShapeUnknown,
         Prod,
+        RowMajor,
+        StorageOrder,
+        StorageOrderUnknown,
         Sum,
+        Swapped,
+        Transpose,
         check_input_axes,
         check_output_axes,
         col_axes,
@@ -137,6 +145,8 @@ using TypeUtils: @public
         input_eltype,
         input_ndims,
         input_size,
+        is_column_major,
+        is_row_major,
         last_nz_index,
         multiplier,
         ncols,
@@ -190,6 +200,7 @@ using LinearAlgebra
 #
 
 include("types.jl")
+include("traits.jl")
 include("show.jl")
 include("utils.jl")
 include("multipliers.jl")

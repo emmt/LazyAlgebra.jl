@@ -68,13 +68,13 @@ end
     B = adjoint(A)
     B = LazyAlgebra.Adjoint(A)
 
-yield a linear operator `B` representing the *adjoint* (conjugate transpose) of the linear
-operator `A`.
+Build a linear operator `B` lazily representing the *adjoint* (conjugate transpose) of the
+linear operator `A`.
 
-Taking the adjoint of `B` yields back `A`, that is `B' === A` holds. Calling
-`Base.parent(B)` or `B[]` also reveals the linear operator `A` embedded in `B = A'`.
+Taking the adjoint of `B` yields back `A`, that is `B' === A` holds. Calling `parent(B)`
+or `B[]` also reveals the linear operator `A` embedded in `B = A'`.
 
-Also see [`LazyAlgebra.Inverse`](@ref).
+Also see [`LazyAlgebra.Transpose`](@ref) and [`LazyAlgebra.Swapped`](@ref).
 
 """
 struct Adjoint{T<:Operator} <: Operator
@@ -82,6 +82,37 @@ struct Adjoint{T<:Operator} <: Operator
 end
 
 @callable Adjoint
+
+"""
+    B = transpose(A)
+    B = LazyAlgebra.Transpose(A)
+
+Build a linear operator `B` lazily representing the *transpose* of the linear operator
+`A`.
+
+Taking the transpose of `B` yields back `A`, that is `transpose(B) === A` holds. Calling
+`parent(B)` or `B[]` also reveals the linear operator `A` embedded in `B = transpose(A)`.
+
+Also see [`LazyAlgebra.Adjoint`](@ref) and [`LazyAlgebra.Swapped`](@ref).
+
+"""
+struct Transpose{T<:Operator} <: Operator
+    parent::T
+end
+
+@callable Transpose
+
+"""
+    LazyAlgebra.Swapped{T} = Union{LazyAlgebra.Adjoint{T},
+                                   LazyAlgebra.Transpose{T}}
+
+Union of types of linear operators similar to `T` but whose row and column indices are
+swapped.
+
+Also see [`LazyAlgebra.Adjoint`](@ref) and [`LazyAlgebra.Transpose`](@ref).
+
+"""
+const Swapped{T<:Operator} = Union{Adjoint{T},Transpose{T}}
 
 """
     B = inv(A)
@@ -93,9 +124,7 @@ yield a linear operator `B` representing the *inverse* of the linear operator `A
 regardless whether this inverse exists or not.
 
 Taking the inverse of `B` yields back `A`, that is `inv(B)' === A` holds. Calling
-`Base.parent(B)` or `B[]` also reveals the linear operator `A` embedded in `B = inv(A)`.
-
-Also see [`LazyAlgebra.Adjoint`](@ref).
+`parent(B)` or `B[]` also reveals the linear operator `A` embedded in `B = inv(A)`.
 
 """
 struct Inverse{T<:Operator} <: Operator
@@ -105,10 +134,9 @@ end
 @callable Inverse
 
 """
-    LazyAlgebra.InverseAdjoint{A} ≡ LazyAlgebra.Inverse{LazyAlgebra.Adjoint{A}}
+    LazyAlgebra.InverseAdjoint{T} ≡ LazyAlgebra.Inverse{LazyAlgebra.Adjoint{T}}
 
-is an alias for the type of an operator that is the inverse adjoint of an operator of type
-`A`.
+Alias for the type of an operator that is the inverse adjoint of an operator of type `T`.
 
 !!! note
     Construction rules imply that `inv(A)'` is always built as `inv(A')`. In other words,
@@ -117,10 +145,31 @@ is an alias for the type of an operator that is the inverse adjoint of an operat
 See also [`LazyAlgebra.Adjoint`](@ref) and [`LazyAlgebra.Inverse`](@ref).
 
 """
-const InverseAdjoint{A} = Inverse{Adjoint{A}}
+const InverseAdjoint{T} = Inverse{Adjoint{T}}
 
-# Any of A, A', inv(A), inv(A'), or inv(A)'.
-const AnyVariant{A} = Union{A,Adjoint{A},Inverse{A},InverseAdjoint{A}}
+"""
+    LazyAlgebra.InverseTranspose{T} ≡ LazyAlgebra.Inverse{LazyAlgebra.Transpose{T}}
+
+Alias for the type of an operator that is the inverse transpose of an operator of type `T`.
+
+!!! note
+    Construction rules imply that `transpose(inv(A))` is always built as
+    `inv(transpose(A))`. In other words, transpose inverse is always automatically
+    converted into an inverse transpose.
+
+See also [`LazyAlgebra.Transpose`](@ref) and [`LazyAlgebra.Inverse`](@ref).
+
+"""
+const InverseTranspose{T} = Inverse{Transpose{T}}
+
+# Union of types for any of A, A', transpose(A), inv(A), inv(A'), inv(A)',
+# inv(transpose(A)), or transpose(inv(A)).
+const AnyVariant{T} = Union{T, Adjoint{T}, Transpose{T}, Inverse{T},
+                            InverseAdjoint{T}, InverseTranspose{T}}
+
+@callable struct Gram{T<:Operator} <: Operator
+    parent::T
+end
 
 """
     C = A + B
@@ -193,6 +242,7 @@ end
 # Alias representing `A` or `λ*A`, the linear operator `A` multiplied by a scalar `λ`.
 const MaybeScaled{A<:Operator} = Union{A,Scaled{<:Number,A}}
 
+# Traits.
 abstract type InputShape end
 struct InputShapeUnknown <: InputShape end
 struct HasInputShape{N}  <: InputShape end
@@ -208,6 +258,11 @@ struct HasInputEltype     <: InputEltype end
 abstract type OutputEltype end
 struct OutputEltypeUnknown <: OutputEltype end
 struct HasOutputEltype     <: OutputEltype end
+
+abstract type StorageOrder end
+struct StorageOrderUnknown <: StorageOrder end
+struct RowMajor <: StorageOrder end
+struct ColumnMajor <: StorageOrder end
 
 @callable struct Identity{I} <: Operator
     shape::I

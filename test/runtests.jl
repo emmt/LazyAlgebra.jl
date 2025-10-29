@@ -2,6 +2,8 @@ using LazyAlgebra
 using Test
 
 @testset "LazyAlgebra.jl" begin
+    include("traits-tests.jl")
+    include("utils-tests.jl")
     include("vect-tests.jl")
     include("rules-tests.jl")
     include("identity-tests.jl").runtests();
