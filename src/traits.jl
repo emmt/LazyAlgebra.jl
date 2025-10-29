@@ -359,3 +359,9 @@ Base.transpose(trait::InputEltypeUnknown) = OutputEltypeUnknown()
 Base.transpose(trait::OutputEltypeUnknown) = InputEltypeUnknown()
 Base.transpose(trait::HasInputEltype) = HasOutputEltype()
 Base.transpose(trait::HasOutputEltype) = HasInputEltype()
+
+is_complex(x) = is_complex(typeof(x))
+is_complex(::Type{T}) where {T<:Number} = is_complex(bare_type(T))
+is_complex(::Type{T}) where {T<:Real} = false
+is_complex(::Type{T}) where {T<:Complex} = true
+is_complex(::Type{T}) where {T<:Any} = false

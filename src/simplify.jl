@@ -279,26 +279,17 @@ try_simplify(A::Prod{<:Inverse,<:Operator}) = isequal(A[1][], A[2]) ? Id : nothi
 # For the adjoint (resp. transpose or inverse) of an operator, first attempt to simplify
 # the parent operator and, if this succeeds, return the simplification of the adjoint
 # (resp. transpose or inverse) of the simplified parent; otherwise, return nothing.
-try_simplify(A::Adjoint) =
-    (B = try_simplify(A')) isa Nothing ? nothing : simplify(B')
-
-try_simplify(A::Transpose) =
-    (B = try_simplify(transpose(A))) isa Nothing ? nothing : simplify(transpose(B))
-
-try_simplify(A::Inverse) =
-    (B = try_simplify(inv(A))) isa Nothing ? nothing : simplify(inv(B))
-
-try_simplify(A::InverseAdjoint) =
-    !((B = try_simplify(A')) isa Nothing) ? simplify(B') :
-    !((B = try_simplify(inv(A))) isa Nothing) ? simplify(inv(B)) : nothing
-
-try_simplify(A::InverseTranspose) =
-    !((B = try_simplify(transpose(A))) isa Nothing) ? simplify(transpose(B)) :
-    !((B = try_simplify(inv(A))) isa Nothing) ? simplify(inv(B)) : nothing
-
-is_complex(::Type{T}) where {T<:Number} = is_complex(bare_type(T))
-is_complex(::Type{<:Complex}) = true
-is_complex(::Type{<:Any}) = false
+for (f, T) in (:adjoint => :Adjoint, :transpose => :Transpose, :inv => :Inverse)
+    @eval begin
+        try_simplify(A::$T) =
+            (B = try_simplify($f(A))) isa Nothing ? nothing : simplify($f(B))
+    end
+    T !== :Inverse && @eval begin
+        try_simplify(A::$(Symbol("Inverse",T))) =
+            !((B = try_simplify($f(A))) isa Nothing) ? simplify($f(B)) :
+            !((B = try_simplify(inv(A))) isa Nothing) ? simplify(inv(B)) : nothing
+    end
+end
 
 # Simplification rules for diagonal operators. In products, the identity has been automatically
 # suppressed at construction time, so only sums of diagonal operators and (scaled) identity

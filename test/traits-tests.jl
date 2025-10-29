@@ -18,9 +18,20 @@ using LazyAlgebra:
     divide,
     inverse,
     is_column_major,
+    is_complex,
     is_row_major
 
 @testset "Traits" begin
+    @testset "Numbers" begin
+        @test @inferred(is_complex(1)) == false
+        @test @inferred(is_complex(1 - 0im)) == true
+        @test @inferred(is_complex("hello")) == false
+        @test @inferred(is_complex(Int)) == false
+        @test @inferred(is_complex(AbstractString)) == false
+        @test @inferred(is_complex(Complex)) == true
+        @test @inferred(is_complex(Complex{Float32})) == true
+    end
+
     @testset "Storage Order" begin
         # Storage order or storage order instances.
         @test @inferred(StorageOrder(StorageOrderUnknown())) === StorageOrderUnknown()
