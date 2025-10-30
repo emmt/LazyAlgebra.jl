@@ -11,7 +11,7 @@ type, one of:
 
 - `LazyAlgebra.RowMajor()` if the entries of `x` are stored in row-major order;
 
-- `LazyAlgebra.StorageOrderUnknown()` otherwise (this is the default).
+- `LazyAlgebra.StorageOrderAny()` otherwise (this is the default).
 
 See also [`LazyAlgebra.is_column_major`](@ref) and [`LazyAlgebra.is_row_major`](@ref) .
 
@@ -19,7 +19,7 @@ See also [`LazyAlgebra.is_column_major`](@ref) and [`LazyAlgebra.is_row_major`](
 StorageOrder(x::Any) = StorageOrder(typeof(x))
 StorageOrder(x::StorageOrder) = x
 
-StorageOrder(::Type{<:Any}) = StorageOrderUnknown()
+StorageOrder(::Type{<:Any}) = StorageOrderAny()
 StorageOrder(::Type{<:ColumnMajor}) = ColumnMajor()
 StorageOrder(::Type{<:RowMajor}) = RowMajor()
 StorageOrder(::Type{<:Array}) = ColumnMajor()
@@ -28,17 +28,18 @@ StorageOrder(::Type{<:SparseOperatorCSC}) = ColumnMajor()
 StorageOrder(::Type{<:SparseOperatorCSR}) = RowMajor()
 StorageOrder(::Type{<:Swapped{A}}) where {A} = transpose(StorageOrder(A))
 StorageOrder(::Type{<:Conjugate{A}}) where {A} = StorageOrder(A)
+StorageOrder(::Type{<:Scaled{α,A}}) where {α,A} = StorageOrder(A)
 StorageOrder(::Type{<:LinearAlgebra.Adjoint{<:Any,A}}) where {A} = transpose(StorageOrder(A))
 StorageOrder(::Type{<:LinearAlgebra.Transpose{<:Any,A}}) where {A} = transpose(StorageOrder(A))
 
 """
-    LazyAlgebra.StorageOrderUnknown()
+    LazyAlgebra.StorageOrderAny()
 
 Singleton representing an unknown storage order.
 
 See also [`LazyAlgebra.StorageOrder`](@ref).
 
-""" StorageOrderUnknown
+""" StorageOrderAny
 
 """
     LazyAlgebra.RowMajor()
@@ -441,7 +442,7 @@ Base.eltype(::Type{<:Sum{A,B}}) where {A,B} = sum_type(eltype(A), eltype(B))
 
 # Some traits need to be transposed or inversed.
 
-Base.transpose(trait::StorageOrderUnknown) = StorageOrderUnknown()
+Base.transpose(trait::StorageOrderAny) = StorageOrderAny()
 Base.transpose(trait::RowMajor) = ColumnMajor()
 Base.transpose(trait::ColumnMajor) = RowMajor()
 

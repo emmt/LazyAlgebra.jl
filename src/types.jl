@@ -280,7 +280,7 @@ const MaybeScaled{A<:Operator} = Union{A,Scaled{<:Number,A}}
 #---------------------------------------------------------------------------------- Traits -
 
 abstract type StorageOrder end
-struct StorageOrderUnknown <: StorageOrder end
+struct StorageOrderAny <: StorageOrder end
 struct RowMajor <: StorageOrder end
 struct ColumnMajor <: StorageOrder end
 

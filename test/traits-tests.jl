@@ -17,7 +17,7 @@ using LazyAlgebra:
     RowMajor,
     Scaled,
     StorageOrder,
-    StorageOrderUnknown,
+    StorageOrderAny,
     Sum,
     Transpose,
     TriangularShape,
@@ -187,10 +187,10 @@ LazyAlgebra.StorageOrder(::Type{SingleTraitOperator{T}}) where {T} = StorageOrde
     end
 
     @testset "Storage Order" begin
-        # Storage order or storage order instances.
-        @test @inferred(StorageOrder(StorageOrderUnknown())) === StorageOrderUnknown()
-        @test @inferred(is_row_major(StorageOrderUnknown())) === false
-        @test @inferred(is_column_major(StorageOrderUnknown())) === false
+        # Storage order of storage order instances.
+        @test @inferred(StorageOrder(StorageOrderAny())) === StorageOrderAny()
+        @test @inferred(is_row_major(StorageOrderAny())) === false
+        @test @inferred(is_column_major(StorageOrderAny())) === false
 
         @test @inferred(StorageOrder(ColumnMajor())) === ColumnMajor()
         @test @inferred(is_row_major(ColumnMajor())) === false
@@ -200,14 +200,14 @@ LazyAlgebra.StorageOrder(::Type{SingleTraitOperator{T}}) where {T} = StorageOrde
         @test @inferred(is_row_major(RowMajor())) === true
         @test @inferred(is_column_major(RowMajor())) === false
 
-        # Storage order or storage order types.
-        @test @inferred(StorageOrder(StorageOrder)) === StorageOrderUnknown()
+        # Storage order of storage order types.
+        @test @inferred(StorageOrder(StorageOrder)) === StorageOrderAny()
         @test @inferred(is_row_major(StorageOrder)) === false
         @test @inferred(is_column_major(StorageOrder)) === false
 
-        @test @inferred(StorageOrder(StorageOrderUnknown)) === StorageOrderUnknown()
-        @test @inferred(is_row_major(StorageOrderUnknown)) === false
-        @test @inferred(is_column_major(StorageOrderUnknown)) === false
+        @test @inferred(StorageOrder(StorageOrderAny)) === StorageOrderAny()
+        @test @inferred(is_row_major(StorageOrderAny)) === false
+        @test @inferred(is_column_major(StorageOrderAny)) === false
 
         @test @inferred(StorageOrder(ColumnMajor)) === ColumnMajor()
         @test @inferred(is_row_major(ColumnMajor)) === false
@@ -218,20 +218,20 @@ LazyAlgebra.StorageOrder(::Type{SingleTraitOperator{T}}) where {T} = StorageOrde
         @test @inferred(is_column_major(RowMajor)) === false
 
         # Transposition of storage order.
-        @test @inferred(transpose(StorageOrderUnknown())) === StorageOrderUnknown()
+        @test @inferred(transpose(StorageOrderAny())) === StorageOrderAny()
         @test @inferred(transpose(RowMajor())) === ColumnMajor()
         @test @inferred(transpose(ColumnMajor())) === RowMajor()
 
         # Unknown storage order.
         A = SymbolicOperator(:A)
 
-        @test @inferred(StorageOrder(A)) === StorageOrderUnknown()
-        @test @inferred(StorageOrder(A')) === StorageOrderUnknown()
-        @test @inferred(StorageOrder(transpose(A))) === StorageOrderUnknown()
+        @test @inferred(StorageOrder(A)) === StorageOrderAny()
+        @test @inferred(StorageOrder(A')) === StorageOrderAny()
+        @test @inferred(StorageOrder(transpose(A))) === StorageOrderAny()
 
-        @test @inferred(StorageOrder(typeof(A))) === StorageOrderUnknown()
-        @test @inferred(StorageOrder(typeof(A'))) === StorageOrderUnknown()
-        @test @inferred(StorageOrder(typeof(transpose(A)))) === StorageOrderUnknown()
+        @test @inferred(StorageOrder(typeof(A))) === StorageOrderAny()
+        @test @inferred(StorageOrder(typeof(A'))) === StorageOrderAny()
+        @test @inferred(StorageOrder(typeof(transpose(A)))) === StorageOrderAny()
 
         @test @inferred(is_row_major(A)) === false
         @test @inferred(is_row_major(A')) === false
@@ -244,13 +244,13 @@ LazyAlgebra.StorageOrder(::Type{SingleTraitOperator{T}}) where {T} = StorageOrde
         # Storage order of sparse operator in COO format.
         A = SparseOperatorCOO([-1.0, 2.0, 0.0, 4.0, 7.0], [1, 1, 2, 3, 3], [1, 2, 1, 2, 4], (3,), (4,))
 
-        @test @inferred(StorageOrder(A)) === StorageOrderUnknown()
-        @test @inferred(StorageOrder(A')) === StorageOrderUnknown()
-        @test @inferred(StorageOrder(transpose(A))) === StorageOrderUnknown()
+        @test @inferred(StorageOrder(A)) === StorageOrderAny()
+        @test @inferred(StorageOrder(A')) === StorageOrderAny()
+        @test @inferred(StorageOrder(transpose(A))) === StorageOrderAny()
 
-        @test @inferred(StorageOrder(typeof(A))) === StorageOrderUnknown()
-        @test @inferred(StorageOrder(typeof(A'))) === StorageOrderUnknown()
-        @test @inferred(StorageOrder(typeof(transpose(A)))) === StorageOrderUnknown()
+        @test @inferred(StorageOrder(typeof(A))) === StorageOrderAny()
+        @test @inferred(StorageOrder(typeof(A'))) === StorageOrderAny()
+        @test @inferred(StorageOrder(typeof(transpose(A)))) === StorageOrderAny()
 
         @test @inferred(is_row_major(A)) === false
         @test @inferred(is_row_major(A')) === false
@@ -310,9 +310,9 @@ LazyAlgebra.StorageOrder(::Type{SingleTraitOperator{T}}) where {T} = StorageOrde
             @test @inferred(StorageOrder(Transpose{<:Any,SparseMatrixCSC})) === RowMajor()
 
             # Storage order of Julia abstract arrays.
-            @test @inferred(StorageOrder(AbstractArray)) === StorageOrderUnknown()
-            @test @inferred(StorageOrder(Adjoint{<:Any,AbstractArray})) === StorageOrderUnknown()
-            @test @inferred(StorageOrder(Transpose{<:Any,AbstractArray})) === StorageOrderUnknown()
+            @test @inferred(StorageOrder(AbstractArray)) === StorageOrderAny()
+            @test @inferred(StorageOrder(Adjoint{<:Any,AbstractArray})) === StorageOrderAny()
+            @test @inferred(StorageOrder(Transpose{<:Any,AbstractArray})) === StorageOrderAny()
         end
     end
 end
