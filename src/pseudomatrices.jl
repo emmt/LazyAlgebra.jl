@@ -92,7 +92,7 @@ output_axes(A::PseudoMatrix{T,M,N}) where {T,M,N} =
 
 function output_axes(A::Union{G,Adjoint{G},Inverse{G},InverseAdjoint{G}},
                      x_axes::ArrayAxes{L}) where {T,L,N,G<:FlexibleMatrix{T,N}}
-    0 ≤ L ≤ N || throw(DimensionMismatch("input array has too many dimensions"))
+    0 ≤ L ≤ N || throw_dimension_mismatch("input array has too many dimensions")
     if A isa Union{FlexibleMatrix,InverseAdjoint{<:FlexibleMatrix}}
         R = axes(parent(A isa FlexibleMatrix ? A : parent(parent(A))))
         I = R[1:N-L]

@@ -209,13 +209,13 @@ OutputShape(::Type{T}) where {T<:Union{Swapped,Inverse}} = transpose(InputShape(
 
 Base.ndims(x::OutputShape) = ndims(typeof(x))
 Base.ndims(::HasOutputShape{N}) where {N} = N
-@noinline Base.ndims(::OutputShapeUnknown) =
-    throw_argument_error("unknown number of output dimensions")
+@noinline Base.ndims(::OutputShapeUnknown) = throw_bad_argument(
+    "unknown number of output dimensions")
 
 Base.ndims(x::InputShape) = ndims(typeof(x))
 Base.ndims(::HasInputShape{N}) where {N} = N
-@noinline Base.ndims(::InputShapeUnknown) =
-    throw_argument_error("unknown number of input dimensions")
+@noinline Base.ndims(::InputShapeUnknown) = throw_bad_argument(
+    "unknown number of input dimensions")
 
 """
     LazyAlgebra.output_ndims(A)

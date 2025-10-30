@@ -916,28 +916,28 @@ for (CS, other_args) in ((:SparseOperatorCSR, (:cols, :offs)),
         function $CS{T,M,N}(vals::AbstractVector, $(other_decl...),
                               rowsiz::Tuple{Vararg{Integer}},
                               colsiz::Tuple{Vararg{Integer}}) where {T,M,N}
-            N isa Int || throw(AssertionError("type parameter `N` must be an `Int`"))
-            length(colsiz) == N || throw(DimensionMismatch(
-                "number of column dimensions is not equal to type parameter `N = $N`"))
+            N isa Int || throw_assertion_error("type parameter `N` must be an `Int`")
+            length(colsiz) == N || throw_dimension_mismatch(
+                "number of column dimensions is not equal to type parameter `N = $N`")
             $CS{T,M}(vals, $(other_args...), rowsiz, colsiz)
         end
         function $CS{T,M}(vals::AbstractVector, $(other_decl...),
                             rowsiz::Tuple{Vararg{Integer}},
                             colsiz::Tuple{Vararg{Integer}}) where {T,M}
-            M isa Int || throw(AssertionError("type parameter `M` must be an `Int`"))
-            length(rowsiz) == M || throw(DimensionMismatch(
-                "number of row dimensions is not equal to type parameter `M = $M`"))
+            M isa Int || throw_assertion_error("type parameter `M` must be an `Int`")
+            length(rowsiz) == M || throw_dimension_mismatch(
+                "number of row dimensions is not equal to type parameter `M = $M`")
             $CS{T}(vals, $(other_args...), rowsiz, colsiz)
         end
         function $CS{T}(vals::AbstractVector, $(other_decl...),
                           rowsiz::Tuple{Vararg{Integer}},
                           colsiz::Tuple{Vararg{Integer}}) where {T}
-            M isa Int || throw(AssertionError("type parameter `M` must be an `Int`"))
-            length(rowsiz) == M || throw(DimensionMismatch(
-                "number of row dimensions must be equal to type parameter `M`"))
+            M isa Int || throw_assertion_error("type parameter `M` must be an `Int`")
+            length(rowsiz) == M || throw_dimension_mismatch(
+                "number of row dimensions must be equal to type parameter `M`")
             $CS(to_values(T, vals), $(other_args...), rowsiz, colsiz)
         end
-   end
+    end
 end
 
 # Generic constructor of a sparse operator in various format given a regular Julia array
@@ -950,15 +950,15 @@ function build(::Type{W}, arr::AbstractArray{S,L},
                                                         SparseOperatorCSC{T,M,N,V},
                                                         SparseOperatorCSR{T,M,N,V}}}
     # Get equivalent matrix dimensions.
-    M isa Int || throw_argument_error(
+    M isa Int || throw_bad_argument(
         "number of row dimensions `M` must be an `Int`, got an `$(typeof(M))`")
-    N isa Int || throw_argument_error(
+    N isa Int || throw_bad_argument(
         "number of column dimensions `N` must be an `Int`, got an `$(typeof(N))`")
-    M ≥ 1 || throw_argument_error(
+    M ≥ 1 || throw_bad_argument(
         "number of row dimensions must be ≥ 1, got `M = $M`")
-    N ≥ 1 || throw_argument_error(
+    N ≥ 1 || throw_bad_argument(
         "number of column dimensions must be ≥ 1, got `N = $N`")
-    M + N == L || throw_argument_error(
+    M + N == L || throw_bad_argument(
         "sum of numbers of row and column dimensions must be $L, got `M + N = $(M + N)`")
     siz = size(arr)
     rowsiz = siz[1:M]
@@ -968,8 +968,8 @@ function build(::Type{W}, arr::AbstractArray{S,L},
 
     # Reshape input array into a matrix if needed.
     A = !(arr isa AbstractMatrix) ? reshape(arr, (nrows, ncols)) :
-        size(arr) == (nrows, ncols) ? arr : throw(DimensionMismatch(
-            "argument has size $(size(arr)), expecting ($nrows, $ncols)"))
+        size(arr) == (nrows, ncols) ? arr : throw_dimension_mismatch(
+            "argument has size $(size(arr)), expecting ($nrows, $ncols)")
 
     # Count the number of selected entries assuming column-major storage order which is
     # the most common in Julia (this only has a consequence on the speed).
@@ -1001,14 +1001,14 @@ function build(::Type{W}, arr::AbstractArray{S,L},
     end
     k = 0
     if  W <: SparseOperatorCSR
-        # For a row-wise compressed storage, the pseudo-matrix is walked in row-major
+        # For a row-major compressed storage, the pseudo-matrix is walked in row-major
         # order.
         @inbounds for i in 1:nrows
             offs[i] = k
             for j in 1:ncols
                 Aij = A[i,j]
                 if f(Aij, i, j)
-                    (k += 1) ≤ nvals || bad_predicate()
+                    (k += 1) ≤ nvals || throw_bad_predicate()
                     if !(V <: UniformVector{Bool})
                         vals[k] = Aij
                     end
@@ -1017,7 +1017,7 @@ function build(::Type{W}, arr::AbstractArray{S,L},
             end
         end
     else
-        # For a column-wise compressed storage, the pseudo-matrix is walked in
+        # For a column-major compressed storage, the pseudo-matrix is walked in
         # column-major order. This is also suitable for the COO format since most Julia
         # arrays are stored in that order.
         @inbounds for j in 1:ncols
@@ -1027,7 +1027,7 @@ function build(::Type{W}, arr::AbstractArray{S,L},
             for i in 1:nrows
                 Aij = A[i,j]
                 if f(Aij, i, j)
-                    (k += 1) ≤ nvals || bad_predicate()
+                    (k += 1) ≤ nvals || throw_bad_predicate()
                     if !(V <: UniformVector{Bool})
                         vals[k] = Aij
                     end
@@ -1039,7 +1039,7 @@ function build(::Type{W}, arr::AbstractArray{S,L},
             end
         end
     end
-    k == nvals || bad_predicate()
+    k == nvals || throw_bad_predicate()
     if W <: Union{SparseOperatorCSC,SparseOperatorCSR}
         offs[end] = nvals
     end
@@ -1342,8 +1342,8 @@ sparse_compressed_offsets(n::Int, inds::AbstractVector{Int}) =
     sparse_compressed_offsets!(Vector{Int}(undef, n + 1), inds)
 
 function sparse_compressed_offsets!(offs::AbstractVector{Int}, inds::AbstractVector{Int})
-    firstindex(offs) == 1 || throw(AssertionError(
-        "vector of offsets must have 1-based indices"))
+    firstindex(offs) == 1 || throw_assertion_error(
+        "vector of offsets must have 1-based indices")
     n = length(offs) - 1
     k1 = firstindex(inds)
     k2 = lastindex(inds)
@@ -1359,8 +1359,8 @@ function sparse_compressed_offsets!(offs::AbstractVector{Int}, inds::AbstractVec
                 offs[i] = off
             end
         else
-            throw(AssertionError(1 ≤ j ≤ n ? "indices must be in non-increasing order" :
-                "out of bound indices"))
+            throw_assertion_error(1 ≤ j ≤ n ? "indices must be in non-increasing order" :
+                "out of bound indices")
         end
     end
     @inbounds while i ≤ n
@@ -1372,7 +1372,7 @@ end
 
 # This error is due to the non-zeros predicate not returning the same results in
 # the two selection passes.
-bad_predicate() = throw_argument_error("inconsistent predicate function")
+throw_bad_predicate() = throw_bad_argument("inconsistent predicate function")
 
 @inline select_non_zeros(v::Bool, i::Int, j::Int) = v
 @inline select_non_zeros(v::T, i::Int, j::Int) where {T} = (v != zero(T))
@@ -1389,11 +1389,11 @@ bad_predicate() = throw_argument_error("inconsistent predicate function")
 """
     check_structure(A) -> A
 
-checks the structure of the compressed sparse operator `A` throwing an exception if there
-are any inconsistencies.
+Check the structure of the compressed sparse operator `A` throwing an exception if there
+are any inconsistencies and returning `A` otherwise.
 
 """
-function check_structure(A::CompressedSparseOperator{:CSR})
+function check_structure(A::AbstractSparseOperator{CSR})
     check_size(A)
     check_vals(A)
     check_cols(A)
@@ -1401,7 +1401,7 @@ function check_structure(A::CompressedSparseOperator{:CSR})
     return A
 end
 
-function check_structure(A::CompressedSparseOperator{:CSC})
+function check_structure(A::AbstractSparseOperator{CSC})
     check_size(A)
     check_vals(A)
     check_rows(A)
@@ -1409,7 +1409,7 @@ function check_structure(A::CompressedSparseOperator{:CSC})
     return A
 end
 
-function check_structure(A::CompressedSparseOperator{:COO})
+function check_structure(A::AbstractSparseOperator{COO})
     check_size(A)
     check_vals(A)
     check_rows(A)
@@ -1420,72 +1420,74 @@ end
 """
     check_size(siz, id="array") -> len
 
-checks the array size `siz` and returns the corresponding number of elements. An
-`ArgumentError` is thrown if a dimension is invalid, using `id` to identify the argument.
-
-    check_size(A)
-
-checks the validity of the row and column sizes in compressed sparse operator `A` throwing
-an exception if there are any inconsistencies.
+Return the corresponding number of elements corresponding to array size `siz` throwing an
+exception if any dimension is invalid (using `id` to identify the argument).
 
 """
-function check_size(siz::Dims{N}, id::String="array") where {N}
+function check_size(siz::Dims{N}, id::AbstractString="array") where {N}
     len = 1
     @inbounds for i in 1:N
-        (dim = siz[i]) ≥ 0 || bad_dimension(dim, i, id)
+        (dim = siz[i]) ≥ 0 || throw_bad_dimension(dim, i, id)
         len *= dim
     end
     return len
 end
 
-function check_size(A::SparseOperator)
-    check_size(row_size(A), "row") == nrows(A) ||
-        throw_dimension_mismatch("incompatible equivalent number of rows and row size")
-    check_size(col_size(A), "column") == ncols(A) ||
-        throw_dimension_mismatch("incompatible equivalent number of columns and column size")
-    nothing
+"""
+    check_size(A)
+
+Throw and exception if the row and column sizes in compressed sparse operator `A` have any
+inconsistencies.
+
+"""
+function check_size(A::AbstractSparseOperator)
+    check_size(row_size(A), "row") == nrows(A) || throw_dimension_mismatch(
+        "incompatible equivalent number of rows and row size")
+    check_size(col_size(A), "column") == ncols(A) || throw_dimension_mismatch(
+        "incompatible equivalent number of columns and column size")
+    return nothing
 end
 
-@noinline bad_dimension(dim::Integer, i::Integer, id) =
-    throw_argument_error("invalid ", i, ordinal_suffix(i), " ", id,
-                         " dimension: ", dim)
+@noinline throw_bad_dimension(dim::Integer, i::Integer, id) =
+    throw_bad_argument("invalid ", i, ordinal_suffix(i), " ", id, " dimension: ", dim)
 
 """
     check_vals(A)
 
-checks the array of values in compressed sparse operator `A` throwing an exception if
-there are any inconsistencies.
+Throw and exception if the values in compressed sparse operator `A` are not stored in a
+proper vector.
 
 """
-function check_vals(A::SparseOperator)
+function check_vals(A::AbstractSparseOperator{<:Union{COO,CSC,CSR}})
     vals = nonzeros(A)
     is_fast_array(vals) || throw_not_fast_array("array of values")
-    length(vals) == nnz(A) || throw_argument_error("bad number of values")
-    nothing
+    length(vals) == nnz(A) || throw_bad_argument("bad number of values")
+    return nothing
 end
 
 """
     check_rows(A)
 
-checks the array of linear row indices in the compressed sparse operator `A` stored in a
-*Compressed Sparse Column* (CSC) or *Compressed Sparse Coordinate* (COO) format. Throws an
-exception in case of inconsistency.
+Throw and exception if the row indices in the compressed sparse operator `A` stored in a
+*Compressed Sparse Column* (CSC) or *Compressed Sparse Coordinate* (COO) format are
+inconsistent.
 
+"""
+function check_rows(A::AbstractSparseOperator{<:Union{COO,CSC}})
+    rows = row_indices(A)
+    length(rows) == nnz(A) || throw_bad_argument("bad number of row indices")
+    check_rows(rows, nrows(A))
+    # FIXME: also check sorting for AbstractSparseOperator{CSC}?
+    return nothing
+end
+
+"""
     check_rows(rows, m)
 
-check the array of linear row indices `rows` for being a fast vector of values in the
+Throw and exception if the linear row indices `rows` is not a fast vector of values in the
 range `1:m`.
 
 """
-function check_rows(A::Union{<:CompressedSparseOperator{:CSC},
-                             <:CompressedSparseOperator{:COO}})
-    rows = row_indices(A)
-    length(rows) == nnz(A) ||
-        throw_argument_error("bad number of row indices")
-    check_rows(rows, nrows(A))
-    # FIXME: also check sorting for CompressedSparseOperator{:CSC}?
-end
-
 function check_rows(rows::AbstractVector{Int}, m::Int)
     is_fast_array(rows) || throw_not_fast_array("array of row indices")
     anyerror = false
@@ -1493,32 +1495,33 @@ function check_rows(rows::AbstractVector{Int}, m::Int)
         i = rows[k]
         anyerror |= ((i < 1)|(i > m))
     end
-    anyerror && error("out of range row indices")
-    nothing
+    anyerror && throw_assertion_error("out of range row indices")
+    return nothing
 end
 
 """
     check_cols(A)
 
-checks the array of linear column indices in the compressed sparse operator `A` stored in
-a *Compressed Sparse Row* (CSR) or *Compressed Sparse Coordinate* (COO) format. Throws an
-exception in case of inconsistency.
-
-    check_cols(cols, n)
-
-check the array of linear column indices `cols` for being a fast vector of values in the
-range `1:n`.
+Throw and exception if the linear column indices in the compressed sparse operator `A`
+stored in a *Compressed Sparse Row* (CSR) or *Compressed Sparse Coordinate* (COO) format
+are inconsistent.
 
 """
-function check_cols(A::Union{<:CompressedSparseOperator{:CSR},
-                             <:CompressedSparseOperator{:COO}})
+function check_cols(A::AbstractSparseOperator{<:Union{COO,CSR}})
     cols = col_indices(A)
-    length(cols) == nnz(A) ||
-        throw_argument_error("bad number of column indices")
+    length(cols) == nnz(A) || throw_assertion_error("bad number of column indices")
     check_cols(cols, ncols(A))
-    # FIXME: also check sorting for CompressedSparseOperator{:CSR}?
+    # FIXME: also check sorting for AbstractSparseOperator{CSR}?
+    return nothing
 end
 
+"""
+    check_cols(cols, n)
+
+Throw and exception if the linear column indices `cols` is not a fast vector of values in
+the range `1:n`.
+
+"""
 function check_cols(cols::AbstractVector{Int}, n::Int)
     is_fast_array(cols) || throw_not_fast_array("array of column indices")
     anyerror = false
@@ -1526,25 +1529,24 @@ function check_cols(cols::AbstractVector{Int}, n::Int)
         j = cols[k]
         anyerror |= ((j < 1)|(j > n))
     end
-    anyerror && error("out of range column indices")
-    nothing
+    anyerror && throw_assertion_error("out of range column indices")
+    return nothing
 end
 
 """
     check_offs(A)
 
-checks the array of offsets in the compressed sparse operator `A` stored in a *Compressed
-Sparse Row* (CSR) or *Compressed Sparse Column* (CSC) format. Throws an exception in case
-of inconsistency.
+Throw and exception if the offsets in the compressed sparse operator `A` stored
+in a *Compressed Sparse Row* (CSR) or *Compressed Sparse Column* (CSC) format are
+inconsistent.
 
 """
-function check_offs(A::T) where {T<:Union{CompressedSparseOperator{:CSR},
-                                          CompressedSparseOperator{:CSC}}}
+function check_offs(A::AbstractSparseOperator{F}) where {F<:Union{CSC,CSR}}
     offs = offsets(A)
     is_fast_array(offs) || throw_not_fast_array("array of offsets")
-    n = (T <: CompressedSparseOperator{:CSR} ? nrows(A) : ncols(A))
-    length(offs) == n + 1 || error("bad number of offsets")
-    offs[1] == 0 || error("bad initial offset")
+    n = (F <: CSR ? nrows(A) : ncols(A))
+    length(offs) == n + 1 || throw_assertion_error("bad number of offsets")
+    offs[1] == 0 || throw_assertion_error("bad initial offset")
     len = 0
     anyerrors = false
     @inbounds for i in 1:n
@@ -1552,16 +1554,16 @@ function check_offs(A::T) where {T<:Union{CompressedSparseOperator{:CSR},
         anyerrors |= (k2 < k1)
         len += ifelse(k2 > k1, k2 - k1, 0)
     end
-    anyerrors && error("offsets must be non-decreasing")
-    len == nnz(A) ||
-        error("offsets incompatible with number of structural non-zeros")
-    nothing
+    anyerrors && throw_assertion_error("offsets must be non-decreasing")
+    len == nnz(A) || throw_assertion_error(
+        "offsets incompatible with number of structural non-zeros")
+    return nothing
 end
 
 """
     _SparseOperatorCSR([m, n,] vals, cols, offs, rowsiz, colsiz)
 
-yields a compressed sparse operator in *Compressed Sparse Row* (CSR) format as an instance
+Build a compressed sparse operator in *Compressed Sparse Row* (CSR) format as an instance
 of `SparseOperatorCSR`. This private constructor assumes that arguments are correct and is
 mostly used by converters and other constructors.
 
@@ -1577,7 +1579,7 @@ end
 """
     _SparseOperatorCSC([m, n,] vals, rows, offs, rowsiz, colsiz)
 
-yields a compressed sparse operator in *Compressed Sparse Column* (CSC) format as an
+Build a compressed sparse operator in *Compressed Sparse Column* (CSC) format as an
 instance of `SparseOperatorCSC`. This private constructor assumes that arguments are
 correct and is mostly used by converters and other constructors.
 
@@ -1593,7 +1595,7 @@ end
 """
     _SparseOperatorCOO([m, n,] vals, rows, cols, rowsiz, colsiz)
 
-yields a compressed sparse operator in *Compressed Sparse Coordinate* (COO) format as an
+Build a compressed sparse operator in *Compressed Sparse Coordinate* (COO) format as an
 instance of `SparseOperatorCOO`. This private constructor assumes that arguments are
 correct and is mostly used by converters and other constructors.
 
@@ -1643,62 +1645,10 @@ function check_argument(A::AbstractArray{<:Any,N},
     nothing
 end
 
-"""
-    throw_argument_error(args...)
+#------------------------------------------------------------------ Apply Sparse Operators -
 
-throws an `ArgumentError` exception with a textual message made of `args...`.
-
-"""
-throw_argument_error(mesg::AbstractString) = throw(ArgumentError(mesg))
-@noinline throw_argument_error(args...) = throw_argument_error(string(args...))
-
-@noinline throw_not_fast_array(id) =
-    throw_argument_error(id, " does not implement fast indexing")
-
-@noinline throw_non_linear_indexing(id) =
-    throw_argument_error(id, " does not implement linear indexing")
-
-@noinline throw_non_standard_indexing(id) =
-    throw_argument_error(id, " has non-standard indexing")
-
-"""
-    throw_assertion_error(args...)
-
-throws an `AssertionError` exception with a textual message made of `args...`.
-
-"""
-throw_assertion_error(mesg::AbstractString) = throw(AssertionError(mesg))
-@noinline throw_assertion_error(args...) = throw_assertion_error(string(args...))
-
-"""
-    throw_dimension_mismatch(args...)
-
-throws a `DimensionMismatch` exception with a textual message made of `args...`.
-
-"""
-throw_dimension_mismatch(mesg::AbstractString) =
-    throw(DimensionMismatch(mesg))
-
-@noinline throw_dimension_mismatch(args...) =
-    throw_dimension_mismatch(string(args...))
-
-@noinline throw_incompatible_dimensions(id) =
-    throw_dimension_mismatch(id, " has incompatible dimensions")
-
-@noinline throw_incompatible_dimensions() =
-    throw_dimension_mismatch("incompatible dimensions")
-
-@noinline throw_incompatible_number_of_dimensions() =
-    throw_dimension_mismatch("incompatible number of dimensions")
-
-@noinline throw_incompatible_number_of_elements() =
-    throw_dimension_mismatch("incompatible number of elements")
-
-#-----------------------------------------------------------------------------------------
-# Apply operators.
-#
 # When calling `unsafe_vmul!`, the following assumptions must hold:
-# 1. all sizes have been checked;
+# 1. all axes have been checked;
 # 2. α is not zero;
 # 3. α and β have been converted to a suitable type.
 
@@ -1750,3 +1700,5 @@ function unsafe_vmul!(α::Number,
     end
     return y
 end
+
+#-------------------------------------------------------------------------------------------

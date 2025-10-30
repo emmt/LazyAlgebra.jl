@@ -75,9 +75,9 @@ function check_cropping_axis(I::AbstractUnitRange{Int},
     i_last  = last(I)
     j_first = first(J)
     j_last  = last(J)
-    i_first ≤ i_last || throw(ArgumentError("inner region must not be empty"))
-    ((j_first ≤ i_first + k) & (i_last + k ≤ j_last)) || throw(ArgumentError(
-        "inner region is not within outer one"))
+    i_first ≤ i_last || throw_bad_argument("inner region must not be empty")
+    ((j_first ≤ i_first + k) & (i_last + k ≤ j_last)) || throw_bad_argument(
+        "inner region is not within outer one")
     nothing
 end
 

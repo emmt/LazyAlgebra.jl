@@ -73,11 +73,11 @@ function output_axes(A::Union{Diff{L,D},Adjoint{<:Diff{L,D}}},
     if D isa Int || D isa Dims
         # All dimensions of finite differentiation must be in range.
         for d in D
-            1 ≤ d ≤ (A isa Adjoint ? N - 1 : N) || throw(ArgumentError(
-                "out of range dimension of finite differentiation"))
+            1 ≤ d ≤ (A isa Adjoint ? N - 1 : N) || throw_bad_argument(
+                "out of range dimension of finite differentiation")
         end
     elseif D !== Colon
-        throw(AssertionError("unexpected dimension(s) of differentiation"))
+        throw_assertion_error("unexpected dimension(s) of differentiation")
     end
 
     # Unless `D` is a scalar `Int`, output of finite difference has one more trailing
@@ -85,10 +85,10 @@ function output_axes(A::Union{Diff{L,D},Adjoint{<:Diff{L,D}}},
     if D isa Int
         return axes_x
     elseif A isa Adjoint
-        N ≥ 1 || throw(DimensionMismatch("input array must have at least 1 dimension"))
+        N ≥ 1 || throw_dimension_mismatch("input array must have at least 1 dimension")
         nd = (D === Colon ? N-1 : length(D))
-        axes_x[N] == 𝟙:nd || throw(DimensionMismatch(
-            "last axis of input array must be 1:$nd, got $(axes_x[N])"))
+        axes_x[N] == 𝟙:nd || throw_dimension_mismatch(
+            "last axis of input array must be 1:$nd, got $(axes_x[N])")
         return axes_x[1:N-1]
     else
         nd = (D === Colon ? N : length(D))
@@ -104,8 +104,8 @@ end
                                  β::Number,
                                  y::AbstractArray{Ty,Ny}) where {L,D,𝒟<:Diff{L,D},Tx,Nx,Ty,Ny}
     # Minimal check to avoid compiling an invalid function.
-    D === Colon || D isa Int || D isa Tuple{Vararg{Int}} || throw(AssertionError(
-        "invalid list of dimension(s) of differentiation"))
+    D === Colon || D isa Int || D isa Tuple{Vararg{Int}} || throw_assertion_error(
+        "invalid list of dimension(s) of differentiation")
 
     # Start with empty vector of statements.
     code = Expr[]
@@ -142,7 +142,7 @@ end
         # invalid function. This is an assertion error because it should have been
         # detected sooner.
         d ∈ 1:N || return quote
-            throw(AssertionError("out of range dimension(s) of differentiation"))
+            throw_assertion_error("out of range dimension(s) of differentiation")
         end
         if A <: Prod # Gram
             args = ()

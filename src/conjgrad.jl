@@ -25,7 +25,7 @@ using TypeUtils: @public
 @public Context, Status, solve!, configure!
 
 using ..LazyAlgebra
-using ..LazyAlgebra: prod_type, sample
+using ..LazyAlgebra: prod_type, sample, throw_bad_argument
 using Printf
 using CEnum
 using LinearAlgebra
@@ -704,16 +704,6 @@ end
 
 # Other possibility relying on IEEE rules for NaNs: x ≥ 0 ? x : 0
 positive_part(x::Number) = ifelse(isnan(x) | (x < zero(x)), zero(x), x)
-
-"""
-    throw_bad_argument(args...)
-
-Throw an `ArgumentError` exception with error message given by `args...` converted into a
-string. This function is not in-lined.
-
-"""
-@noinline throw_bad_argument(msg::AbstractString) = ArgumentError(msg)
-@noinline throw_bad_argument(args...) = throw_bad_argument(string(args...))
 
 """
     conjgrad(A, b, x₀ = vzeros(b)) -> x

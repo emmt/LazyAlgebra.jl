@@ -56,11 +56,11 @@ This function is intended to be used for type inference, e.g. by
 """
 sample(x::Number) = sample(typeof(x))
 function sample(::Type{T}) where {T<:Number}
-    isconcretetype(T) || throw(ArgumentError("`$T` is not a concrete type"))
+    isconcretetype(T) || throw_bad_argument("`$T` is not a concrete type")
     return isdefined(T, :instance) ? getfield(T, :instance) : oneunit(T)
 end
 # error catcher
-sample(::Type{T}) where {T} = throw(ArgumentError("`$T` is not a numeric type"))
+sample(::Type{T}) where {T} = throw_bad_argument("`$T` is not a numeric type")
 
 """
     LazyAlgebra.return_type(f::Function, args::Type...) -> T::Type
@@ -164,8 +164,3 @@ divide(num::Number, den::Number) =
 # Inverse a multiplier.
 inverse(α::Number ) = is_rationalizable(α) ? one(α)//α : inv(α)
 inverse(α::Neutral) = inv(α)
-
-#---------------------------------------------------------------------- Throwing of errors -
-
-@noinline throw_bad_argument(msg::AbstractString) = throw(ArgumentError(msg))
-@noinline throw_bad_argument(args...) = throw(ArgumentError(string(args...)))

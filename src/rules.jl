@@ -33,7 +33,7 @@ for S in (:Sum, :Prod, :Scaled)
         @inline Base.iterate(A::$S, i::Int = 1) =
             1 ≤ i ≤ 2 ? ((@inbounds Tuple(A)[i]), i + 1) : nothing
         @inline Base.getindex(A::$S, i::Integer) =
-            1 ≤ i ≤ 2 ? (@inbounds Tuple(A)[i]) : throw(BoundsError(A, i))
+            1 ≤ i ≤ 2 ? (@inbounds Tuple(A)[i]) : throw_bounds_error(A, i)
     end
 end
 

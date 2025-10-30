@@ -86,8 +86,8 @@ FFT(A::AbstractArray; kwds...) = FFT{float(eltype(A))}(axes(A); kwds...)
 FFT(A::FFT) = A
 FFT{T}(A::FFT{T}) where {T<:FFTW.fftwNumber} = A
 function FFT{T}(A::FFT) where {T<:FFTW.fftwNumber}
-    (T <: Complex) == (input_eltype(A) <: Complex) || throw(ArgumentError(
-        "input element types must be both real or both complex"))
+    (T <: Complex) == (input_eltype(A) <: Complex) || throw_bad_argument(
+        "input element types must be both real or both complex")
     flags = get_plan(A).flags & ~(FFTW.PRESERVE_INPUT|FFTW.DESTROY_INPUT)
     dims = input_size(A)
     return FFT{T}(dims; flags = flags)
@@ -181,18 +181,18 @@ fft_type(::FFTW.rFFTWPlan{<:Real}) = "r2c"
 
 function check_fftw_plans(forward::FFTW.FFTWPlan{Tf,Kf},
                           backward::FFTW.FFTWPlan{Tb,Kb}) where {Tf,Kf,Tb,Kb}
-    Kb == -Kf || throw(ArgumentError(
-        "forward and backward FFT plans have the same \"direction\""))
+    Kb == -Kf || throw_bad_argument(
+        "forward and backward FFT plans have the same \"direction\"")
     input_size(backward) == output_size(forward) &&
-        output_size(backward) == input_size(forward) || throw(DimensionMismatch(
-            "forward and backward FFT plans have incompatible dimensions"))
-    real(Tf) === real(Tb) || throw(ArgumentError(
-        "forward and backward FFT plans have different floating-point types"))
+        output_size(backward) == input_size(forward) || throw_dimension_mismatch(
+            "forward and backward FFT plans have incompatible dimensions")
+    real(Tf) === real(Tb) || throw_bad_argument(
+        "forward and backward FFT plans have different floating-point types")
     forward isa FFTW.cFFTWPlan && backward isa FFTW.cFFTWPlan && return nothing
     forward isa FFTW.rFFTWPlan{<:Complex} && backward isa FFTW.rFFTWPlan{<:Real} && return nothing
     forward isa FFTW.rFFTWPlan{<:Real} && backward isa FFTW.rFFTWPlan{<:Complex} && return nothing
-    throw(ArgumentError(
-            "$(fft_type(forward)) forward FFT is not compatible with $(fft_type(backward)) backward FFT"))
+    throw_bad_argument(fft_type(forward), " forward FFT is not compatible with ",
+                       fft_type(backward), " backward FFT")
 end
 
 for P in (:cFFTWPlan, :rFFTWPlan)
@@ -415,8 +415,8 @@ If provided, `y` must be at a different memory location than `x`.
 """
 function CirculantConvolution(psf::AbstractArray; kwds...)
     T = float(eltype(psf))
-    T <: FFTW.fftwNumber || throw(ArgumentError(
-        "unsupported element type `$(eltype(psf))` for the PSF"))
+    T <: FFTW.fftwNumber || throw_bad_argument(
+        "unsupported element type `$(eltype(psf))` for the PSF")
     return CirculantConvolution(convert(Array{T}, psf); kwds...)
 end
 
@@ -456,8 +456,7 @@ function CirculantConvolution(psf::AbstractArray{<:Union{T,Complex{T}},N};
     # Compute the scaled MTF *after* computing the plans.
     mul!(mtf, F, (shift ? ifftshift(psf) : psf))
     if normalize
-        eltype(psf) <: Real || throw(ArgumentError(
-            "normalizing a complex PSF makes no sense"))
+        eltype(psf) <: Real || throw_bad_argument("normalizing a complex PSF is nonsense")
         s = mtf[1] # FIXME: keep imaginary part?
         isone(s) || vscale!(mtf, inv(s))
     end
