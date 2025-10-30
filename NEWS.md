@@ -14,7 +14,7 @@ This page describes the most important changes in `LazyAlgebra`. The format is b
   This would be useful to deal with arrays whose elements have non-standard numerical
   types as physical quantities in the `Unitful` package.
 
-- Functions `vproduct` and `vproduct!` to compute the Hadamar (elementwise) product of two
+* Functions `vproduct` and `vproduct!` to compute the Hadamar (elementwise) product of two
   *vectors* have been removed. Instead of `vproduct(x, y)`, simply call `Diag(x)*y`, `x .*
   y`, or `@. x*y` to compute this product efficiently. However note that the 2 latter
   statements do not impose that the axes of `x` and `y` be the same. Similarly, instead of
@@ -22,7 +22,7 @@ This page describes the most important changes in `LazyAlgebra`. The format is b
 
 ## Unreleased
 
-This new major version of `LazyAlgebra` introduces a lot of improvements, simplifications,
+This new major version of `LazyAlgebra` introduces many of improvements, simplifications,
 and changes.
 
 ### Overview of changes
@@ -201,7 +201,14 @@ and changes.
 - Non-exported public method `LazyAlgebra.test_API` to test the implementation of an
   operator.
 
-- Sum, composition, adjoint, and inverse of diagonal operators are simplified
+- New `LazyAlgebra.Transpose` and `LazyAlgebra.Conjugate` types to lazily represent
+  transposed or conjugated linear operators.
+
+- New `LazyAlgebra.MatrixShape` trait to represent the equivalent matrix shape of a linear
+  operator.
+
+- New `LazyAlgebra.StorageOrder` trait to represent the storage order of the coefficients
+  of a linear operator.
 
 ### Changed
 

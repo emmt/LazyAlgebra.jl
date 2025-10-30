@@ -4,7 +4,8 @@
     LazyAlgebra.StorageOrder(x)
     LazyAlgebra.StorageOrder(typeof(x))
 
-Return the singleton object representing the storage order of `x`, one of:
+Return the singleton object representing the storage order of `x` solely based on its
+type, one of:
 
 - `LazyAlgebra.ColumMajor()` if the entries of `x` are stored in column-major order;
 
@@ -91,6 +92,65 @@ is_column_major(x::StorageOrder) = false
 is_column_major(::Type{T}) where {T<:Any} = is_column_major(StorageOrder(T))
 is_column_major(::Type{T}) where {T<:ColumnMajor} = true
 is_column_major(::Type{T}) where {T<:StorageOrder} = false
+
+#----------------------------------------------------------------- Equivalent Matrix Shape -
+
+"""
+    LazyAlgebra.MatrixShape(x)
+    LazyAlgebra.MatrixShape(typeof(x))
+
+Return a singleton representing the equivalent matrix shape of a linear operator `x`
+solely based on its type, one of:
+
+* `LazyAlgebra.UpperTriangularShape()` if `x` has an upper triangular shape;
+
+* `LazyAlgebra.LowerTriangularShape()` if `x` has a lower triangular shape;
+
+* `LazyAlgebra.MatrixShapeAny()` otherwise (this is the default).
+
+"""
+MatrixShape(A) = MatrixShape(typeof(A))
+MatrixShape(::Type) = MatrixShapeAny()
+
+MatrixShape(::Type{Inverse{A}}) where {A} = inv(MatrixShape(A))
+MatrixShape(::Type{Adjoint{A}}) where {A} = transpose(MatrixShape(A))
+MatrixShape(::Type{Transpose{A}}) where {A} = transpose(MatrixShape(A))
+MatrixShape(::Type{Conjugate{A}}) where {A} = MatrixShape(A)
+
+MatrixShape(::Type{<:LinearAlgebra.LowerTriangular}) = LowerTriangularShape(A)
+MatrixShape(::Type{<:LinearAlgebra.UpperTriangular}) = UpperTriangularShape(A)
+
+"""
+    LazyAlgebra.is_lower_triangular(x)
+    LazyAlgebra.is_lower_triangular(typeof(x))
+
+Return whether `x` has a lower triangular shape.
+
+See also [`LazyAlgebra.is_upper_triangular`](@ref) and [`LazyAlgebra.MatrixShape`](@ref) .
+
+"""
+is_lower_triangular(x::Any) = is_lower_triangular(typeof(x))
+is_lower_triangular(x::LowerTriangularShape) = true
+is_lower_triangular(x::MatrixShape) = false
+is_lower_triangular(::Type{T}) where {T<:Any} = is_lower_triangular(MatrixShape(T))
+is_lower_triangular(::Type{T}) where {T<:LowerTriangularShape} = true
+is_lower_triangular(::Type{T}) where {T<:MatrixShape} = false
+
+"""
+    LazyAlgebra.is_upper_triangular(x)
+    LazyAlgebra.is_upper_triangular(typeof(x))
+
+Return whether `x` has an upper triangular shape.
+
+See also [`LazyAlgebra.is_upper_triangular`](@ref) and [`LazyAlgebra.MatrixShape`](@ref) .
+
+"""
+is_upper_triangular(x::Any) = is_upper_triangular(typeof(x))
+is_upper_triangular(x::UpperTriangularShape) = true
+is_upper_triangular(x::MatrixShape) = false
+is_upper_triangular(::Type{T}) where {T<:Any} = is_upper_triangular(MatrixShape(T))
+is_upper_triangular(::Type{T}) where {T<:UpperTriangularShape} = true
+is_upper_triangular(::Type{T}) where {T<:MatrixShape} = false
 
 #----------------------------------------------------------------- Input and Output Shapes -
 
@@ -372,11 +432,18 @@ Base.eltype(::Type{<:Sum{A,B}}) where {A,B} = sum_type(eltype(A), eltype(B))
 
 #-------------------------------------------------------------------------------------------
 
-# Some traits need to be transposed.
+# Some traits need to be transposed or inversed.
 
 Base.transpose(trait::StorageOrderUnknown) = StorageOrderUnknown()
 Base.transpose(trait::RowMajor) = ColumnMajor()
 Base.transpose(trait::ColumnMajor) = RowMajor()
+
+Base.transpose(trait::MatrixShape) = MatrixShapeAny()
+Base.transpose(trait::UpperTriangularShape) = LowerTriangularShape()
+Base.transpose(trait::LowerTriangularShape) = UpperTriangularShape()
+
+Base.inv(trait::MatrixShape) = MatrixShapeAny()
+Base.inv(trait::TriangularShape) = trait
 
 Base.transpose(trait::InputShapeUnknown) = OutputShapeUnknown()
 Base.transpose(trait::OutputShapeUnknown) = InputShapeUnknown()

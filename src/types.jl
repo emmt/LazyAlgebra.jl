@@ -277,7 +277,19 @@ end
 # Alias representing `A` or `λ*A`, the linear operator `A` multiplied by a scalar `λ`.
 const MaybeScaled{A<:Operator} = Union{A,Scaled{<:Number,A}}
 
-# Traits.
+#---------------------------------------------------------------------------------- Traits -
+
+abstract type StorageOrder end
+struct StorageOrderUnknown <: StorageOrder end
+struct RowMajor <: StorageOrder end
+struct ColumnMajor <: StorageOrder end
+
+abstract type MatrixShape end
+struct MatrixShapeAny <: MatrixShape end
+struct LowerTriangularShape <: MatrixShape end
+struct UpperTriangularShape <: MatrixShape end
+const TriangularShape = Union{UpperTriangularShape,LowerTriangularShape}
+
 abstract type InputShape end
 struct InputShapeUnknown <: InputShape end
 struct HasInputShape{N}  <: InputShape end
@@ -294,10 +306,7 @@ abstract type OutputEltype end
 struct OutputEltypeUnknown <: OutputEltype end
 struct HasOutputEltype     <: OutputEltype end
 
-abstract type StorageOrder end
-struct StorageOrderUnknown <: StorageOrder end
-struct RowMajor <: StorageOrder end
-struct ColumnMajor <: StorageOrder end
+#-------------------------------------------------------------------------------------------
 
 @callable struct Identity{I} <: Operator
     shape::I
