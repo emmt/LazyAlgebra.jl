@@ -109,16 +109,23 @@ solely based on its type, one of:
 * `LazyAlgebra.MatrixShapeAny()` otherwise (this is the default).
 
 """
-MatrixShape(A) = MatrixShape(typeof(A))
-MatrixShape(::Type) = MatrixShapeAny()
+MatrixShape(x::Any) = MatrixShape(typeof(x))
+MatrixShape(x::MatrixShape) = x
+
+MatrixShape(::Type{<:Any}) = MatrixShapeAny()
+MatrixShape(::Type{<:UpperTriangularShape}) = UpperTriangularShape()
+MatrixShape(::Type{<:LowerTriangularShape}) = LowerTriangularShape()
 
 MatrixShape(::Type{Inverse{A}}) where {A} = inv(MatrixShape(A))
 MatrixShape(::Type{Adjoint{A}}) where {A} = transpose(MatrixShape(A))
 MatrixShape(::Type{Transpose{A}}) where {A} = transpose(MatrixShape(A))
 MatrixShape(::Type{Conjugate{A}}) where {A} = MatrixShape(A)
+MatrixShape(::Type{Scaled{α,A}}) where {α,A} = MatrixShape(A)
+MatrixShape(::Type{<:LinearAlgebra.Adjoint{<:Any,A}}) where {A} = transpose(MatrixShape(A))
+MatrixShape(::Type{<:LinearAlgebra.Transpose{<:Any,A}}) where {A} = transpose(MatrixShape(A))
 
-MatrixShape(::Type{<:LinearAlgebra.LowerTriangular}) = LowerTriangularShape(A)
-MatrixShape(::Type{<:LinearAlgebra.UpperTriangular}) = UpperTriangularShape(A)
+MatrixShape(::Type{<:LinearAlgebra.LowerTriangular}) = LowerTriangularShape()
+MatrixShape(::Type{<:LinearAlgebra.UpperTriangular}) = UpperTriangularShape()
 
 """
     LazyAlgebra.is_lower_triangular(x)

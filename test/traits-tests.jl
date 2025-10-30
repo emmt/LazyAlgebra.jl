@@ -1,3 +1,5 @@
+module TestingLazyAlgebraTraits
+
 using LazyAlgebra
 using Test
 using LinearAlgebra
@@ -8,6 +10,9 @@ using LazyAlgebra:
     Adjoint,
     ColumnMajor,
     Inverse,
+    LowerTriangularShape,
+    MatrixShape,
+    MatrixShapeAny,
     Prod,
     RowMajor,
     Scaled,
@@ -15,11 +20,19 @@ using LazyAlgebra:
     StorageOrderUnknown,
     Sum,
     Transpose,
+    TriangularShape,
+    UpperTriangularShape,
     divide,
     inverse,
     is_column_major,
     is_complex,
-    is_row_major
+    is_lower_triangular,
+    is_row_major,
+    is_upper_triangular
+
+struct SingleTraitOperator{T} <: Operator end
+LazyAlgebra.MatrixShape(::Type{SingleTraitOperator{T}}) where {T} = MatrixShape(T)
+LazyAlgebra.StorageOrder(::Type{SingleTraitOperator{T}}) where {T} = StorageOrder(T)
 
 @testset "Traits" begin
     @testset "Numbers" begin
@@ -30,6 +43,147 @@ using LazyAlgebra:
         @test @inferred(is_complex(AbstractString)) == false
         @test @inferred(is_complex(Complex)) == true
         @test @inferred(is_complex(Complex{Float32})) == true
+    end
+
+    @testset "Equivalent Shape" begin
+        # Shape of equivalent shape instances.
+        @test @inferred(MatrixShape(MatrixShapeAny())) === MatrixShapeAny()
+        @test @inferred(is_lower_triangular(MatrixShapeAny())) === false
+        @test @inferred(is_upper_triangular(MatrixShapeAny())) === false
+
+        @test @inferred(MatrixShape(LowerTriangularShape())) === LowerTriangularShape()
+        @test @inferred(is_lower_triangular(LowerTriangularShape())) === true
+        @test @inferred(is_upper_triangular(LowerTriangularShape())) === false
+
+        @test @inferred(MatrixShape(UpperTriangularShape())) === UpperTriangularShape()
+        @test @inferred(is_lower_triangular(UpperTriangularShape())) === false
+        @test @inferred(is_upper_triangular(UpperTriangularShape())) === true
+
+        # Shape of equivalent shape types.
+        @test @inferred(MatrixShape(MatrixShapeAny)) === MatrixShapeAny()
+        @test @inferred(is_lower_triangular(MatrixShapeAny)) === false
+        @test @inferred(is_upper_triangular(MatrixShapeAny)) === false
+
+        @test @inferred(MatrixShape(LowerTriangularShape)) === LowerTriangularShape()
+        @test @inferred(is_lower_triangular(LowerTriangularShape)) === true
+        @test @inferred(is_upper_triangular(LowerTriangularShape)) === false
+
+        @test @inferred(MatrixShape(UpperTriangularShape)) === UpperTriangularShape()
+        @test @inferred(is_lower_triangular(UpperTriangularShape)) === false
+        @test @inferred(is_upper_triangular(UpperTriangularShape)) === true
+
+        # Transposition of equivalent shape.
+        @test @inferred(transpose(MatrixShapeAny())) === MatrixShapeAny()
+        @test @inferred(transpose(LowerTriangularShape())) === UpperTriangularShape()
+        @test @inferred(transpose(UpperTriangularShape())) === LowerTriangularShape()
+
+        # Inverse of equivalent shape.
+        @test @inferred(inv(MatrixShapeAny())) === MatrixShapeAny()
+        @test @inferred(inv(LowerTriangularShape())) === LowerTriangularShape()
+        @test @inferred(inv(UpperTriangularShape())) === UpperTriangularShape()
+
+        # Unknown equivalent shape.
+        for A in (SymbolicOperator(:A), SingleTraitOperator{MatrixShapeAny}())
+            @test @inferred(MatrixShape(A)) === MatrixShapeAny()
+            @test @inferred(MatrixShape(A')) === MatrixShapeAny()
+            @test @inferred(MatrixShape(transpose(A))) === MatrixShapeAny()
+            @test @inferred(MatrixShape(conj(A))) === MatrixShapeAny()
+            @test @inferred(MatrixShape(2*A)) === MatrixShapeAny()
+
+            @test @inferred(is_lower_triangular(A)) === false
+            @test @inferred(is_lower_triangular(A')) === false
+            @test @inferred(is_lower_triangular(transpose(A))) === false
+            @test @inferred(is_lower_triangular(conj(A))) === false
+            @test @inferred(is_lower_triangular(2*A)) === false
+
+            @test @inferred(is_upper_triangular(A)) === false
+            @test @inferred(is_upper_triangular(A')) === false
+            @test @inferred(is_upper_triangular(transpose(A))) === false
+            @test @inferred(is_upper_triangular(conj(A))) === false
+            @test @inferred(is_upper_triangular(2*A)) === false
+        end
+
+        # Equivalent shape for lower triangular operator.
+        for A in (SingleTraitOperator{LowerTriangularShape}(),)
+            @test @inferred(MatrixShape(A)) === LowerTriangularShape()
+            @test @inferred(MatrixShape(A')) === UpperTriangularShape()
+            @test @inferred(MatrixShape(transpose(A))) === UpperTriangularShape()
+            @test @inferred(MatrixShape(conj(A))) === LowerTriangularShape()
+            @test @inferred(MatrixShape(3*A)) === LowerTriangularShape()
+
+            @test @inferred(is_lower_triangular(A)) === true
+            @test @inferred(is_lower_triangular(A')) === false
+            @test @inferred(is_lower_triangular(transpose(A))) === false
+            @test @inferred(is_lower_triangular(conj(A))) === true
+            @test @inferred(is_lower_triangular(3*A)) === true
+
+            @test @inferred(is_upper_triangular(A)) === false
+            @test @inferred(is_upper_triangular(A')) === true
+            @test @inferred(is_upper_triangular(transpose(A))) === true
+            @test @inferred(is_upper_triangular(conj(A))) === false
+            @test @inferred(is_upper_triangular(3*A)) === false
+        end
+
+        # Equivalent shape for upper triangular operators.
+        for A in (Diff(), SingleTraitOperator{UpperTriangularShape}())
+            @test @inferred(MatrixShape(A)) === UpperTriangularShape()
+            @test @inferred(MatrixShape(A')) === LowerTriangularShape()
+            @test @inferred(MatrixShape(transpose(A))) === LowerTriangularShape()
+            @test @inferred(MatrixShape(conj(A))) === UpperTriangularShape()
+            @test @inferred(MatrixShape(3*A)) === UpperTriangularShape()
+
+            @test @inferred(is_lower_triangular(A)) === false
+            @test @inferred(is_lower_triangular(A')) === true
+            @test @inferred(is_lower_triangular(transpose(A))) === true
+            @test @inferred(is_lower_triangular(conj(A))) === false
+            @test @inferred(is_lower_triangular(3*A)) === false
+
+            @test @inferred(is_upper_triangular(A)) === true
+            @test @inferred(is_upper_triangular(A')) === false
+            @test @inferred(is_upper_triangular(transpose(A))) === false
+            @test @inferred(is_upper_triangular(conj(A))) === true
+            @test @inferred(is_upper_triangular(3*A)) === true
+        end
+
+        # Equivalent shape of Julia arrays.
+        let Adjoint = LinearAlgebra.Adjoint, Transpose = LinearAlgebra.Transpose
+            A = reshape(1:9, 3, 3)
+            L = LinearAlgebra.LowerTriangular(A)
+            U = LinearAlgebra.UpperTriangular(A)
+
+            @test @inferred(MatrixShape(A)) === MatrixShapeAny()
+            @test @inferred(MatrixShape(adjoint(A))) === MatrixShapeAny()
+            @test @inferred(MatrixShape(transpose(A))) === MatrixShapeAny()
+            @test @inferred(is_lower_triangular(A)) === false
+            @test @inferred(is_lower_triangular(adjoint(A))) === false
+            @test @inferred(is_lower_triangular(transpose(A))) === false
+            @test @inferred(is_upper_triangular(A)) === false
+            @test @inferred(is_upper_triangular(adjoint(A))) === false
+            @test @inferred(is_upper_triangular(transpose(A))) === false
+
+            @test @inferred(MatrixShape(L)) === LowerTriangularShape()
+            @test @inferred(MatrixShape(adjoint(L))) === UpperTriangularShape()
+            @test @inferred(MatrixShape(transpose(L))) === UpperTriangularShape()
+            @test @inferred(MatrixShape(inv(L))) === LowerTriangularShape()
+            @test @inferred(is_lower_triangular(L)) === true
+            @test @inferred(is_lower_triangular(adjoint(L))) === false
+            @test @inferred(is_lower_triangular(transpose(L))) === false
+            @test @inferred(is_upper_triangular(L)) === false
+            @test @inferred(is_upper_triangular(adjoint(L))) === true
+            @test @inferred(is_upper_triangular(transpose(L))) === true
+
+            @test @inferred(MatrixShape(U)) === UpperTriangularShape()
+            @test @inferred(MatrixShape(adjoint(U))) === LowerTriangularShape()
+            @test @inferred(MatrixShape(transpose(U))) === LowerTriangularShape()
+            @test @inferred(MatrixShape(inv(U))) === UpperTriangularShape()
+            @test @inferred(is_lower_triangular(U)) === false
+            @test @inferred(is_lower_triangular(adjoint(U))) === true
+            @test @inferred(is_lower_triangular(transpose(U))) === true
+            @test @inferred(is_upper_triangular(U)) === true
+            @test @inferred(is_upper_triangular(adjoint(U))) === false
+            @test @inferred(is_upper_triangular(transpose(U))) === false
+        end
+
     end
 
     @testset "Storage Order" begin
@@ -162,5 +316,7 @@ using LazyAlgebra:
         end
     end
 end
+
+end # module
 
 nothing

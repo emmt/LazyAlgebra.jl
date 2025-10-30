@@ -28,6 +28,9 @@ assumed equal to the nearest entry.
 Diff() = Diff{1}()
 Diff{L}() where {L} = Diff{L,Colon}()
 
+# Traits.
+MatrixShape(::Type{<:Diff{1}}) = UpperTriangularShape()
+
 # Two finite difference operators are identical if they have the same order of
 # differentiation and list of dimensions along which compute the differences. This amounts
 # to checking whether they have the same type. Note that `isequal` amounts to calling `==`
