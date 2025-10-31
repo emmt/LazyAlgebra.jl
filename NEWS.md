@@ -212,12 +212,19 @@ and changes.
 
 ### Changed
 
-- The linear conjugate gradient algorithm has been rewritten to:
-  - Use a context to store all work-spaces. As a consequence, it is possible to avoid any
-    subsequent allocations.
-  - Take care of units if any.
-  - Introduce an optional observer which can print information but also stop/continue
+- The linear conjugate gradient algorithm has been rewritten. Changes are:
+  - A preconditioner can be provided to accelerate convergence.
+  - A context is used to store all work-spaces. As a consequence, it is possible to avoid
+    any subsequent allocations.
+  - Taking care of units if any.
+  - An optional observer can be provided to print information but also stop/continue
     iterations.
+  - The out-of-place method `conjgrad(A, b, x₀=vzeros(b); kwds...)` has the same API but
+    new keywords. The former in-place methods `conjgrad!(x, A, b; kwds...)` and
+    `conjgrad!(x, A, b, x₀; kwds...)` must be respectively replaced by `conjgrad!(A, b, x;
+    kwds...)` and `conjgrad!(A, b, vcopy!(x, x₀); kwds...)`. Providing additional
+    work-spaces is now done with a context, see `LazyAlgebra.ConjugateGradient.Context`, and
+    calling ``LazyAlgebra.ConjugateGradient.solve!` to run the algorithm.
 
 ## Version 0.2.7 (2024-03-08)
 
