@@ -964,9 +964,10 @@ for (CS, other_args) in (:SparseOperatorCSR => (:cols, :offs),
         # Basic outer constructors return a fully checked structure.
         function $CS(vals::AbstractVector, $(other_decl...),
                      rowsiz::Tuple{Vararg{Integer}}, colsiz::Tuple{Vararg{Integer}})
-            check_structure($_CS(to_values(vals),
-                                 $(map(s -> :(to_indices($s)), other_args)...),
-                                 as_array_size(rowsiz), as_array_size(colsiz)))
+            return check_structure(
+                $_CS(to_values(vals),
+                     $(map(s -> :(to_indices($s)), other_args)...),
+                     as_array_size(rowsiz), as_array_size(colsiz)))
         end
 
         # Constructors for any compressed format similar to the basic ones but with type
@@ -1206,17 +1207,6 @@ function unpack!(B::AbstractArray{T,L},
     return B
 end
 
-# FIXME use axes not size
-function check_new_shape(A::SparseOperator, rowsiz::Dims, colsiz::Dims)
-    m, m′ = nrows(A), check_size(rowsiz)
-    m == m′ || throw_dimension_mismatch(
-        "products of row dimensions must be equal to ", m, "got ", m′)
-    n, n′ = ncols(A), check_size(colsiz)
-    n = n′ || throw_dimension_mismatch(
-        "products of column dimensions must be equal to ", n, "got ", n′)
-    return (m, n)
-end
-
 Base.reshape(A::SparseOperator, rowsiz::ArraySize, colsiz::ArraySize) =
     reshape(A, as_array_size(rowsiz), as_array_size(colsiz))
 
@@ -1231,6 +1221,15 @@ Base.reshape(A::SparseOperatorCSC, rowsiz::Dims, colsiz::Dims) =
 Base.reshape(A::SparseOperatorCOO, rowsiz::Dims, colsiz::Dims) =
     _SparseOperatorCOO(check_new_shape(A, rowsiz, colsiz)...,
                        nonzeros(A), row_indices(A), col_indices(A), rowsiz, colsiz)
+
+# FIXME use axes not size
+function check_new_shape(A::SparseOperator, rowsiz::Dims, colsiz::Dims)
+    m = nrows(A)
+    n = ncols(A)
+    check_size(m, rowsiz, "row")
+    check_size(m, colsiz, "column")
+    return (m, n)
+end
 
 # Convert from other compressed sparse formats. For compressed sparse row and column (CSR
 # and CSC) formats, the compressed sparse coordinate (COO) format is used as an
@@ -1286,8 +1285,8 @@ function coo_to_csr!(vals::Vector{T},
                      colsiz::Dims{N},
                      op::Function = (T <: Bool ? (|) : (+))) where {T,M,N}
     # Check row and column sizes.
-    nrows = check_size(rowsiz, "row")
-    ncols = check_size(colsiz, "column")
+    nrows = check_size(rowsiz)
+    ncols = check_size(colsiz)
 
     # Check row and column indices.
     check_rows(rows, nrows)
@@ -1324,8 +1323,8 @@ function coo_to_csc!(vals::Vector{T},
                      colsiz::Dims{N},
                      op::Function = (T <: Bool ? (|) : (+))) where {T,M,N}
     # Check row and column sizes.
-    nrows = check_size(rowsiz, "row")
-    ncols = check_size(colsiz, "column")
+    nrows = check_size(rowsiz)
+    ncols = check_size(colsiz)
 
     # Check row and column indices.
     check_rows(rows, nrows)
@@ -1470,16 +1469,17 @@ function check_structure(A::SparseOperator{COO})
 end
 
 """
-    check_size(siz, id="array") -> len
+    check_size(siz::Dims) -> len
 
 Return the corresponding number of elements corresponding to array size `siz` throwing an
-exception if any dimension is invalid (using `id` to identify the argument).
+exception if any dimension is invalid.
 
 """
-function check_size(siz::Dims{N}, id::AbstractString="array") where {N}
+function check_size(siz::Dims{N}) where {N}
     len = 1
-    @inbounds for i in 1:N
-        (dim = siz[i]) ≥ 0 || throw_bad_dimension(dim, i, id)
+    @inbounds for d in 1:N
+        (dim = siz[d]) ≥ 0 || throw_bad_argument(
+            "invalid ", d, ordinal_suffix(d), " array dimension: ", dim)
         len *= dim
     end
     return len
@@ -1493,15 +1493,14 @@ inconsistencies.
 
 """
 function check_size(A::SparseOperator)
-    check_size(row_size(A), "row") == nrows(A) || throw_dimension_mismatch(
-        "incompatible equivalent number of rows and row size")
-    check_size(col_size(A), "column") == ncols(A) || throw_dimension_mismatch(
-        "incompatible equivalent number of columns and column size")
+    check_size(nrows(A), row_size(A), "row")
+    check_size(ncols(A), col_size(A), "column")
     return nothing
 end
 
-@noinline throw_bad_dimension(dim::Integer, i::Integer, id) =
-    throw_bad_argument("invalid ", i, ordinal_suffix(i), " ", id, " dimension: ", dim)
+check_size(len::Int, siz::Dims, name::AbstractString) =
+    (n = check_size(siz)) == len ? nothing : throw_dimension_mismatch(
+        "products of ", what, " dimensions must be equal to ", len, "got ", n)
 
 """
     check_vals(A)
