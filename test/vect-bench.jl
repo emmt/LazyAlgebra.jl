@@ -13,9 +13,10 @@ using Statistics
 using BenchmarkTools
 using LazyAlgebra
 using LazyAlgebra: convert_multiplier, @dispatch_on_multiplier
+using LazyAlgebra: unsafe_vdot
 using ThreadPinning
 using LinearAlgebra
-using LinearAlgebra: BLAS
+using LinearAlgebra: BLAS, dot
 
 include("benchmarking.jl")
 
@@ -31,6 +32,25 @@ end
 function bcast_scale!(z::AbstractArray, α::Number, x::AbstractArray)
     α = convert_multiplier(α, eltype(x))
     @. z = α*x
+end
+
+@inline flatten(x::AbstractVector) = x
+@inline flatten(x::AbstractArray) = @view x[:]
+
+# Norms using LinearAlgebra and @view for multi-dimensional arrays.
+for (func, n) in (:vnorm1 => 1,
+                  :vnorm2 => 2,
+                  :vnorminf => Inf)
+    @eval begin
+        function LazyAlgebra.$func(::Val{:base}, x::AbstractArray)
+            return norm(flatten(x), $n)
+        end
+    end
+end
+
+function LazyAlgebra.unsafe_vdot(::Val{:base},
+                                 x::AbstractArray, y::AbstractArray)
+    return LinearAlgebra.dot(flatten(x), flatten(y))
 end
 
 function runtests(; T::Type = Float32, dims = 10_123, what=:min)
@@ -53,24 +73,30 @@ function runtests(; T::Type = Float32, dims = 10_123, what=:min)
 
     println()
     @check vnorm1(x) ≈ LinearAlgebra.norm(x_flat,1)
+    @check vnorm1(x) ≈ vnorm1(Val(:base), x)
     prt("vnorm1(x)", @benchmark(vnorm1($x_flat)); nops=2n, opts..., color=lazy)
+    prt("vnorm1(Val(:base), x)", @benchmark(vnorm1($(Val(:base)), $x)); nops=2n, opts...)
     prt("LinearAlgebra.norm(x,1)", @benchmark(LinearAlgebra.norm($x_flat,1)); nops=2n, opts...)
 
     println()
     @check vnorm2(x) ≈ LinearAlgebra.norm(x_flat,2)
     prt("vnorm2(x)", @benchmark(vnorm2($x)); nops=2n, opts..., color=lazy)
+    prt("vnorm2(Val(:base), x)", @benchmark(vnorm2($(Val(:base)), $x)); nops=2n, opts...)
     prt("LinearAlgebra.norm(x,2)", @benchmark(LinearAlgebra.norm($x_flat,2)); nops=2n, opts...)
     prt("LinearAlgebra.norm(x)", @benchmark(LinearAlgebra.norm($x_flat)); nops=2n, opts...)
 
     println()
     @check vnorminf(x) ≈ LinearAlgebra.norm(x_flat,Inf)
     prt("vnorminf(x)", @benchmark(vnorminf($x)); nops=2n, opts..., color=lazy)
+    prt("vnorminf(Val(:base), x)", @benchmark(vnorminf($(Val(:base)), $x)); nops=2n, opts...)
     prt("LinearAlgebra.norm(x,Inf)", @benchmark(LinearAlgebra.norm($x_flat,Inf)); nops=2n, opts...)
 
     println()
     @check vdot(x, y) ≈ LinearAlgebra.dot(x_flat, y_flat)
+    @check vdot(x, y) ≈ unsafe_vdot(Val(:base), x, y)
     @check vdot(x, y) ≈ sum(conj.(x) .* y)
     prt("vdot(x, y)", @benchmark(vdot($x, $y)); nops=2n, opts..., color=lazy)
+    prt("unsafe_vdot(Val(:base), x, y)", @benchmark(unsafe_vdot($(Val(:base)), $x, $y)); nops=2n, opts...)
     prt("LinearAlgebra.dot(x, y)", @benchmark(LinearAlgebra.dot($x_flat, $y_flat)); nops=2n, opts...)
     @check vdot(w, x, y) ≈ sum(w .* conj.(x) .* y)
     prt("vdot(w, x, y)", @benchmark(vdot($w, $x, $y)); nops=3n, opts..., color=lazy)
