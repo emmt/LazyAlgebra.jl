@@ -11,10 +11,22 @@ module LazyAlgebraDiffTests
 
 using Test
 using LazyAlgebra
-using LazyAlgebra.FiniteDifferences: limits, ArrayAxis, ArrayAxes,
-    differentiation_order, dimensions_of_interest, optimization_level
 
 include("common.jl")
+
+x = rand(Float32, 5)
+y = [diff(x)..., zero(eltype(x))]
+LazyAlgebra.test_API(Diff{1,1}(), x, y);
+@test @inferred(Diff()) === @inferred(Diff{1,Colon}())
+@test @inferred(Diff{1}()) === @inferred(Diff{1,Colon}()) isa Diff{1,Colon}
+@test @inferred(Diff{2}()) === @inferred(Diff{2,Colon}()) isa Diff{2,Colon}
+@test @inferred(Diff{1,1}()) isa Diff{1,1}
+@test @inferred(Diff{2,1}()) isa Diff{2,1}
+@test @inferred(Diff{1,(1,2)}()) isa Diff{1,(1,2)}
+@test @inferred(Diff{2,(3,2)}()) isa Diff{2,(3,2)}
+LazyAlgebra.test_API(Diff{1,Colon}(), x, reshape(y, size(y)..., 1));
+z = [first(y), diff(y)...]
+LazyAlgebra.test_API(Diff{2,Colon}(), x, reshape(z, size(z)..., 1));
 
 @inline colons(n::Integer) = ntuple(x -> Colon(), max(Int(n), 0))
 
@@ -63,8 +75,8 @@ function diff2_ref!(dst::AbstractArray{<:Any,N},
 end
 
 #
-# Code to apply 1st order finite difference operator D or its adjoint D' (given
-# below) along a given dimensions of an array.
+# 1st order finite difference operator D or its adjoint D' (given below for flat boundary
+# conditions) along a given dimension of an array.
 #
 #     D = [ -1   1   0   0
 #            0  -1   1   0
@@ -82,8 +94,8 @@ function diff1_ref!(dst::AbstractArray{<:Any,N},
                     J::ArrayAxis,
                     K::Tuple{Vararg{Colon}},
                     adj::Bool) where {N}
-    # Forward 1st order finite differences assuming flat boundary conditions
-    # along a given dimension.
+    # Forward 1st order finite differences assuming flat boundary conditions along a given
+    # dimension.
     len = length(J)
     if len > 1
         j_first = first(J)
@@ -128,8 +140,8 @@ function diff2_ref!(dst::AbstractArray{<:Any,N},
                     I::Tuple{Vararg{Colon}},
                     J::ArrayAxis,
                     K::Tuple{Vararg{Colon}}) where {N}
-    # Forward 1st order finite differences assuming flat boundary conditions
-    # along a given dimension.
+    # Forward 2nd order finite differences assuming flat boundary conditions along a given
+    # dimension.
     len = length(J)
     if len ≥ 2
         j_first = first(J)
@@ -157,9 +169,9 @@ end
 
 @testset "Finite differences" begin
     # First test the correctness of the result compared to the above reference
-    # implementation and use the saclar product to check the adjoint.  Use
-    # integer values for exact computations, over a reduced range to avoid
-    # overflows and have exact floating-point representation.
+    # implementation and use the scalar product to check the adjoint. Use integer values
+    # for exact computations, over a reduced range to avoid overflows and have exact
+    # floating-point representation.
     vmin = -(vmax = Float64(7_000))
     vals = vmin:vmax
     @testset "Differentiation order = $order" for order in 1:2
@@ -259,8 +271,8 @@ end
                     r = ndims(x) - d + 1
                     @test slice(D_rev_x, r) == D_ref_x
                 end
-                test_api(Direct, D_one, x, z; atol=atol, rtol=rtol)
-                test_api(Adjoint, D_one, x, z; atol=atol, rtol=rtol)
+                test_API(D_one, x, z; atol=atol, rtol=rtol)
+                test_API(D_one', x, z; atol=atol, rtol=rtol)
                 DtD_one = D_one'*D_one
                 @test DtD_one === gram(D_one)
                 @test isa(DtD_one, Gram{typeof(D_one)})
