@@ -9,6 +9,7 @@ using SparseArrays
 using LazyAlgebra:
     Adjoint,
     ColumnMajor,
+    Conjugate,
     Inverse,
     LowerTriangularShape,
     MatrixShape,
@@ -221,6 +222,30 @@ LazyAlgebra.StorageOrder(::Type{SingleTraitOperator{T}}) where {T} = StorageOrde
         @test @inferred(transpose(StorageOrderAny())) === StorageOrderAny()
         @test @inferred(transpose(RowMajor())) === ColumnMajor()
         @test @inferred(transpose(ColumnMajor())) === RowMajor()
+
+        # Storage order of sparse formats.
+        @test @inferred(StorageOrder(SparseFormat)) === StorageOrderAny()
+
+        @test @inferred(StorageOrder(COO)) === StorageOrderAny()
+        @test @inferred(StorageOrder(COO())) === StorageOrderAny()
+        @test @inferred(StorageOrder(SparseOperator{COO})) === StorageOrderAny()
+        @test @inferred(StorageOrder(Conjugate{SparseOperator{COO}})) === StorageOrderAny()
+        @test @inferred(StorageOrder(Transpose{SparseOperator{COO}})) === StorageOrderAny()
+        @test @inferred(StorageOrder(Adjoint{SparseOperator{COO}})) === StorageOrderAny()
+
+        @test @inferred(StorageOrder(CSC)) === ColumnMajor()
+        @test @inferred(StorageOrder(CSC())) === ColumnMajor()
+        @test @inferred(StorageOrder(SparseOperator{CSC})) === ColumnMajor()
+        @test @inferred(StorageOrder(Conjugate{SparseOperator{CSC}})) === ColumnMajor()
+        @test @inferred(StorageOrder(Transpose{SparseOperator{CSC}})) === RowMajor()
+        @test @inferred(StorageOrder(Adjoint{SparseOperator{CSC}})) === RowMajor()
+
+        @test @inferred(StorageOrder(CSR)) === RowMajor()
+        @test @inferred(StorageOrder(CSR())) === RowMajor()
+        @test @inferred(StorageOrder(SparseOperator{CSR})) === RowMajor()
+        @test @inferred(StorageOrder(Conjugate{SparseOperator{CSR}})) === RowMajor()
+        @test @inferred(StorageOrder(Transpose{SparseOperator{CSR}})) === ColumnMajor()
+        @test @inferred(StorageOrder(Adjoint{SparseOperator{CSR}})) === ColumnMajor()
 
         # Unknown storage order.
         A = SymbolicOperator(:A)
