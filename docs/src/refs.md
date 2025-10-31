@@ -4,48 +4,87 @@ The following provides detailed documentation about types and methods provided b
 `LazyAlgebra` package. This information is also available from the REPL by typing `?`
 followed by the name of a method or a type.
 
-## Methods for linear operators
+## Traits and methods for linear operators
 
-```@docs
-LazyAlgebra.nrows
-LazyAlgebra.ncols
-LazyAlgebra.row_size
-LazyAlgebra.col_size
-LazyAlgebra.input_eltype
-LazyAlgebra.input_axes
-LazyAlgebra.input_size
-LazyAlgebra.output_eltype
-LazyAlgebra.output_axes
-LazyAlgebra.output_size
-```
+### Input shape of linear operators
 
-## Constructions
-
-```@docs
-LazyAlgebra.Adjoint
-LazyAlgebra.Inverse
-LazyAlgebra.InverseAdjoint
-LazyAlgebra.Sum
-LazyAlgebra.Prod
-LazyAlgebra.Scaled
-```
-
-
-### Traits
+The trait indicating whether the input shape of an operator is known is implemented by:
 
 ```@docs
 LazyAlgebra.InputShape
 LazyAlgebra.InputShapeUnknown
 LazyAlgebra.HasInputShape
-LazyAlgebra.InputEltype
-LazyAlgebra.InputEltypeUnknown
-LazyAlgebra.HasInputEltype
+```
+
+For linear operators with known input shape, the following methods are available:
+
+```@docs
+LazyAlgebra.input_shape
+LazyAlgebra.input_axes
+LazyAlgebra.input_size
+LazyAlgebra.ncols
+```
+
+### Output shape of linear operators
+
+The output shape of `A*x` is inferred by:
+
+```@docs
+LazyAlgebra.output_axes(::Operator,::AbstractArray)
+```
+
+The trait indicating whether the output shape of an operator is known is implemented by:
+
+```@docs
 LazyAlgebra.OutputShape
 LazyAlgebra.OutputShapeUnknown
 LazyAlgebra.HasOutputShape
+```
+
+For linear operators with known output shape, the following methods are available:
+
+```@docs
+LazyAlgebra.output_shape
+LazyAlgebra.output_axes(::Operator)
+LazyAlgebra.output_size
+LazyAlgebra.nrows
+```
+
+### Input element type
+
+The trait indicating whether the input element type for an operator is known and related
+methods are implemented by:
+
+```@docs
+LazyAlgebra.InputEltype
+LazyAlgebra.InputEltypeUnknown
+LazyAlgebra.HasInputEltype
+LazyAlgebra.input_eltype
+```
+
+### Output element type
+
+The trait indicating whether the output element type for an operator is known and related
+methods are implemented by:
+
+```@docs
 LazyAlgebra.OutputEltype
 LazyAlgebra.OutputEltypeUnknown
 LazyAlgebra.HasOutputEltype
+LazyAlgebra.output_eltype
+```
+
+### Constructions
+
+```@docs
+LazyAlgebra.Adjoint
+LazyAlgebra.Transpose
+LazyAlgebra.Conjugate
+LazyAlgebra.Inverse
+LazyAlgebra.InverseAdjoint
+LazyAlgebra.Sum
+LazyAlgebra.Prod
+LazyAlgebra.Scaled
 ```
 
 ## Sparse operators

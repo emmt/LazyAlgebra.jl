@@ -52,10 +52,10 @@ Diag(A::UniformScaling) = Operator(A)
 Base.eltype(::Type{<:Diag{D}}) where {D} = eltype(D)
 
 OutputShape(::Type{<:Diag{<:AbstractArray{T,N}}}) where {T,N} = HasOutputShape{N}()
-output_axes(A::Diag) = axes(diag(A))
+output_shape(A::Diag) = axes(diag(A))
 
 InputShape(::Type{<:Diag{<:AbstractArray{T,N}}}) where {T,N} = HasInputShape{N}()
-input_axes(A::Diag) = axes(diag(A))
+input_shape(A::Diag) = axes(diag(A))
 
 # Testing for equality.
 for cmp in (:(==), :isequal)

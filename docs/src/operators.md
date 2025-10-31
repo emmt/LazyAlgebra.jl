@@ -7,8 +7,7 @@ infrastructure, you have to:
 * Create a new type derived from `Operator`.
 
 * Specialize a few methods to assert the input shape and element type of any `x`
-  acceptable to compute `A*x` and to infer the output shape and element type of the result
-  `A*x`.
+  acceptable to compute `A*x` and to infer the output shape and element type of `A*x`.
 
 * In order to apply the operator `A`, the method `LazyAlgebra.unsafe_vmul!(α, A, x, β, y)`
   must be implemented to overwrite `y` with `α*A*x + β*y`. The same method may also be
@@ -28,55 +27,37 @@ infrastructure, you have to:
 
 For any linear operator `A`, computing `A*x` requires to check whether `x` has an
 acceptable shape and to infer the shape of `A*x`. The method [`LazyAlgebra.output_axes(A,
-axes(x))`](@ref LazyAlgebra.output_axes) is called to perform these two tasks. This method
-shall throw a `DimensionMismatch` exception if `x` has invalid shape and shall return the
-axes of `A*x` otherwise.
+x)`](@ref LazyAlgebra.output_axes) is called to perform these two tasks. This method shall
+throw a `DimensionMismatch` exception if `x` has invalid shape and shall return the axes
+of `A*x` otherwise.
 
-As a simplification, it is assumed that the shape of `A*x` can only depend on `A` and,
-perhaps, on the shape of `x`. This is the reason to call `LazyAlgebra.output_axes(A,
-axes(x))` and not `LazyAlgebra.output_axes(A, x)`.
+To have this method applicable to a given linear operator type, there are several
+possibilities:
 
-If the shape of any acceptable `x` to compute `A*x` is known in advance, then the
-following two methods shall be specialized:
+1. The method [`LazyAlgebra.output_axes(A, x)`](@ref LazyAlgebra.output_axes) may be
+   directly implemented for the type of `A` an perhaps `x`.
 
-* [`LazyAlgebra.InputShape(typeof(A))`](@ref LazyAlgebra.InputShape) shall return
-  `LazyAlgebra.HasInputShape{N}()` with `N` the number of dimensions that `x` must have.
+2. If the axes of `A*x` only depend on the operator `A` and on the axes of the input array
+   `x`, then it is sufficient to provide:
 
-* [`LazyAlgebra.input_axes(A)`](@ref LazyAlgebra.input_axes) shall return the `N`-tuple of
-  the axes required for `x`.
+   ```julia
+   LazyAlgebra.output_axes(A, axes(x))
+   ```
 
-Otherwise, if the acceptable shape of `x` to compute `A*x` is not known in advance, then
-the method [`LazyAlgebra.InputShape(typeof(A))`](@ref LazyAlgebra.InputShape) shall return
-`LazyAlgebra.InputShapeUnknown()`. Since this is the default behavior, it is not necessary
-to specialize this method for the type of `A` in that case.
+3. If the shapes of the input and output of `A` are known in advance, then it is simpler
+   to extend [`LazyAlgebra.output_shape(A)`](@ref LazyAlgebra.output_shape) and
+   [`LazyAlgebra.input_shape(A)`](@ref LazyAlgebra.input_shape) to respectively yield the
+   shapes of the input and output of `A` as tuples of dimension lengths and/or index unit
+   ranges (the two may be mixed). For `LazyAlgebra` to be aware of this, the traits
+   [`LazyAlgebra.InputShape`](@ref) and [`LazyAlgebra.OutputShape`](@ref) must also be
+   implemented as follows:
 
-Similarly, if the shape of `A*x` is known in advance, then the following two methods shall
-be specialized:
+   ```julia
+   LazyAlgebra.InputShape(typeof(A)) = LazyAlgebra.HasInputShape{N}()
+   LazyAlgebra.OutputShape(typeof(A)) = LazyAlgebra.HasOutputShape{M}()
+   ```
 
-* [`LazyAlgebra.OutputShape(typeof(A))`](@ref LazyAlgebra.OutputShape) shall return
-  `LazyAlgebra.HasOutputShape{M}()` with `M` the number of dimensions of `A*x`.
-
-* [`LazyAlgebra.output_axes(A)`](@ref LazyAlgebra.output_axes) shall return the `M`-tuple
-  of the axes of `A*x`.
-
-Otherwise, if the shape of `A*x` is not known in advance, e.g. because it depends on both
-`A` and `x`, then the method [`LazyAlgebra.OutputShape(typeof(A))`](@ref
-LazyAlgebra.OutputShape) shall return `LazyAlgebra.OutputShapeUnknown()`. Since this is
-the default behavior, it is not necessary to specialize this method for the type of `A` in
-that case.
-
-Note that [`LazyAlgebra.InputShape(typeof(A))`](@ref LazyAlgebra.InputShape) and
-[`LazyAlgebra.OutputShape(typeof(A))`](@ref LazyAlgebra.OutputShape) implement *traits*
-which only depend on the type of `A`.
-
-If these two traits indicate that both the input and output shapes for `A` are known in
-advance, there are no needs to specialize the method [`LazyAlgebra.output_axes(A,
-axes(x))`](@ref LazyAlgebra.output_axes) for the operator `A`.
-
-Otherwise, if any of the input of output shapes is not known in advance, the method
-[`LazyAlgebra.output_axes(A, axes(x))`](@ref LazyAlgebra.output_axes) must be specialized
-for the type of `A` to throw a `DimensionMismatch` exception if `axes(x)` is not an
-acceptable shape and to return the axes of `A*x` otherwise.
+   with `N` and `M` the number of dimensions of the input and output of `A`.
 
 
 ## Input and output element types

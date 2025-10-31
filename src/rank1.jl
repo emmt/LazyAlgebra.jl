@@ -75,10 +75,10 @@ Base.eltype(::Type{<:AbstractRankOneOperator{U,V}}) where {U,V} =
     prod_type(eltype(U), eltype(V))
 
 OutputShape(::Type{<:AbstractRankOneOperator{U,V}}) where {U,V} = HasOutputShape{ndims(U)}()
-output_axes(A::AbstractRankOneOperator) = axes(first(A))
+output_shape(A::AbstractRankOneOperator) = axes(first(A))
 
 InputShape(::Type{<:AbstractRankOneOperator{U,V}}) where {U,V} = HasInputShape{ndims(V)}()
-input_axes(A::AbstractRankOneOperator) = axes(last(A))
+input_shape(A::AbstractRankOneOperator) = axes(last(A))
 
 function unsafe_vmul!(α::Number, A::Union{K,Adjoint{K}}, x::AbstractArray,
                       β::Number, y::AbstractArray) where {K <: AbstractRankOneOperator}

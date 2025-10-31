@@ -222,8 +222,12 @@ Base.convert(::Type{T}, A) where {T<:SparseOperator} = T(A)::T
 # Accessors and basic methods.
 
 Base.eltype(::Type{<:SparseOperator{F,T,M,N}}) where {F,T,M,N} = T
+
 InputShape( ::Type{<:SparseOperator{F,T,M,N}}) where {F,T,M,N} = HasInputShape{N}()
+input_shape(A::BasicSparseOperator) = getfield(A, :colsiz)
+
 OutputShape(::Type{<:SparseOperator{F,T,M,N}}) where {F,T,M,N} = HasOutputShape{M}()
+output_shape(A::BasicSparseOperator) = getfield(A, :rowsiz)
 
 nrows(A::BasicSparseOperator) = getfield(A, :m)
 nrows(A::Conjugate{<:SparseOperator}) = nrows(parent(A))
@@ -233,10 +237,6 @@ ncols(A::BasicSparseOperator) = getfield(A, :n)
 ncols(A::Conjugate{<:SparseOperator}) = ncols(parent(A))
 ncols(A::Swapped{<:SparseOperator}) = nrows(parent(A))
 
-output_size(A::BasicSparseOperator) = getfield(A, :rowsiz)
-input_size(A::BasicSparseOperator) = getfield(A, :colsiz)
-output_axes(A::BasicSparseOperator) = map(Base.OneTo, output_size(A))
-input_axes(A::BasicSparseOperator) = map(Base.OneTo, input_size(A))
 
 TypeUtils.get_precision(::Type{A}) where {A<:SparseOperatorLike} = get_precision(eltype(A))
 TypeUtils.adapt_precision(::Type{T}, A::SparseOperatorLike) where {T<:TypeUtils.Precision} =
@@ -273,7 +273,7 @@ for (type, (get_1st_field, get_2nd_field)) in (:SparseOperatorCSR => (:col_indic
         TypeUtils.convert_eltype(::Type{T}, A::$type{T}) where {T} = A
         TypeUtils.convert_eltype(::Type{T}, A::$type{S}) where {T,S} =
             $_type(nrows(A), ncols(A), convert_eltype(T, nonzeros(A)),
-                   $get_1st_field(A), $get_2nd_field(A), row_size(A), col_size(A))
+                   $get_1st_field(A), $get_2nd_field(A), output_size(A), input_size(A))
     end
 end
 
@@ -283,27 +283,27 @@ end
 
 Base.copy(A::SparseOperatorCSR) = _SparseOperatorCSR(
     nrows(A), ncols(A), copy(nonzeros(A)), col_indices(A), offsets(A),
-    row_size(A), col_size(A))
+    output_size(A), input_size(A))
 
 Base.copy(A::SparseOperatorCSC) = _SparseOperatorCSC(
     nrows(A), ncols(A), copy(nonzeros(A)), row_indices(A), offsets(A),
-    row_size(A), col_size(A))
+    output_size(A), input_size(A))
 
 Base.copy(A::SparseOperatorCOO) = _SparseOperatorCOO(
     nrows(A), ncols(A), copy(nonzeros(A)), row_indices(A), col_indices(A),
-    row_size(A), col_size(A))
+    output_size(A), input_size(A))
 
 Base.deepcopy(A::SparseOperatorCSR) = _SparseOperatorCSR(
     nrows(A), ncols(A), copy(nonzeros(A)), copy(col_indices(A)), copy(offsets(A)),
-    row_size(A), col_size(A))
+    output_size(A), input_size(A))
 
 Base.deepcopy(A::SparseOperatorCSC) = _SparseOperatorCSC(
     nrows(A), ncols(A), copy(nonzeros(A)), copy(row_indices(A)), copy(offsets(A)),
-    row_size(A), col_size(A))
+    output_size(A), input_size(A))
 
 Base.deepcopy(A::SparseOperatorCOO) = _SparseOperatorCOO(
     nrows(A), ncols(A), copy(nonzeros(A)), copy(row_indices(A)), copy(col_indices(A)),
-    row_size(A), col_size(A))
+    output_size(A), input_size(A))
 
 # `findnz(A) -> I,J,V` yields the row and column indices and the values of the stored
 # values in `A`.
@@ -645,8 +645,8 @@ ncols(A::SparseMatrixCSC) = getfield(A, :n)
 offsets(A::SparseMatrixCSC) = getfield(A, :colptr) # like `getcolptr`
 row_indices(A::SparseMatrixCSC) = getfield(A, :rowval) # like `rowvals`
 # FIXME col_indices is already done elsewhere.
-row_size(A::SparseMatrixCSC) = (nrows(A),)
-col_size(A::SparseMatrixCSC) = (ncols(A),)
+output_size(A::SparseMatrixCSC) = (nrows(A),)
+input_size(A::SparseMatrixCSC) = (ncols(A),)
 each_col_index(A::SparseMatrixCSC) = 𝟙:ncols(A)
 
 # Provide specific versions of `check_offset_index`, `unsafe_first_nz_index`, and
@@ -936,7 +936,7 @@ for (CS, other_args) in (:SparseOperatorCSR => (:cols, :offs),
         $CS{T}(A::$CS{S,M,N}) where {S,T,M,N} =
             $_CS(nrows(A), ncols(A), to_values(T, nonzeros(A)),
                  $(map(s -> :($(Symbol("get_",s))(A)), other_args)...),
-                 row_size(A), col_size(A))
+                 output_size(A), input_size(A))
 
         # Basic outer constructors return a fully checked structure.
         function $CS(vals::AbstractVector, $(other_decl...),
@@ -1112,10 +1112,10 @@ the destination array.
 
 Base.Array(A::SparseOperatorLike) = Array{eltype(A)}(A)
 Base.Array{T}(A::SparseOperatorLike) where {T} =
-    Array{T, row_ndims(A) + col_ndims(A)}(A)
+    Array{T, output_ndims(A) + input_ndims(A)}(A)
 function Base.Array{T,N}(A::SparseOperatorLike) where {T,N}
-    L == row_ndims(A) + col_ndims(A) || throw_incompatible_number_of_dimensions()
-    return unpack!(Array{T}(undef, (row_size(A)..., col_size(A)...,)), A)
+    L == output_ndims(A) + input_ndims(A) || throw_incompatible_number_of_dimensions()
+    return unpack!(Array{T}(undef, (output_size(A)..., input_size(A)...,)), A)
 end
 
 function prepare_unpack!(dst::AbstractArray,
@@ -1126,7 +1126,7 @@ function prepare_unpack!(dst::AbstractArray,
         length(dst) == length(src) ||
             throw_incompatible_number_of_elements()
     else
-        size(dst) == (row_size(src)..., col_size(src)...,) ||
+        size(dst) == (output_size(src)..., input_size(src)...,) ||
             throw_incompatible_dimensions()
     end
     fill!(dst, zero(eltype(dst)))
@@ -1218,23 +1218,23 @@ SparseOperatorCSR{T}(A::SparseOperatorLike) where {T} =
     coo_to_csr!(copy_with_eltype(T, nonzeros(A)),
                 collect(row_indices(A)),
                 collect(col_indices(A)),
-                row_size(A),
-                col_size(A))
+                output_size(A),
+                input_size(A))
 
 SparseOperatorCSC{T}(A::SparseOperatorLike) where {T} =
     coo_to_csc!(copy_with_eltype(T, nonzeros(A)),
                 collect(row_indices(A)),
                 collect(col_indices(A)),
-                row_size(A),
-                col_size(A))
+                output_size(A),
+                input_size(A))
 
 SparseOperatorCOO{T}(A::SparseOperatorLike) where {T} =
     _SparseOperatorCOO(nrows(A), ncols(A),
                        with_eltype(T, nonzeros(A)),
                        as_vector(row_indices(A)),
                        as_vector(col_indices(A)),
-                       row_size(A),
-                       col_size(A))
+                       output_size(A),
+                       input_size(A))
 
 with_eltype(::Type{T}, A::AbstractArray{T}) where {T} = A
 with_eltype(::Type{T}, A::AbstractArray) where {T} = copy_with_eltype(T, A)
@@ -1470,8 +1470,8 @@ inconsistencies.
 
 """
 function check_size(A::SparseOperator)
-    check_size(nrows(A), row_size(A), "row")
-    check_size(ncols(A), col_size(A), "column")
+    check_size(nrows(A), output_size(A), "output")
+    check_size(ncols(A), input_size(A), "input")
     return nothing
 end
 

@@ -173,14 +173,15 @@ Depending on the type of operator `A`, return one of:
   in advance. This is the assumed default.
 
 * `LazyAlgebra.HasInputShape{N}()` if the input of `A` has a known `N`-dimensional shape
-  whose axes and size are respectively given by `LazyAlgebra.input_axes(A)` and
-  `LazyAlgebra.input_size(A)`.
+  given by [`LazyAlgebra.input_shape(A)`](@ref LazyAlgebra.input_shape).
 
 See also [`LazyAlgebra.InputEltype](@ref) and [`LazyAlgebra.OutputShape](@ref).
 
 """
 InputShape(A) = InputShape(typeof(A))
 InputShape(::Type{T}) where {T<:Any} = InputShapeUnknown()
+InputShape(::Type{T}) where {T<:AbstractMatrix} = HasInputShape{1}()
+InputShape(::Type{T}) where {T<:Conjugate} = InputShape(parent(T))
 InputShape(::Type{T}) where {T<:Union{Swapped,Inverse}} = transpose(OutputShape(parent(T)))
 
 """
@@ -193,12 +194,7 @@ Depending on the type of operator `A`, return one of:
   determined in advance.
 
 * `LazyAlgebra.HasOutputShape{N}()` if the output of `A` has a known `N`-dimensional shape
-  whose axes and size are respectively given by `LazyAlgebra.output_axes(A)` and
-  `LazyAlgebra.output_size(A)`.
-
-!!! note
-    In any case, the output shape of `A*x` can be determined by
-    `LazyAlgebra.output_axes(A, x)`.
+  given by [`LazyAlgebra.output_shape(A)`](@ref LazyAlgebra.output_shape).
 
 See also [`LazyAlgebra.OutputEltype](@ref), [`LazyAlgebra.InputShape](@ref), and
 [`LazyAlgebra.output_axes](@ref).
@@ -206,6 +202,8 @@ See also [`LazyAlgebra.OutputEltype](@ref), [`LazyAlgebra.InputShape](@ref), and
 """
 OutputShape(A) = OutputShape(typeof(A))
 OutputShape(::Type{T}) where {T<:Any} = OutputShapeUnknown()
+OutputShape(::Type{T}) where {T<:AbstractMatrix} = HasOutputShape{1}()
+OutputShape(::Type{T}) where {T<:Conjugate} = OutputShape(parent(T))
 OutputShape(::Type{T}) where {T<:Union{Swapped,Inverse}} = transpose(InputShape(parent(T)))
 
 Base.ndims(x::OutputShape) = ndims(typeof(x))
@@ -226,13 +224,12 @@ Return the number dimensions of the result of `A*x` based on the type of `A`.
 
 !!! note
     If the number `M` of dimensions of `A*x` is known in advance, do not extend this
-    method but rather extend `LazyAlgebra.OutputShape(typeof(A))`,
-    `LazyAlgebra.output_axes(A)`, and optionally `LazyAlgebra.output_size(A)` to
-    respectively yield `LazyAlgebra.HasOutputShape{M}()`, the axes and the size of `A*x`.
+    method but rather extend `LazyAlgebra.OutputShape(typeof(A))` and
+    `LazyAlgebra.output_shape(A)` to respectively yield `LazyAlgebra.HasOutputShape{M}()`
+    and the shape of `A*x`.
 
-See also [`LazyAlgebra.input_ndims`](@ref), [`LazyAlgebra.output_axes`](@ref),
-[`LazyAlgebra.output_eltype`](@ref), [`LazyAlgebra.OutputShape`](@ref), and.
-[`LazyAlgebra.row_ndims`](@ref).
+See also [`LazyAlgebra.input_ndims`](@ref), [`LazyAlgebra.output_shape`](@ref), and
+[`LazyAlgebra.OutputShape`](@ref).
 
 """
 output_ndims(A) = ndims(OutputShape(A))
@@ -245,13 +242,12 @@ Return the number dimensions of the input `x` for `A*x` based on the type of `A`
 
 !!! note
     If the number `N` of dimensions of `x` to compute `A*x` is known in advance, do not
-    extend this method but rather extend `LazyAlgebra.OutputShape(typeof(A))`,
-    `LazyAlgebra.input_axes(A)`, and optionally `LazyAlgebra.input_size(A)` to
-    respectively yield `LazyAlgebra.HasInputShape{N}()`, the axes and the size of `A*x`.
+    extend this method but rather extend `LazyAlgebra.OutputShape(typeof(A))` and
+    `LazyAlgebra.input_shape(A)` to respectively yield `LazyAlgebra.HasInputShape{N}()`
+    and the shape of `A*x`.
 
-See also [`LazyAlgebra.output_ndims`](@ref), [`LazyAlgebra.input_axes`](@ref),
-[`LazyAlgebra.input_eltype`](@ref), and [`LazyAlgebra.InputShape`](@ref), and.
-[`LazyAlgebra.col_ndims`](@ref).
+See also [`LazyAlgebra.output_ndims`](@ref), [`LazyAlgebra.input_shape`](@ref), and
+[`LazyAlgebra.InputShape`](@ref).
 
 """
 input_ndims(A) = ndims(InputShape(A))
@@ -425,6 +421,19 @@ output_eltype(::Type{Prod{L,R}}, ::Type{x}) where {L,R,x<:AbstractArray} =
 # Output element type for scaled operators.
 output_eltype(::Type{Prod{L,R}}, ::Type{x}) where {L<:Number,R,x<:AbstractArray} =
     output_eltype(L, R, x)
+
+# Output element type for a*x when A is a regular matrix.
+output_eltype(A::AbstractMatrix, x::AbstractVector) =
+    output_eltype(typeof(A), typeof(x))
+output_eltype(::Type{A}, ::Type{x}) where {A<:AbstractMatrix, x<:AbstractVector} =
+    float(prod_type(eltype(A), eltype(x)))
+output_eltype(α::Number, A::AbstractMatrix, x::AbstractVector) =
+    output_eltype(typeof(α), typeof(A), typeof(x))
+function output_eltype(::Type{α}, ::Type{A}, ::Type{x}) where {α<:Number,
+                                                               A<:AbstractMatrix,
+                                                               x<:AbstractVector}
+    return output_eltype(α, AbstractArray{prod_type(eltype(A), eltype(x))})
+end
 
 # Extend `Base.eltype` for operators and their variants. NOTE This is not necessary for
 # `Sum` and `Prod` as they implement `output_eltype` properly. NOTE It is assumed that

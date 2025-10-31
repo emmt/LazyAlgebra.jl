@@ -95,12 +95,10 @@ end
 
 # Accessors and LazyAlgebra operator API for FFT operators.
 OutputShape(::Type{<:FFT{T,C,N}}) where {T,C,N} = HasOutputShape{N}()
-output_size(A::FFT) = output_size(get_plan(A))
-output_axes(A::FFT) = map(Base.OneTo, output_size(A))
+output_shape(A::FFT) = output_shape(get_plan(A))
 
 InputShape(::Type{<:FFT{T,C,N}}) where {T,C,N} = HasInputShape{N}()
-input_size(A::FFT) = input_size(get_plan(A))
-input_axes(A::FFT) = map(Base.OneTo, input_size(A))
+input_shape(A::FFT) = input_shape(get_plan(A))
 
 InputEltype(::Type{<:FFT}) = HasInputEltype()
 input_eltype(::Type{<:Union{F,InverseAdjoint{F}}}) where {T,C,N,F<:FFT{T,C,N}} = T
@@ -142,13 +140,13 @@ end
 # which return false, so it is only needed to implement the method for two arguments with
 # the same types (omitting the type of the plans as it is irrelevant here).
 Base.:(==)(A::FFT{T,C,N}, B::FFT{T,C,N}) where {T,C,N} =
-    (input_size(A) == input_size(B))
+    (input_axes(A) == input_axes(B))
 
 # MIME"text/plain" is for the REPL.
 Base.show(io::IO, ::MIME"text/plain", A::FFT) = write(io, "FFT")
 function Base.show(io::IO, A::FFT)
     print(io, "FFT{", input_eltype(A), "}(")
-    print_shape(io, input_axes(A))
+    print_shape(io, input_shape(A))
     print(io, "; flags = ")
     print_fftw_flags(io, get_plan(A).flags)
     print(io, ")")
@@ -183,9 +181,9 @@ function check_fftw_plans(forward::FFTW.FFTWPlan{Tf,Kf},
                           backward::FFTW.FFTWPlan{Tb,Kb}) where {Tf,Kf,Tb,Kb}
     Kb == -Kf || throw_bad_argument(
         "forward and backward FFT plans have the same \"direction\"")
-    input_size(backward) == output_size(forward) &&
-        output_size(backward) == input_size(forward) || throw_dimension_mismatch(
-            "forward and backward FFT plans have incompatible dimensions")
+    input_axes(backward) == output_axes(forward) &&
+        output_axes(backward) == input_axes(forward) || throw_dimension_mismatch(
+            "forward and backward FFT plans have incompatible axes")
     real(Tf) === real(Tb) || throw_bad_argument(
         "forward and backward FFT plans have different floating-point types")
     forward isa FFTW.cFFTWPlan && backward isa FFTW.cFFTWPlan && return nothing
@@ -205,9 +203,11 @@ for P in (:cFFTWPlan, :rFFTWPlan)
 end
 
 input_size(A::FFTW.FFTWPlan) = A.sz
+input_shape(A::FFTW.FFTWPlan) = input_size(A)
 input_axes(A::FFTW.FFTWPlan) = map(Base.OneTo, input_size(A))
 
 output_size(A::FFTW.FFTWPlan) = A.osz
+output_shape(A::FFTW.FFTWPlan) = output_size(A)
 output_axes(A::FFTW.FFTWPlan) = map(Base.OneTo, output_size(A))
 
 InputEltype(::Type{<:FFTW.FFTWPlan}) = HasInputEltype()
@@ -336,12 +336,10 @@ end
 # Basic methods for a linear operator on Julia's arrays.
 
 InputShape(::Type{<:CirculantConvolution{T,N}}) where {T,N} = HasInputShape{N}()
-input_size(H::CirculantConvolution) = H.dims
-input_axes(H::CirculantConvolution) = map(Base.OneTo, input_size(H))
+input_shape(H::CirculantConvolution) = H.dims
 
 OutputShape(::Type{<:CirculantConvolution{T,N}}) where {T,N} = HasOutputShape{N}()
-output_size(H::CirculantConvolution) = input_size(H)
-output_axes(H::CirculantConvolution) = input_axes(H)
+output_shape(H::CirculantConvolution) = input_shape(H)
 
 InputEltype(::Type{<:CirculantConvolution}) = HasInputEltype()
 input_eltype(::Type{<:CirculantConvolution{T,N}}) where {T,N} = T

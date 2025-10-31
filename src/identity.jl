@@ -33,15 +33,15 @@ Base.:(==)(A::Identity{<:Dims{N}}, B::Identity{<:Dims{N}}) where {N} =
 Base.:(==)(A::Identity{<:ArrayAxes{N}}, B::Identity{<:ArrayAxes{N}}) where {N} =
     A === B || A.shape == B.shape
 Base.:(==)(A::Identity{<:NTuple{N}}, B::Identity{<:NTuple{N}}) where {N} =
-    input_axes(A) == input_axes(B)
+    input_shape(A) == input_shape(B)
 
 # Get diagonal of identity.
 LinearAlgebra.diag(A::UniversalIdentity) = Array{typeof(𝟙),0}(undef)
-LinearAlgebra.diag(A::ShapedIdentity) = new_array(typeof(𝟙), input_axes(A))
+LinearAlgebra.diag(A::ShapedIdentity) = new_array(typeof(𝟙), input_shape(A))
 
 # Implement API of operators for the identity.
 output_eltype(::Type{<:Identity}, ::Type{X}) where {X<:AbstractArray} = float(eltype(X))
-output_axes(A::UniversalIdentity, shape::ArrayAxes) = shape
+output_shape(A::UniversalIdentity, shape::ArrayAxes) = shape
 
 InputShape(::Type{<:Identity}) = InputShapeUnknown()
 InputShape(::Type{<:ShapedIdentity{N}}) where {N} = HasInputShape{N}()
@@ -49,14 +49,11 @@ InputShape(::Type{<:ShapedIdentity{N}}) where {N} = HasInputShape{N}()
 OutputShape(::Type{<:Identity}) = OutputShapeUnknown()
 OutputShape(::Type{<:ShapedIdentity{N}}) where {N} = HasOutputShape{N}()
 
-input_axes(A::Identity{<:ArrayAxes}) = A.shape
-input_size(A::Identity{<:Dims}) = A.shape
-input_axes(A::Identity{<:Dims}) = as_array_axes(input_size(A))
-input_axes(A::Identity{<:Tuple{}}) = ()
+input_shape(A::Identity{<:ArrayAxes}) = A.shape
+input_shape(A::Identity{<:Tuple{}}) = () # FIXME
 
 # Output has the same shape as input for the identity.
-output_axes(A::Identity) = input_axes(A)
-output_size(A::Identity) = input_size(A)
+output_shape(A::Identity{<:ArrayAxes}) = A.shape
 
 unsafe_vmul!(α::Number, A::Identity, x::AbstractArray, β::Number, y::AbstractArray) =
     unsafe_vcombine!(α, x, β, y)

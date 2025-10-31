@@ -45,103 +45,221 @@ let NonMatrix = LinearAlgebra.UniformScaling, Other = Union{NonMatrix,AbstractMa
     end
 end
 
+#----------------------------------------------------------------- Input Shape, Size, etc. -
+
 """
-    LazyAlgebra.output_axes(A::Operator, x::AbstractArray)
+    LazyAlgebra.input_shape(A)
 
-Return the axes of the result of `A*x`.
+Return the shape that `x` must have to compute `A*x` with the matrix or linear operator
+`A`. The shape is a tuple of array dimensions or index unit ranges.
 
-As a simplification, it is assumed that the axes of `A*x` only depend on the operator `A`
-and on the axes of the input array `x`. Following this assumption, this method returns the
-result of:
-
-    LazyAlgebra.output_axes(A, axes(x))
-
-and it is thus expected that a method with this signature exists for the operator `A`.
-
-If the axes of the input and output of `A` do not depend on the input `x`, an alternative
-is to implement:
-
-    LazyAlgebra.output_axes(A)
-    LazyAlgebra.input_axes(A)
-
-to respectively yield the the axes of the output and input of `A` when these axes do not
-depend on `x`. In that case, the following traits shall be implemented:
+This method has no default implementation. To provide this method for an operator `A`, the
+following two methods shall be specialized:
 
 ```julia
-LazyAlgebra.OutputShape(typeof(A)) = LazyAlgebra.HasOutputShape{M}()
 LazyAlgebra.InputShape(typeof(A)) = LazyAlgebra.HasInputShape{N}()
+LazyAlgebra.input_shape(A) = ...
 ```
 
-with `M` and `N` the number of dimensions of the output and input of `A`.
+with `N` the number of dimensions of suitable input `x` to compute `A*x`.
 
-See also [`LazyAlgebra.output_eltype`](@ref), [`LazyAlgebra.create_output`](@ref),
-[`LazyAlgebra.input_axes`](@ref), [`LazyAlgebra.input_eltype`](@ref),
-[`LazyAlgebra.OutputShape`](@ref), and [`LazyAlgebra.InputShape`](@ref).
+See also [`LazyAlgebra.output_shape`](@ref), [`LazyAlgebra.InputShape`](@ref),
+[`LazyAlgebra.input_ndims`](@ref), [`LazyAlgebra.input_axes`](@ref), and
+[`LazyAlgebra.input_size`](@ref).
 
 """
-output_axes(A::Operator, x::AbstractArray) = output_axes(A, axes(x))
-output_axes(A::InverseAdjoint, x::AbstractArray) = output_axes(parent(parent(A)), axes(x))
-
-# Fallback version of `output_axes(A, x)` assuming `input_axes(A)` and `input_axes(A)` are
-# defined for `A`.
-function output_axes(A::Operator, x_axes::ArrayAxes)
-    InputShape(A) isa HasInputShape || throw_input_shape_not_implemented(typeof(A))
-    check_input_axes(x_axes, input_axes(A))
-    OutputShape(A) isa HasOutputShape || throw_output_shape_not_implemented(typeof(A))
-    return output_axes(A)
-end
-
-@noinline output_axes(A::Operator) = throw_output_shape_not_implemented(typeof(A))
+input_shape(A::Operator) = throw_input_shape_not_implemented(typeof(A))
+input_shape(A::AbstractMatrix) = input_axes(A)
 
 @noinline throw_input_shape_not_implemented(::Type{T}) where {T} =
     error(string("checking the dimension of the input of an operator of type `", T,
                  "` is not correctly implemented, see doc. of `LazyAlgebra.output_axes`"))
+
+"""
+    LazyAlgebra.input_size(A)
+
+Return the dimensions of the input argument `x` to compute `A*x` with the matrix or linear
+operator `A`.
+
+This method is only applicable to operators whose input shape is fixed (see
+[`LazyAlgebra.input_shape`](@ref)).
+
+"""
+input_size(A::Operator) = as_array_size(input_shape(A))
+input_size(A::AbstractMatrix) = (size(A, 2),)
+
+"""
+    LazyAlgebra.input_axes(A)
+
+Return the dimensions of the input argument `x` to compute `A*x` with the matrix or linear
+operator `A`.
+
+This method is only applicable to operators whose input shape is fixed (see
+[`LazyAlgebra.input_shape`](@ref)).
+
+"""
+input_axes(A::Operator) = as_array_axes(input_shape(A))
+input_axes(A::AbstractMatrix) = (axes(A, 2),)
+input_axes(A::Conjugate) = input_axes(parent(A))
+input_axes(A::Union{Adjoint,Transpose,Inverse}) = output_axes(parent(A))
+
+"""
+    LazyAlgebra.ncols(A)
+
+yields the *equivalent* number of columns of the matrix or linear operator `A` that is the
+number of elements of any valid input `x` for `A*x` whatever the number of dimensions of
+`x`.
+
+This method is only applicable to operators whose input shape is fixed (see
+[`LazyAlgebra.input_shape`](@ref)).
+
+"""
+ncols(A::Operator) = prod(input_size(A))
+ncols(A::AbstractMatrix) = size(A, 2)
+
+#---------------------------------------------------------------- Output Shape, Size, etc. -
+
+"""
+    LazyAlgebra.output_shape(A::Operator)
+
+Return the shape of `A*x` when it is known in advance for the matrix or linear operator
+`A`. The shape is a tuple of array dimensions or index unit ranges.
+
+This method has no default implementation. To implement this method for an operator `A`,
+the following two methods shall be specialized:
+
+```julia
+LazyAlgebra.OutputShape(typeof(A)) = LazyAlgebra.HasOutputShape{M}()
+LazyAlgebra.output_shape(A) = ...
+```
+
+with `M` the number of dimensions of `A*x`.
+
+See also [`LazyAlgebra.input_shape`](@ref), [`LazyAlgebra.OutputShape`](@ref),
+[`LazyAlgebra.output_ndims`](@ref), [`LazyAlgebra.output_axes`](@ref), and
+[`LazyAlgebra.output_size`](@ref).
+
+"""
+output_shape(A::Operator) = throw_output_shape_not_implemented(typeof(A))
+output_shape(A::AbstractMatrix) = output_axes(A)
 
 @noinline throw_output_shape_not_implemented(::Type{T}) where {T} =
     error(string("inferring the dimension of the output of an operator of type `", T,
                  "` is not correctly implemented, see doc. of `LazyAlgebra.output_axes`"))
 
 """
-    LazyAlgebra.input_axes(A::Operator)
+    LazyAlgebra.output_size(A)
 
-Return the axes that `x` must have to compute `A*x`. Not all operators `A` implement this.
+Return the dimensions of the result of left-multiplying a *vector* (of suitable size) by
+the matrix or linear operator `A`.
 
-To implement this method for an operator, the following two methods shall be specialized:
-
-```julia
-LazyAlgebra.InputShape(typeof(A)) = LazyAlgebra.HasInputShape{N}()
-LazyAlgebra.input_axes(A) = ...
-```
-
-with `N` the number of dimensions of input `x` to compute `A*x`.
-
-See also [`LazyAlgebra.output_axes`](@ref) and [`LazyAlgebra.InputShape`](@ref).
+This method is only applicable to operators whose output shape is fixed (see
+[`LazyAlgebra.output_shape`](@ref)).
 
 """
-@noinline input_axes(A::Operator) =
-    error("`LazyAlgebra.input_axes(A)` not defined for operator `A` of type `$(typeof(A))`")
+output_size(A::Operator) = as_array_size(output_shape(A))
+output_size(A::AbstractMatrix) = (size(A, 1),)
 
-output_axes(A::Union{Adjoint,Inverse}) =  input_axes(A[])
-input_axes( A::Union{Adjoint,Inverse}) = output_axes(A[])
+"""
+    LazyAlgebra.output_axes(A)
 
-output_axes(A::InverseAdjoint, J::ArrayAxes) = output_axes(A[][], J)
-output_axes(A::InverseAdjoint) = output_axes(A[][])
-input_axes( A::InverseAdjoint) = input_axes(A[][])
+Return the axes of the result of left-multiplying a *vector* (of suitable size) by the
+matrix or linear operator `A`.
+
+This method is only applicable to operators whose output shape is fixed (see
+[`LazyAlgebra.output_shape`](@ref)).
+
+"""
+output_axes(A::Operator) = as_array_axes(output_shape(A))
+output_axes(A::AbstractMatrix) = (axes(A, 1),)
+output_axes(A::Conjugate) = output_axes(parent(A))
+output_axes(A::Union{Adjoint,Transpose,Inverse}) = input_axes(parent(A))
+
+"""
+    LazyAlgebra.nrows(A)
+
+yields the *equivalent* number of rows of the matrix or linear operator `A` that is the
+number of elements of the result of `A*x` whatever its number of dimensions.
+
+This method is only applicable to operators whose output shape is fixed (see
+[`LazyAlgebra.output_shape`](@ref)).
+
+"""
+nrows(A::Operator) = prod(output_size(A))
+nrows(A::AbstractMatrix) = size(A, 1)
+
+#------------------------------------------------------------------------- Shape of Result -
+
+"""
+    LazyAlgebra.output_axes(A::Operator, x::AbstractArray)
+
+Return the axes of the result of `A*x`.
+
+To have this method applicable to a given linear operator type, there are several
+possibilities:
+
+1. The method `LazyAlgebra.output_axes(A, x)` may be directly implemented for the type of
+   `A` an perhaps `x`.
+
+2. If the axes of `A*x` only depend on the operator `A` and on the axes of the input array
+   `x`, then it is sufficient to provide:
+
+   ```julia
+   LazyAlgebra.output_axes(A, axes(x))
+   ```
+
+3. If the shapes of the input and output of `A` are known in advance, then it is simpler
+   to provide:
+
+   ```julia
+   LazyAlgebra.input_shape(A)
+   LazyAlgebra.output_shape(A)
+   ```
+
+   to respectively yield the shapes of the input and output of `A` as tuples of
+   dimension lengths and/or index unit ranges (the two may be mixed). For `LazyAlgebra`
+   to be aware of this, the following traits must also be implemented:
+
+   ```julia
+   LazyAlgebra.InputShape(typeof(A)) = LazyAlgebra.HasInputShape{N}()
+   LazyAlgebra.OutputShape(typeof(A)) = LazyAlgebra.HasOutputShape{M}()
+   ```
+
+   with `N` and `M` the number of dimensions of the input and output of `A`.
+
+See also [`LazyAlgebra.create_output`](@ref), [`LazyAlgebra.InputShape`](@ref),
+[`LazyAlgebra.input_shape`](@ref), [`LazyAlgebra.OutputShape`](@ref), and
+[`LazyAlgebra.output_shape`](@ref).
+
+"""
+output_axes(A::Operator, x::AbstractArray) = output_axes(A, axes(x))
+
+# Fallback version of `output_axes(A, x)` assuming `input_axes(A)` and `input_axes(A)` are
+# defined for `A`.
+function output_axes(A::Operator, x_axes::ArrayAxes)
+    InputShape(A) isa HasInputShape || throw_input_shape_not_implemented(typeof(A))
+    OutputShape(A) isa HasOutputShape || throw_output_shape_not_implemented(typeof(A))
+    check_input_axes(x_axes, input_axes(A))
+    return output_axes(A)
+end
+
+output_axes(A::InverseAdjoint, x_axes::ArrayAxes) = output_axes(parent(parent(A)), x_axes)
+output_axes(A::InverseTranspose, x_axes::ArrayAxes) = output_axes(parent(parent(A)), x_axes)
 
 # Output axes for products assuming right-associativity.
-output_axes(A::Scaled, J::ArrayAxes) = output_axes(A[2], J)
-output_axes(A::Prod, J::ArrayAxes) = output_axes(A[1], output_axes(A[2], J))
+output_axes((α,A)::Scaled, x_axes::ArrayAxes) = output_axes(A, x_axes)
+output_axes((A,B)::Prod, x_axes::ArrayAxes) = output_axes(A, output_axes(B, x_axes))
 
 # Output axes for sums assuming right-associativity.
-output_axes(A::Sum, J::ArrayAxes) =
-    output_axes_in_sum(output_axes(A[1], J), A[2], J)
+output_axes((A,B)::Sum, x_axes::ArrayAxes) =
+    output_axes_in_sum(output_axes(A, x_axes), B, x_axes)
 
-output_axes_in_sum(I::ArrayAxes, A::Sum, J::ArrayAxes) =
-    output_axes(A[1], J) == I ? output_axes_in_sum(I, A[2], J) :
+output_axes_in_sum(y_axes::ArrayAxes, (A,B)::Sum, x_axes::ArrayAxes) =
+    output_axes(A, x_axes) == y_axes ? output_axes_in_sum(y_axes, B, x_axes) :
     throw_incompatible_output_axes_in_sum()
 
-output_axes_in_sum(I::ArrayAxes, A::Operator, J::ArrayAxes) =
-    output_axes(A, J) == I ? I : throw_incompatible_output_axes_in_sum()
+output_axes_in_sum(y_axes::ArrayAxes, A::Operator, x_axes::ArrayAxes) =
+    output_axes(A, x_axes) == y_axes ? y_axes : throw_incompatible_output_axes_in_sum()
 
 @noinline throw_incompatible_output_axes_in_sum() =
     throw(DimensionMismatch("incompatible output axes in sum"))
@@ -418,6 +536,33 @@ function vmul!(z::AbstractArray, α::Number, A::Operator, x::AbstractArray,
     end
     return z
 end
+
+# Extend `vmul!` for regular matrices.
+vmul!(y::AbstractVector, A::AbstractMatrix, x::AbstractVector) =
+    LinearAlgebra.mul!(y, A, x)
+function vmul!(α::Number, A::AbstractMatrix, x::AbstractVector,
+               β::Number, y::AbstractVector)
+    α = convert_multiplier(α, output_eltype(typeof(A), typeof(x)))
+    β = convert_multiplier(β, output_eltype(typeof(A), typeof(x)))
+    LinearAlgebra.mul!(y, A, x, α, β)
+    return y
+end
+
+# Extend `unsafe_vmul!` for regular matrices.
+unsafe_vmul!(α::Number, A::AbstractMatrix, x::AbstractVector, β::Number, y::AbstractVector) =
+    LinearAlgebra.mul!(y, A, x, α, β)
+
+# Extend `LinearAlgebra.ldiv!(y, A, b)` to overwrite `y` with `A\b`.
+LinearAlgebra.ldiv!(y::AbstractArray, A::Operator, b::AbstractArray) =
+    vmul!(y, inv(A), b)
+
+# Extend `LinearAlgebra.mul!(c, A, b, α, β)` to overwrite `c` with `α*A*b + β*c`.
+LinearAlgebra.mul!(c::AbstractArray, A::Operator, b::AbstractArray, α::Number, β::Number) =
+    vmul!(α, A, b, β, c)
+
+# Extend `LinearAlgebra.mul!(y, A, b)` to overwrite `y` with `A*b`.
+LinearAlgebra.mul!(y::AbstractArray, A::Operator, b::AbstractArray) =
+    vmul!(y, A, b)
 
 """
     LazyAlgebra.check_input_axes(x, inp_axes) -> nothing

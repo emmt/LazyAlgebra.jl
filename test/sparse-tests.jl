@@ -91,8 +91,8 @@ end
     coo_perm = SparseOperatorCOO(nonzeros(coo)[kp],
                                  row_indices(coo)[kp],
                                  col_indices(coo)[kp],
-                                 row_size(coo),
-                                 col_size(coo));
+                                 output_size(coo),
+                                 input_size(coo));
 
     # Make a COO version with randomly permuted entries and some duplicates.
     # Use fractions 1/3 and 3/4 for duplicating so that there is no loss of
@@ -111,8 +111,8 @@ end
     coo_dups = SparseOperatorCOO(nonzeros(coo)[k] .* w,
                                  row_indices(coo)[k],
                                  col_indices(coo)[k],
-                                 row_size(coo),
-                                 col_size(coo))
+                                 output_size(coo),
+                                 input_size(coo))
 
     # Check structures.
     @test check_structure(csr) === csr
@@ -287,8 +287,8 @@ end # testset
             @test is_endomorphism(S) == (rows == cols)
             @test (LazyAlgebra.MorphismType(S) ===
                    LazyAlgebra.Endomorphism()) == (rows == cols)
-            @test row_size(S) == rows
-            @test col_size(S) == cols
+            @test output_size(S) == rows
+            @test input_size(S) == cols
             @test nrows(S) == prod(rows)
             @test ncols(S) == prod(cols)
             @test output_size(S) == rows

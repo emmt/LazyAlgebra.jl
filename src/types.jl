@@ -9,7 +9,7 @@ const StaticMultiplier{v} = Union{Neutral{v},AbstractQuantity{Neutral{v}}}
 """
     Operator
 
-is the abstract type representing any linear function between two variables spaces in
+Abstract type representing any linear function between two variables spaces in
 `LazyAlgebra`. Using upper-case Latin letters to denote operators, lower-case Latin
 letters to denote variables, and Greek letters to denote scalars, then:
 

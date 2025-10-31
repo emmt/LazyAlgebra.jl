@@ -86,8 +86,7 @@ Base.:(==)(A::CroppingOperator{N}, B::CroppingOperator{N}) where {N} =
     A === B || (A.i == B.i && A.j == B.j && A.k == B.k)
 
 # Accessors and operator API for the cropping and zero-padding operators.
-output_axes(A::CroppingOperator) = getfield(A, :i)
-input_axes( A::CroppingOperator) = getfield(A, :j)
+
 offset(A::CroppingOperator) = getfield(A, :k)
 offset(A::ZeroPaddingOperator) = offset(A')
 
@@ -95,7 +94,10 @@ output_eltype(::Type{<:CroppingOperator}, ::Type{x}) where {x<:AbstractArray} = 
 output_eltype(::Type{<:ZeroPaddingOperator}, ::Type{x}) where {x<:AbstractArray} = eltype(x)
 
 InputShape(::Type{<:CroppingOperator{N}}) where {N} = HasInputShape{N}()
+input_shape(A::CroppingOperator) = getfield(A, :j)
+
 OutputShape(::Type{<:CroppingOperator{N}}) where {N} = HasOutputShape{N}()
+output_shape(A::CroppingOperator) = getfield(A, :i)
 
 for S in (:CroppingOperator, :ZeroPaddingOperator)
     @eval output_eltype(::Type{<:$S{N}}, ::Type{x}) where {T,N,x<:AbstractArray{T,N}} =
@@ -154,11 +156,9 @@ offset_to_center(rng::AbstractUnitRange{<:Integer}) = offset_to_center(length(rn
 
 function Base.show(io::IO, A::CroppingOperator)
     write(io, "Crop(")
-    print_shape(io, input_axes(A))
-    #print_axes(io, map((r, k) -> (first(r) + k):(last(r) + k),
-    #                   output_axes(A), Tuple(offset(A))))
+    print_shape(io, input_shape(A))
     write(io, " -> ")
-    print_shape(io, output_axes(A))
+    print_shape(io, output_shape(A))
     write(io, " with offset ")
     show(io, Tuple(offset(A)))
     write(io, ')')
@@ -166,11 +166,9 @@ end
 
 function Base.show(io::IO, A::ZeroPaddingOperator)
     write(io, "ZeroPad(")
-    print_shape(io, input_axes(A))
-    #print_axes(io, map((r, k) -> (first(r) - k):(last(r) - k),
-    #                   output_axes(A), Tuple(offset(A))))
+    print_shape(io, input_shape(A))
     write(io, " -> ")
-    print_shape(io, output_axes(A))
+    print_shape(io, output_shape(A))
     write(io, " with offset ")
     show(io, Tuple(offset(A)))
     write(io, ')')

@@ -138,11 +138,8 @@ using TypeUtils: @public
         UpperTriangularShape,
         check_input_axes,
         check_output_axes,
-        col_axes,
         col_index,
         col_indices,
-        col_ndims,
-        col_size,
         convert_multiplier,
         create_output,
         default_cropping_offset,
@@ -157,6 +154,7 @@ using TypeUtils: @public
         input_axes,
         input_eltype,
         input_ndims,
+        input_shape,
         input_size,
         is_column_major,
         is_lower_triangular,
@@ -171,12 +169,10 @@ using TypeUtils: @public
         output_axes,
         output_eltype,
         output_ndims,
+        output_shape,
         output_size,
-        row_axes,
         row_index,
         row_indices,
-        row_ndims,
-        row_size,
         test_API,
         try_simplify,
         unpack!,
@@ -222,7 +218,6 @@ include("utils.jl")
 include("multipliers.jl")
 include("vectors.jl")
 include("operators.jl")
-include("matrices.jl")
 include("rules.jl")
 include("symbolic.jl")
 include("identity.jl")

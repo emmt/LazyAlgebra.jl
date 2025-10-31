@@ -14,10 +14,11 @@ pseudo-matrix `A` shares its coefficients with `arr`. The array storing the coef
 of `A` can be retrieved by `parent(A)`. If `T` is unspecified, `T = eltype(arr)` is
 assumed.
 
-Type parameter `M` is the number of consecutive leading dimensions of `arr` corresponding
-to the *rows* of the pseudo-matrix `A`. An expression like `y = A*x` requires that the
-axes of `x` match the `ndims(arr) - M` trailing axes of `arr` and yields a result `y`
-whose axes are the `M` leading axes of `arr`.
+Type parameter `M` is the number of consecutive leading dimensions of `arr` considered as
+the *row index* of the pseudo-matrix `A`, the remaining consecutive trailing dimensions
+being considered as the *column index* of the pseudo-matrix `A`. In other words, an
+expression like `y = A*x` implies that the axes of `x` match the `ndims(arr) - M` trailing
+axes of `arr` and that the axes of the result `y` are the `M` leading axes of `arr`.
 
 If `arr` is a matrix (i.e., a 2-dimensional abstract array), then `Operator(arr)`
 is a shortcut to `PseudoMatrix(arr,Dims{1})`.
@@ -76,35 +77,47 @@ end
 # Traits.
 Base.eltype(::Type{<:PseudoMatrix{T}}) where {T} = T
 
-InputShape(::Type{<:PseudoMatrix{T,M,N}}) where {T,M,N} =
-    M !== Colon ? HasInputShape{N-M}() : InputShapeUnknown()
+"""
+    unveil(A::Operator) -> B::Operator
 
-OutputShape(::Type{<:PseudoMatrix{T,M,N}}) where {T,M,N} =
-    M !== Colon ? HasOutputShape{M}() : OutputShapeUnknown()
+Return the bare operator embedded in `A`. If `A` is a bare operator, `A` is returned;
+otherwise, `parent` is recursively called.
 
-input_axes(A::PseudoMatrix{T,M,N}) where {T,M,N} =
-    M !== Colon ? axes(parent(A))[M+1:N] : error(
-        "input axes are not known in advance for flexible general matrices")
+"""
+unveil(A::Union{Adjoint,Transpose,Conjugate,Inverse}) = unveil(parent(A))
+unveil(A::Operator) = A
 
-output_axes(A::PseudoMatrix{T,M,N}) where {T,M,N} =
-    M !== Colon ? axes(parent(A))[1:M] : error(
-        "output axes are not known in advance for flexible general matrices")
+InputShape( ::Type{<:FlexibleMatrix}) = InputShapeUnknown()
+OutputShape(::Type{<:FlexibleMatrix}) = OutputShapeUnknown()
 
-function output_axes(A::Union{G,Adjoint{G},Inverse{G},InverseAdjoint{G}},
-                     x_axes::ArrayAxes{L}) where {T,L,N,G<:FlexibleMatrix{T,N}}
+input_shape(A::FlexibleMatrix) = error(
+    "input shape is not known in advance for flexible general matrices")
+
+output_shape(A::FlexibleMatrix) = error(
+    "output shape is not known in advance for flexible general matrices")
+
+function output_axes(A::Union{G, Adjoint{G}, Transpose{G}, Conjugate{G}, Inverse{G},
+                              InverseAdjoint{G}, InverseTranspose{G}, InverseConjugate{G}},
+                     x_axes::ArrayAxes{L}) where {T,L,N,G<:FlexibleMatrix{T, N}}
     0 ≤ L ≤ N || throw_dimension_mismatch("input array has too many dimensions")
-    if A isa Union{FlexibleMatrix,InverseAdjoint{<:FlexibleMatrix}}
-        R = axes(parent(A isa FlexibleMatrix ? A : parent(parent(A))))
+    R = axes(parent(unveil(A)))
+    if A isa Union{FlexibleMatrix, Conjugate, InverseAdjoint, InverseTranspose}
         I = R[1:N-L]
         J = R[N-L+1:N]
     else
-        R = axes(parent(parent(A)))
         I = R[L+1:N]
         J = R[1:L]
     end
     check_input_axes(x_axes, J)
     return I
 end
+
+InputShape( ::Type{<:PseudoMatrix{T,M,N}}) where {T,M,N} = HasInputShape{N-M}()
+OutputShape(::Type{<:PseudoMatrix{T,M,N}}) where {T,M,N} = HasOutputShape{M}()
+
+input_shape( A::PseudoMatrix{T,M,N}) where {T,M,N} = axes(parent(A))[M+1:N]
+output_shape(A::PseudoMatrix{T,M,N}) where {T,M,N} = axes(parent(A))[1:M]
+
 
 function unsafe_vmul!(α::Number, A::PseudoMatrix, x::AbstractArray,
                       β::Number, y::AbstractArray)
