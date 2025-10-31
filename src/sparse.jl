@@ -256,10 +256,10 @@ ncols(A::BasicSparseOperator) = getfield(A, :n)
 ncols(A::Conjugate{<:SparseOperator}) = ncols(parent(A))
 ncols(A::Swapped{<:SparseOperator}) = nrows(parent(A))
 
-input_size(A::BasicSparseOperator) = getfield(A, :rowsiz)
-output_size(A::BasicSparseOperator) = getfield(A, :colsiz)
-input_axes(A::BasicSparseOperator) = map(Base.OneTo, input_size(A))
+output_size(A::BasicSparseOperator) = getfield(A, :rowsiz)
+input_size(A::BasicSparseOperator) = getfield(A, :colsiz)
 output_axes(A::BasicSparseOperator) = map(Base.OneTo, output_size(A))
+input_axes(A::BasicSparseOperator) = map(Base.OneTo, input_size(A))
 
 TypeUtils.get_precision(::Type{A}) where {A<:SparseOperatorLike} = get_precision(eltype(A))
 TypeUtils.adapt_precision(::Type{T}, A::SparseOperatorLike) where {T<:TypeUtils.Precision} =
