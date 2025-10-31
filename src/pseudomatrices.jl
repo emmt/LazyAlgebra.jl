@@ -5,7 +5,7 @@
     A = PseudoMatrix{T}(arr, Dims{M})
     A = PseudoMatrix(arr, Dims{M})
 
-build a linear operator `A` whose coefficients are given by a multi-dimensional array
+Build a linear operator `A` whose coefficients are given by a multi-dimensional array
 `arr` and whose behavior generalizes the definition of the matrix-vector product.
 
 Type parameter `T` is the element type of the stored coefficients. If `arr` has a
@@ -40,7 +40,7 @@ PseudoMatrix{T,M}(arr::AbstractArray) where {T,M} =
     A = PseudoMatrix{T=eltype(arr),Colon}(arr)
     A = PseudoMatrix{T=eltype(arr)}(arr, :)
 
-build a *flexible matrix* `A` that is a linear operator whose coefficients are given by
+Build a *flexible matrix* `A` that is a linear operator whose coefficients are given by
 the multi-dimensional array `arr` and whose behavior generalizes the definition of the
 matrix-vector product. Expression like `y = A*x` requires that the axes of `x` match the
 trailing axes of `arr` and yields a result `y` whose axes are the remaining leading axes

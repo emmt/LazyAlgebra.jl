@@ -169,7 +169,7 @@ end # testset
     A = randn(T, rows..., cols...)
     x = randn(T, cols)
     y = randn(T, rows)
-    G = GeneralMatrix(A)
+    G = PseudoMatrix(A)
     atol, rtol = zero(T), sqrt(eps(T))
     mA = reshape(A, nrows, ncols)
     vx = reshape(x, ncols)

@@ -329,7 +329,7 @@ end # testset
             end
 
             # Compare to results with a general matrix.
-            G = GeneralMatrix(A);
+            G = PseudoMatrix(A);
             Gx  = G*x;  @test x == xsav;
             Gty = G'*y; @test y == ysav;
             @test Sx  == Gx

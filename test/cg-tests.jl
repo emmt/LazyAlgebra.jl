@@ -6,19 +6,19 @@
 
 #isdefined(:LazyAlgebra) || include("../src/LazyAlgebra.jl")
 
-module TestingLazyAlgebraConjGrad
+module TestingLazyAlgebraConjugateGradient
 
 using LazyAlgebra
 using Test
 
 const DEBUG = true
 
-@testset "ConjGrad" begin
+@testset "Conjugate Gradient" begin
     types = (Float32, Float64)
     rows = (7,8)
     cols = (2,3,4)
     @testset "least-square fit ($T)" for T in types
-        H = GeneralMatrix(randn(T, rows..., cols...))
+        H = PseudoMatrix(randn(T, rows..., cols...))
         x = randn(T, cols)
         y = H*x + 0.01*randn(T, rows)
 

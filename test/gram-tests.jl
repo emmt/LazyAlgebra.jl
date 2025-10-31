@@ -14,7 +14,7 @@ using Test
     cols = (2,5,)
     T = Float32
     a = rand(T, rows..., cols...)
-    A = GeneralMatrix(a)
+    A = PseudoMatrix(a)
     AtA = gram(A)
     @test isa(AtA, Gram)
     @test isa(A'*A, Gram)
