@@ -104,18 +104,6 @@ end
 @callable Transpose
 
 """
-    LazyAlgebra.Swapped{T} = Union{LazyAlgebra.Adjoint{T},
-                                   LazyAlgebra.Transpose{T}}
-
-Union of types of linear operators similar to `T` but whose row and column indices are
-swapped.
-
-Also see [`LazyAlgebra.Adjoint`](@ref) and [`LazyAlgebra.Transpose`](@ref).
-
-"""
-const Swapped{T<:Operator} = Union{Adjoint{T},Transpose{T}}
-
-"""
     B = conj(A)
     B = LazyAlgebra.Conjugate(A)
 
@@ -133,6 +121,30 @@ struct Conjugate{T<:Operator} <: Operator
 end
 
 @callable Conjugate
+
+"""
+    LazyAlgebra.Swapped{T} = Union{LazyAlgebra.Adjoint{T},
+                                   LazyAlgebra.Transpose{T}}
+
+Union of types of linear operators similar to `T` but whose row and column indices are
+swapped.
+
+Also see [`LazyAlgebra.Unswapped`](@ref), [`LazyAlgebra.Adjoint`](@ref), and
+[`LazyAlgebra.Transpose`](@ref).
+
+"""
+const Swapped{T<:Operator} = Union{Adjoint{T},Transpose{T}}
+
+"""
+    LazyAlgebra.Unswapped{T} = Union{T, LazyAlgebra.Conjugate{T}}
+
+Union of types of linear operators similar to `T` but whose row and column indices are
+*not* swapped.
+
+Also see [`LazyAlgebra.Swapped`](@ref) and [`LazyAlgebra.Conjugate`](@ref).
+
+"""
+const Unswapped{T<:Operator} = Union{T,Conjugate{T}}
 
 """
     B = inv(A)
@@ -397,29 +409,64 @@ const ZeroPaddingOperator{N,I,J} = Adjoint{CroppingOperator{N,J,I}}
     end
 end
 
-"""
-    SparseOperator{T,M,N}
+abstract type SparseFormat end
+struct CompressedSparseRow        <: SparseFormat end
+struct CompressedSparseColumn     <: SparseFormat end
+struct CompressedSparseCoordinate <: SparseFormat end
 
-is the abstract type inherited by sparse operator types. Parameter `T` is the type of the
-structural non-zeros. Parameters `M` and `N` are the number of dimensions of the *rows*
-and of the *columns* respectively. Sparse operators are a generalization of sparse
-matrices in the sense that they implement linear operators which can be applied to
-`N`-dimensional arguments to produce `M`-dimensional results (as explained below). See
-[`PseudoMatrix`](@ref) for a similar generalization but for *dense* matrices.
-
-See [`CompressedSparseOperator`](@ref) for usage of sparse operators implementing
-compressed storage formats.
+const CSR = CompressedSparseRow
+const CSC = CompressedSparseColumn
+const COO = CompressedSparseCoordinate
 
 """
-abstract type SparseOperator{T,M,N} <: Operator end
+    AbstractSparseOperator{F,T,M,N}
 
-abstract type CompressedSparseOperator{F,T,M,N} <: SparseOperator{T,M,N} end
+Abstract type inherited by sparse operator types. Parameter `F` is the storage format of
+the structural non-zeros of the sparse operator (see [`SparseFormat`](@ref)). Parameter
+`T` is the type of the structural non-zeros. Parameters `M` and `N` are the respective
+number of dimensions of the *rows* and of the *columns* of the operator. Sparse operators
+are a generalization of sparse matrices in the sense that they implement linear operators
+which can be applied to `N`-dimensional arguments to produce `M`-dimensional results (see
+[`PseudoMatrix`](@ref) for a similar generalization but for *dense* matrices).
+
+"""
+abstract type AbstractSparseOperator{F<:SparseFormat,T,M,N} <: Operator end
+
+"""
+    LazyAlgebra.SparseOperatorLike{F,F′,T,M,N}
+
+Union of types of linear operators that keep the same structure as a sparse operator. This
+includes bare sparse factors (of type `SparseFactor`), their adjoint, transpose, or
+conjugate, but not their inverse. Parameters are the direct format `F`, the transposed
+format `F′`, the element type `T`, and the respective numbers `M` and `N` of dimensions of
+the equivalent rows and columns of the operator.
+
+The structural non-zeros of an object `A` of this type can be accessed with the methods of
+the sparse operators API, like `A[k]` to get or set the `k`-th structural non-zero.
+
+!!! note
+    It is needed to explicitly specify the transposed format `F′` because there cannot be
+    deferred expressions, like `transpose(F)`, in the right hand-side of a `const`
+    definition.
+
+"""
+const SparseOperatorLike{F,F′,T,M,N} = Union{AbstractSparseOperator{F,T,M,N},
+                                             Conjugate{AbstractSparseOperator{F,T,M,N}},
+                                             Adjoint{  AbstractSparseOperator{F′,T,N,M}},
+                                             Transpose{AbstractSparseOperator{F′,T,N,M}}}
+
+# Unions of compressed sparse operators that can be considered as being in a given storage
+# format. Whatever the format, `T` is the element type, `M` is the number of row
+# dimensions, and `N` is the number of column dimensions.
+const AnySparseCSR{T,M,N} = SparseOperatorLike{CSR,CSC,T,M,N}
+const AnySparseCSC{T,M,N} = SparseOperatorLike{CSC,CSR,T,M,N}
+const AnySparseCOO{T,M,N} = SparseOperatorLike{COO,COO,T,M,N}
 
 @callable struct SparseOperatorCSR{T,M,N,
                                    V<:AbstractVector{T},
                                    J<:AbstractVector{Int},
                                    K<:AbstractVector{Int}
-                                   } <: CompressedSparseOperator{:CSR,T,M,N}
+                                   } <: AbstractSparseOperator{CompressedSparseRow,T,M,N}
     m::Int          # equivalent number of rows of the operator
     n::Int          # number of columns of the operator
     vals::V         # values of entries
@@ -447,7 +494,7 @@ end
                                    V<:AbstractVector{T},
                                    I<:AbstractVector{Int},
                                    K<:AbstractVector{Int}
-                                   } <: CompressedSparseOperator{:CSC,T,M,N}
+                                   } <: AbstractSparseOperator{CompressedSparseColumn,T,M,N}
     m::Int          # equivalent number of rows of the operator
     n::Int          # number of columns of the operator
     vals::V         # values of entries
@@ -475,7 +522,7 @@ end
                                    V<:AbstractVector{T},
                                    I<:AbstractVector{Int},
                                    J<:AbstractVector{Int}
-                                   } <: CompressedSparseOperator{:COO,T,M,N}
+                                   } <: AbstractSparseOperator{CompressedSparseCoordinate,T,M,N}
     m::Int          # equivalent number of rows of the operator
     n::Int          # number of columns of the operator
     vals::V         # values of entries
@@ -498,6 +545,9 @@ end
         new{T,M,N,V,I,J}(m, n, vals, rows, cols, rowsiz, colsiz)
     end
 end
+
+# Union of basic concrete sparse operators.
+const BasicSparseOperator = Union{SparseOperatorCSR,SparseOperatorCSC,SparseOperatorCOO}
 
 # The time needed to allocate temporary arrays is negligible compared to the time taken to
 # compute a FFT (e.g., 5µs to allocate a 256×256 array of double precision complexes
