@@ -141,30 +141,7 @@ See also [`SparseFormat`](@ref), [`CompressedSparseCoordinate`](@ref), and
 
 """ CompressedSparseRow
 
-#-----------------------------------------------------------------------------------------
-# Convert to vector of indices.
-to_indices(inds::AbstractVector{<:Integer}) = convert_eltype(Int, inds)
-
-# Convert to vector of values with given element type and make sure it is a fast vector.
-to_values(vals::AbstractVector{T}) where {T} = to_values(T, vals)
-to_values(::Type{Any}, vals::AbstractVector{T}) where {T} = to_values(T, vals)
-to_values(::Type{T}, vals::Vector{T}) where {T} = vals
-to_values(::Type{T}, vals::AbstractVector) where {T} = convert(Vector{T}, vals)
-@inline to_values(::Type{T}, vals::AbstractVector{T}) where {T} =
-    _to_values(T, vals, eachindex(vals))
-
-@inline _to_values(::Type{T}, vals::AbstractVector, inds) where {T} =
-    convert(Vector{T}, vals) # Convert because not a fast vector.
-
-@inline function _to_values(::Type{T}, vals::AbstractVector,
-                            inds::AbstractUnitRange{Int}) where {T}
-    (first(inds) == 1 ? vals : convert(Vector{T}, vals))
-end
-
-# Union of types acceptable to define array size.
-const ArraySize = Union{Integer,Tuple{Vararg{Integer}}}
-
-#-----------------------------------------------------------------------------------------
+#--------------------------------------------------------------- Abstract Sparse Operators -
 
 """
     SparseOperator{F}(args...; kwds...)
@@ -1752,4 +1729,25 @@ function unsafe_vmul!(α::Number,
     return y
 end
 
-#-------------------------------------------------------------------------------------------
+#----------------------------------------------------------------------------- Utilities -
+
+# Convert to vector of indices.
+to_indices(inds::AbstractVector{<:Integer}) = convert_eltype(Int, inds)
+
+# Convert to vector of values with given element type and make sure it is a fast vector.
+to_values(vals::AbstractVector{T}) where {T} = to_values(T, vals)
+to_values(::Type{Any}, vals::AbstractVector{T}) where {T} = to_values(T, vals)
+to_values(::Type{T}, vals::Vector{T}) where {T} = vals
+to_values(::Type{T}, vals::AbstractVector) where {T} = convert(Vector{T}, vals)
+@inline to_values(::Type{T}, vals::AbstractVector{T}) where {T} =
+    _to_values(T, vals, eachindex(vals))
+
+@inline _to_values(::Type{T}, vals::AbstractVector, inds) where {T} =
+    convert(Vector{T}, vals) # Convert because not a fast vector.
+
+@inline function _to_values(::Type{T}, vals::AbstractVector,
+                            inds::AbstractUnitRange{Int}) where {T}
+    (first(inds) == 1 ? vals : convert(Vector{T}, vals))
+end
+
+#-----------------------------------------------------------------------------------------

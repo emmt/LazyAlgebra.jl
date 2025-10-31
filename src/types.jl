@@ -1,5 +1,8 @@
 # Definition of types and constants for `LazyAlgebra`.
 
+# Union of types acceptable to define array size.
+const ArraySize = Union{Integer,Tuple{Vararg{Integer}}}
+
 # Union of multiplier types that are left unchanged by `convert_multiplier`.
 const StaticMultiplier{v} = Union{Neutral{v},AbstractQuantity{Neutral{v}}}
 
