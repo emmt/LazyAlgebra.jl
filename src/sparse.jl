@@ -32,8 +32,8 @@ SparseFormat(::Type{T}) where {T<:SparseFormat} = T()
 SparseFormat(::Type{T}) where {T<:Any} = throw_bad_argument(
     "type `$T` has no known sparse storage format")
 
-SparseFormat(::Type{Unswapped{<:AbstractSparseOperator{F}}}) where {F} = F()
-SparseFormat(::Type{Swapped{  <:AbstractSparseOperator{F}}}) where {F} = transpose(F())
+SparseFormat(::Type{Unswapped{<:SparseOperator{F}}}) where {F} = F()
+SparseFormat(::Type{Swapped{  <:SparseOperator{F}}}) where {F} = transpose(F())
 
 Base.transpose(trait::CompressedSparseRow) = CompressedSparseColumn()
 Base.transpose(trait::CompressedSparseColumn) = CompressedSparseRow()
@@ -167,10 +167,10 @@ const ArraySize = Union{Integer,Tuple{Vararg{Integer}}}
 #-----------------------------------------------------------------------------------------
 
 """
-    AbstractSparseOperator{F}(args...; kwds...)
-    AbstractSparseOperator{F,T}(args...; kwds...)
-    AbstractSparseOperator{F,T,M}(args...; kwds...)
-    AbstractSparseOperator{F,T,M,N}(args...; kwds...)
+    SparseOperator{F}(args...; kwds...)
+    SparseOperator{F,T}(args...; kwds...)
+    SparseOperator{F,T,M}(args...; kwds...)
+    SparseOperator{F,T,M,N}(args...; kwds...)
 
 Build a sparse operator from arguments `args...` and keywords `kwds...`. Mandatory
 parameter `F` is the storage format of the structural non-zeros. Optional parameters are
@@ -193,8 +193,8 @@ The following formats `F` are providied by `LAzyAlgebra`:
   format is very efficient for applying the sparse operator. See
   [`SparseOperatorCSR`](@ref) for a description of supported arguments and keywords.
 
-A simple (but slow for CSR and CSC storage formats) method to loop over the coordinates and
-values of the structural non-zero of a sparse operator `A` is to write:
+A simple (but slow for CSR and CSC storage formats) method to loop over the coordinates
+and values of the structural non-zero of a sparse operator `A` is to write:
 
 ```julia
 using LazyAlgebra: row_indices, col_indices
@@ -209,11 +209,11 @@ non-zeros according to their storage order which depends on the compressed forma
 [`CompressedSparseRow`](@ref) for the implemented API.
 
 """
-AbstractSparseOperator(A::AbstractSparseOperator) = A
-AbstractSparseOperator{F}(A::AbstractSparseOperator{F}) where {F} = A
-AbstractSparseOperator{F,T}(A::AbstractSparseOperator{F,T}) where {F,T} = A
-AbstractSparseOperator{F,T,M}(A::AbstractSparseOperator{F,T,M}) where {F,T,M} = A
-AbstractSparseOperator{F,T,M,N}(A::AbstractSparseOperator{F,T,M,N}) where {F,T,M,N} = A
+SparseOperator(A::SparseOperator) = A
+SparseOperator{F}(A::SparseOperator{F}) where {F} = A
+SparseOperator{F,T}(A::SparseOperator{F,T}) where {F,T} = A
+SparseOperator{F,T,M}(A::SparseOperator{F,T,M}) where {F,T,M} = A
+SparseOperator{F,T,M,N}(A::SparseOperator{F,T,M,N}) where {F,T,M,N} = A
 
 # The above methods is to avoid doing anything if possible. Otherwise, call concrete
 # constructors according to the specified format.
@@ -222,39 +222,39 @@ for (sym, fmt) in (:COO => :CompressedSparseCoordinate,
                    :CSR => :CompressedSparseRow,)
     constructor = Symbol("SparseOperator", sym)
     @eval begin
-        function AbstractSparseOperator{$fmt}(args...; kwds...)
+        function SparseOperator{$fmt}(args...; kwds...)
             return $constructor(args...; kwds...)
         end
-        function AbstractSparseOperator{$fmt,T}(args...; kwds...) where {T}
+        function SparseOperator{$fmt,T}(args...; kwds...) where {T}
             return $constructor{T}(args...; kwds...)
         end
-        function AbstractSparseOperator{$fmt,T,M}(args...; kwds...) where {T,M}
+        function SparseOperator{$fmt,T,M}(args...; kwds...) where {T,M}
             return $constructor{T,M}(args...; kwds...)
         end
-        function AbstractSparseOperator{$fmt,T,M,N}(args...; kwds...) where {T,M,N}
+        function SparseOperator{$fmt,T,M,N}(args...; kwds...) where {T,M,N}
             return $constructor{T,M,N}(args...; kwds...)
         end
     end
 end
 
 # Use constructors to perform conversion (the first method is to resolve ambiguities).
-Base.convert(::Type{T}, A::T) where {T<:AbstractSparseOperator} = A
-Base.convert(::Type{T}, A) where {T<:AbstractSparseOperator} = T(A)::T
+Base.convert(::Type{T}, A::T) where {T<:SparseOperator} = A
+Base.convert(::Type{T}, A) where {T<:SparseOperator} = T(A)::T
 
 #-----------------------------------------------------------------------------------------
 # Accessors and basic methods.
 
-Base.eltype(::Type{<:AbstractSparseOperator{F,T,M,N}}) where {F,T,M,N} = T
-InputShape( ::Type{<:AbstractSparseOperator{F,T,M,N}}) where {F,T,M,N} = HasInputShape{N}()
-OutputShape(::Type{<:AbstractSparseOperator{F,T,M,N}}) where {F,T,M,N} = HasOutputShape{M}()
+Base.eltype(::Type{<:SparseOperator{F,T,M,N}}) where {F,T,M,N} = T
+InputShape( ::Type{<:SparseOperator{F,T,M,N}}) where {F,T,M,N} = HasInputShape{N}()
+OutputShape(::Type{<:SparseOperator{F,T,M,N}}) where {F,T,M,N} = HasOutputShape{M}()
 
 nrows(A::BasicSparseOperator) = getfield(A, :m)
-nrows(A::Conjugate{<:AbstractSparseOperator}) = nrows(parent(A))
-nrows(A::Swapped{<:AbstractSparseOperator}) = ncols(parent(A))
+nrows(A::Conjugate{<:SparseOperator}) = nrows(parent(A))
+nrows(A::Swapped{<:SparseOperator}) = ncols(parent(A))
 
 ncols(A::BasicSparseOperator) = getfield(A, :n)
-ncols(A::Conjugate{<:AbstractSparseOperator}) = ncols(parent(A))
-ncols(A::Swapped{<:AbstractSparseOperator}) = nrows(parent(A))
+ncols(A::Conjugate{<:SparseOperator}) = ncols(parent(A))
+ncols(A::Swapped{<:SparseOperator}) = nrows(parent(A))
 
 input_size(A::BasicSparseOperator) = getfield(A, :rowsiz)
 output_size(A::BasicSparseOperator) = getfield(A, :colsiz)
@@ -330,15 +330,15 @@ Base.deepcopy(A::SparseOperatorCOO) = _SparseOperatorCOO(
 
 # `findnz(A) -> I,J,V` yields the row and column indices and the values of the stored
 # values in `A`.
-SparseArrays.findnz(A::AbstractSparseOperator) = (row_indices(A), col_indices(A), nonzeros(A))
+SparseArrays.findnz(A::SparseOperator) = (row_indices(A), col_indices(A), nonzeros(A))
 
 # Extend some methods in SparseArrays. The "structural" non-zeros are the entries stored
 # by the sparse structure which may or not be equal to zero, un-stored entries are always
 # considered as being strictly equal to zero.
-SparseArrays.nnz(A::AbstractSparseOperator) = length(nonzeros(A))
-function SparseArrays.nnz(A::Union{Adjoint{<:AbstractSparseOperator},
-                                   Transpose{<:AbstractSparseOperator},
-                                   Conjugate{<:AbstractSparseOperator}})
+SparseArrays.nnz(A::SparseOperator) = length(nonzeros(A))
+function SparseArrays.nnz(A::Union{Adjoint{<:SparseOperator},
+                                   Transpose{<:SparseOperator},
+                                   Conjugate{<:SparseOperator}})
     return nnz(parent(A))
 end
 
@@ -353,9 +353,9 @@ instead if you want to modify the contents of the returned array with no side ef
 
 """
 SparseArrays.nonzeros(A::BasicSparseOperator) = getfield(A, :vals)
-SparseArrays.nonzeros(A::Transpose{<:AbstractSparseOperator}) = nonzeros(parent(A))
-function SparseArrays.nonzeros(A::Union{Adjoint{<:AbstractSparseOperator},
-                                        Conjugate{<:AbstractSparseOperator}})
+SparseArrays.nonzeros(A::Transpose{<:SparseOperator}) = nonzeros(parent(A))
+function SparseArrays.nonzeros(A::Union{Adjoint{<:SparseOperator},
+                                        Conjugate{<:SparseOperator}})
     return lazymap(eltype(A), conj, nonzeros(parent(A)))
 end
 
@@ -371,9 +371,9 @@ row indices that can be modified with no side effects on `A`.
 
 """
 row_indices(A::Union{SparseOperatorCSC,SparseOperatorCOO}) = getfield(A, :rows)
-row_indices(A::AbstractSparseOperator{CSR}) = SparseIndexIterator(A)
-row_indices(A::Swapped{<:AbstractSparseOperator}) = col_indices(parent(A))
-row_indices(A::Conjugate{<:AbstractSparseOperator}) = row_indices(parent(A))
+row_indices(A::SparseOperator{CSR}) = SparseIndexIterator(A)
+row_indices(A::Swapped{<:SparseOperator}) = col_indices(parent(A))
+row_indices(A::Conjugate{<:SparseOperator}) = row_indices(parent(A))
 
 """
     LazyAlgebra.col_indices(A) -> J
@@ -387,10 +387,10 @@ column indices that can be modified with no side effects on `A`.
 
 """
 col_indices(A::Union{SparseOperatorCSR,SparseOperatorCOO}) = getfield(A, :cols)
-col_indices(A::Union{AbstractSparseOperator{CSC},SparseMatrixCSC}) =
+col_indices(A::Union{SparseOperator{CSC},SparseMatrixCSC}) =
     SparseIndexIterator(A) # FIXME: check whether this works for SparseMatrixCSC
-col_indices(A::Swapped{<:AbstractSparseOperator}) = row_indices(parent(A))
-col_indices(A::Conjugate{<:AbstractSparseOperator}) = col_indices(parent(A))
+col_indices(A::Swapped{<:SparseOperator}) = row_indices(parent(A))
+col_indices(A::Conjugate{<:SparseOperator}) = col_indices(parent(A))
 
 """
     LazyAlgebra.offsets(A)
@@ -408,9 +408,9 @@ method.
 
 """
 offsets(A::Union{SparseOperatorCSR,SparseOperatorCSC}) = getfield(A, :offs)
-function offsets(A::Union{Adjoint{  <:AbstractSparseOperator{<:Union{CSR,CSC}}},
-                          Transpose{<:AbstractSparseOperator{<:Union{CSR,CSC}}},
-                          Conjugate{<:AbstractSparseOperator{<:Union{CSR,CSC}}}})
+function offsets(A::Union{Adjoint{  <:SparseOperator{<:Union{CSR,CSC}}},
+                          Transpose{<:SparseOperator{<:Union{CSR,CSC}}},
+                          Conjugate{<:SparseOperator{<:Union{CSR,CSC}}}})
     return offsets(parent(A))
 end
 
@@ -525,9 +525,9 @@ Return an iterator over the linear row indices of the structural non-zeros of th
 operator `A` stored in a *Compressed Sparse Row* (CSR) format.
 
 """
-each_row_index(A::AbstractSparseOperator{CSR}) = 𝟙:nrows(A)
-each_row_index(A::Conjugate{<:AbstractSparseOperator{CSR}}) = each_row_index(parent(A))
-each_row_index(A::Swapped{<:AbstractSparseOperator{CSC}}) = each_col_index(parent(A))
+each_row_index(A::SparseOperator{CSR}) = 𝟙:nrows(A)
+each_row_index(A::Conjugate{<:SparseOperator{CSR}}) = each_row_index(parent(A))
+each_row_index(A::Swapped{<:SparseOperator{CSC}}) = each_col_index(parent(A))
 
 """
     LazyAlgebra.each_col_index(A)
@@ -536,9 +536,9 @@ Return an iterator over the linear column indices of the structural non-zeros of
 sparse operator `A` stored in a *Compressed Sparse Column* (CSC) format.
 
 """
-each_col_index(A::AbstractSparseOperator{CSC}) = 𝟙:ncols(A)
-each_col_index(A::Conjugate{<:AbstractSparseOperator{CSC}}) = each_col_index(parent(A))
-each_col_index(A::Swapped{<:AbstractSparseOperator{CSR}}) = each_row_index(parent(A))
+each_col_index(A::SparseOperator{CSC}) = 𝟙:ncols(A)
+each_col_index(A::Conjugate{<:SparseOperator{CSC}}) = each_col_index(parent(A))
+each_col_index(A::Swapped{<:SparseOperator{CSR}}) = each_row_index(parent(A))
 
 """
     LazyAlgebra.row_index(A, k) -> i
@@ -574,7 +574,7 @@ Base.IndexStyle(A::SparseOperatorLike) = IndexStyle(typeof(A))
 
 function Base.IndexStyle(::Type{<:Union{Adjoint{A},
                                         Transpose{A},
-                                        Conjugate{A}}}) where {A<:AbstractSparseOperator}
+                                        Conjugate{A}}}) where {A<:SparseOperator}
     return IndexStyle(typeof(A))
 end
 
@@ -586,10 +586,10 @@ for func in (:eachindex, :firstindex, :lastindex, :keys)
     @eval Base.$func(A::SparseOperatorLike) = $func(nonzeros(A))
 end
 
-for (T,(p,f)) in (:AbstractSparseOperator                => (identity, identity),
-                  :(Adjoint{<:AbstractSparseOperator})   => (parent,   conj),
-                  :(Transpose{<:AbstractSparseOperator}) => (parent,   identity),
-                  :(Conjugate{<:AbstractSparseOperator}) => (parent,   conj))
+for (T,(p,f)) in (:SparseOperator                => (identity, identity),
+                  :(Adjoint{<:SparseOperator})   => (parent,   conj),
+                  :(Transpose{<:SparseOperator}) => (parent,   identity),
+                  :(Conjugate{<:SparseOperator}) => (parent,   conj))
 
     @eval begin
         @inline function Base.getindex(A::$T, k::Int)
@@ -681,13 +681,13 @@ each_col_index(A::SparseMatrixCSC) = 𝟙:ncols(A)
 @inline unsafe_last_nz_index(A::SparseMatrixCSC, j::Int) = @inbounds offsets(A)[j + 1] - 1
 
 @propagate_inbounds each_nz_index(A::SparseMatrixCSC, j::Integer) = nzrange(A, j::Integer)
-@propagate_inbounds SparseArrays.nzrange(A::AbstractSparseOperator, ij::Int) =
+@propagate_inbounds SparseArrays.nzrange(A::SparseOperator, ij::Int) =
     each_nz_index(A, ij)
 
-function SparseArrays.rowvals(A::Union{AbstractSparseOperator{COO},
-                                       Swapped{<:AbstractSparseOperator{COO}},
-                                       AbstractSparseOperator{CSC},
-                                       Swapped{<:AbstractSparseOperator{CSR}}})
+function SparseArrays.rowvals(A::Union{SparseOperator{COO},
+                                       Swapped{<:SparseOperator{COO}},
+                                       SparseOperator{CSC},
+                                       Swapped{<:SparseOperator{CSR}}})
     row_indices(A)
 end
 
@@ -1141,7 +1141,7 @@ function Base.Array{T,N}(A::SparseOperatorLike) where {T,N}
 end
 
 function prepare_unpack!(dst::AbstractArray,
-                         src::AbstractSparseOperator,
+                         src::SparseOperator,
                          flatten::Bool)
     is_fast_array(dst) || throw_non_standard_indexing("destination array")
     if flatten
@@ -1207,7 +1207,7 @@ function unpack!(B::AbstractArray{T,L},
 end
 
 # FIXME use axes not size
-function check_new_shape(A::AbstractSparseOperator, rowsiz::Dims, colsiz::Dims)
+function check_new_shape(A::SparseOperator, rowsiz::Dims, colsiz::Dims)
     m, m′ = nrows(A), check_size(rowsiz)
     m == m′ || throw_dimension_mismatch(
         "products of row dimensions must be equal to ", m, "got ", m′)
@@ -1217,7 +1217,7 @@ function check_new_shape(A::AbstractSparseOperator, rowsiz::Dims, colsiz::Dims)
     return (m, n)
 end
 
-Base.reshape(A::AbstractSparseOperator, rowsiz::ArraySize, colsiz::ArraySize) =
+Base.reshape(A::SparseOperator, rowsiz::ArraySize, colsiz::ArraySize) =
     reshape(A, as_array_size(rowsiz), as_array_size(colsiz))
 
 Base.reshape(A::SparseOperatorCSR, rowsiz::Dims, colsiz::Dims) =
@@ -1445,7 +1445,7 @@ Check the structure of the compressed sparse operator `A` throwing an exception 
 are any inconsistencies and returning `A` otherwise.
 
 """
-function check_structure(A::AbstractSparseOperator{CSR})
+function check_structure(A::SparseOperator{CSR})
     check_size(A)
     check_vals(A)
     check_cols(A)
@@ -1453,7 +1453,7 @@ function check_structure(A::AbstractSparseOperator{CSR})
     return A
 end
 
-function check_structure(A::AbstractSparseOperator{CSC})
+function check_structure(A::SparseOperator{CSC})
     check_size(A)
     check_vals(A)
     check_rows(A)
@@ -1461,7 +1461,7 @@ function check_structure(A::AbstractSparseOperator{CSC})
     return A
 end
 
-function check_structure(A::AbstractSparseOperator{COO})
+function check_structure(A::SparseOperator{COO})
     check_size(A)
     check_vals(A)
     check_rows(A)
@@ -1492,7 +1492,7 @@ Throw and exception if the row and column sizes in compressed sparse operator `A
 inconsistencies.
 
 """
-function check_size(A::AbstractSparseOperator)
+function check_size(A::SparseOperator)
     check_size(row_size(A), "row") == nrows(A) || throw_dimension_mismatch(
         "incompatible equivalent number of rows and row size")
     check_size(col_size(A), "column") == ncols(A) || throw_dimension_mismatch(
@@ -1510,7 +1510,7 @@ Throw and exception if the values in compressed sparse operator `A` are not stor
 proper vector.
 
 """
-function check_vals(A::AbstractSparseOperator{<:Union{COO,CSC,CSR}})
+function check_vals(A::SparseOperator{<:Union{COO,CSC,CSR}})
     vals = nonzeros(A)
     is_fast_array(vals) || throw_not_fast_array("array of values")
     length(vals) == nnz(A) || throw_bad_argument("bad number of values")
@@ -1525,11 +1525,11 @@ Throw and exception if the row indices in the compressed sparse operator `A` sto
 inconsistent.
 
 """
-function check_rows(A::AbstractSparseOperator{<:Union{COO,CSC}})
+function check_rows(A::SparseOperator{<:Union{COO,CSC}})
     rows = row_indices(A)
     length(rows) == nnz(A) || throw_bad_argument("bad number of row indices")
     check_rows(rows, nrows(A))
-    # FIXME: also check sorting for AbstractSparseOperator{CSC}?
+    # FIXME: also check sorting for SparseOperator{CSC}?
     return nothing
 end
 
@@ -1559,11 +1559,11 @@ stored in a *Compressed Sparse Row* (CSR) or *Compressed Sparse Coordinate* (COO
 are inconsistent.
 
 """
-function check_cols(A::AbstractSparseOperator{<:Union{COO,CSR}})
+function check_cols(A::SparseOperator{<:Union{COO,CSR}})
     cols = col_indices(A)
     length(cols) == nnz(A) || throw_assertion_error("bad number of column indices")
     check_cols(cols, ncols(A))
-    # FIXME: also check sorting for AbstractSparseOperator{CSR}?
+    # FIXME: also check sorting for SparseOperator{CSR}?
     return nothing
 end
 
@@ -1593,7 +1593,7 @@ in a *Compressed Sparse Row* (CSR) or *Compressed Sparse Column* (CSC) format ar
 inconsistent.
 
 """
-function check_offs(A::AbstractSparseOperator{F}) where {F<:Union{CSC,CSR}}
+function check_offs(A::SparseOperator{F}) where {F<:Union{CSC,CSR}}
     offs = offsets(A)
     is_fast_array(offs) || throw_not_fast_array("array of offsets")
     n = (F <: CSR ? nrows(A) : ncols(A))

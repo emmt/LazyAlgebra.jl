@@ -17,7 +17,6 @@ module LazyAlgebra
 include("macros.jl")
 
 export
-    AbstractSparseOperator,
     COO,
     CSC,
     CSR,
@@ -37,10 +36,11 @@ export
     PseudoMatrix,
     RankOneOperator,
     SparseFormat,
-    SparseOperatorLike,
+    SparseOperator,
     SparseOperatorCOO,
     SparseOperatorCSC,
     SparseOperatorCSR,
+    SparseOperatorLike,
     SymbolicOperator,
     SymmetricRankOneOperator,
     ZeroPaddingOperator,

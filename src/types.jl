@@ -419,7 +419,7 @@ const CSC = CompressedSparseColumn
 const COO = CompressedSparseCoordinate
 
 """
-    AbstractSparseOperator{F,T,M,N}
+    SparseOperator{F,T,M,N}
 
 Abstract type inherited by sparse operator types. Parameter `F` is the storage format of
 the structural non-zeros of the sparse operator (see [`SparseFormat`](@ref)). Parameter
@@ -430,7 +430,7 @@ which can be applied to `N`-dimensional arguments to produce `M`-dimensional res
 [`PseudoMatrix`](@ref) for a similar generalization but for *dense* matrices).
 
 """
-abstract type AbstractSparseOperator{F<:SparseFormat,T,M,N} <: Operator end
+abstract type SparseOperator{F<:SparseFormat,T,M,N} <: Operator end
 
 """
     LazyAlgebra.SparseOperatorLike{F,F′,T,M,N}
@@ -450,10 +450,10 @@ the sparse operators API, like `A[k]` to get or set the `k`-th structural non-ze
     definition.
 
 """
-const SparseOperatorLike{F,F′,T,M,N} = Union{AbstractSparseOperator{F,T,M,N},
-                                             Conjugate{AbstractSparseOperator{F,T,M,N}},
-                                             Adjoint{  AbstractSparseOperator{F′,T,N,M}},
-                                             Transpose{AbstractSparseOperator{F′,T,N,M}}}
+const SparseOperatorLike{F,F′,T,M,N} = Union{SparseOperator{F,T,M,N},
+                                             Conjugate{SparseOperator{F,T,M,N}},
+                                             Adjoint{  SparseOperator{F′,T,N,M}},
+                                             Transpose{SparseOperator{F′,T,N,M}}}
 
 # Unions of compressed sparse operators that can be considered as being in a given storage
 # format. Whatever the format, `T` is the element type, `M` is the number of row
@@ -466,7 +466,7 @@ const AnySparseCOO{T,M,N} = SparseOperatorLike{COO,COO,T,M,N}
                                    V<:AbstractVector{T},
                                    J<:AbstractVector{Int},
                                    K<:AbstractVector{Int}
-                                   } <: AbstractSparseOperator{CompressedSparseRow,T,M,N}
+                                   } <: SparseOperator{CompressedSparseRow,T,M,N}
     m::Int          # equivalent number of rows of the operator
     n::Int          # number of columns of the operator
     vals::V         # values of entries
@@ -494,7 +494,7 @@ end
                                    V<:AbstractVector{T},
                                    I<:AbstractVector{Int},
                                    K<:AbstractVector{Int}
-                                   } <: AbstractSparseOperator{CompressedSparseColumn,T,M,N}
+                                   } <: SparseOperator{CompressedSparseColumn,T,M,N}
     m::Int          # equivalent number of rows of the operator
     n::Int          # number of columns of the operator
     vals::V         # values of entries
@@ -522,7 +522,7 @@ end
                                    V<:AbstractVector{T},
                                    I<:AbstractVector{Int},
                                    J<:AbstractVector{Int}
-                                   } <: AbstractSparseOperator{CompressedSparseCoordinate,T,M,N}
+                                   } <: SparseOperator{CompressedSparseCoordinate,T,M,N}
     m::Int          # equivalent number of rows of the operator
     n::Int          # number of columns of the operator
     vals::V         # values of entries
