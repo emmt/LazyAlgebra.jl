@@ -45,75 +45,27 @@ column `j` is not implemented. Instead, `A[k]` is used to directly access the `k
 nonzero and is a shortcut to `nonzeros(A)[k]` which is valid for sparse operators and
 sparse matrices.
 
-Example (adapted from the doc.) of use with `SparseArrays` API:
-
-```julia
-A = sparse(I,J,V)
-rows = rowvals(A)
-vals = nonzeros(A)
-m, n = size(A)
-@inbounds for j = 1:n
-    for k in nzrange(A, j)
-        i = rows[k]
-        Aᵢⱼ = vals[k]
-        # perform sparse wizardry...
-    end
-end
 ```
+Format
+|- RowWise
+|   |- RowWiseLower
+|   `- RowWiseUpper
+`- ColumnWise
+    |- ColumnWiseLower
+    `- ColumnWiseUpper
 
-With the proposed API, above example becomes:
+LowerTriangularFormat = Union{RowWiseLower,ColumnWiseLower}
+UpperTriangularFormat = Union{RowWiseUpper,ColumnWiseUpper}
 
-```julia
-A = sparse(I,J,V)
-vals = nonzeros(A)
-@inbounds for j = each_col_index(A)
-    for k in each_nz_index(A, j)
-        i = row_index(A, k)
-        Aᵢⱼ = vals[k]
-        # perform sparse wizardry...
-    end
-end
-```
+AbstractSparseFactor{F<:Format,T,N}
+|- BareSparseFactor{F<:Format,T,N}
+|  `- SparseFactor{F,T,N}
+`- Wrapped{F<:Format,T,N}
+   |- Swapped{F,T,N}
+   |  |- Transpose
+   |  `- Adjoint
+   `- Conjugate
 
-It may be noted that Julia's sparse matrices are stored in *Compressed Sparse Column*
-(CSC) format.
-
-Same example for a `LazyAlgebra` sparse operator in CSC format:
-
-```julia
-# A is in CSC format
-@inbounds for j in each_col_index(A)
-    for k in each_nz_index(A, j)
-        i = row_index(A, k)
-        Aᵢⱼ = A[k]
-        # perform sparse wizardry...
-    end
-end
-```
-
-which is very similar to accessing a Julia sparse matrix.
-
-Same example for a `LazyAlgebra` sparse operator in *Compressed Sparse Row* (CSR) format:
-
-```julia
-# A is in CSR format
-@inbounds for i in each_row_index(A)
-    for k in each_nz_index(A, i)
-        j = col_index(A, k)
-        Aᵢⱼ = A[k]
-        # perform sparse wizardry...
-    end
-end
-```
-
-Same example for a `LazyAlgebra` sparse operator in *Compressed Coordinates* (COO) format:
-
-```julia
-# A is in COO format
-@inbounds for k in each_nz_index(A)
-    i = row_index(A, k)
-    j = col_index(A, k)
-    Aᵢⱼ = A[k]
-    # perform sparse wizardry...
-end
+Inverse
+Gram
 ```

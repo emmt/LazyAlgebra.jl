@@ -1,4 +1,11 @@
+* Fix sparse constructors and tests sparse operators.
+
+* `DiagonalShape`, `TridiagonalShape` traits and `is_diagonal`, `is_tridiagonal`, and
+  `is_triangular` methods.
+
 * Implement a `Null` operator.
+
+* Implement [Kronecker](https://en.wikipedia.org/wiki/Kronecker_product) product.
 
 * Use BLAS for pseudo-matrices and flexible matrices.
 

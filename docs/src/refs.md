@@ -7,30 +7,74 @@ followed by the name of a method or a type.
 ## Methods for linear operators
 
 ```@docs
-nrows
-ncols
-row_size
-col_size
+LazyAlgebra.nrows
+LazyAlgebra.ncols
+LazyAlgebra.row_size
+LazyAlgebra.col_size
+LazyAlgebra.input_eltype
+LazyAlgebra.input_axes
+LazyAlgebra.input_size
+LazyAlgebra.output_eltype
+LazyAlgebra.output_axes
+LazyAlgebra.output_size
+```
+
+## Constructions
+
+```@docs
+LazyAlgebra.Adjoint
+LazyAlgebra.Inverse
+LazyAlgebra.InverseAdjoint
+LazyAlgebra.Sum
+LazyAlgebra.Prod
+LazyAlgebra.Scaled
+```
+
+
+### Traits
+
+```@docs
+LazyAlgebra.InputShape
+LazyAlgebra.InputShapeUnknown
+LazyAlgebra.HasInputShape
+LazyAlgebra.InputEltype
+LazyAlgebra.InputEltypeUnknown
+LazyAlgebra.HasInputEltype
+LazyAlgebra.OutputShape
+LazyAlgebra.OutputShapeUnknown
+LazyAlgebra.HasOutputShape
+LazyAlgebra.OutputEltype
+LazyAlgebra.OutputEltypeUnknown
+LazyAlgebra.HasOutputEltype
 ```
 
 ## Sparse operators
 
-### Types and compressed storage formats
+### Sparse storage formats
+
+```@docs
+SparseFormat
+CompressedSparseCoordinate
+CompressedSparseColumn
+CompressedSparseRow
+```
+
+### Constructors of sparse operators
 
 ```@docs
 SparseOperator
-CompressedSparseOperator
+SparseOperatorLike
 SparseOperatorCOO
 SparseOperatorCSC
 SparseOperatorCSR
 ```
 
-### Methods
+### Methods for sparse operators
 
 ```@docs
 nonzeros
 nnz
-LazyAlgebra.SparseOperators.unpack!
+LazyAlgebra.unpack!
 ```
 
 ### Low-level interface

@@ -17,14 +17,14 @@ A few concepts are central to `LazyAlgebra`:
 * *Vectors* represent the variables of interest and can be any abstract array providing a
   few methods are implemented for their specific type.
 * Linear *operators* of type [`LazyAlgebra.Operator`](@ref) are linear mappings that take
-  a *vector* as input and produce a *vector* as output. An *operator* in LazyAlgebra
+  a *vector* as input and produce a *vector* as output. An *operator* in `LazyAlgebra`
   generalizes the notion of *matrix* in Julia.
 
 There are several reasons to have special methods for basic vector operations rather than
 relying on Julia linear algebra methods. First, the notion of *vector* is different, in
 Julia a mono-dimensional array is a vector while, here any object with embedded values can
 be assumed to be a vector providing a subset of methods are specialized for this type of
-objects.
+object.
 
 
 ## Operators
@@ -38,7 +38,7 @@ objects.
 
 ### General operators
 
-An `Operator` extend the notion of *matrix* and can be any linear function between two
+An `Operator` extends the notion of *matrix* and can be any linear function between two
 variables spaces. Using Householder-like notation (that is upper-case Latin letters denote
 *operators*, lower-case Latin letters denote *variables*, and Greek letters denote
 *scalars*), then:
@@ -52,14 +52,13 @@ variables spaces. Using Householder-like notation (that is upper-case Latin lett
 * `A'\x`, `inv(A')*x`, and `inv(A)'*x` yield the result of applying the inverse of the
   adjoint of `A` (or the adjoint of the inverse of `A`, this is the same thing) to `x`;
 
-Simple constructions are allowed and can be used to create new instances of operators
-which behave correctly:
+Simple constructions are allowed and can be used to create new instances of operators:
 
 * `B = α*A` (where `α` is a number) is an operator which behaves as `A` times `α`; that is
   `B*x -> α*(A*x)`.
 
-* `C = A + B + ...` is an operator which behaves as the sum of the operators `A`, `B`,
-  ...; that is `C*x -> A*x + B*x + ...` or `(A + B + ...)*x`.
+* `C = A1 + A₂ + ... + Aₙ` is an operator which behaves as the sum of the operators `A₁`
+  to `Aₙ`; that is `C*x -> A₁*x + A₂*x + ...+ Aₙ*x` or `(A₁ + A₂ + ... + Aₙ)*x`.
 
 * `C = A*B` or `C = A∘B` is an operator which behaves as the composition of the operators
   `A` and `B`; that is `C*x -> A*(B*x)`. As for the sum of operators, there may be an
@@ -80,7 +79,7 @@ These constructions can be combined to build up more complex operators. For exam
 
 !!! note
     An important feature of `LazyAlgebra` is that any complex construction of operator is
-    itself an operator but whose coefficients are not immediately computed: a constructed
+    itself an operator but whose coefficients are not immediately computed: the constructed
     operator keeps its structure reflecting how it has been built (apart from a few
     automatic simplifications explained next) and *knows* how to behave when applied to an
     input vector. This *lazy* behavior explains the name of the package.

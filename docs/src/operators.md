@@ -1,4 +1,4 @@
-# Methods for operators
+# Methods for new primitive operators
 
 `LazyAlgebra` provides a number of linear operators. To create new primitive operator
 types (not by combining existing operators) and benefit from the `LazyAlgebra`
@@ -6,17 +6,145 @@ infrastructure, you have to:
 
 * Create a new type derived from `Operator`.
 
-* In order to create the array `y` to store the result of `A*x` or of `α*A*x` or to check
-  the validity of `y` when it is provided by the user, methods `LazyAlgebra.output_axes(A,
-  axes(x))`, and at least one of `Base.eltype(typeof(A))` or
-  `LazyAlgebra.output_eltype(typeof(A), eltype(x))` must be specialized for the operator `A`.
+* Specialize a few methods to assert the input shape and element type of any `x`
+  acceptable to compute `A*x` and to infer the output shape and element type of the result
+  `A*x`.
 
 * In order to apply the operator `A`, the method `LazyAlgebra.unsafe_vmul!(α, A, x, β, y)`
   must be implemented to overwrite `y` with `α*A*x + β*y`. The same method may also be
   extended for `A'`, `inv(A)` and/or `inv(A')` to apply the adjoint, inverse, and/or
   inverse-adjoint of `A`.
 
-* Optionally specialize method `Base.similar` for two arguments of the new operator type.
+* Optionally specialize method `Base.isequal(A, B)` to yield whether operators `A` and `B`
+  of the new operator type are the same in the sense that they yield the same output when
+  applied to any acceptable input. In other words, `isequal(A, B)` shall yield whether
+  `isequal(A*x, B*x)` holds for any acceptable `x`. Also optionally, specialize
+  [`LazyAlgebra.try_simplify`](@ref) for providing simplification rules for some
+  constructions (sums, compositions, etc.) involving one or more operators of the new
+  type. These methods are used by [`LazyAlgebra.simplify`](@ref).
+
+
+## Input and output shapes
+
+For any linear operator `A`, computing `A*x` requires to check whether `x` has an
+acceptable shape and to infer the shape of `A*x`. The method [`LazyAlgebra.output_axes(A,
+axes(x))`](@ref LazyAlgebra.output_axes) is called to perform these two tasks. This method
+shall throw a `DimensionMismatch` exception if `x` has invalid shape and shall return the
+axes of `A*x` otherwise.
+
+As a simplification, it is assumed that the shape of `A*x` can only depend on `A` and,
+perhaps, on the shape of `x`. This is the reason to call `LazyAlgebra.output_axes(A,
+axes(x))` and not `LazyAlgebra.output_axes(A, x)`.
+
+If the shape of any acceptable `x` to compute `A*x` is known in advance, then the
+following two methods shall be specialized:
+
+* [`LazyAlgebra.InputShape(typeof(A))`](@ref LazyAlgebra.InputShape) shall return
+  `LazyAlgebra.HasInputShape{N}()` with `N` the number of dimensions that `x` must have.
+
+* [`LazyAlgebra.input_axes(A)`](@ref LazyAlgebra.input_axes) shall return the `N`-tuple of
+  the axes required for `x`.
+
+Otherwise, if the acceptable shape of `x` to compute `A*x` is not known in advance, then
+the method [`LazyAlgebra.InputShape(typeof(A))`](@ref LazyAlgebra.InputShape) shall return
+`LazyAlgebra.InputShapeUnknown()`. Since this is the default behavior, it is not necessary
+to specialize this method for the type of `A` in that case.
+
+Similarly, if the shape of `A*x` is known in advance, then the following two methods shall
+be specialized:
+
+* [`LazyAlgebra.OutputShape(typeof(A))`](@ref LazyAlgebra.OutputShape) shall return
+  `LazyAlgebra.HasOutputShape{M}()` with `M` the number of dimensions of `A*x`.
+
+* [`LazyAlgebra.output_axes(A)`](@ref LazyAlgebra.output_axes) shall return the `M`-tuple
+  of the axes of `A*x`.
+
+Otherwise, if the shape of `A*x` is not known in advance, e.g. because it depends on both
+`A` and `x`, then the method [`LazyAlgebra.OutputShape(typeof(A))`](@ref
+LazyAlgebra.OutputShape) shall return `LazyAlgebra.OutputShapeUnknown()`. Since this is
+the default behavior, it is not necessary to specialize this method for the type of `A` in
+that case.
+
+Note that [`LazyAlgebra.InputShape(typeof(A))`](@ref LazyAlgebra.InputShape) and
+[`LazyAlgebra.OutputShape(typeof(A))`](@ref LazyAlgebra.OutputShape) implement *traits*
+which only depend on the type of `A`.
+
+If these two traits indicate that both the input and output shapes for `A` are known in
+advance, there are no needs to specialize the method [`LazyAlgebra.output_axes(A,
+axes(x))`](@ref LazyAlgebra.output_axes) for the operator `A`.
+
+Otherwise, if any of the input of output shapes is not known in advance, the method
+[`LazyAlgebra.output_axes(A, axes(x))`](@ref LazyAlgebra.output_axes) must be specialized
+for the type of `A` to throw a `DimensionMismatch` exception if `axes(x)` is not an
+acceptable shape and to return the axes of `A*x` otherwise.
+
+
+## Input and output element types
+
+As for the input and output shapes, the input and output element types must be inferable
+by `LazyAlgebra` in order to compute `A*x` with a linear operator `A` and some input `x`.
+
+If the element type of any acceptable `x` to compute `A*x` is known in advance, then the
+following two methods shall be specialized:
+
+* [`LazyAlgebra.InputEltype(typeof(A))`](@ref LazyAlgebra.InputEltype) shall return
+  `LazyAlgebra.HasInputEltype()`.
+
+* [`LazyAlgebra.input_eltype(typeof(A))`](@ref LazyAlgebra.input_eltype) shall return the
+  element type required for `x`.
+
+Otherwise, if the acceptable element type of `x` to compute `A*x` is not known in advance,
+then the method [`LazyAlgebra.InputEltype(typeof(A))`](@ref LazyAlgebra.InputEltype) shall
+return `LazyAlgebra.InputEltypeUnknown()`. Since this is the default behavior, it is not
+necessary to specialize this method for the type of `A` in that case.
+
+If [`LazyAlgebra.InputEltype(typeof(A))`](@ref LazyAlgebra.InputEltype) returns
+`LazyAlgebra.HasInputEltype()`, then any argument `x` with a different element type is
+automatically converted by `LazyAlgebra` to compute `A*x`. As a consequence, consider
+carefully whether this is advisable or not. In general, this is only needed if the
+operator is implemented by an external library which imposes the element type.
+
+Similarly, if the element type of `A*x` is known in advance, then the following two
+methods shall be specialized:
+
+* [`LazyAlgebra.OutputEltype(typeof(A))`](@ref LazyAlgebra.OutputEltype) shall return
+  `LazyAlgebra.HasOutputEltype()`.
+
+* [`LazyAlgebra.output_eltype(typeof(A))`](@ref LazyAlgebra.output_eltype) shall return
+  the element type of `A*x`.
+
+Otherwise, if the element type of `A*x` is not known in advance, e.g. because it depends
+on both `A` and `x`, then the method [`LazyAlgebra.OutputEltype(typeof(A))`](@ref
+LazyAlgebra.OutputEltype) shall return `LazyAlgebra.OutputEltypeUnknown()`. Since this is
+the default behavior, it is not necessary to specialize this method for the type of `A` in
+that case.
+
+As a simplification, it is assumed that the element type of `A*x` is a *trait* that only
+depends on the type of the operator `A` and on the type of the input array `x`. Following
+this assumption, `LazyAlgebra` infers the element type of `A*x` from that of:
+
+```julia
+LazyAlgebra.output_eltype(typeof(A), typeof(x))
+```
+
+and it is thus expected that a method with this signature exists for the operator `A` and
+that it returns the element type of `A*x`. If such a method does not exists but
+[`LazyAlgebra.OutputEltype(typeof(A))`](@ref LazyAlgebra.OutputEltype) yields
+`LazyAlgebra.HasOutputEltype()`, then `T` is given by:
+
+```julia
+T = float(LazyAlgebra.output_eltype(typeof(A)))
+```
+
+otherwise
+
+```julia
+Base.eltype(typeof(A))
+```
+
+is called to infer the type of the coefficients of `A` and which assumes that the element
+type of `A*x` is that of the floating-point conversion of the multiplication of two values
+of respective types `eltype(typeof(A))` and `eltype(x)`.
 
 
 ## The `LazyAlgebra.unsafe_vmul!` method
@@ -31,10 +159,10 @@ LazyAlgebra.unsafe_vmul!(α::Number, A::Ta, x::Tx, β::Number, y::Ty)
 This method shall overwrite `y` with `α*A*x + β*y`. This method is called by
 [`vmul`](@ref)) and [`vmul!`](@ref)) after checking that arguments`x` and `y` have correct
 axes (so that `@inbounds` can be assumed to compute the result stored in `y`), with
-multipliers `α` and `β` converted to suitable floating-point types, and only if
-`iszero(α)` does not hold. The convention is that the prior contents of `y` is not used at
-all if `iszero(β)` holds so that `y` can be directly used to store the result even though
-it is not initialized. [`LazyAlgebra.unsafe_vmul!`](@ref) shall return `nothing` (any returned
+multipliers `α` and `β` converted to suitable numeric types, and only if `iszero(α)` does
+not hold. The convention is that the prior content of `y` is not used at all if
+`iszero(β)` holds so that `y` can be directly used to store the result even though it is
+not initialized. [`LazyAlgebra.unsafe_vmul!`](@ref) shall return `nothing` (any returned
 value is ignored by [`vmul`](@ref)) and [`vmul!`](@ref)).
 
 In the above signature, `Ta<:Operator` is the type of the operator to apply,
@@ -133,24 +261,21 @@ that [`LazyAlgebra.create_output`](@ref) throws an exception when the axes of `x
 valid in the expression `A*x`.
 
 
-## The `identical` method
+## The `isequal` method
 
-The method `identical(A,B)` yields whether `A` and `B` are the same operators in
-the sense that their effects will **always** be the same.  This method is used
-to perform some simplifications and optimizations and may have to be
-specialized for specific operator types.  The default implementation is to
-return `A === B`.
+The method `isequal(A,B)` yields whether `A` and `B` are the same operators in the sense
+that their effects will **always** be the same. This method is used to perform some
+simplifications and optimizations and may have to be specialized for specific operator
+types. The default implementation is to return `A === B`.
 
-The returned result may be true although `A` and `B` are not necessarily the
-same object.  In the below example, if `A` and `B` are two sparse matrices
-whose coefficients and indices are stored in the same vectors (as can be tested
-with the `===` operator) this method should return `true` because the two
-operators will behave identically (any changes in the coefficients or indices
-of `A` will be reflected in `B`).  If any of the vectors storing the
-coefficients or the indices are not the same objects, then `identical(A,B)`
-must return `false` even though the stored values may be the same because it is
-possible, later, to change one operator without affecting identically the
-other.
+The returned result may be true although `A` and `B` are not necessarily the same object.
+In the below example, if `A` and `B` are two sparse matrices whose coefficients and
+indices are stored in the same vectors (as can be tested with the `===` operator) this
+method should return `true` because the two operators will behave identically (any changes
+in the coefficients or indices of `A` will be reflected in `B`). If any of the vectors
+storing the coefficients or the indices are not the same objects, then `identical(A,B)`
+must return `false` even though the stored values may be the same because it is possible,
+later, to change one operator without affecting identically the other.
 
 
 ## Example
