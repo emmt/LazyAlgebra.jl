@@ -378,9 +378,7 @@ method.
 
 """
 offsets(A::Union{SparseOperatorCSR,SparseOperatorCSC}) = getfield(A, :offs)
-function offsets(A::Union{Adjoint{  <:SparseOperator{<:Union{CSR,CSC}}},
-                          Transpose{<:SparseOperator{<:Union{CSR,CSC}}},
-                          Conjugate{<:SparseOperator{<:Union{CSR,CSC}}}})
+function offsets(A::Union{Adjoint{T},Transpose{T},Conjugate{T}}) where {T<:SparseOperator}
     return offsets(parent(A))
 end
 
