@@ -104,18 +104,18 @@ input_axes(A::Conjugate) = input_axes(parent(A))
 input_axes(A::Union{Adjoint,Transpose,Inverse}) = output_axes(parent(A))
 
 """
-    LazyAlgebra.ncols(A)
+    LazyAlgebra.input_length(A)
 
-yields the *equivalent* number of columns of the matrix or linear operator `A` that is the
-number of elements of any valid input `x` for `A*x` whatever the number of dimensions of
-`x`.
+Return the length of any valid input `x` for computing `A*x` with the matrix or linear
+operator `A`. This can also be seen as the *equivalent number of columns* of the linear
+operator `A`.
 
 This method is only applicable to operators whose input shape is fixed (see
 [`LazyAlgebra.input_shape`](@ref)).
 
 """
-ncols(A::Operator) = prod(input_size(A))
-ncols(A::AbstractMatrix) = size(A, 2)
+input_length(A::Operator) = prod(input_size(A))
+input_length(A::AbstractMatrix) = size(A, 2)
 
 #---------------------------------------------------------------- Output Shape, Size, etc. -
 
@@ -176,17 +176,18 @@ output_axes(A::Conjugate) = output_axes(parent(A))
 output_axes(A::Union{Adjoint,Transpose,Inverse}) = input_axes(parent(A))
 
 """
-    LazyAlgebra.nrows(A)
+    LazyAlgebra.output_length(A)
 
-yields the *equivalent* number of rows of the matrix or linear operator `A` that is the
-number of elements of the result of `A*x` whatever its number of dimensions.
+Return the length of the result of left-multiplying a *vector* (of suitable size) by the
+matrix or linear operator `A`. This can also be seen as the *equivalent number of rows* of
+the linear operator `A`.
 
 This method is only applicable to operators whose output shape is fixed (see
 [`LazyAlgebra.output_shape`](@ref)).
 
 """
-nrows(A::Operator) = prod(output_size(A))
-nrows(A::AbstractMatrix) = size(A, 1)
+output_length(A::Operator) = prod(output_size(A))
+output_length(A::AbstractMatrix) = size(A, 1)
 
 #------------------------------------------------------------------------- Shape of Result -
 

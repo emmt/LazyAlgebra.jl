@@ -225,18 +225,11 @@ Base.eltype(::Type{<:SparseOperator{F,T,M,N}}) where {F,T,M,N} = T
 
 InputShape( ::Type{<:SparseOperator{F,T,M,N}}) where {F,T,M,N} = HasInputShape{N}()
 input_shape(A::BasicSparseOperator) = getfield(A, :colsiz)
+input_length(A::BasicSparseOperator) = getfield(A, :n)
 
 OutputShape(::Type{<:SparseOperator{F,T,M,N}}) where {F,T,M,N} = HasOutputShape{M}()
 output_shape(A::BasicSparseOperator) = getfield(A, :rowsiz)
-
-nrows(A::BasicSparseOperator) = getfield(A, :m)
-nrows(A::Conjugate{<:SparseOperator}) = nrows(parent(A))
-nrows(A::Swapped{<:SparseOperator}) = ncols(parent(A))
-
-ncols(A::BasicSparseOperator) = getfield(A, :n)
-ncols(A::Conjugate{<:SparseOperator}) = ncols(parent(A))
-ncols(A::Swapped{<:SparseOperator}) = nrows(parent(A))
-
+output_length(A::BasicSparseOperator) = getfield(A, :m)
 
 TypeUtils.get_precision(::Type{A}) where {A<:SparseOperatorLike} = get_precision(eltype(A))
 TypeUtils.adapt_precision(::Type{T}, A::SparseOperatorLike) where {T<:TypeUtils.Precision} =
@@ -272,7 +265,7 @@ for (type, (get_1st_field, get_2nd_field)) in (:SparseOperatorCSR => (:col_indic
     @eval begin
         TypeUtils.convert_eltype(::Type{T}, A::$type{T}) where {T} = A
         TypeUtils.convert_eltype(::Type{T}, A::$type{S}) where {T,S} =
-            $_type(nrows(A), ncols(A), convert_eltype(T, nonzeros(A)),
+            $_type(output_length(A), input_length(A), convert_eltype(T, nonzeros(A)),
                    $get_1st_field(A), $get_2nd_field(A), output_size(A), input_size(A))
     end
 end
@@ -282,27 +275,27 @@ end
 # part. For a `deepcopy` of a compressed sparse operator, all the fields are copied.
 
 Base.copy(A::SparseOperatorCSR) = _SparseOperatorCSR(
-    nrows(A), ncols(A), copy(nonzeros(A)), col_indices(A), offsets(A),
+    output_length(A), input_length(A), copy(nonzeros(A)), col_indices(A), offsets(A),
     output_size(A), input_size(A))
 
 Base.copy(A::SparseOperatorCSC) = _SparseOperatorCSC(
-    nrows(A), ncols(A), copy(nonzeros(A)), row_indices(A), offsets(A),
+    output_length(A), input_length(A), copy(nonzeros(A)), row_indices(A), offsets(A),
     output_size(A), input_size(A))
 
 Base.copy(A::SparseOperatorCOO) = _SparseOperatorCOO(
-    nrows(A), ncols(A), copy(nonzeros(A)), row_indices(A), col_indices(A),
+    output_length(A), input_length(A), copy(nonzeros(A)), row_indices(A), col_indices(A),
     output_size(A), input_size(A))
 
 Base.deepcopy(A::SparseOperatorCSR) = _SparseOperatorCSR(
-    nrows(A), ncols(A), copy(nonzeros(A)), copy(col_indices(A)), copy(offsets(A)),
+    output_length(A), input_length(A), copy(nonzeros(A)), copy(col_indices(A)), copy(offsets(A)),
     output_size(A), input_size(A))
 
 Base.deepcopy(A::SparseOperatorCSC) = _SparseOperatorCSC(
-    nrows(A), ncols(A), copy(nonzeros(A)), copy(row_indices(A)), copy(offsets(A)),
+    output_length(A), input_length(A), copy(nonzeros(A)), copy(row_indices(A)), copy(offsets(A)),
     output_size(A), input_size(A))
 
 Base.deepcopy(A::SparseOperatorCOO) = _SparseOperatorCOO(
-    nrows(A), ncols(A), copy(nonzeros(A)), copy(row_indices(A)), copy(col_indices(A)),
+    output_length(A), input_length(A), copy(nonzeros(A)), copy(row_indices(A)), copy(col_indices(A)),
     output_size(A), input_size(A))
 
 # `findnz(A) -> I,J,V` yields the row and column indices and the values of the stored
@@ -488,12 +481,12 @@ end
 @noinline out_of_range_row_index(A, i::Integer) =
     throw(ErrorException(string("out of range row index ", i,
                                 " for compressed sparse operator with ",
-                                nrows(A), " rows")))
+                                output_length(A), " rows")))
 
 @noinline out_of_range_column_index(A, j::Integer) =
     throw(ErrorException(string("out of range column index ", j,
                                 " for compressed sparse operator with ",
-                                ncols(A), " columns")))
+                                input_length(A), " columns")))
 
 """
     LazyAlgebra.each_row_index(A)
@@ -502,7 +495,7 @@ Return an iterator over the linear row indices of the structural non-zeros of th
 operator `A` stored in a *Compressed Sparse Row* (CSR) format.
 
 """
-each_row_index(A::SparseOperator{CSR}) = 𝟙:nrows(A)
+each_row_index(A::SparseOperator{CSR}) = 𝟙:output_length(A)
 each_row_index(A::Conjugate{<:SparseOperator{CSR}}) = each_row_index(parent(A))
 each_row_index(A::Swapped{<:SparseOperator{CSC}}) = each_col_index(parent(A))
 
@@ -513,7 +506,7 @@ Return an iterator over the linear column indices of the structural non-zeros of
 sparse operator `A` stored in a *Compressed Sparse Column* (CSC) format.
 
 """
-each_col_index(A::SparseOperator{CSC}) = 𝟙:ncols(A)
+each_col_index(A::SparseOperator{CSC}) = 𝟙:input_length(A)
 each_col_index(A::Conjugate{<:SparseOperator{CSC}}) = each_col_index(parent(A))
 each_col_index(A::Swapped{<:SparseOperator{CSR}}) = each_row_index(parent(A))
 
@@ -640,14 +633,14 @@ end
 
 #---------------------------------------------------- API for SparseArrays.SparseMatrixCSC -
 
-nrows(A::SparseMatrixCSC) = getfield(A, :m)
-ncols(A::SparseMatrixCSC) = getfield(A, :n)
+output_length(A::SparseMatrixCSC) = getfield(A, :m)
+input_length(A::SparseMatrixCSC) = getfield(A, :n)
 offsets(A::SparseMatrixCSC) = getfield(A, :colptr) # like `getcolptr`
 row_indices(A::SparseMatrixCSC) = getfield(A, :rowval) # like `rowvals`
 # FIXME col_indices is already done elsewhere.
-output_size(A::SparseMatrixCSC) = (nrows(A),)
-input_size(A::SparseMatrixCSC) = (ncols(A),)
-each_col_index(A::SparseMatrixCSC) = 𝟙:ncols(A)
+output_size(A::SparseMatrixCSC) = (output_length(A),)
+input_size(A::SparseMatrixCSC) = (input_length(A),)
+each_col_index(A::SparseMatrixCSC) = 𝟙:input_length(A)
 
 # Provide specific versions of `check_offset_index`, `unsafe_first_nz_index`, and
 # `unsafe_last_nz_index` because offsets have a slightly different definition for
@@ -934,7 +927,7 @@ for (CS, other_args) in (:SparseOperatorCSR => (:cols, :offs),
         # Constructors that convert array of values. Other fields have already been
         # checked so do not check structure again.
         $CS{T}(A::$CS{S,M,N}) where {S,T,M,N} =
-            $_CS(nrows(A), ncols(A), to_values(T, nonzeros(A)),
+            $_CS(output_length(A), input_length(A), to_values(T, nonzeros(A)),
                  $(map(s -> :($(Symbol("get_",s))(A)), other_args)...),
                  output_size(A), input_size(A))
 
@@ -1137,7 +1130,7 @@ function unpack!(B::AbstractArray{T,L},
                  A::SparseOperatorCSR{<:Any,M,N};
                  flatten::Bool = false) where {T,L,M,N}
     prepare_unpack!(B, A, flatten)
-    m = nrows(A) # used as the "stride" in B
+    m = output_length(A) # used as the "stride" in B
     @inbounds for i in each_row_index(A)
         for k in each_nz_index(A, i)
             j = col_index(A, k)
@@ -1152,7 +1145,7 @@ function unpack!(B::AbstractArray{T,L},
                  A::SparseOperatorCSC{<:Any,M,N};
                  flatten::Bool = false) where {T,L,M,N}
     prepare_unpack!(B, A, flatten)
-    m = nrows(A) # used as the "stride" in B
+    m = output_length(A) # used as the "stride" in B
     @inbounds for j in each_col_index(A)
         for k in each_nz_index(A, j)
             i = row_index(A, k)
@@ -1173,7 +1166,7 @@ function unpack!(B::AbstractArray{T,L},
                  A::SparseOperatorCOO{<:Any,M,N},
                  op::Function; flatten::Bool = false) where {T,L,M,N}
     prepare_unpack!(B, A, flatten)
-    m = nrows(A) # used as the "stride" in B
+    m = output_length(A) # used as the "stride" in B
     @inbounds for k in each_nz_index(A)
         i = row_index(A, k)
         j = col_index(A, k)
@@ -1201,8 +1194,8 @@ Base.reshape(A::SparseOperatorCOO, rowsiz::Dims, colsiz::Dims) =
 
 # FIXME use axes not size
 function check_new_shape(A::SparseOperator, rowsiz::Dims, colsiz::Dims)
-    m = nrows(A)
-    n = ncols(A)
+    m = output_length(A)
+    n = input_length(A)
     check_size(m, rowsiz, "row")
     check_size(m, colsiz, "column")
     return (m, n)
@@ -1229,7 +1222,7 @@ SparseOperatorCSC{T}(A::SparseOperatorLike) where {T} =
                 input_size(A))
 
 SparseOperatorCOO{T}(A::SparseOperatorLike) where {T} =
-    _SparseOperatorCOO(nrows(A), ncols(A),
+    _SparseOperatorCOO(output_length(A), input_length(A),
                        with_eltype(T, nonzeros(A)),
                        as_vector(row_indices(A)),
                        as_vector(col_indices(A)),
@@ -1470,8 +1463,8 @@ inconsistencies.
 
 """
 function check_size(A::SparseOperator)
-    check_size(nrows(A), output_size(A), "output")
-    check_size(ncols(A), input_size(A), "input")
+    check_size(output_length(A), output_size(A), "output")
+    check_size(input_length(A), input_size(A), "input")
     return nothing
 end
 
@@ -1504,7 +1497,7 @@ inconsistent.
 function check_rows(A::SparseOperator{<:Union{COO,CSC}})
     rows = row_indices(A)
     length(rows) == nnz(A) || throw_bad_argument("bad number of row indices")
-    check_rows(rows, nrows(A))
+    check_rows(rows, output_length(A))
     # FIXME: also check sorting for SparseOperator{CSC}?
     return nothing
 end
@@ -1538,7 +1531,7 @@ are inconsistent.
 function check_cols(A::SparseOperator{<:Union{COO,CSR}})
     cols = col_indices(A)
     length(cols) == nnz(A) || throw_assertion_error("bad number of column indices")
-    check_cols(cols, ncols(A))
+    check_cols(cols, input_length(A))
     # FIXME: also check sorting for SparseOperator{CSR}?
     return nothing
 end
@@ -1572,7 +1565,7 @@ inconsistent.
 function check_offs(A::SparseOperator{F}) where {F<:Union{CSC,CSR}}
     offs = offsets(A)
     is_fast_array(offs) || throw_not_fast_array("array of offsets")
-    n = (F <: CSR ? nrows(A) : ncols(A))
+    n = (F <: CSR ? output_length(A) : input_length(A))
     length(offs) == n + 1 || throw_assertion_error("bad number of offsets")
     offs[1] == 0 || throw_assertion_error("bad initial offset")
     len = 0

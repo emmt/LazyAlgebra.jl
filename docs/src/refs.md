@@ -20,9 +20,10 @@ For linear operators with known input shape, the following methods are available
 
 ```@docs
 LazyAlgebra.input_shape
+LazyAlgebra.input_ndims
 LazyAlgebra.input_axes
 LazyAlgebra.input_size
-LazyAlgebra.ncols
+LazyAlgebra.input_length
 ```
 
 ### Output shape of linear operators
@@ -45,9 +46,10 @@ For linear operators with known output shape, the following methods are availabl
 
 ```@docs
 LazyAlgebra.output_shape
+LazyAlgebra.output_ndims
 LazyAlgebra.output_axes(::Operator)
 LazyAlgebra.output_size
-LazyAlgebra.nrows
+LazyAlgebra.output_length
 ```
 
 ### Input element type

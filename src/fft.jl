@@ -113,8 +113,8 @@ get_plan(A::FFT) = getfield(A, :forward)
 get_plan(A::InverseAdjoint{<:FFT}) = get_plan(A[][])
 get_plan(A::Union{Adjoint{F},Inverse{F}}) where {F<:FFT} = getfield(A[], :backward)
 
-fft_length(A::Union{F,InverseAdjoint{F}}) where {F<:FFT} = ncols(A)
-fft_length(A::Union{Adjoint{F},Inverse{F}}) where {F<:FFT} = nrows(A)
+fft_length(A::Union{F,InverseAdjoint{F}}) where {F<:FFT} = input_length(A)
+fft_length(A::Union{Adjoint{F},Inverse{F}}) where {F<:FFT} = output_length(A)
 
 # Precision.
 TypeUtils.get_precision(::Type{<:FFT{T}}) where {T} = get_precision(T)

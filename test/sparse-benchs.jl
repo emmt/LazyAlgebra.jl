@@ -52,7 +52,7 @@ end
 function unpack_with_iterator!(dest::Array{T},
                                A::SparseOperator{E},
                                op = (E === Bool ? (|) : (+))) where {T,E}
-    C = fill!(reshape(dest, (nrows(A), ncols(A))), zero(T))
+    C = fill!(reshape(dest, (output_length(A), input_length(A))), zero(T))
     for (Aij, i, j) in A
         C[i,j] = op(C[i,j], Aij)
     end

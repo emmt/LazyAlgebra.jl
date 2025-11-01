@@ -9,9 +9,17 @@ using SparseArrays
 using StructuredArrays
 using LazyAlgebra
 using LazyAlgebra: identical
-using LazyAlgebra.Foundations
-using LazyAlgebra.SparseMethods
-using LazyAlgebra.SparseOperators: check_structure, sparse_compressed_offsets
+using LazyAlgebra:
+    # input element type and shape
+    InputEltype, HasInputEltype, InputEltypeUnknown, input_eltype,
+    InputShape, HasInputShape, InputShapeUnknown,
+    input_shape, input_axes, input_size, input_length, input_ndims,
+    # output element type and shape
+    OutputEltype, HasOutputEltype, OutputEltypeUnknown, output_eltype,
+    OutputShape, HasOutputShape, OutputShapeUnknown,
+    output_shape, output_axes, output_size, output_length, output_ndims,
+    # other methods
+    check_structure, sparse_compressed_offsets
 using Test
 using Random
 
@@ -53,7 +61,7 @@ end
 function unpack_with_iterator!(dest::Array{T},
                                A::SparseOperator{E},
                                op = (E === Bool ? (|) : (+))) where {T,E}
-    C = fill!(reshape(dest, (nrows(A), ncols(A))), zero(T))
+    C = fill!(reshape(dest, (output_length(A), input_length(A))), zero(T))
     for (Aij, i, j) in A
         C[i,j] = op(C[i,j], Aij)
     end
@@ -136,15 +144,15 @@ end
     @test size(csc) === size(A)
     @test size(coo) === size(A)
 
-    @test nrows(csr) === size(A,1)
-    @test nrows(csc) === size(A,1)
-    @test nrows(coo) === size(A,1)
-    @test nrows(spm) === size(A,1)
+    @test output_length(csr) === size(A,1)
+    @test output_length(csc) === size(A,1)
+    @test output_length(coo) === size(A,1)
+    @test output_length(spm) === size(A,1)
 
-    @test ncols(csr) === size(A,2)
-    @test ncols(csc) === size(A,2)
-    @test ncols(coo) === size(A,2)
-    @test ncols(spm) === size(A,2)
+    @test input_length(csr) === size(A,2)
+    @test input_length(csc) === size(A,2)
+    @test input_length(coo) === size(A,2)
+    @test input_length(spm) === size(A,2)
 
     # Number of structural non-zeros.
     nvals = count(x -> x != zero(x), A);
@@ -289,8 +297,8 @@ end # testset
                    LazyAlgebra.Endomorphism()) == (rows == cols)
             @test output_size(S) == rows
             @test input_size(S) == cols
-            @test nrows(S) == prod(rows)
-            @test ncols(S) == prod(cols)
+            @test output_length(S) == prod(rows)
+            @test input_length(S) == prod(cols)
             @test output_size(S) == rows
             @test input_size(S) == cols
             @test SparseOperator(S) === S
