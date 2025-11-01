@@ -32,6 +32,7 @@ export
     Gram,
     Id,
     Identity,
+    LazyAlgebraAPI,
     Operator,
     PseudoMatrix,
     RankOneOperator,
@@ -143,8 +144,6 @@ using TypeUtils: @public
         convert_multiplier,
         create_output,
         default_cropping_offset,
-        default_cropping_offset,
-        default_zeropadding_offset,
         each_col_index,
         each_nz_index,
         each_row_index,
@@ -209,7 +208,6 @@ using LinearAlgebra
 #using LinearAlgebra.BLAS: libblas, @blasfunc,
 #    BlasInt, BlasReal, BlasFloat, BlasComplex
 #
-
 include("types.jl")
 include("traits.jl")
 include("errors.jl")
@@ -235,4 +233,6 @@ import .ConjugateGradient: conjgrad, conjgrad!
 #import .GenMult: lgemm!, lgemm, lgemv!, lgemv
 #include("blas.jl")
 
-end
+include("LazyAlgebraAPI.jl")
+
+end # module

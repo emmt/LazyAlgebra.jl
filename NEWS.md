@@ -210,6 +210,12 @@ and changes.
 - New `LazyAlgebra.StorageOrder` trait to represent the storage order of the coefficients
   of a linear operator.
 
+- New sub-module `LazyAlgebraAPI`. Execute `using LazyAlgebra.LazyAlgebraAPI` to make all
+  the public symbols of `LazyAlgebra` available in the current namespace. This includes
+  the symbols exported by `LazyAlgebra` and made available by `using LazyAlgebra` but also
+  the non-exported public symbols of `LazyAlgebra`. This is meant for developers and
+  foreign packages who want to extend `LazyAlgebra`.
+
 ### Changed
 
 - The linear conjugate gradient algorithm has been rewritten. Changes are:
