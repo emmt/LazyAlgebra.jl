@@ -100,8 +100,6 @@ This method is only applicable to operators whose input shape is fixed (see
 """
 input_axes(A::Operator) = as_array_axes(input_shape(A))
 input_axes(A::AbstractMatrix) = (axes(A, 2),)
-input_axes(A::Conjugate) = input_axes(parent(A))
-input_axes(A::Union{Adjoint,Transpose,Inverse}) = output_axes(parent(A))
 
 """
     LazyAlgebra.input_length(A)
@@ -172,8 +170,6 @@ This method is only applicable to operators whose output shape is fixed (see
 """
 output_axes(A::Operator) = as_array_axes(output_shape(A))
 output_axes(A::AbstractMatrix) = (axes(A, 1),)
-output_axes(A::Conjugate) = output_axes(parent(A))
-output_axes(A::Union{Adjoint,Transpose,Inverse}) = input_axes(parent(A))
 
 """
     LazyAlgebra.output_length(A)
@@ -188,6 +184,18 @@ This method is only applicable to operators whose output shape is fixed (see
 """
 output_length(A::Operator) = prod(output_size(A))
 output_length(A::AbstractMatrix) = size(A, 1)
+
+# Input and output shape, axes, etc. for adjoint, conjugate, transpose, and inverse.
+for parameter in (:shape, :axes, :size, :length)
+    inp = Symbol("input_", parameter)
+    out = Symbol("output_", parameter)
+    @eval begin
+        $inp(A::Conjugate) = $inp(parent(A))
+        $out(A::Conjugate) = $out(parent(A))
+        $inp(A::Union{Adjoint,Transpose,Inverse}) = $out(parent(A))
+        $out(A::Union{Adjoint,Transpose,Inverse}) = $inp(parent(A))
+    end
+end
 
 #------------------------------------------------------------------------- Shape of Result -
 
