@@ -455,7 +455,7 @@ end
 function unsafe_vscale!(::Val{:alpha},
                         x::AbstractArray, α::Number)
     α = convert_multiplier(α, eltype(x))
-    @dispatch_on_multiplier α unsafe_vscale!(x, α)
+    @dispatch_on_value α unsafe_vscale!(x, α)
     return nothing
 end
 
@@ -473,7 +473,7 @@ end
 function unsafe_vscale!(::Val{:alpha},
                         y::AbstractArray, α::Number, x::AbstractArray)
     α = convert_multiplier(α, eltype(x))
-    @dispatch_on_multiplier α unsafe_vscale!(y, α, x)
+    @dispatch_on_value α unsafe_vscale!(y, α, x)
     return nothing
 end
 
@@ -622,7 +622,7 @@ function unsafe_vupdate!(::Val{:alpha},
                          y::AbstractArray, α::Number, x::AbstractArray)
     α = convert_multiplier(α, eltype(x))
     iszero(α) && return # skip computations if `α` is zero
-    @dispatch_on_multiplier α unsafe_vupdate!(y, α, x)
+    @dispatch_on_value α unsafe_vupdate!(y, α, x)
     return nothing
 end
 
@@ -644,7 +644,7 @@ function unsafe_vupdate!(::Val{:alpha},
                          α::Number, x::AbstractArray)
     α = convert_multiplier(α, eltype(x))
     iszero(α) && return # skip computations if `α` is zero
-    @dispatch_on_multiplier α unsafe_vupdate!(y, sel, α, x)
+    @dispatch_on_value α unsafe_vupdate!(y, sel, α, x)
     return nothing
 end
 
@@ -761,21 +761,21 @@ end
 function unsafe_vcombine!(::Val{:alpha_beta},
                           α::Number, x::AbstractArray, β::Number, y::AbstractArray)
     α = convert_multiplier(α, eltype(x))
-    @dispatch_on_multiplier α unsafe_vcombine!(Val(:beta), α, x, β, y)
+    @dispatch_on_value α unsafe_vcombine!(Val(:beta), α, x, β, y)
     return nothing
 end
 
 function unsafe_vcombine!(::Val{:beta},
                           α::Number, x::AbstractArray, β::Number, y::AbstractArray)
     β = convert_multiplier(β, eltype(y))
-    @dispatch_on_multiplier β unsafe_vcombine!(α, x, β, y)
+    @dispatch_on_value β unsafe_vcombine!(α, x, β, y)
     return nothing
 end
 
 function unsafe_vcombine!(::Val{:alpha},
                           α::Number, x::AbstractArray, β::Number, y::AbstractArray)
     α = convert_multiplier(α, eltype(x))
-    @dispatch_on_multiplier α unsafe_vcombine!(α, x, β, y)
+    @dispatch_on_value α unsafe_vcombine!(α, x, β, y)
     return nothing
 end
 
@@ -798,7 +798,7 @@ function unsafe_vcombine!(::Val{:alpha_beta},
                           α::Number, x::AbstractArray,
                           β::Number, y::AbstractArray)
     α = convert_multiplier(α, eltype(x))
-    @dispatch_on_multiplier α unsafe_vcombine!(Val(:beta), z, α, x, β, y)
+    @dispatch_on_value α unsafe_vcombine!(Val(:beta), z, α, x, β, y)
     return nothing
 end
 
@@ -807,7 +807,7 @@ function unsafe_vcombine!(::Val{:alpha},
                           α::Number, x::AbstractArray,
                           β::Number, y::AbstractArray)
     α = convert_multiplier(α, eltype(x))
-    @dispatch_on_multiplier α unsafe_vcombine!(z, α, x, β, y)
+    @dispatch_on_value α unsafe_vcombine!(z, α, x, β, y)
     return nothing
 end
 
@@ -816,7 +816,7 @@ function unsafe_vcombine!(::Val{:beta},
                           α::Number, x::AbstractArray,
                           β::Number, y::AbstractArray)
     β = convert_multiplier(β, eltype(y))
-    @dispatch_on_multiplier β unsafe_vcombine!(z, α, x, β, y)
+    @dispatch_on_value β unsafe_vcombine!(z, α, x, β, y)
     return nothing
 end
 
@@ -902,7 +902,7 @@ function unsafe_vmap!(::Val{:alpha_beta},
                       β::Number, y::AbstractArray)
     # Deal with `β` than `α`.
     β = convert_multiplier(β, eltype(y))
-    @dispatch_on_multiplier β unsafe_vmap!(Val(:alpha), α, f, w, x, β, y)
+    @dispatch_on_value β unsafe_vmap!(Val(:alpha), α, f, w, x, β, y)
     return nothing
 end
 
@@ -914,7 +914,7 @@ function unsafe_vmap!(::Val{:alpha},
         # Skip computing `α*f(w[i]*x[i])`.
         unsafe_vscale!(y, β)
     else
-        @dispatch_on_multiplier α unsafe_vmap!(α, f, w, x, β, y)
+        @dispatch_on_value α unsafe_vmap!(α, f, w, x, β, y)
     end
     return nothing
 end
@@ -925,9 +925,9 @@ function unsafe_vmap!(::Val{:beta},
     β = convert_multiplier(β, eltype(y))
     if iszero(α)
         # Skip computing `α*f(w[i]*x[i])`.
-        @dispatch_on_multiplier β unsafe_vscale!(y, β)
+        @dispatch_on_value β unsafe_vscale!(y, β)
     else
-        @dispatch_on_multiplier β unsafe_vmap!(α, f, w, x, β, y)
+        @dispatch_on_value β unsafe_vmap!(α, f, w, x, β, y)
     end
     return nothing
 end

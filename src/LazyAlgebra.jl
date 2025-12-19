@@ -104,7 +104,6 @@ export
 # Non-exported but public API.
 using TypeUtils: @public
 @public @callable,
-        @dispatch_on_multiplier,
         Adjoint,
         ColumnMajor,
         Conjugate,
@@ -189,6 +188,7 @@ using Printf
 using ArrayTools
 using LazyMaps
 using Neutrals
+using Neutrals: @dispatch_on_value, recode, recode!
 using Test
 using StructuredArrays
 using TypeUtils

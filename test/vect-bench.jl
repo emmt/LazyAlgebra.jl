@@ -12,11 +12,13 @@ using Printf
 using Statistics
 using BenchmarkTools
 using LazyAlgebra
-using LazyAlgebra: convert_multiplier, @dispatch_on_multiplier
+using LazyAlgebra: convert_multiplier
 using LazyAlgebra: unsafe_vdot
 using ThreadPinning
 using LinearAlgebra
 using LinearAlgebra: BLAS, dot
+using Neutrals
+using Neutrals: @dispatch_on_value
 
 include("benchmarking.jl")
 

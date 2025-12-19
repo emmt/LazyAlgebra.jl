@@ -428,7 +428,7 @@ function vmul(α::Number, A::Operator, x::AbstractArray)
         vzeros!(y)
     else
         # Dispatch on `α` to call the unsafe method.
-        @dispatch_on_multiplier α unsafe_vmul!(α, A, x, 𝟘, y)
+        @dispatch_on_value α unsafe_vmul!(α, A, x, 𝟘, y)
     end
     return y
 end
@@ -500,7 +500,7 @@ function unsafe_vmul!(::Val{:alpha_beta},
                       β::Number, y::AbstractArray)
     # Deal with `β` than `α`.
     β = convert_multiplier(β, eltype(y))
-    @dispatch_on_multiplier β unsafe_vmul!(Val(:alpha), α, A, x, β, y)
+    @dispatch_on_value β unsafe_vmul!(Val(:alpha), α, A, x, β, y)
     return nothing
 end
 
@@ -512,7 +512,7 @@ function unsafe_vmul!(::Val{:alpha},
         # Skip computing `α*A*x`.
         unsafe_vscale!(y, β)
     else
-        @dispatch_on_multiplier α unsafe_vmul!(α, A, x, β, y)
+        @dispatch_on_value α unsafe_vmul!(α, A, x, β, y)
     end
     return nothing
 end
@@ -523,9 +523,9 @@ function unsafe_vmul!(::Val{:beta},
     β = convert_multiplier(β, eltype(y))
     if iszero(α)
         # Skip computing `α*A*x`.
-        @dispatch_on_multiplier β unsafe_vscale!(y, β)
+        @dispatch_on_value β unsafe_vscale!(y, β)
     else
-        @dispatch_on_multiplier β unsafe_vmul!(α, A, x, β, y)
+        @dispatch_on_value β unsafe_vmul!(α, A, x, β, y)
     end
     return nothing
 end
@@ -540,7 +540,7 @@ function vmul!(z::AbstractArray, α::Number, A::Operator, x::AbstractArray,
     if iszero(β)
         vmul!(α, A, x, 𝟘, z)
     else
-        @dispatch_on_multiplier β unsafe_vscale!(z, β, y)
+        @dispatch_on_value β unsafe_vscale!(z, β, y)
         vmul!(α, A, x, 𝟙, z)
     end
     return z
