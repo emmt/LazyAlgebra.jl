@@ -267,7 +267,7 @@ Depending on the type of operator `A`, return one of:
   given by `LazyAlgebra.input_eltype(typeof(A))`.
 
 See also [`LazyAlgebra.InputShape](@ref), [`LazyAlgebra.OutputEltype](@ref), and
-[`LazyAlgebra.output_eltype](@ref).
+[`LazyAlgebra.input_eltype](@ref).
 
 """
 InputEltype(A) = InputEltype(typeof(A))
@@ -348,7 +348,7 @@ LazyAlgebra.output_eltype(typeof(A)) = T
 
 !!! warning
     Do not confuse this `LazyAlgebra.output_eltype` method which takes a single argument
-    with the one that takes 2 or 3 arguments. The single argument method shall only be
+    with the ones that take 2 or 3 arguments. The single argument method shall only be
     called if `LazyAlgebra.OutputEltype(typeof(A))` yields
     `LazyAlgebra.HasOutputEltype()`.
 
@@ -450,7 +450,7 @@ Base.eltype(::Type{<:Sum{A,B}}) where {A,B} = sum_type(eltype(A), eltype(B))
 
 #-------------------------------------------------------------------------------------------
 
-# Some traits need to be transposed or inversed.
+# Some traits need to be transposed or inverted.
 
 Base.transpose(trait::StorageOrderAny) = StorageOrderAny()
 Base.transpose(trait::RowMajor) = ColumnMajor()
