@@ -61,7 +61,9 @@ LazyAlgebra.InputShape(typeof(A)) = LazyAlgebra.HasInputShape{N}()
 LazyAlgebra.input_shape(A) = ...
 ```
 
-with `N` the number of dimensions of suitable input `x` to compute `A*x`.
+with `N` the number of dimensions of suitable input `x` to compute `A*x`. In
+`LazyAlgebra`, `LazyAlgebra.input_shape(A)` shall only be called if
+`LazyAlgebra.InputShape(typeof(A))` yields `LazyAlgebra.HasInputShape{N}()` for some `N`.
 
 See also [`LazyAlgebra.output_shape`](@ref), [`LazyAlgebra.InputShape`](@ref),
 [`LazyAlgebra.input_ndims`](@ref), [`LazyAlgebra.input_axes`](@ref), and
@@ -131,7 +133,9 @@ LazyAlgebra.OutputShape(typeof(A)) = LazyAlgebra.HasOutputShape{M}()
 LazyAlgebra.output_shape(A) = ...
 ```
 
-with `M` the number of dimensions of `A*x`.
+with `M` the number of dimensions of `A*x`. In `LazyAlgebra`,
+`LazyAlgebra.output_shape(A)` shall only be called if `LazyAlgebra.OutputShape(typeof(A))`
+yields `LazyAlgebra.HasOutputShape{M}()` for some `M`.
 
 See also [`LazyAlgebra.input_shape`](@ref), [`LazyAlgebra.OutputShape`](@ref),
 [`LazyAlgebra.output_ndims`](@ref), [`LazyAlgebra.output_axes`](@ref), and
@@ -202,20 +206,22 @@ end
 """
     LazyAlgebra.output_axes(A::Operator, x::AbstractArray)
 
-Return the axes of the result of `A*x`.
+Return the axes of the result of `A*x` throwing an error if `x` has not a suitable shape.
 
 To have this method applicable to a given linear operator type, there are several
 possibilities:
 
 1. The method `LazyAlgebra.output_axes(A, x)` may be directly implemented for the type of
-   `A` an perhaps `x`.
+   `A` and perhaps `x`.
 
 2. If the axes of `A*x` only depend on the operator `A` and on the axes of the input array
-   `x`, then it is sufficient to provide:
+   `x`, then it is sufficient to implement:
 
    ```julia
    LazyAlgebra.output_axes(A, axes(x))
    ```
+
+   which shall yield the axes of `A*x` throwing an error if `x` has not suitable axes.
 
 3. If the shapes of the input and output of `A` are known in advance, then it is simpler
    to provide:
@@ -234,7 +240,7 @@ possibilities:
    LazyAlgebra.OutputShape(typeof(A)) = LazyAlgebra.HasOutputShape{M}()
    ```
 
-   with `N` and `M` the number of dimensions of the input and output of `A`.
+   with `N` and `M` the respective number of dimensions of the input and output of `A`.
 
 See also [`LazyAlgebra.create_output`](@ref), [`LazyAlgebra.InputShape`](@ref),
 [`LazyAlgebra.input_shape`](@ref), [`LazyAlgebra.OutputShape`](@ref), and

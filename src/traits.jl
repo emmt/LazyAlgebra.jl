@@ -170,7 +170,8 @@ is_upper_triangular(::Type{T}) where {T<:MatrixShape} = false
 Depending on the type of operator `A`, return one of:
 
 * `LazyAlgebra.InputShapeUnknown()` if the shape of the input of `A` cannot be determined
-  in advance. This is the assumed default.
+  in advance. This is the assumed default if `LazyAlgebra.OutputShape` is not specialized
+  for `typeof(A)`.
 
 * `LazyAlgebra.HasInputShape{N}()` if the input of `A` has a known `N`-dimensional shape
   given by [`LazyAlgebra.input_shape(A)`](@ref LazyAlgebra.input_shape).
@@ -191,7 +192,8 @@ InputShape(::Type{T}) where {T<:Union{Swapped,Inverse}} = transpose(OutputShape(
 Depending on the type of operator `A`, return one of:
 
 * `LazyAlgebra.OutputShapeUnknown()` if the shape of the output of `A` cannot be
-  determined in advance.
+  determined in advance. This is the assumed default if `LazyAlgebra.OutputShape` is not
+  specialized for `typeof(A)`.
 
 * `LazyAlgebra.HasOutputShape{N}()` if the output of `A` has a known `N`-dimensional shape
   given by [`LazyAlgebra.output_shape(A)`](@ref LazyAlgebra.output_shape).
