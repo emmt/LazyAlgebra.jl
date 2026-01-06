@@ -4,8 +4,8 @@
     LazyAlgebra.StorageOrder(x)
     LazyAlgebra.StorageOrder(typeof(x))
 
-Return the singleton object representing the storage order of `x` solely based on its
-type, one of:
+Return the singleton object representing the storage order of `x` solely based on its type,
+one of:
 
 - `LazyAlgebra.ColumMajor()` if the entries of `x` are stored in column-major order;
 
@@ -101,8 +101,8 @@ is_column_major(::Type{T}) where {T<:StorageOrder} = false
     LazyAlgebra.MatrixShape(x)
     LazyAlgebra.MatrixShape(typeof(x))
 
-Return a singleton representing the equivalent matrix shape of a linear operator `x`
-solely based on its type, one of:
+Return a singleton representing the equivalent matrix shape of a linear operator `x` solely
+based on its type, one of:
 
 * `LazyAlgebra.UpperTriangularShape()` if `x` has an upper triangular shape;
 
@@ -169,9 +169,9 @@ is_upper_triangular(::Type{T}) where {T<:MatrixShape} = false
 
 Depending on the type of operator `A`, return one of:
 
-* `LazyAlgebra.InputShapeUnknown()` if the shape of the input of `A` cannot be determined
-  in advance. This is the assumed default if `LazyAlgebra.OutputShape` is not specialized
-  for `typeof(A)`.
+* `LazyAlgebra.InputShapeUnknown()` if the shape of the input of `A` cannot be determined in
+  advance. This is the assumed default if `LazyAlgebra.OutputShape` is not specialized for
+  `typeof(A)`.
 
 * `LazyAlgebra.HasInputShape{N}()` if the input of `A` has a known `N`-dimensional shape
   given by [`LazyAlgebra.input_shape(A)`](@ref LazyAlgebra.input_shape).
@@ -191,9 +191,9 @@ InputShape(::Type{T}) where {T<:Union{Swapped,Inverse}} = transpose(OutputShape(
 
 Depending on the type of operator `A`, return one of:
 
-* `LazyAlgebra.OutputShapeUnknown()` if the shape of the output of `A` cannot be
-  determined in advance. This is the assumed default if `LazyAlgebra.OutputShape` is not
-  specialized for `typeof(A)`.
+* `LazyAlgebra.OutputShapeUnknown()` if the shape of the output of `A` cannot be determined
+  in advance. This is the assumed default if `LazyAlgebra.OutputShape` is not specialized
+  for `typeof(A)`.
 
 * `LazyAlgebra.HasOutputShape{N}()` if the output of `A` has a known `N`-dimensional shape
   given by [`LazyAlgebra.output_shape(A)`](@ref LazyAlgebra.output_shape).
@@ -225,10 +225,9 @@ Base.ndims(::HasInputShape{N}) where {N} = N
 Return the number dimensions of the result of `A*x` based on the type of `A`.
 
 !!! note
-    If the number `M` of dimensions of `A*x` is known in advance, do not extend this
-    method but rather extend `LazyAlgebra.OutputShape(typeof(A))` and
-    `LazyAlgebra.output_shape(A)` to respectively yield `LazyAlgebra.HasOutputShape{M}()`
-    and the shape of `A*x`.
+    If the number `M` of dimensions of `A*x` is known in advance, do not extend this method
+    but rather extend `LazyAlgebra.OutputShape(typeof(A))` and `LazyAlgebra.output_shape(A)`
+    to respectively yield `LazyAlgebra.HasOutputShape{M}()` and the shape of `A*x`.
 
 See also [`LazyAlgebra.input_ndims`](@ref), [`LazyAlgebra.output_shape`](@ref), and
 [`LazyAlgebra.OutputShape`](@ref).
@@ -245,8 +244,8 @@ Return the number dimensions of the input `x` for `A*x` based on the type of `A`
 !!! note
     If the number `N` of dimensions of `x` to compute `A*x` is known in advance, do not
     extend this method but rather extend `LazyAlgebra.OutputShape(typeof(A))` and
-    `LazyAlgebra.input_shape(A)` to respectively yield `LazyAlgebra.HasInputShape{N}()`
-    and the shape of `A*x`.
+    `LazyAlgebra.input_shape(A)` to respectively yield `LazyAlgebra.HasInputShape{N}()` and
+    the shape of `A*x`.
 
 See also [`LazyAlgebra.output_ndims`](@ref), [`LazyAlgebra.input_shape`](@ref), and
 [`LazyAlgebra.InputShape`](@ref).
@@ -265,8 +264,8 @@ Depending on the type of operator `A`, return one of:
 * `LazyAlgebra.InputEltypeUnknown()` if the element type of the input of `A` cannot be
   determined in advance. This is the assumed default.
 
-* `LazyAlgebra.HasInputEltype()` if the element type of the input of `A` is known and
-  given by `LazyAlgebra.input_eltype(typeof(A))`.
+* `LazyAlgebra.HasInputEltype()` if the element type of the input of `A` is known and given
+  by `LazyAlgebra.input_eltype(typeof(A))`.
 
 See also [`LazyAlgebra.InputShape](@ref), [`LazyAlgebra.OutputEltype](@ref), and
 [`LazyAlgebra.input_eltype](@ref).
@@ -281,8 +280,8 @@ InputEltype(::Type{T}) where {T<:Union{Swapped,Inverse}} =
     LazyAlgebra.input_eltype(A) -> T
     LazyAlgebra.input_eltype(typeof(A)) -> T
 
-Return the element type `T` of `x` for computing `A*x` with operator `A`. Not all
-operators implement this trait.
+Return the element type `T` of `x` for computing `A*x` with operator `A`. Not all operators
+implement this trait.
 
 To implement this trait for an operator, the following two methods shall be specialized:
 
@@ -297,8 +296,8 @@ whether this is advisable or not. In general, this is only needed if the operato
 implemented by an external library which imposes the element type.
 
 !!! warning
-    This function shall only be called if `LazyAlgebra.InputEltype(typeof(A))`
-    yields `LazyAlgebra.HasInputEltype()`.
+    This function shall only be called if `LazyAlgebra.InputEltype(typeof(A))` yields
+    `LazyAlgebra.HasInputEltype()`.
 
 See also [`vmul`](@ref), [`vmul!`](@ref), [`LazyAlgebra.InputEltype`](@ref) and
 [`LazyAlgebra.output_eltype`](@ref).
@@ -338,8 +337,8 @@ OutputEltype(::Type{T}) where {T<:Union{Swapped,Inverse}} =
     LazyAlgebra.output_eltype(A) -> T
     LazyAlgebra.output_eltype(typeof(A)) -> T
 
-Return the element type `T` of the result of `A*x` for operator `A` and any acceptable
-`x`. Not all operators implement this trait.
+Return the element type `T` of the result of `A*x` for operator `A` and any acceptable `x`.
+Not all operators implement this trait.
 
 To implement this trait for an operator, the following two methods shall be specialized:
 
@@ -351,8 +350,7 @@ LazyAlgebra.output_eltype(typeof(A)) = T
 !!! warning
     Do not confuse this `LazyAlgebra.output_eltype` method which takes a single argument
     with the ones that take 2 or 3 arguments. The single argument method shall only be
-    called if `LazyAlgebra.OutputEltype(typeof(A))` yields
-    `LazyAlgebra.HasOutputEltype()`.
+    called if `LazyAlgebra.OutputEltype(typeof(A))` yields `LazyAlgebra.HasOutputEltype()`.
 
 See also [`vmul`](@ref), [`vmul!`](@ref), [`LazyAlgebra.OutputEltype`](@ref) and
 [`LazyAlgebra.output_eltype`](@ref).
@@ -438,8 +436,8 @@ function output_eltype(::Type{α}, ::Type{A}, ::Type{x}) where {α<:Number,
 end
 
 # Extend `Base.eltype` for operators and their variants. NOTE This is not necessary for
-# `Sum` and `Prod` as they implement `output_eltype` properly. NOTE It is assumed that
-# the conjugate of a number has the same type.
+# `Sum` and `Prod` as they implement `output_eltype` properly. NOTE It is assumed that the
+# conjugate of a number has the same type.
 Base.eltype(A::Operator) = eltype(typeof(A))
 Base.eltype(::Type{<:Adjoint{A}}) where {A} = eltype(A)
 Base.eltype(::Type{<:Transpose{A}}) where {A} = eltype(A)

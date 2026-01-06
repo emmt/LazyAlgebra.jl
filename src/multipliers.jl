@@ -2,8 +2,8 @@
     LazyAlgebra.convert_multiplier(α::Number, T::Type)
     LazyAlgebra.convert_multiplier(T::Type, α::Number)
 
-Return the multiplier `α` converted to the same floating-point precision as `T`. If `T`
-has no concrete floating-point type, `TypeUtils.default_precision` is assumed.
+Return the multiplier `α` converted to the same floating-point precision as `T`. If `T` has
+no concrete floating-point type, `TypeUtils.default_precision` is assumed.
 
 See also [`LazyAlgebra.output_eltype`](@ref).
 
@@ -16,9 +16,9 @@ convert_multiplier(::Type{T}, α::Number) where {T<:Number} =
     LazyAlgebra.convert_multiplier(α::Number, x::AbstractArray)
     LazyAlgebra.convert_multiplier(α::Number, A::Operator, x::AbstractArray)
 
-Return the multiplier `α` converted so that the operation `α*x` (if `A` is not specified)
-or `α*A*x` (if `A` is specified) has a precision driven by `x` or by `A*x` respectively,
-not by the multiplier `α` itself.
+Return the multiplier `α` converted so that the operation `α*x` (if `A` is not specified) or
+`α*A*x` (if `A` is specified) has a precision driven by `x` or by `A*x` respectively, not by
+the multiplier `α` itself.
 
 See also [`LazyAlgebra.output_eltype`](@ref).
 

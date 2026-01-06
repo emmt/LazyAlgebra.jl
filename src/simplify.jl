@@ -1,9 +1,9 @@
 # Implement simplification rules for sums and compositions of LazyAlgebra operators.
 #
 # Contrarily to automatic rules applied at construction time, the result returned by
-# `simplify` and `try_simplify` may not be type-stable. One of the difficulty is
-# to avoid re-trying to simplify (sub-)expressions that have been already simplified and
-# yet not forget to apply all implemented simplifications.
+# `simplify` and `try_simplify` may not be type-stable. One of the difficulty is to avoid
+# re-trying to simplify (sub-)expressions that have been already simplified and yet not
+# forget to apply all implemented simplifications.
 
 is_nothing(::Nothing) = true
 is_nothing(::Any) = false
@@ -50,9 +50,9 @@ end
 """
     LazyAlgebra.simplify(A::Operator) -> B::Operator
 
-yields an operator `B` which is a simplified version of operator `A` and such that `A*x ≈
-B*x` holds for any acceptable argument `x` (the `≈` accounts for possible rounding
-errors). If no simplifications are possible, `A` itself may be returned.
+Return an operator `B` which is a simplified version of operator `A` and such that `A*x ≈
+B*x` holds for any acceptable argument `x` (the `≈` accounts for possible rounding errors).
+If no simplifications are possible, `A` itself may be returned.
 
 The method [`LazyAlgebra.try_simplify`](@ref) shall be extended to implement the
 simplification rules applied by `LazyAlgebra.simplify`.
@@ -82,8 +82,7 @@ flatten_prod!(λ::Number, A::AbstractVector{Operator}, B::Sum) =
     # Since any sum remains a single term in a product of operator, it is convenient to
     # simplify the sum before pushing it to the list of terms. However, any sum in the
     # simplified sum must be marked to avoid repeated attempts to simplify it when the
-    # product itself is simplified. This also avoids infinite recursion of
-    # `flatten_prod!`.
+    # product itself is simplified. This also avoids infinite recursion of `flatten_prod!`.
     flatten_prod!(λ, A, mark(simplify(B)))
 
 # Simplify a flattened product of operators by trying to simplify all possible
@@ -107,8 +106,8 @@ function simplify_prod(λ::Number, A::AbstractVector{Operator}, whole::Bool)
         end
         n -= 1
     end
-    # The product cannot be further simplified, rebuild a product with the marks removed
-    # and return this product times the multiplier if not equal to 1.
+    # The product cannot be further simplified, rebuild a product with the marks removed and
+    # return this product times the multiplier if not equal to 1.
     B = foldr(Prod, unmark!(A))
     return isone(λ) ? B : λ*B
 end
@@ -140,8 +139,8 @@ flatten_sum!(A::AbstractVector{Operator}, B::Operator) =
     flatten_sum!(Val(1), A, simplify(B))
 function flatten_sum!(::Val{1}, A::AbstractVector{Operator}, B::Operator)
     # This version is called when `B` is not a sum and has been simplified. First, attempt
-    # to combine `B` with any preceding terms of the sum; if this fails, `B` is appended
-    # to the list of terms.
+    # to combine `B` with any preceding terms of the sum; if this fails, `B` is appended to
+    # the list of terms.
     for i in eachindex(A)
         C = try_simplify(A[i] + B)
         if is_something(C)
@@ -167,8 +166,8 @@ function simplify_sum!(A::AbstractVector{Operator})
     end
     n = j - first(rng) # number of remaining terms
 
-    # Return a sum of the remaining terms sorted according to their hash-value. For a
-    # small number of remaining terms, bypass sorting to speed-up the process.
+    # Return a sum of the remaining terms sorted according to their hash-value. For a small
+    # number of remaining terms, bypass sorting to speed-up the process.
     if n ≤ 1
         # Having less than 1 remaining terms means that the sum simplifies to zero, it is
         # still valid to return the first term.
@@ -223,17 +222,16 @@ end
 """
     LazyAlgebra.try_simplify(A::Operator) -> Union{Operator,Nothing}
 
-attempts to simplify the operator `A` and yields the resulting operator if a
-simplification is possible and `nothing` otherwise.
+Attempt to simplify the operator `A` and yields the resulting operator if a simplification
+is possible and `nothing` otherwise.
 
-This method is the cornerstone of the higher level method [`LazyAlgebra.simplify`](@ref)
-and `LazyAlgebra.try_simplify(A)` shall be extended to perform specific simplifications
-based on the type of `A`. It is not expected that the value returned by
-`LazyAlgebra.try_simplify` be inferable but, for the simplification rules to combine
-correctly (in particular to avoid infinite recursions), this value must not be `A` or an
-equivalent construction. For example, if `A = B + C`, the result shall be neither `B + C`
-nor `C + B` which are respectively represented by `LazyAlgebra.Sum(B, C)` and
-`LazyAlgebra.Sum(C, B)`.
+This method is the cornerstone of the higher level method [`LazyAlgebra.simplify`](@ref) and
+`LazyAlgebra.try_simplify(A)` shall be extended to perform specific simplifications based on
+the type of `A`. It is not expected that the value returned by `LazyAlgebra.try_simplify` be
+inferable but, for the simplification rules to combine correctly (in particular to avoid
+infinite recursions), this value must not be `A` or an equivalent construction. For example,
+if `A = B + C`, the result shall be neither `B + C` nor `C + B` which are respectively
+represented by `LazyAlgebra.Sum(B, C)` and `LazyAlgebra.Sum(C, B)`.
 
 """
 try_simplify(A::Operator) = nothing
@@ -243,10 +241,10 @@ try_simplify(A::Marked) = nothing
 
 # When trying to simplify a sum, the work is divided in stages where `try_simplify` is
 # called to simplify the sum of 2 terms which have been separately simplified. Calling
-# `try_simplify(A+B)` and not a more specialized method, say `try_simplify_sum(A,B)`, is
-# to let other simplifications of sums of specific operators or combination of operators
-# to be implemented. Hence, the only simplification considered for a sum of 2 terms is to
-# replace it by a scaled operator if the two operands are equal up to a multiplier.
+# `try_simplify(A+B)` and not a more specialized method, say `try_simplify_sum(A,B)`, is to
+# let other simplifications of sums of specific operators or combination of operators to be
+# implemented. Hence, the only simplification considered for a sum of 2 terms is to replace
+# it by a scaled operator if the two operands are equal up to a multiplier.
 function try_simplify((A,B)::Sum) # operands assumed to have been simplified
     C = unscaled(A)
     if isequal(unscaled(B), C)
@@ -276,9 +274,9 @@ try_simplify(A::Prod{<:Inverse,<:Inverse}) = nothing
 try_simplify(A::Prod{<:Operator,<:Inverse}) = isequal(A[1], A[2][]) ? Id : nothing
 try_simplify(A::Prod{<:Inverse,<:Operator}) = isequal(A[1][], A[2]) ? Id : nothing
 
-# For the adjoint (resp. transpose or inverse) of an operator, first attempt to simplify
-# the parent operator and, if this succeeds, return the simplification of the adjoint
-# (resp. transpose or inverse) of the simplified parent; otherwise, return nothing.
+# For the adjoint (resp. transpose or inverse) of an operator, first attempt to simplify the
+# parent operator and, if this succeeds, return the simplification of the adjoint (resp.
+# transpose or inverse) of the simplified parent; otherwise, return nothing.
 for (f, T) in (:adjoint   => :Adjoint,
                :transpose => :Transpose,
                :conj      => :Conjugate,
@@ -294,9 +292,9 @@ for (f, T) in (:adjoint   => :Adjoint,
     end
 end
 
-# Simplification rules for diagonal operators. In products, the identity has been automatically
-# suppressed at construction time, so only sums of diagonal operators and (scaled) identity
-# have to be considered.
+# Simplification rules for diagonal operators. In products, the identity has been
+# automatically suppressed at construction time, so only sums of diagonal operators and
+# (scaled) identity have to be considered.
 function try_simplify((A,B)::Prod{<:DiagonalOperator,<:DiagonalOperator})
     input_axes(A) == input_axes(B) || return nothing
     if false

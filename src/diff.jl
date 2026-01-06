@@ -1,28 +1,28 @@
 """
     A = Diff{L=1,D=Colon}()
 
-yields a linear mapping that computes a finite difference approximation of the `L`-order
+Return a linear mapping that computes a finite difference approximation of the `L`-order
 derivative along the dimension(s) specified by `D`. Parameter `D` is an `Int`, a tuple of
 `Int`s, or `Colon` for differentiating respectively along a single dimension, several
 dimensions, or all dimensions.
 
-Currently, only 1st or 2nd order finite difference (`L=1` or `L=2`) are implemented. If
-`L` is unspecified, `A` will compute 1st order finite differences.
+Currently, only 1st or 2nd order finite difference (`L=1` or `L=2`) are implemented. If `L`
+is unspecified, `A` will compute 1st order finite differences.
 
 If `D` is unspecified, `A` will compute finite differences along all dimensions.
 
-If `D` is a single `Int`, the result `y = A*x` of applying the finite difference operator
-to an array `x` has the same axes as `x`. Otherwise and even though `x` has a single
-dimension or `D` is a 1-tuple, `y` has one more dimension than `x`, the last dimension of
-`y` storing the finite differences along each dimensions specified by `D` and the leading
-dimensions of `y` are the same as the dimensions of `x`.
+If `D` is a single `Int`, the result `y = A*x` of applying the finite difference operator to
+an array `x` has the same axes as `x`. Otherwise and even though `x` has a single dimension
+or `D` is a 1-tuple, `y` has one more dimension than `x`, the last dimension of `y` storing
+the finite differences along each dimensions specified by `D` and the leading dimensions of
+`y` are the same as the dimensions of `x`.
 
-If multiple dimensions are specified, the result is as if the operator is applied
-separately on the specified dimension(s).
+If multiple dimensions are specified, the result is as if the operator is applied separately
+on the specified dimension(s).
 
-More specifically, the operator created by `Diff` implements **forward finite
-differences** with *flat boundary conditions*, that is to say extrapolated entries are
-assumed equal to the nearest entry.
+More specifically, the operator created by `Diff` implements **forward finite differences**
+with *flat boundary conditions*, that is to say extrapolated entries are assumed equal to
+the nearest entry.
 
 """
 Diff() = Diff{1}()
@@ -139,8 +139,8 @@ end
     # Dispatch on dimension(s) of interest.
     for (i, d) in enumerate(D === Colon ? (1:N) : D)
         # Checking that `d ∈ 1:N` has no extra cost at run-time and avoid compiling an
-        # invalid function. This is an assertion error because it should have been
-        # detected sooner.
+        # invalid function. This is an assertion error because it should have been detected
+        # sooner.
         d ∈ 1:N || return quote
             throw_assertion_error("out of range dimension(s) of differentiation")
         end
@@ -149,9 +149,9 @@ end
         elseif D isa Int
             args = (:(CartesianIndex()),)
         else
-            # One of x or y (depending on whether the direct or the adjoint operator
-            # is applied) has an extra leading dimension used to store the result
-            # computed along a given dimension.
+            # One of x or y (depending on whether the direct or the adjoint operator is
+            # applied) has an extra leading dimension used to store the result computed
+            # along a given dimension.
             args = (:(CartesianIndex(rngs[$(N+1)][$i])),)
         end
         push!(code, :(_Diff.unsafe_vmul!(α, B, x,
@@ -185,7 +185,7 @@ yields the first and last value of the unit-range `r`.
 """
 limits(r::AbstractUnitRange) = (first(r), last(r))
 
-#---------------------------------------------------------- 1ST ORDER FINITE DIFFERENCES -
+#------------------------------------------------------------ 1st order finite differences -
 #
 # The operator D implementing 1st order forward finite difference with flat boundary
 # conditions and its adjoint D' are given by:
@@ -200,9 +200,9 @@ limits(r::AbstractUnitRange) = (first(r), last(r))
 #             0   1  -1   0
 #             0   0   1   0];
 #
-# The last row (for D) and column (for D') of zeros are to preserve the size. This is
-# needed for multi-dimensional arrays when derivatives along each dimension are stored
-# into a single array.
+# The last row (for D) and column (for D') of zeros are to preserve the size. This is needed
+# for multi-dimensional arrays when derivatives along each dimension are stored into a
+# single array.
 #
 function unsafe_vmul!(α::Number,
                       A::Diff{1,:any},
@@ -215,8 +215,8 @@ function unsafe_vmul!(α::Number,
                       l::CartesianIndex)
     # Assumptions:
     # (1) `f` is chosen according to the specific values of multipliers `α` and `β`;
-    # (2) element type of `x` is such that expressions `x[i] - x[j]` and `-x[i]` yield
-    #     a correct result.
+    # (2) element type of `x` is such that expressions `x[i] - x[j]` and `-x[i]` yield a
+    #     correct result.
     jmin, jmax = limits(J)
     if jmin ≤ jmax
         if I isa Tuple{} # apply along 1st dimension
@@ -314,8 +314,8 @@ function unsafe_vmul!(α::Number,
     nothing
 end
 #
-# The Gram composition D'*D of the 1st order forward finite differences D with flat
-# boundary conditions writes:
+# The Gram composition D'*D of the 1st order forward finite differences D with flat boundary
+# conditions writes:
 #
 #     D'*D = [  1  -1   0   0   0
 #              -1   2  -1   0   0
@@ -388,7 +388,7 @@ function unsafe_vmul!(α::Number,
     nothing
 end
 
-#---------------------------------------------------------- 2ND ORDER FINITE DIFFERENCES -
+#------------------------------------------------------------ 2nd order finite differences -
 #
 # 2nd order finite differences with flat boundary conditions are computed by:
 #
@@ -552,8 +552,8 @@ end
 #             0   0   0   1  -3   2]            (5)
 #
 # The above is for `len ≥ 4`, with `len` the length of the dimension of interest, omitting
-# the Eq. (5) for `len = 4` and repeating Eq. (5) as necessary for the central rows for
-# `n ≥ 5`. For len = 3:
+# the Eq. (5) for `len = 4` and repeating Eq. (5) as necessary for the central rows for `n ≥
+# 5`. For len = 3:
 #
 #    D'*D = [ 2  -3   1                         (1)
 #            -3   6  -3                         (6)

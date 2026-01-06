@@ -9,8 +9,8 @@ exported by `LazyAlgebra` as the [`Id`](@ref) alias.
 
 The `LinearAlgebra` module of the standard library exports a constant `I` which also
 corresponds to the identity (but for usual matrices). When `I` is combined with any
-`LazyAlgebra` operator, it is recognized as an alias of `Id`. So that, for instance,
-`I/A`, `A\\I`, `Id/A` and `A\\Id` all yield `inv(A)` for any `LazyAlgebra` mapping `A`.
+`LazyAlgebra` operator, it is recognized as an alias of `Id`. So that, for instance, `I/A`,
+`A\\I`, `Id/A` and `A\\Id` all yield `inv(A)` for any `LazyAlgebra` mapping `A`.
 
 """
 Identity(shape::Colon=Colon()) = _Identity(shape)
@@ -56,14 +56,13 @@ output_shape(A::ShapedIdentity) = A.shape
 unsafe_vmul!(α::Number, A::Identity, x::AbstractArray, β::Number, y::AbstractArray) =
     unsafe_vcombine!(α, x, β, y)
 
-# Taking the adjoint or the inverse of the identity (whatever the i/o shape) does
-# nothing.
+# Taking the adjoint or the inverse of the identity (whatever the i/o shape) does nothing.
 Adjoint(A::Identity) = A
 Inverse(A::Identity) = A
 
 # Special rules for the universal identity which can be automatically simplified at
-# construction/compile time (this is not the case of the shaped identity whose shape must
-# be checked against that of the other arguments).
+# construction/compile time (this is not the case of the shaped identity whose shape must be
+# checked against that of the other arguments).
 #
 Prod(A::typeof(Id), B::typeof(Id)) = Id
 for T in (:Operator, :(Prod{<:Operator}), :Scaled)

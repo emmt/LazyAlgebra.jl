@@ -6,12 +6,12 @@
 """
     A = CroppingOperator(I, J, k = default_cropping_offset(I, J))
 
-builds a linear operator which implements cropping of arrays of shape `J` to produce
-arrays of shape `I`. By default, the output array is centered with respect to the input
-one (using the same conventions as `fftshift`). Optional argument `k` is to specify a
-different relative position; `k` may be an integer (to assume the same offset in all
-dimensions), a tuple of integers, or a Cartesian index. For an array `x` of shape `J`, the
-result of `A*x` is an array `y` of shape `I` defined by:
+Build a linear operator which implements cropping of arrays of shape `J` to produce arrays
+of shape `I`. By default, the output array is centered with respect to the input one (using
+the same conventions as `fftshift`). Optional argument `k` is to specify a different
+relative position; `k` may be an integer (to assume the same offset in all dimensions), a
+tuple of integers, or a Cartesian index. For an array `x` of shape `J`, the result of `A*x`
+is an array `y` of shape `I` defined by:
 
 ```julia
 ∀ i ∈ I, y[i] = x[i + k]
@@ -48,7 +48,7 @@ to_cropping_offset(::Val{N}, k::Integer) where {N} =
 """
     A = ZeroPaddingOperator(I, J, k = default_zeropadding_offset(I, J))
 
-builds a linear operator which implements zero-padding of arrays of shape `J` to produce
+Build a linear operator which implements zero-padding of arrays of shape `J` to produce
 arrays of shape `I`. By default, the input array is centered with respect to the output
 array (using the same conventions as `fftshift`). Optional argument `k` is to specify a
 different relative position; `k` may be an integer (to assume the same offset in all
@@ -137,7 +137,7 @@ end
 """
     LazyAlgebra.default_cropping_offset(I, J)
 
-yields the offset for the cropping operator such that the centers (in the same sense as
+Return the offset for the cropping operator such that the centers (in the same sense as
 assumed by `fftshift`) of the inner and outer regions of respective shapes `I` and `J` are
 coincident in a cropping operation.
 

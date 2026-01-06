@@ -6,13 +6,13 @@ This page describes the most important changes in `LazyAlgebra`. The format is b
 
 ## Wish list for future developments
 
-* Calling BLAS should be avoided in some cases, either because BLAS is slower than
-  optimized Julia code, or because BLAS may use more than one thread in inappropriate
-  places (e.g., Julia multi-threaded code).
+* Calling BLAS should be avoided in some cases, either because BLAS is slower than optimized
+  Julia code, or because BLAS may use more than one thread in inappropriate places (e.g.,
+  Julia multi-threaded code).
 
-* As far as possible, make the code more agnostic of the element type of the arguments.
-  This would be useful to deal with arrays whose elements have non-standard numerical
-  types as physical quantities in the `Unitful` package.
+* As far as possible, make the code more agnostic of the element type of the arguments. This
+  would be useful to deal with arrays whose elements have non-standard numerical types as
+  physical quantities in the `Unitful` package.
 
 * Functions `vproduct` and `vproduct!` to compute the Hadamar (elementwise) product of two
   *vectors* have been removed. Instead of `vproduct(x, y)`, simply call `Diag(x)*y`, `x .*
@@ -33,18 +33,18 @@ and changes.
   things. Hence, `LazyAlgebra` now consider only 3 different kinds of objects:
 
   - **Linear operators** are instances of `Operator` and can be arbitrarily associated in
-    sums and compositions. The coefficients of these operators may not be explicitly
-    stored. Adjoint, inverse, sums and compositions of operators are lazily remembered.
+    sums and compositions. The coefficients of these operators may not be explicitly stored.
+    Adjoint, inverse, sums and compositions of operators are lazily remembered.
 
   - **Vectors** are instances of `AbstractArray` and can be multiplied (in a similar sense
-    as the matrix-vector multiplication) by operators or linearly combined to produce
-    other *vectors*. For `LazyAlgebra` *vectors* are not necessarily 1-dimensional.
+    as the matrix-vector multiplication) by operators or linearly combined to produce other
+    *vectors*. For `LazyAlgebra` *vectors* are not necessarily 1-dimensional.
 
-  - **Multipliers** are scalar factors represented by instances of `Number` and can
-    multiply (or scale) operators and vectors. In operations that involve the scaling of a
-    vector by a scalar factor, the numerical precision (not the units if any) of the
-    factor is converted to be the same as that of the vector. Hence, no unwanted
-    conversions occur due to the precision of a multiplier.
+  - **Multipliers** are scalar factors represented by instances of `Number` and can multiply
+    (or scale) operators and vectors. In operations that involve the scaling of a vector by
+    a scalar factor, the numerical precision (not the units if any) of the factor is
+    converted to be the same as that of the vector. Hence, no unwanted conversions occur due
+    to the precision of a multiplier.
 
 - **Simplifications** that are automatically done by`LazyAlgebra` (i.e., at construction
   time of operators) must be **type-stable**. They may change multipliers but must not
@@ -57,8 +57,8 @@ and changes.
   result would depend on the value, not on the type, of `λ`), while `simplify(λ*A)` yields
   `A` if `isone(λ)` holds.
 
-- **Dimensionful numbers**, that is numbers with units, should be fully supported with
-  their usual meaning in linear algebra.
+- **Dimensionful numbers**, that is numbers with units, should be fully supported with their
+  usual meaning in linear algebra.
 
 - Using **neutral numbers** (from the
   [`Neutrals.jl`](https://github.com/emmt/LazyAlgebra.jl) package) for the multipliers
@@ -71,8 +71,8 @@ and changes.
 ### Breaking changes
 
 - Non-linear mappings are no longer supported. As a result, the `Jacobian` type, the
-  `jacobian`, `∇`, `primitive`, `variables`, and `is_linear` functions, and the
-  `LinearType` trait and its sub-types `Linear`, and `NonLinear` have been suppressed.
+  `jacobian`, `∇`, `primitive`, `variables`, and `is_linear` functions, and the `LinearType`
+  trait and its sub-types `Linear`, and `NonLinear` have been suppressed.
 
 - Abstract type `LinearMapping` renamed `Operator`.
 
@@ -94,39 +94,39 @@ and changes.
   and which has a slightly different semantic: `y = create_output(α,A,x)` is called to
   create an array `y` suitable to store `α*A*x` with `α` a scalar factor, `A` a linear
   operator, and `x` an input array. This change was needed because (i) the `scratch`
-  argument is no longer supported and (ii) multipliers may have units which has an
-  incidence on the element type of the result of `α*A*x` even though the floating-point
-  type of `α` is given by that of `A*x`. The method `create_output(α,A,x)` shall throw a
-  `DimensionMismatch` exception if the dimensions or axes of `x` are not compatible with
-  `A` so that `@inbounds` can be assumed by `LazyAlgebra.unsafe_vmul!` for computing
-  `α*A*x + β*y`.
+  argument is no longer supported and (ii) multipliers may have units which has an incidence
+  on the element type of the result of `α*A*x` even though the floating-point type of `α` is
+  given by that of `A*x`. The method `create_output(α,A,x)` shall throw a
+  `DimensionMismatch` exception if the dimensions or axes of `x` are not compatible with `A`
+  so that `@inbounds` can be assumed by `LazyAlgebra.unsafe_vmul!` for computing `α*A*x +
+  β*y`.
 
 - The inner product computed by `vdot` and the norms computed by `vnorm1`, `vnorm2`, and
   `vnorminf` now treat complexes as usually done in linear algebra. The only difference is
   that multi-dimensional arguments are considered as *vectors*.
 
-- Extending vectorized methods to other *vector* types shall only require to specialize
-  the *unsafe* version of the methods (the ones with the `unsafe_` prefix).
+- Extending vectorized methods to other *vector* types shall only require to specialize the
+  *unsafe* version of the methods (the ones with the `unsafe_` prefix).
 
 - `vzero!` renamed `vzeros!`.
 
-- Constructor of finite difference operator has a different syntax (for type-stability).
-  It is called as `Diff{L,D}()` with `L` the order of differentiation and `D` the
-  dimension(s) along which to perform the differentiation. If unspecified, `L=1` and
-  `D=Colon` are assumed. The latter indicates to differentiate along all dimensions.
+- Constructor of finite difference operator has a different syntax (for type-stability). It
+  is called as `Diff{L,D}()` with `L` the order of differentiation and `D` the dimension(s)
+  along which to perform the differentiation. If unspecified, `L=1` and `D=Colon` are
+  assumed. The latter indicates to differentiate along all dimensions.
 
 - `FFTOperator` renamed `FFT`.
 
 - **Sparse operator API** has been improved and simplified. In the new API, methods have
   more explicit names and some names (e.g., `each_row`, and `each_col`) have changed to
   avoid confusions (`eachrow`, and `eachcol` have different meaning in base Julia). Sparse
-  operators are not meant to be seen as abstract matrices (unlike Julia sparse matrices),
-  so the syntax `A[i,j]` to access the value at row `i` and column `j` is not implemented.
+  operators are not meant to be seen as abstract matrices (unlike Julia sparse matrices), so
+  the syntax `A[i,j]` to access the value at row `i` and column `j` is not implemented.
   Instead, `A[k]` is used to directly access the `k`-th structural non-zero and is a
   shortcut to `nonzeros(A)[k]`. For convenience, `nonzeros(A')` yields a lazily conjugated
-  array for a sparse operator `A` and `A'[k]` yields `conj(A[k])` while `A'[k] = v`
-  amounts to `A[k] = conj(v)`. The changes are summarized by the following table which
-  also compares the new API with that of `SparseArrays`:
+  array for a sparse operator `A` and `A'[k]` yields `conj(A[k])` while `A'[k] = v` amounts
+  to `A[k] = conj(v)`. The changes are summarized by the following table which also compares
+  the new API with that of `SparseArrays`:
 
 
   | Old `LazyAlgebra` API | New `LazyAlgebra` API     | `SparseArrays`       |
@@ -155,17 +155,17 @@ and changes.
   - `ij` is a row or column index depending on the storage format of `A`;
   - `k` is an index into the array of structural non-zeros.
 
-  With the new API, the code for the sparse operators is now around 1800 lines, compared
-  to 2500 previously.
+  With the new API, the code for the sparse operators is now around 1800 lines, compared to
+  2500 previously.
 
-- The `unveil` function has been removed. Call `parent(A)` for adjoint, or inverse
-  operators and `parent(parent(A))` on inverse-adjoint operators.
+- The `unveil` function has been removed. Call `parent(A)` for adjoint, or inverse operators
+  and `parent(parent(A))` on inverse-adjoint operators.
 
 - The `coefficients` function has been removed. Call `parent(A)` for diagonal operator or
   pseudo-matrix `A`.
 
-- `Gram` type has been removed. Use the syntax `G = A'*A` to build a Gram operator `G`
-  from the operator `A`.
+- `Gram` type has been removed. Use the syntax `G = A'*A` to build a Gram operator `G` from
+  the operator `A`.
 
 
 ### Non-breaking changes
@@ -174,23 +174,23 @@ and changes.
 
 ### Added
 
-- Most methods can be specialized for specific operator and/or array types by extending
-  the `LazyAlgebra.unsafe_$f` method that is called by method `$f` after having checked
-  that arguments have compatible axes and converted scalar multipliers (if any) to
-  suitable floating-point type without changing their units. This makes easier to extend
+- Most methods can be specialized for specific operator and/or array types by extending the
+  `LazyAlgebra.unsafe_$f` method that is called by method `$f` after having checked that
+  arguments have compatible axes and converted scalar multipliers (if any) to suitable
+  floating-point type without changing their units. This makes easier to extend
   `LazyAlgebra`.
 
 - Non-exported but public methods `LazyAlgebra.multiplier_type` and
-  `LazyAlgebra.convert_multiplier` may be used to infer the type of a scalar multiplier
-  and to convert it to a given floating-point type. These methods replace
+  `LazyAlgebra.convert_multiplier` may be used to infer the type of a scalar multiplier and
+  to convert it to a given floating-point type. These methods replace
   `multiplier_floatingpoint_type` and `promote_multiplier`.
 
-- `GeneralMatrix{T,M}` is a generalization of a matrix built over a multi-dimensional
-  array of coefficients of type `T` and whose `M` leading dimensions are considered as the
-  *rows* of the pseudo-matrix.
+- `GeneralMatrix{T,M}` is a generalization of a matrix built over a multi-dimensional array
+  of coefficients of type `T` and whose `M` leading dimensions are considered as the *rows*
+  of the pseudo-matrix.
 
-- `FlexibleMatrix` is a pseudo-matrix whose number of row dimensions depends on its
-  input argument.
+- `FlexibleMatrix` is a pseudo-matrix whose number of row dimensions depends on its input
+  argument.
 
 - Exported functions `get_precision(A)` and `adapt_precision(T, A)` to retrieve the
   numerical precision of `A` and to change the numerical precision of `A` to be the
@@ -207,14 +207,14 @@ and changes.
 - New `LazyAlgebra.MatrixShape` trait to represent the equivalent matrix shape of a linear
   operator.
 
-- New `LazyAlgebra.StorageOrder` trait to represent the storage order of the coefficients
-  of a linear operator.
+- New `LazyAlgebra.StorageOrder` trait to represent the storage order of the coefficients of
+  a linear operator.
 
 - New sub-module `LazyAlgebraAPI`. Execute `using LazyAlgebra.LazyAlgebraAPI` to make all
-  the public symbols of `LazyAlgebra` available in the current namespace. This includes
-  the symbols exported by `LazyAlgebra` and made available by `using LazyAlgebra` but also
-  the non-exported public symbols of `LazyAlgebra`. This is meant for developers and
-  foreign packages who want to extend `LazyAlgebra`.
+  the public symbols of `LazyAlgebra` available in the current namespace. This includes the
+  symbols exported by `LazyAlgebra` and made available by `using LazyAlgebra` but also the
+  non-exported public symbols of `LazyAlgebra`. This is meant for developers and foreign
+  packages who want to extend `LazyAlgebra`.
 
 ### Changed
 
@@ -225,12 +225,12 @@ and changes.
   - Taking care of units if any.
   - An optional observer can be provided to print information but also stop/continue
     iterations.
-  - The out-of-place method `conjgrad(A, b, x₀=vzeros(b); kwds...)` has the same API but
-    new keywords. The former in-place methods `conjgrad!(x, A, b; kwds...)` and
-    `conjgrad!(x, A, b, x₀; kwds...)` must be respectively replaced by `conjgrad!(A, b, x;
-    kwds...)` and `conjgrad!(A, b, vcopy!(x, x₀); kwds...)`. Providing additional
-    work-spaces is now done with a context, see `LazyAlgebra.ConjugateGradient.Context`, and
-    calling ``LazyAlgebra.ConjugateGradient.solve!` to run the algorithm.
+  - The out-of-place method `conjgrad(A, b, x₀=vzeros(b); kwds...)` has the same API but new
+    keywords. The former in-place methods `conjgrad!(x, A, b; kwds...)` and `conjgrad!(x, A,
+    b, x₀; kwds...)` must be respectively replaced by `conjgrad!(A, b, x; kwds...)` and
+    `conjgrad!(A, b, vcopy!(x, x₀); kwds...)`. Providing additional work-spaces is now done
+    with a context, see `LazyAlgebra.ConjugateGradient.Context`, and calling
+    ``LazyAlgebra.ConjugateGradient.solve!` to run the algorithm.
 
 ## Version 0.2.7 (2024-03-08)
 
@@ -276,8 +276,8 @@ and changes.
 
 ## Version 0.2.1
 
-- Replace `@assert` by `@certify`. Compared to `@assert`, the assertion made by
-  `@certify` may never be disabled whatever the optimization level.
+- Replace `@assert` by `@certify`. Compared to `@assert`, the assertion made by `@certify`
+  may never be disabled whatever the optimization level.
 
 - Provide default `vcreate` method for Gram operators.
 
@@ -288,16 +288,16 @@ and changes.
 - Sub-module `LazyAlgebra.Foundations` (previously `LazyAlgebra.LazyAlgebraLowLevel`)
   exports types and methods needed to extend or implement `LazyAlgebra` mappings.
 
-- The finite difference operator was too limited (finite differences were forcibly
-  computed along all dimensions and only 1st order derivatives were implemented) and slow
-  (because the leading dimension was used to store the finite differences along each
-  dimension). The new family of operators can compute 1st or 2nd derivatives along all or
-  given dimensions. The last dimension of the result is used to store finite differences
-  along each chosen dimensions; the operators are much faster (at least 3 times faster for
-  200×200 arrays for instance). Applying the Gram composition `D'*D` of a finite
-  difference operator `D` is optimized and is about 2 times faster than applying `D` and
-  then `D'`. Type `SimpleFiniteDifferences` is no longer available, use `Diff` instead
-  (`Diff` was available as a shortcut in previous releases).
+- The finite difference operator was too limited (finite differences were forcibly computed
+  along all dimensions and only 1st order derivatives were implemented) and slow (because
+  the leading dimension was used to store the finite differences along each dimension). The
+  new family of operators can compute 1st or 2nd derivatives along all or given dimensions.
+  The last dimension of the result is used to store finite differences along each chosen
+  dimensions; the operators are much faster (at least 3 times faster for 200×200 arrays for
+  instance). Applying the Gram composition `D'*D` of a finite difference operator `D` is
+  optimized and is about 2 times faster than applying `D` and then `D'`. Type
+  `SimpleFiniteDifferences` is no longer available, use `Diff` instead (`Diff` was available
+  as a shortcut in previous releases).
 
 ## Version 0.1.0
 
@@ -311,31 +311,31 @@ and changes.
 
 - Method `∇(A,x)` yields the Jacobian of the mapping `A` at the variables `x`. If `A` is a
   linear-mapping, then `∇(A,x)` yields `A` whatever `x`. The new type `Jacobian` type is
-  used to denote the Jacobian of a non-linear mapping. The notation `A'`, which is
-  strictly equivalent to `adjoint(A)`, is only allowed for linear mappings and always
-  denote the adjoint (conjugate transpose) of `A`.
+  used to denote the Jacobian of a non-linear mapping. The notation `A'`, which is strictly
+  equivalent to `adjoint(A)`, is only allowed for linear mappings and always denote the
+  adjoint (conjugate transpose) of `A`.
 
-- Method `gram(A)` yields `A'*A` for the linear mapping `A`. An associated *decorated
-  type* `Gram` is used to denote this specific expression and some constructions are
-  automatically recognized as valid Gram operators. Making this work for more complex
-  constructions (like sums and compositions) would require to change the simplification
-  rules (notably for the adjoint of such constructions).
+- Method `gram(A)` yields `A'*A` for the linear mapping `A`. An associated *decorated type*
+  `Gram` is used to denote this specific expression and some constructions are automatically
+  recognized as valid Gram operators. Making this work for more complex constructions (like
+  sums and compositions) would require to change the simplification rules (notably for the
+  adjoint of such constructions).
 
-- New `gram(A)` method which yields `A'*A` and alias `Gram{typeof(A)}` to represent the
-  type of this construction.
+- New `gram(A)` method which yields `A'*A` and alias `Gram{typeof(A)}` to represent the type
+  of this construction.
 
 - Add cropping and zero-padding operators.
 
 - Provide `unpack!` method to unpack the non-zero coefficients of a sparse operator and
   extend `reshape` to be applicable to a sparse operator.
 
-- Provide utility method `dimensions` which yields a dimension list out of its arguments
-  and associated union type `Dimensions`.
+- Provide utility method `dimensions` which yields a dimension list out of its arguments and
+  associated union type `Dimensions`.
 
 - Provide `lgemv` and `lgemv!` for *Lazily Generalized Matrix-Vector multiplication* and
   `lgemm` and `lgemm!` for *Lazily Generalized Matrix-Matrix multiplication*. The names of
-  these methods are reminiscent of `xGEMV` and `xGEMM` BLAS subroutines in LAPACK (with
-  `x` the prefix corresponding to the type of the arguments).
+  these methods are reminiscent of `xGEMV` and `xGEMM` BLAS subroutines in LAPACK (with `x`
+  the prefix corresponding to the type of the arguments).
 
 - Add `fftfreq`, `rfftdims`, `goodfftdim` and `goodfftdims` in `LazyAlgebra.FFT` and
   re-export `fftshift` and `ifftshift` when `using LazyAlgebra.FFT`.
@@ -367,29 +367,29 @@ and changes.
 - Exported methods and types have been limited to the ones for the end-user. Use `using
   LazyAlgebra.LazyAlgebraLowLevel` to use low-level symbols.
 
-- Methods `has_oneto_axes`, `densearray`, `densevector` and `densematrix` have been
-  replaced by `has_standard_indexing` and `to_flat_array` from `ArrayTools`.
+- Methods `has_oneto_axes`, `densearray`, `densevector` and `densematrix` have been replaced
+  by `has_standard_indexing` and `to_flat_array` from `ArrayTools`.
 
 - The exported constant `I = Identity()` has been renamed as `Id` to avoid conflicts with
   standard `LinearAlgebra` package. `Id` is systematically exported while `I` was only
-  exported if not already defined in the `Base` module. The constant `LinearAlgebra.I`
-  and, more generally, any instance of `LinearAlgebra.UniformScaling` is recognized by
+  exported if not already defined in the `Base` module. The constant `LinearAlgebra.I` and,
+  more generally, any instance of `LinearAlgebra.UniformScaling` is recognized by
   `LazyAlgebra` in the sense that they behave as the identity when combined with any
   `LazyAlgebra` mapping.
 
 - `operand` and `operands` are deprecated in favor of `unveil` and `terms` which are less
-  confusing. The `terms` method behaves exactly like the former `operands` method.
-  Compared to `operand`, the `unveil` method has a better defined behavior: for a
-  *decorated* mapping (that is an instance of `Adjoint`, `Inverse` or `InverseAdjoint`),
-  it yields the embedded mapping; for other `LazyAlgebra` mappings (including scaled
-  ones), it returns its argument; for an instance of `LinearAlgebra.UniformScaling`, it
-  returns the equivalent `LazyAlgebra` mapping (that is `λ⋅Id`). To get the mapping
-  embedded in a scaled mapping, call the `unscaled` method.
+  confusing. The `terms` method behaves exactly like the former `operands` method. Compared
+  to `operand`, the `unveil` method has a better defined behavior: for a *decorated* mapping
+  (that is an instance of `Adjoint`, `Inverse` or `InverseAdjoint`), it yields the embedded
+  mapping; for other `LazyAlgebra` mappings (including scaled ones), it returns its
+  argument; for an instance of `LinearAlgebra.UniformScaling`, it returns the equivalent
+  `LazyAlgebra` mapping (that is `λ⋅Id`). To get the mapping embedded in a scaled mapping,
+  call the `unscaled` method.
 
 - `unscaled` is introduced as the counterpart of `multiplier` so that
-  `multiplier(A)*unscaled(A) === A` always holds. Previously it was wrongly suggested to
-  use `operand` (now `unveil`) for that but, then the strict equality was only true for
-  `A` being a scaled mapping. These methods also work for instances of
+  `multiplier(A)*unscaled(A) === A` always holds. Previously it was wrongly suggested to use
+  `operand` (now `unveil`) for that but, then the strict equality was only true for `A`
+  being a scaled mapping. These methods also work for instances of
   `LinearAlgebra.UniformScaling`.
 
 - `NonuniformScalingOperator` deprecated in favor of `NonuniformScaling`.
@@ -398,18 +398,18 @@ and changes.
 
 - The `CroppingOperators` sub-module has been renamed `Cropping`.
 
-- Make constructor of a sparse operator (`SparseOperator`) reminiscent of the
-  `sparse` method. Row and column dimensions can be a single scalar.
+- Make constructor of a sparse operator (`SparseOperator`) reminiscent of the `sparse`
+  method. Row and column dimensions can be a single scalar.
 
-- A sparse operator (`SparseOperator`) can be converted to a regular array or
-  to a sparse matrix (`SparseMatrixCSC`) and reciprocally.
+- A sparse operator (`SparseOperator`) can be converted to a regular array or to a sparse
+  matrix (`SparseMatrixCSC`) and reciprocally.
 
-- Trait constructors now return trait instances (instead of type). This is more
-  *natural* in Julia and avoid having different method names.
+- Trait constructors now return trait instances (instead of type). This is more *natural* in
+  Julia and avoid having different method names.
 
-- Skip bound checking when applying a `SparseOperator` (unless the operator
-  structure has been corrupted, checking the dimensions of the arguments is
-  sufficient to insure that indices are correct).
+- Skip bound checking when applying a `SparseOperator` (unless the operator structure has
+  been corrupted, checking the dimensions of the arguments is sufficient to insure that
+  indices are correct).
 
 - The `apply!` method has been rewritten to allow for optimized combination to do `y =
   α*Op(A)⋅x + β*y` (as in LAPACK and optimized if scalars have values 0, ±1):
@@ -425,14 +425,13 @@ and changes.
   `NonuniformScaling` is self-adjoint if its coefficients are reals, not if they are
   complexes. This also overcomes the fact that multiple heritage is not possible in Julia.
 
-- `contents`, too vague, has been suppressed and replaced by `operands` or
-  `operand`. Accessor `multiplier` is provided to query the multiplier of a
-  scaled mapping. Methods `getindex`, `first` and `last` are extended. In
-  principle, direct reference to a field of any base mapping structures is no
-  longer needed.
+- `contents`, too vague, has been suppressed and replaced by `operands` or `operand`.
+  Accessor `multiplier` is provided to query the multiplier of a scaled mapping. Methods
+  `getindex`, `first` and `last` are extended. In principle, direct reference to a field of
+  any base mapping structures is no longer needed.
 
-- Complete rewrite of the rules for simplifying complex constructions involving
-  compositions and linear combination of mappings.
+- Complete rewrite of the rules for simplifying complex constructions involving compositions
+  and linear combination of mappings.
 
 - `show` has been extend for mapping constructions.
 
@@ -443,9 +442,9 @@ and changes.
 - The multiplier of a scaled mapping can now be any number although applying linear
   combination of mappings is still limited to real-valued multipliers.
 
-- Optimal, an more general, management of temporaries is now done via the `scratch`
-  argument of the `vcreate` and `apply!` methods. `InPlaceType` trait and
-  `is_applicable_in_place` method have been removed.
+- Optimal, an more general, management of temporaries is now done via the `scratch` argument
+  of the `vcreate` and `apply!` methods. `InPlaceType` trait and `is_applicable_in_place`
+  method have been removed.
 
 ### Removed
 

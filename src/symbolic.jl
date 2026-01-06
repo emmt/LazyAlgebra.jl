@@ -4,7 +4,7 @@
 # Implement symbolic operators in LazyAlgebra. These operators have symbolic names and are
 # mainly used for debugging or demonstration.
 #
-#-----------------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------------------
 
 struct SymbolicOperator <: Operator
     name::Symbol

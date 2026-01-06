@@ -3,25 +3,25 @@
 #
 # Implement non-uniform scaling, a.k.a. diagonal operator, in LazyAlgebra.
 #
-#-----------------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------------------
 
 """
     A = Diag(w)
 
 yields a non-uniform scaling linear mapping whose effect is to apply elementwise
-multiplication of its argument by the scaling factors `w`. This operator can be thought as
-a generalized *diagonal* operator.
+multiplication of its argument by the scaling factors `w`. This operator can be thought as a
+generalized *diagonal* operator.
 
-The `LinearAlgebra.diag` method (exported by `using LazyAlgebra`) can be called to
-retrieve the scaling factors:
+The `LinearAlgebra.diag` method (exported by `using LazyAlgebra`) can be called to retrieve
+the scaling factors:
 
     using LinearAlgebra
     W = Diag(A)
     diag(W) === A  # this is true
 
 !!! note
-    Beware of the differences between the [`Diag`](@ref) (with an uppercase 'D') and
-    `diag` (with an lowercase 'd') methods.
+    Beware of the differences between the [`Diag`](@ref) (with an uppercase 'D') and `diag`
+    (with an lowercase 'd') methods.
 
 """ Diag
 
@@ -39,8 +39,8 @@ LinearAlgebra.diag(A::Adjoint{<:Diag}) = lazymap(conj, diag(A[]))
 LinearAlgebra.diag(A::Inverse{<:Diag}) = lazymap(inv, diag(A[]))
 LinearAlgebra.diag(A::InverseAdjoint{<:Diag}) = lazymap(inv∘conj, diag(A[][]))
 
-# Conversion constructors. The rationale is that `Diag(A) -> A` if `A` behaves as a
-# diagonal operator and implements `diag(A)`.
+# Conversion constructors. The rationale is that `Diag(A) -> A` if `A` behaves as a diagonal
+# operator and implements `diag(A)`.
 Diag(A::DiagonalOperator) = A
 
 # Constructors for identity and uniform scaling.
@@ -73,8 +73,8 @@ for (T, B, f) in ((:(                 Diag ), :(              A),   :(*)),
     @eval begin
         function unsafe_vmul!(α::Number, A::$T, x::AbstractArray,
                               β::Number, y::AbstractArray)
-            # Axes have been checked, `α` and `β` have been converted, and `α` is not
-            # zero, so we can directly call `unsafe_vmap!`.
+            # Axes have been checked, `α` and `β` have been converted, and `α` is not zero,
+            # so we can directly call `unsafe_vmap!`.
             unsafe_vmap!(α, $f, diag($B), x, β, y)
             return y
         end

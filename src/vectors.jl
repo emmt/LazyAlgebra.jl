@@ -4,7 +4,7 @@
 # dimensions are considered as *vectors*, the only requirements are that, when combining
 # *vectors*, they have the same axes (i.e., for most arrays, the same dimensions).
 
-#--------------------------------------------------------------------------------- VNORM -
+#----------------------------------------------------------------------------------- VNORM -
 
 """
     vnorm1([T::Type,] x)
@@ -55,8 +55,8 @@ end
 """
     vnorminf([T::Type,] x)
 
-Return the infinite-norm of `x` treated as a *vector*, that is the maximum absolute value
-of the elements of `x`. Equivalent formulations are:
+Return the infinite-norm of `x` treated as a *vector*, that is the maximum absolute value of
+the elements of `x`. Equivalent formulations are:
 
     LinearAlgebra.norm(@view(x[:]), Inf)
     mapreduce(abs, max, x)
@@ -84,14 +84,14 @@ for func in (:vnorm2, :vnorm1, :vnorminf)
     end
 end
 
-#---------------------------------------------------------------------------------- VDOT -
+#------------------------------------------------------------------------------------ VDOT -
 
 """
      vdot([T::Type,] [w::AbstractArray,] x::AbstractArray, y::AbstractArray)
 
 Return the inner product of `w`, `x`, and `y` treated as *vectors*; that is, the sum of
-`conj(x[i])*y[i]` or, if `w` is specified, the sum of `w[i]*conj(x[i])*y[i]` (`w` shall
-have real-valued elements), for all indices `i`. Optional argument `T` is to impose the
+`conj(x[i])*y[i]` or, if `w` is specified, the sum of `w[i]*conj(x[i])*y[i]` (`w` shall have
+real-valued elements), for all indices `i`. Optional argument `T` is to impose the
 floating-point type of the result.
 
 See also [`LazyAlgebra.unsafe_vdot`](@ref).
@@ -114,10 +114,10 @@ end
 """
     vdot([w::Real,] x::Union{Real,Complex}, y::Union{Real,Complex})
 
-Return the inner product of `w`, `x`, and `y` both treated as 1-element *vectors*; that
-is, `conj(x)*y` or, if `w` is specified, `w*conj(x)*y` (`w` shall have real-valued
-elements). This method is intended to be called by [`LazyAlgebra.unsafe_vdot`](@ref) on
-the entries of its input *vectors*. This method may be extended for specific number types.
+Return the inner product of `w`, `x`, and `y` both treated as 1-element *vectors*; that is,
+`conj(x)*y` or, if `w` is specified, `w*conj(x)*y` (`w` shall have real-valued elements).
+This method is intended to be called by [`LazyAlgebra.unsafe_vdot`](@ref) on the entries of
+its input *vectors*. This method may be extended for specific number types.
 
 """
 vdot(x::Real,    y::Real   ) = x*y
@@ -146,9 +146,9 @@ vdot(w::Union{<:Real,AbstractQuantity{<:Real}}, x::Number,  y::Number) = w*vdot(
 """
     LazyAlgebra.unsafe_vdot([w::AbstractArray,] x::AbstractArray, y::AbstractArray)
 
-Return the scalar product of `x` by `y` both treated as *vectors*. This method shall only
-be called after having asserted that `axes(x) == axes(y)` holds. This method may be
-extended for specific array types.
+Return the scalar product of `x` by `y` both treated as *vectors*. This method shall only be
+called after having asserted that `axes(x) == axes(y)` holds. This method may be extended
+for specific array types.
 
 See also [`LazyAlgebra.vdot`](@ref).
 
@@ -174,8 +174,8 @@ end
 """
     vdot([T,] sel::AbstractVector{Int}, x::AbstractArray, y::AbstractArray)
 
-Return the inner product of `x` and `y` restricted to the indices in `sel`; that is, the
-sum of `vdot(x[i], y[i])` for all `i ∈ sel`.
+Return the inner product of `x` and `y` restricted to the indices in `sel`; that is, the sum
+of `vdot(x[i], y[i])` for all `i ∈ sel`.
 
 """
 function vdot(sel::AbstractVector{Int}, x::AbstractArray, y::AbstractArray)
@@ -207,7 +207,7 @@ end
 @noinline out_of_range_selection() =
     throw_bad_argument("some selected indices are out of range")
 
-#--------------------------------------------------------------------------------- VCOPY -
+#----------------------------------------------------------------------------------- VCOPY -
 
 """
     vcopy(x::AbstractArray)
@@ -227,8 +227,8 @@ end
 """
     vcopy!(dst, src) -> dst
 
-Copy the content of `src` into `dst` and return `dst` throwing  an exception if `dst`
-and `src` do not have the same axes.
+Copy the content of `src` into `dst` and return `dst` throwing an exception if `dst` and
+`src` do not have the same axes.
 
 See also [`copyto!`](@ref), [`vcopy`](@ref), [`vswap!`](@ref), and
 [`LazyAlgebra.unsafe_vcopy!`](@ref).
@@ -248,8 +248,8 @@ end
 Copy the values of `src` into `dst`.
 
 !!! warning
-    This function shall only be called if `dst` and `src` are different objects with the
-    the same axes.
+    This function shall only be called if `dst` and `src` are different objects with the the
+    same axes.
 
 See also [`vcopy!](@ref).
 
@@ -259,7 +259,7 @@ function unsafe_vcopy!(dst::AbstractArray, src::AbstractArray)
     return nothing
 end
 
-#------------------------------------------------------------------------------- VCREATE -
+#--------------------------------------------------------------------------------- VCREATE -
 
 """
     vcreate(x::AbstractArray)
@@ -271,13 +271,13 @@ See also [`vcopy`](@ref).
 """
 vcreate(x::AbstractArray) = similar(x, float(eltype(x)))
 
-#--------------------------------------------------------------------------------- VSWAP -
+#----------------------------------------------------------------------------------- VSWAP -
 
 """
     vswap!(x, y)
 
-Exchange the contents of `x` and `y` throwing an exception is if `x` and `y` do not have
-the same axes.
+Exchange the contents of `x` and `y` throwing an exception is if `x` and `y` do not have the
+same axes.
 
 See also [`vcopy!`](@ref) and [`LazyAlgebra.unsafe_vswap!`](@ref).
 
@@ -296,8 +296,8 @@ end
 Swap the values of `x` and `y`.
 
 !!! warning
-    This function shall only be called by if `x` and `y` are different objects with the
-    same axes.
+    This function shall only be called by if `x` and `y` are different objects with the same
+    axes.
 
 See also [`vswap!](@ref).
 
@@ -311,21 +311,21 @@ function unsafe_vswap!(x::AbstractArray, y::AbstractArray)
     return nothing
 end
 
-#--------------------------------------------------------------------------------- VFILL -
+#----------------------------------------------------------------------------------- VFILL -
 
 """
     vfill!(x, α) -> x
 
-Set all elements of `x` with the scalar value `α` and return `x`. The default
-implementation just calls `fill!` with `α` convereted to `eltype(x)` but this method may
-be specialized for specific types of variables `x`.
+Set all elements of `x` with the scalar value `α` and return `x`. The default implementation
+just calls `fill!` with `α` convereted to `eltype(x)` but this method may be specialized for
+specific types of variables `x`.
 
 See also [`vzeros!`](@ref), and [`vzeros`](@ref).
 
 """
 vfill!(x::AbstractArray, α::Number) = fill!(x, as(eltype(x), α))
 
-#------------------------------------------------------------------ VZEROS, VONES, VNANS -
+#-------------------------------------------------------------------- VZEROS, VONES, VNANS -
 
 """
     vzeros!(x) -> x
@@ -352,8 +352,7 @@ vzeros(x::AbstractArray) = vzeros!(vcreate(x))
     vones!(x) -> x
 
 Fill `x` with ones and return it. The default implementation just calls `fill!(x,
-oneunit(eltype(x)))` but this method may be specialized for specific types of variables
-`x`.
+oneunit(eltype(x)))` but this method may be specialized for specific types of variables `x`.
 
 See also [`vfill!`](@ref) and [`vones`](@ref).
 
@@ -392,7 +391,7 @@ See also [`vfill!`](@ref) and [`vnans`](@ref).
 """
 vnans!(x::AbstractArray) = vfill!(x, NaN*unit(eltype(x)))
 
-#-------------------------------------------------------------------------------- VSCALE -
+#---------------------------------------------------------------------------------- VSCALE -
 
 """
     y = vscale(α, x)
@@ -410,16 +409,16 @@ See also [`vscale!`](@ref).
 """
 vscale(x::AbstractArray, α::Number) = vscale(α, x)
 function vscale(α::Number, x::AbstractArray)
-    # Convert the multiplier to infer the element type `T` of the result. The extra cost
-    # of converting the multiplier twice (if any, since further conversions should leave
-    # the multiplier unchanged) is certainly negligible compared to the allocation and
+    # Convert the multiplier to infer the element type `T` of the result. The extra cost of
+    # converting the multiplier twice (if any, since further conversions should leave the
+    # multiplier unchanged) is certainly negligible compared to the allocation and
     # computation times.
     α = convert_multiplier(α, eltype(x))
     T = output_eltype(α, x)
     y = similar(x, T)
 
-    # Call in-place method at a stage to dispatch on the value of `α` because array axes
-    # are guaranteed to be the same.
+    # Call in-place method at a stage to dispatch on the value of `α` because array axes are
+    # guaranteed to be the same.
     unsafe_vscale!(Val(:alpha), y, α, x)
     return y
 end
@@ -434,9 +433,9 @@ Overwrite `x` with `α*x` and return `x`. Another possibility is:
 
 to overwrite `y` with `α*x` and returns `y`.
 
-Multiplier `α` shall be dimensionless. The convention is that the destination is
-zero-filled if `α == 𝟘` holds (whatever the values of `x`) and that nothing is done if `y`
-is unspecified (topmost cases) or if `y` is `x` and if `α == 𝟙` holds.
+Multiplier `α` shall be dimensionless. The convention is that the destination is zero-filled
+if `α == 𝟘` holds (whatever the values of `x`) and that nothing is done if `y` is
+unspecified (topmost cases) or if `y` is `x` and if `α == 𝟙` holds.
 
 See also [`vscale`](@ref), [`vzeros!`](@ref), [`LinearAlgebra.rmul!](@ref), and
 [`LazyAlgebra.unsafe_vscale!`](@ref).
@@ -490,9 +489,9 @@ The statement:
 
     isone(β) || unsafe_vscale!(y, β)
 
-may be used in an *unsafe method* like [`LazyAlgebraunsafe_vmul!`](@ref) to pre-scale an
-output array `y` by its multiplier `β` provided `β` has been converted to an efficient
-type as should be the case at this stage.
+may be used in an *unsafe method* like [`LazyAlgebra.unsafe_vmul!`](@ref) to pre-scale an
+output array `y` by its multiplier `β` provided `β` has been converted to an efficient type
+as should be the case at this stage.
 
 !!! warning
     This function shall be called with `α` converted to a efficient type and, if `y` is
@@ -515,7 +514,7 @@ function unsafe_vscale!(y::AbstractArray, α::Number, x::AbstractArray)
     return nothing
 end
 
-#------------------------------------------------------------------------------ VPRODUCT -
+#-------------------------------------------------------------------------------- VPRODUCT -
 
 """
     vproduct(x, y) -> z
@@ -539,8 +538,8 @@ end
 Overwrite `dst` with the elementwise multiplication (Hadamar product) of `x` by `y`.
 
 Optional argument `sel` is a selection of indices to which apply the operation. The
-destination is left unchanged for indices not in `sel`. The behavior is unpredictable if
-the indices in `sel` are not all unique.
+destination is left unchanged for indices not in `sel`. The behavior is unpredictable if the
+indices in `sel` are not all unique.
 
 See also [`vproduct`](@ref) and [`LazyAlgebra.unsafe_vproduct`](@ref).
 
@@ -565,8 +564,8 @@ end
     LazyAlgebra.unsafe_vproduct!(dst, [sel,] x, y)
 
 Overwrite `dst` with the elementwise multiplication (Hadamar product) of `x` by `y`. This
-method is called by [`vproduct!`](@ref) and [`vproduct`](@ref) after checking all
-arguments so that `@inbounds` can be assumed for performing the operation.
+method is called by [`vproduct!`](@ref) and [`vproduct`](@ref) after checking all arguments
+so that `@inbounds` can be assumed for performing the operation.
 
 """
 function unsafe_vproduct!(dst::AbstractArray,
@@ -594,7 +593,7 @@ function unsafe_vproduct!(dst::AbstractArray, sel::AbstractVector{Int},
     return nothing
 end
 
-#------------------------------------------------------------------------------- VUPDATE -
+#--------------------------------------------------------------------------------- VUPDATE -
 
 """
     vupdate!(y, [sel,] α, x) -> y
@@ -603,8 +602,8 @@ overwrites `y` with `α*x + y` and returns `y`. The code is optimized for some s
 values of the multiplier `α`. For instance, if `α` is zero, then `y` is left unchanged
 without using `x`.
 
-Optional argument `sel` is a selection of indices to which apply the operation. Note that
-if an index is repeated, the operation will be performed several times at this location.
+Optional argument `sel` is a selection of indices to which apply the operation. Note that if
+an index is repeated, the operation will be performed several times at this location.
 
 See also [`vscale!`](@ref), [`vcombine!](@ref), and [`LazyAlgebra.unsafe_vupdate!](@ref).
 
@@ -651,8 +650,8 @@ end
 """
     LazyAlgebra.unsafe_vupdate!(y, [sel,] α, x)
 
-This method is called by [`vupdate!`](@ref) to overwrites `y` with `α*x + y` if and only
-if `iszero(α)` does not hold. This method can assume `@inbounds` in its computations.
+This method is called by [`vupdate!`](@ref) to overwrites `y` with `α*x + y` if and only if
+`iszero(α)` does not hold. This method can assume `@inbounds` in its computations.
 
 !!! note
     This function may be extended to support specific array types.
@@ -689,7 +688,7 @@ function unsafe_vupdate!(y::AbstractArray, sel::AbstractVector{Int},
     return nothing
 end
 
-#------------------------------------------------------------------------------ VCOMBINE -
+#-------------------------------------------------------------------------------- VCOMBINE -
 
 """
     vcombine(α, x, β, y) -> z
@@ -723,25 +722,23 @@ end
 """
     vcombine!(z=y, α, x, β, y) -> z
 
-Overwrite `z` with the linear combination `α*x + β*y` and return `z`. If `z` is omitted,
-`z = y` is assumed.
+Overwrite `z` with the linear combination `α*x + β*y` and return `z`. If `z` is omitted, `z
+= y` is assumed.
 
-An exception is thrown if `x`, `y`, and `z`, do mot have the same axes or if argument
-types or units are incompatible.
+An exception is thrown if `x`, `y`, and `z`, do mot have the same axes or if argument types
+or units are incompatible.
 
-The code is optimized for some specific values of the multipliers `α` and `β`. For
-instance, if `α` (resp. `β`) is zero, then the prior contents of `x` (resp. `y`) is not
-used.
+The code is optimized for some specific values of the multipliers `α` and `β`. For instance,
+if `α` (resp. `β`) is zero, then the prior contents of `x` (resp. `y`) is not used.
 
-The source(s) and the destination can be the same. For instance, the following lines
-of code all produce the same result (stored in `y`):
+The source(s) and the destination can be the same. For instance, the following lines of code
+all produce the same result (stored in `y`):
 
     vcombine!(y, α, x, 𝟙, y)
     vcombine!(α, x, 𝟙, y)
     vupdate!(y, α, x)
 
-The [`LazyAlgebra.unsafe_vcombine!](@ref) may be extended to implement specific array
-types.
+The [`LazyAlgebra.unsafe_vcombine!](@ref) may be extended to implement specific array types.
 
 See also [`vcombine`](@ref), [`vscale!`](@ref), [`vupdate!](@ref),
 [`LazyAlgebra.vcombine!](@ref), and [`LazyAlgebra.unsafe_vcombine!](@ref).
@@ -852,8 +849,8 @@ Overwrite `z` with `α*x + β*y`.
     This function may be extended to support specific array types.
 
 !!! warning
-    This function shall only be called after having checked that `x`, `y`, and `z` have
-    the same axes and with `α` and `β` converted to efficient types.
+    This function shall only be called after having checked that `x`, `y`, and `z` have the
+    same axes and with `α` and `β` converted to efficient types.
 
 See also [`vcombine!`](@ref).
 
@@ -867,7 +864,7 @@ function unsafe_vcombine!(z::AbstractArray,
     return nothing
 end
 
-#---------------------------------------------------------------------------------- VMAP -
+#------------------------------------------------------------------------------------ VMAP -
 
 """
     LazyAlgebra.vmap!(y, α, f, w, x) -> y
@@ -876,8 +873,8 @@ overwrites `y` with `α*f.(w, x)` and returns `y`. Other possibility:
 
     LazyAlgebra.vmap!(α, f, w, x, β, y) -> y
 
-to overwrite `y` with `α*f.(w, x) + β*y`. An exception is thrown if `w`, `x`, and `y` do
-not have the same axes.
+to overwrite `y` with `α*f.(w, x) + β*y`. An exception is thrown if `w`, `x`, and `y` do not
+have the same axes.
 
 See also [`LazyAlgebra.unsafe_vmap!`](@ref).
 
@@ -938,8 +935,8 @@ end
 Overwrite `y` with `y[i] = α*f(w[i], x[i]) + β*y[i])`.
 
 !!! warning
-    This method assumes that `w`, `x`, and `y` have the same axes, and that multipliers
-    `α` and `β` have efficient types.
+    This method assumes that `w`, `x`, and `y` have the same axes, and that multipliers `α`
+    and `β` have efficient types.
 
 """
 function unsafe_vmap!(α::Number, f::Function, w::AbstractArray, x::AbstractArray,

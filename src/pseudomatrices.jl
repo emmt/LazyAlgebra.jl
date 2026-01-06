@@ -5,30 +5,28 @@
     A = PseudoMatrix{T}(arr, Dims{L})
     A = PseudoMatrix(arr, Dims{L})
 
-Build a linear operator `A` whose coefficients are given by a multi-dimensional array
-`arr` and whose behavior generalizes the definition of the matrix-vector product.
+Build a linear operator `A` whose coefficients are given by a multi-dimensional array `arr`
+and whose behavior generalizes the definition of the matrix-vector product.
 
-Type parameter `T` is the element type of the stored coefficients. If `arr` has a
-different type of element than `T` it is automatically converted, otherwise the
-pseudo-matrix `A` shares its coefficients with `arr`. The array storing the coefficients
-of `A` can be retrieved by `parent(A)`. If `T` is unspecified, `T = eltype(arr)` is
-assumed.
+Type parameter `T` is the element type of the stored coefficients. If `arr` has a different
+type of element than `T` it is automatically converted, otherwise the pseudo-matrix `A`
+shares its coefficients with `arr`. The array storing the coefficients of `A` can be
+retrieved by `parent(A)`. If `T` is unspecified, `T = eltype(arr)` is assumed.
 
-Type parameter `L` is the number of consecutive *leading dimensions* of `arr` considered
-as the *row index* of the pseudo-matrix `A`, the remaining consecutive trailing dimensions
+Type parameter `L` is the number of consecutive *leading dimensions* of `arr` considered as
+the *row index* of the pseudo-matrix `A`, the remaining consecutive trailing dimensions
 being considered as the *column index* of the pseudo-matrix `A`. In other words, an
 expression like `y = A*x` implies that the axes of `x` match the `ndims(arr) - L` trailing
 axes of `arr` and that the axes of the result `y` are the `L` leading axes of `arr`.
 
-If `arr` is a matrix (i.e., a 2-dimensional abstract array), then `Operator(arr)`
-is a shortcut to `PseudoMatrix(arr,Dims{1})`.
+If `arr` is a matrix (i.e., a 2-dimensional abstract array), then `Operator(arr)` is a
+shortcut to `PseudoMatrix(arr,Dims{1})`.
 
-Replacing `Dims{L}` by a colon `:` or type parameters `{T,L}` by `{T,:}` yields a
-*flexible* pseudo-matrix whose number of row dimensions is not fixed. See
-[`FlexibleMatrix`](@ref) for a more convenient constructor.
+Replacing `Dims{L}` by a colon `:` or type parameters `{T,L}` by `{T,:}` yields a *flexible*
+pseudo-matrix whose number of row dimensions is not fixed. See [`FlexibleMatrix`](@ref) for
+a more convenient constructor.
 
-See also [`FlexibleMatrix`](@ref), [`Operator`](@ref), [`vmul`](@ref), and
-[`vmul!`](@ref).
+See also [`FlexibleMatrix`](@ref), [`Operator`](@ref), [`vmul`](@ref), and [`vmul!`](@ref).
 
 """
 PseudoMatrix(arr::AbstractArray{T}, ::Type{<:Dims{L}}) where {T,L} = PseudoMatrix{T,L}(arr)
@@ -41,19 +39,19 @@ PseudoMatrix{T,L}(arr::AbstractArray) where {T,L} =
     A = PseudoMatrix{T=eltype(arr),Colon}(arr)
     A = PseudoMatrix{T=eltype(arr)}(arr, :)
 
-Build a *flexible matrix* `A` that is a linear operator whose coefficients are given by
-the multi-dimensional array `arr` and whose behavior generalizes the definition of the
+Build a *flexible matrix* `A` that is a linear operator whose coefficients are given by the
+multi-dimensional array `arr` and whose behavior generalizes the definition of the
 matrix-vector product. Expression like `y = A*x` requires that the axes of `x` match the
-trailing axes of `arr` and yields a result `y` whose axes are the remaining leading axes
-of `arr`, such that `axes(arr) == (axes(y)..., axes(x)...)` holds. Applying the adjoint of
-`A` as in `y = A'*x` requires that the dimensions of `x` match the leading dimension of
-`arr` and yields a result `y` whose dimensions are the remaining trailing dimensions of
-`arr`, such that `axes(arr) == (axes(x)..., axes(y)...)` holds.
+trailing axes of `arr` and yields a result `y` whose axes are the remaining leading axes of
+`arr`, such that `axes(arr) == (axes(y)..., axes(x)...)` holds. Applying the adjoint of `A`
+as in `y = A'*x` requires that the dimensions of `x` match the leading dimension of `arr`
+and yields a result `y` whose dimensions are the remaining trailing dimensions of `arr`,
+such that `axes(arr) == (axes(x)..., axes(y)...)` holds.
 
-Type parameter `T` is the element type of the stored coefficients. If `arr` has a
-different type of element than `T` it is automatically converted, otherwise the flexible
-matrix `A` shares its coefficients with `arr`. The array storing the coefficients of `A`
-can be retrieved by `parent(A)`. If `T` is unspecified, `T = eltype(arr)` is assumed.
+Type parameter `T` is the element type of the stored coefficients. If `arr` has a different
+type of element than `T` it is automatically converted, otherwise the flexible matrix `A`
+shares its coefficients with `arr`. The array storing the coefficients of `A` can be
+retrieved by `parent(A)`. If `T` is unspecified, `T = eltype(arr)` is assumed.
 
 `FlexibleMatrix{T}` is an alias for [`PseudoMatrix{T,Colon}`](@ref PseudoMatrix).
 

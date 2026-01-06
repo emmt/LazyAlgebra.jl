@@ -3,9 +3,9 @@
 """
     LazyAlgebra.AbstractRankOneOperator{U,V}
 
-is the parent type of *rank-1* linear operators of the form `A = u*v'`. Type parameters
-`U` and `V` are the respective types of the left-hand side *vector* `u` and of the
-right-hand side *vector* `v`.
+Parent type of *rank-1* linear operators of the form `A = u*v'`. Type parameters `U` and `V`
+are the respective types of the left-hand side *vector* `u` and of the right-hand side
+*vector* `v`.
 
 For an instance `A` of this type, `first(A)` and `last(A)` respectively yield `u` and `v`.
 
@@ -17,8 +17,8 @@ There exist two concrete implementations: [`SymmetricRankOneOperator`](@ref) and
 """
     RankOneOperator(u, v) -> A
 
-yields the *rank-1* linear operator `A = u*v'` defined by the two *vectors* `u` and `v`
-and behaving as:
+Return the *rank-1* linear operator `A = u*v'` defined by the two *vectors* `u` and `v` and
+behaving as:
 
     A*x  -> vdot(v, x) * u
     A'*x -> vdot(u, x) * v
@@ -30,14 +30,14 @@ See also [`SymmetricRankOneOperator`](@ref), [`Operator`](@ref), [`vmul`](@ref).
 """
     SymmetricRankOneOperator(u) -> A
 
-yields the *symmetric rank-1* operator `A = u*u'` defined by the *vector* `u` and behaving
+Return the *symmetric rank-1* operator `A = u*u'` defined by the *vector* `u` and behaving
 as follows:
 
     A'*x -> A*x
     A*x  -> vscale(vdot(u, x)), u)
 
-See also: [`RankOneOperator`](@ref), [`Operator`](@ref),
-          [`Trait`](@ref) [`vmul!`](@ref), [`vcreate`](@ref).
+See also [`RankOneOperator`](@ref), [`Operator`](@ref), [`Trait`](@ref) [`vmul!`](@ref),
+[`vcreate`](@ref).
 
 """ SymmetricRankOneOperator
 

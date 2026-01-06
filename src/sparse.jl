@@ -5,14 +5,14 @@
 #
 # See https://en.wikipedia.org/wiki/Sparse_matrix.
 
-#-------------------------------------------------------------------------- Sparse Formats -
+#-------------------------------------------------------------------------- Sparse formats -
 
 """
     SparseFormat(x)
     SparseFormat(typeof(x))
 
-Return a singleton representing the sparse storage format of `x`. The formats implemented
-by `LazyAlgebra` are:
+Return a singleton representing the sparse storage format of `x`. The formats implemented by
+`LazyAlgebra` are:
 
 - [`CompressedSparseCoordinate()`](@ref CompressedSparseCoordinate) for *Compressed Sparse
   Coordinate* (COO) storage format;
@@ -45,13 +45,13 @@ Base.transpose(trait::CompressedSparseCoordinate) = CompressedSparseCoordinate()
 
 Singleton representing *Compressed Sparse Coordinate* (COO) storage format.
 
-Sparse operators with this storage format store their structural non-zeros in no
-particular order, as a vector of values, a vector of linear row indices, and a vector of
-linear column indices. It is even possible to have repeated entries. This format is very
-useful to build a sparse linear operator. It can be converted to a more efficient format
-like *Compressed Sparse Column* (CSC) or *Compressed Sparse Row* (CSR) for fast
-application of the sparse linear operator or of its adjoint (see
-[`CompressedSparseColumn`](@ref) and [`CompressedSparseRow`](@ref)).
+Sparse operators with this storage format store their structural non-zeros in no particular
+order, as a vector of values, a vector of linear row indices, and a vector of linear column
+indices. It is even possible to have repeated entries. This format is very useful to build a
+sparse linear operator. It can be converted to a more efficient format like *Compressed
+Sparse Column* (CSC) or *Compressed Sparse Row* (CSR) for fast application of the sparse
+linear operator or of its adjoint (see [`CompressedSparseColumn`](@ref) and
+[`CompressedSparseRow`](@ref)).
 
 Accessing the structural non-zeros and their respective row and column linear indices of a
 sparse operator in COO format is typically done by:
@@ -66,8 +66,8 @@ for k in each_nz_index(A) # loop over index of structural non-zeros
 end
 ```
 
-This API is also applicable to the conjugate, adjoint, and transpose of sparse operators
-in COO format.
+This API is also applicable to the conjugate, adjoint, and transpose of sparse operators in
+COO format.
 
 See also [`SparseFormat`](@ref), [`CompressedSparseColumn`](@ref), and
 [`CompressedSparseRow`](@ref).
@@ -80,11 +80,11 @@ See also [`SparseFormat`](@ref), [`CompressedSparseColumn`](@ref), and
 
 Singleton representing *Compressed Sparse Column* (CSC) storage format.
 
-Sparse operators with this storage format store their structural non-zeros in a
-column-major order, as a vector of values, a vector of corresponding linear row indices,
-and a vector of offsets indicating, for each column, the range of indices in the vectors
-of values and of row indices. This storage format is very suitable for fast application of
-the operator, notably its adjoint or its transpose.
+Sparse operators with this storage format store their structural non-zeros in a column-major
+order, as a vector of values, a vector of corresponding linear row indices, and a vector of
+offsets indicating, for each column, the range of indices in the vectors of values and of
+row indices. This storage format is very suitable for fast application of the operator,
+notably its adjoint or its transpose.
 
 Accessing the structural non-zeros and their respective row and column linear indices of a
 sparse operator in CSC format is typically done by:
@@ -114,10 +114,10 @@ See also [`SparseFormat`](@ref), [`CompressedSparseCoordinate`](@ref), and
 
 Singleton representing *Compressed Sparse Row* (CSR) storage format.
 
-Sparse operators with this format store their structural non-zeros in a row-major order,
-as a vector of values, a vector of corresponding linear column indices, and a vector of
-offsets indicating, for each row, the range of indices in the vectors of values and of
-column indices. This storage format is very suitable for fast application of the operator.
+Sparse operators with this format store their structural non-zeros in a row-major order, as
+a vector of values, a vector of corresponding linear column indices, and a vector of offsets
+indicating, for each row, the range of indices in the vectors of values and of column
+indices. This storage format is very suitable for fast application of the operator.
 
 Accessing the structural non-zeros and their respective row and column linear indices of a
 sparse operator in CSR format is typically done by:
@@ -141,7 +141,7 @@ See also [`SparseFormat`](@ref), [`CompressedSparseCoordinate`](@ref), and
 
 """ CompressedSparseRow
 
-#--------------------------------------------------------------- Abstract Sparse Operators -
+#--------------------------------------------------------------- Abstract sparse operators -
 
 """
     SparseOperator{F}(args...; kwds...)
@@ -149,11 +149,11 @@ See also [`SparseFormat`](@ref), [`CompressedSparseCoordinate`](@ref), and
     SparseOperator{F,T,M}(args...; kwds...)
     SparseOperator{F,T,M,N}(args...; kwds...)
 
-Build a sparse operator from arguments `args...` and keywords `kwds...`. Mandatory
-parameter `F` is the storage format of the structural non-zeros. Optional parameters are
-the type `T` of the structural non-zeros, the number `M` of dimensions of the *rows* of
-the operator, and the number `N` of dimensions of the *columns* of the operator. If not
-specified, optional parameters are inferred from the arguments.
+Build a sparse operator from arguments `args...` and keywords `kwds...`. Mandatory parameter
+`F` is the storage format of the structural non-zeros. Optional parameters are the type `T`
+of the structural non-zeros, the number `M` of dimensions of the *rows* of the operator, and
+the number `N` of dimensions of the *columns* of the operator. If not specified, optional
+parameters are inferred from the arguments.
 
 The following formats `F` are providied by `LAzyAlgebra`:
 
@@ -167,11 +167,11 @@ The following formats `F` are providied by `LAzyAlgebra`:
   [`SparseOperatorCSC`](@ref) for a description of supported arguments and keywords.
 
 - `CSR` or [`CompressedSparseRow`](@ref) for *Compressed Sparse Row* storage format. This
-  format is very efficient for applying the sparse operator. See
-  [`SparseOperatorCSR`](@ref) for a description of supported arguments and keywords.
+  format is very efficient for applying the sparse operator. See [`SparseOperatorCSR`](@ref)
+  for a description of supported arguments and keywords.
 
-A simple (but slow for CSR and CSC storage formats) method to loop over the coordinates
-and values of the structural non-zero of a sparse operator `A` is to write:
+A simple (but slow for CSR and CSC storage formats) method to loop over the coordinates and
+values of the structural non-zero of a sparse operator `A` is to write:
 
 ```julia
 using LazyAlgebra: row_indices, col_indices
@@ -218,7 +218,7 @@ end
 Base.convert(::Type{T}, A::T) where {T<:SparseOperator} = A
 Base.convert(::Type{T}, A) where {T<:SparseOperator} = T(A)::T
 
-#-----------------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------------------
 # Accessors and basic methods.
 
 Base.eltype(::Type{<:SparseOperator{F,T,M,N}}) where {F,T,M,N} = T
@@ -270,9 +270,9 @@ for (type, (get_1st_field, get_2nd_field)) in (:SparseOperatorCSR => (:col_indic
     end
 end
 
-# Assume that a `copy` of a compressed sparse operator is to keep the same structure for
-# the structural non-zeros but possibly change the values. So only duplicate the value
-# part. For a `deepcopy` of a compressed sparse operator, all the fields are copied.
+# Assume that a `copy` of a compressed sparse operator is to keep the same structure for the
+# structural non-zeros but possibly change the values. So only duplicate the value part. For
+# a `deepcopy` of a compressed sparse operator, all the fields are copied.
 
 Base.copy(A::SparseOperatorCSR) = _SparseOperatorCSR(
     output_length(A), input_length(A), copy(nonzeros(A)), col_indices(A), offsets(A),
@@ -298,12 +298,12 @@ Base.deepcopy(A::SparseOperatorCOO) = _SparseOperatorCOO(
     output_length(A), input_length(A), copy(nonzeros(A)), copy(row_indices(A)), copy(col_indices(A)),
     output_size(A), input_size(A))
 
-# `findnz(A) -> I,J,V` yields the row and column indices and the values of the stored
-# values in `A`.
+# `findnz(A) -> I,J,V` yields the row and column indices and the values of the stored values
+# in `A`.
 SparseArrays.findnz(A::SparseOperator) = (row_indices(A), col_indices(A), nonzeros(A))
 
-# Extend some methods in SparseArrays. The "structural" non-zeros are the entries stored
-# by the sparse structure which may or not be equal to zero, un-stored entries are always
+# Extend some methods in SparseArrays. The "structural" non-zeros are the entries stored by
+# the sparse structure which may or not be equal to zero, un-stored entries are always
 # considered as being strictly equal to zero.
 SparseArrays.nnz(A::SparseOperator) = length(nonzeros(A))
 function SparseArrays.nnz(A::Union{Adjoint{<:SparseOperator},
@@ -336,8 +336,8 @@ Return the row indices of the structural non-zeros of the sparse operator `A`.
 
 If `A` is a sparse operator in CSC or COO storage format, the result `I` is a vector of
 indices shared with `A`; otherwise, `I` is an iterator. In any case, the caller shall not
-attempt to modify the contents of `I`. Call `collect(row_indices(A))` to get a vector of
-row indices that can be modified with no side effects on `A`.
+attempt to modify the contents of `I`. Call `collect(row_indices(A))` to get a vector of row
+indices that can be modified with no side effects on `A`.
 
 """
 row_indices(A::Union{SparseOperatorCSC,SparseOperatorCOO}) = getfield(A, :rows)
@@ -369,12 +369,12 @@ Return the table of offsets of the sparse operator `A`. Not all operators extend
 method.
 
 !!! warning
-    The interpretation of offsets depend on the type of `A`. For instance, assuming `offs
-    = LazyAlgebra.offsets(A)`, then the index range of the `j`-th column of a
+    The interpretation of offsets depend on the type of `A`. For instance, assuming `offs =
+    LazyAlgebra.offsets(A)`, then the index range of the `j`-th column of a
     `SparseMatrixCSC` is `offs[j]:(offs[j+1]-1)` while the index range is
-    `(offs[j]+1):offs[j+1]` for a `SparseOperatorCSC`. For this reason, it is recommended
-    to call [`each_nz_index`](@ref) instead or to call `offsets` with 2 arguments: `A`
-    and, depending on the compressed storage format, the row or column index.
+    `(offs[j]+1):offs[j+1]` for a `SparseOperatorCSC`. For this reason, it is recommended to
+    call [`each_nz_index`](@ref) instead or to call `offsets` with 2 arguments: `A` and,
+    depending on the compressed storage format, the row or column index.
 
 """
 offsets(A::Union{SparseOperatorCSR,SparseOperatorCSC}) = getfield(A, :offs)
@@ -391,8 +391,8 @@ stored in a *Compressed Sparse Coordinate* (COO) format.
 ---
     LazyAlgebra.each_nz_index(A, j)
 
-Return an iterator over the indices of the structural non-zeros of the `j`-th column of
-the sparse operator `A` stored in a *Compressed Sparse Column* (CSC) format.
+Return an iterator over the indices of the structural non-zeros of the `j`-th column of the
+sparse operator `A` stored in a *Compressed Sparse Column* (CSC) format.
 
 ---
     LazyAlgebra.each_nz_index(A, i)
@@ -444,8 +444,8 @@ Return the index of the last structural non-zero of the sparse operator `A` stor
 ---
     LazyAlgebra.last_nz_index(A, j)
 
-Return the index of the last structural non-zero of the `j`-th column of the sparse
-operator `A` stored in a *Compressed Sparse Column* (CSC) format.
+Return the index of the last structural non-zero of the `j`-th column of the sparse operator
+`A` stored in a *Compressed Sparse Column* (CSC) format.
 
 ---
     LazyAlgebra.last_nz_index(A, i)
@@ -500,8 +500,8 @@ each_row_index(A::Swapped{<:SparseOperator{CSC}}) = each_col_index(parent(A))
 """
     LazyAlgebra.each_col_index(A)
 
-Return an iterator over the linear column indices of the structural non-zeros of the
-sparse operator `A` stored in a *Compressed Sparse Column* (CSC) format.
+Return an iterator over the linear column indices of the structural non-zeros of the sparse
+operator `A` stored in a *Compressed Sparse Column* (CSC) format.
 
 """
 each_col_index(A::SparseOperator{CSC}) = 𝟙:input_length(A)
@@ -582,7 +582,7 @@ Base.IteratorEltype(::Type{<:SparseOperatorLike}) = Base.HasEltype()
     checkbounds(Bool, A, k) ? (@inbounds(A[k]), k + 1) : nothing
 end
 
-#------------------------------------------------------------ Row/Column Indices Iterators -
+#------------------------------------------------------------ Row/column indices iterators -
 
 # Iterator over the row/column indices of a sparse operator with CSR or CSC storage.
 struct SparseIndexIterator{S<:Union{AnySparseCSR,AnySparseCSC}}
@@ -665,9 +665,9 @@ end
     SparseOperatorCOO(vals, rows, cols, rowsiz, colsiz)
 
 Build a sparse operator in *Compressed Sparse Coordinate* (COO) storage format given all
-necessary data: `vals` is the vector of structural non-zeros, `rows` and `cols` are
-integer valued vectors with the linear row and column indices of the structural non-zeros,
-`rowsiz` and `colsiz` are the sizes of the row and column dimensions.
+necessary data: `vals` is the vector of structural non-zeros, `rows` and `cols` are integer
+valued vectors with the linear row and column indices of the structural non-zeros, `rowsiz`
+and `colsiz` are the sizes of the row and column dimensions.
 
 The value and linear row and column indices of the `k`-th structural non-zero are
 respectively given by `vals[k]`, `rows[k]` and `cols[k]`. For efficiency reasons, sparse
@@ -680,10 +680,10 @@ Julia array `A`:
 
     SparseOperatorCOO(A, f = (v,i,j) -> !iszero(v))
 
-where optional argument `f` is a predicate function which is called as `f(v,i,j)` with
-`v`, `i` and `j` the value, the row and the column linear indices for each entry of `A`
-and which yields whether a given entry of `A` is a structural non-zeros. The default
-predicate is such that all non-zeros of `A` are considered as being structural non-zeros.
+where optional argument `f` is a predicate function which is called as `f(v,i,j)` with `v`,
+`i` and `j` the value, the row and the column linear indices for each entry of `A` and which
+yields whether a given entry of `A` is a structural non-zeros. The default predicate is such
+that all non-zeros of `A` are considered as being structural non-zeros.
 
 The element type, say `T`, of the values of the structural non-zeros can be imposed by
 rewriting the above examples as:
@@ -691,8 +691,8 @@ rewriting the above examples as:
     SparseOperatorCOO{T}(args...)
 
 A sparse operator in COO storage format implementing generalized matrix-vector
-multiplication can also be directly constructed from a `L`-dimensional Julia array (with
-`L ≥ 2`) `A` by:
+multiplication can also be directly constructed from a `L`-dimensional Julia array (with `L
+≥ 2`) `A` by:
 
     SparseOperatorCOO{T,M}(A[, f])
 
@@ -706,25 +706,25 @@ automatically determined):
 
 provided `M + N = ndims(A)` holds.
 
-A last parameter `V` can be specified for the type of the vector to store the values of
-the structural non-zeros:
+A last parameter `V` can be specified for the type of the vector to store the values of the
+structural non-zeros:
 
     SparseOperatorCOO{T,M,N,V}(args...)
 
-provided `V` implements standard linear indexing. The default is to take `V = Vector{T}`.
-As a special case, you can choose a uniform boolean vector from the `StructuredArrays`
-package to store the sparse coefficients:
+provided `V` implements standard linear indexing. The default is to take `V = Vector{T}`. As
+a special case, you can choose a uniform boolean vector from the `StructuredArrays` package
+to store the sparse coefficients:
 
     SparseOperatorCOO{T,M,N,UniformVector{Bool}}(args...)
 
 to get a compressed sparse operator in COO format whose values are an immutable uniform
 vector of true values requiring no storage. This is useful to only store the sparse
-structure of the operator, that is the indices in COO format of the sparse coefficients
-not their values.
+structure of the operator, that is the indices in COO format of the sparse coefficients not
+their values.
 
-The `SparseOperatorCOO` constructor can also be used to convert a sparse operator in
-another storage format into the COO format. In that case, parameter `T` may also be
-specified to convert the type of the sparse coefficients.
+The `SparseOperatorCOO` constructor can also be used to convert a sparse operator in another
+storage format into the COO format. In that case, parameter `T` may also be specified to
+convert the type of the sparse coefficients.
 
 """ SparseOperatorCOO
 
@@ -734,26 +734,25 @@ specified to convert the type of the sparse coefficients.
 Build a sparse operator in *Compressed Sparse Column* (CSC) storage format given all
 necessary data: `vals` is the vector of structural non-zeros, `rows` is an integer valued
 vector with the linear row indices of the structural non-zeros, `offs` is a column-major
-table of offsets in these arrays, `rowsiz` and `colsiz` are the sizes of the row and
-column dimensions.
+table of offsets in these arrays, `rowsiz` and `colsiz` are the sizes of the row and column
+dimensions.
 
-The values of the structural non-zeros of the `j`-th column and their respective linear
-row indices are given by `vals[k]` and `rows[k]` with `k ∈ offs[j]+1:offs[j+1]`. The
-linear column index `j` is in the range `1:n` where `n = prod(colsiz)` is the equivalent
-number of columns. For efficiency reasons, sparse operators are currently limited to
-*fast* arrays because they can be indexed linearly with no loss of performances. If
-`vals`, `rows` and/or `offs` are not fast arrays, they will be automatically converted to
-linearly indexed arrays.
+The values of the structural non-zeros of the `j`-th column and their respective linear row
+indices are given by `vals[k]` and `rows[k]` with `k ∈ offs[j]+1:offs[j+1]`. The linear
+column index `j` is in the range `1:n` where `n = prod(colsiz)` is the equivalent number of
+columns. For efficiency reasons, sparse operators are currently limited to *fast* arrays
+because they can be indexed linearly with no loss of performances. If `vals`, `rows` and/or
+`offs` are not fast arrays, they will be automatically converted to linearly indexed arrays.
 
 A sparse operator in CSC storage format can be directly constructed from a 2-dimensional
 Julia array `A`:
 
     SparseOperatorCSC(A, f = (v,i,j) -> !iszero(v))
 
-where optional argument `f` is a predicate function which is called as `f(v,i,j)` with
-`v`, `i` and `j` the value, the row and the column linear indices for each entry of `A`
-and which yields whether a given entry of `A` is a structural non-zeros. The default
-predicate is such that all non-zeros of `A` are considered as being structural non-zeros.
+where optional argument `f` is a predicate function which is called as `f(v,i,j)` with `v`,
+`i` and `j` the value, the row and the column linear indices for each entry of `A` and which
+yields whether a given entry of `A` is a structural non-zeros. The default predicate is such
+that all non-zeros of `A` are considered as being structural non-zeros.
 
 The element type, say `T`, of the values of the structural non-zeros can be imposed by
 rewriting the above examples as:
@@ -761,8 +760,8 @@ rewriting the above examples as:
     SparseOperatorCSC{T}(args...)
 
 A sparse operator in CSC storage format implementing generalized matrix-vector
-multiplication can also be directly constructed from a `L`-dimensional Julia array (with
-`L ≥ 2`) `A` by:
+multiplication can also be directly constructed from a `L`-dimensional Julia array (with `L
+≥ 2`) `A` by:
 
     SparseOperatorCSC{T,M}(A[, sel])
 
@@ -776,25 +775,25 @@ automatically determined):
 
 provided `M + N = ndims(A)` holds.
 
-A last parameter `V` can be specified for the type of the vector to store the values of
-the structural non-zeros:
+A last parameter `V` can be specified for the type of the vector to store the values of the
+structural non-zeros:
 
     SparseOperatorCSC{T,M,N,V}(args...)
 
-provided `V` implements standard linear indexing. The default is to take `V = Vector{T}`.
-As a special case, you can choose a uniform boolean vector from the `StructuredArrays`
-package to store the sparse coefficients:
+provided `V` implements standard linear indexing. The default is to take `V = Vector{T}`. As
+a special case, you can choose a uniform boolean vector from the `StructuredArrays` package
+to store the sparse coefficients:
 
     SparseOperatorCSC{T,M,N,UniformVector{Bool}}(args...)
 
 to get a compressed sparse operator in CSC format whose values are an immutable uniform
 vector of true values requiring no storage. This is useful to only store the sparse
-structure of the operator, that is the indices in CSC format of the sparse coefficients
-not their values.
+structure of the operator, that is the indices in CSC format of the sparse coefficients not
+their values.
 
-The `SparseOperatorCSC` constructor can also be used to convert a sparse operator in
-another storage format into the CSC format. In that case, parameter `T` may also be
-specified to convert the type of the sparse coefficients.
+The `SparseOperatorCSC` constructor can also be used to convert a sparse operator in another
+storage format into the CSC format. In that case, parameter `T` may also be specified to
+convert the type of the sparse coefficients.
 
 """
 SparseOperatorCSC
@@ -802,29 +801,28 @@ SparseOperatorCSC
 """
     SparseOperatorCSR(vals, cols, offs, rowsiz, colsiz)
 
-Build a sparse operator in *Compressed Sparse Row* (CSR) storage format given all
-necessary data: `vals` is the vector of values of the structural non-zeros, `cols` is an
-integer valued vector with the linear column indices of the structural non-zeros, `offs`
-is a column-major table of offsets in these arrays, `rowsiz` and `colsiz` are the sizes of
-the row and column dimensions.
+Build a sparse operator in *Compressed Sparse Row* (CSR) storage format given all necessary
+data: `vals` is the vector of values of the structural non-zeros, `cols` is an integer
+valued vector with the linear column indices of the structural non-zeros, `offs` is a
+column-major table of offsets in these arrays, `rowsiz` and `colsiz` are the sizes of the
+row and column dimensions.
 
-The values of the structural non-zeros of the `i`-th row and their respective linear
-column indices are given by `vals[k]` and `cols[k]` with `k ∈ offs[i]+1:offs[i+1]`. The
-linear row index `i` is in the range `1:m` where `m = prod(rowsiz)` is the equivalent
-number of rows. For efficiency reasons, sparse operators are currently limited to *fast*
-arrays because they can be indexed linearly with no loss of performances. If `vals`,
-`cols` and/or `offs` are not fast arrays, they will be automatically converted to linearly
-indexed arrays.
+The values of the structural non-zeros of the `i`-th row and their respective linear column
+indices are given by `vals[k]` and `cols[k]` with `k ∈ offs[i]+1:offs[i+1]`. The linear row
+index `i` is in the range `1:m` where `m = prod(rowsiz)` is the equivalent number of rows.
+For efficiency reasons, sparse operators are currently limited to *fast* arrays because they
+can be indexed linearly with no loss of performances. If `vals`, `cols` and/or `offs` are
+not fast arrays, they will be automatically converted to linearly indexed arrays.
 
 A sparse operator in CSR storage format can be directly constructed from a 2-dimensional
 Julia array `A`:
 
     SparseOperatorCSR(A, f = (v,i,j) -> !iszero(v))
 
-where optional argument `f` is a predicate function which is called as `f(v,i,j)` with
-`v`, `i` and `j` the value, the row and the column linear indices for each entry of `A`
-and which yields whether a given entry of `A` is a structural non-zeros. The default
-predicate is such that all non-zeros of `A` are considered as being structural non-zeros.
+where optional argument `f` is a predicate function which is called as `f(v,i,j)` with `v`,
+`i` and `j` the value, the row and the column linear indices for each entry of `A` and which
+yields whether a given entry of `A` is a structural non-zeros. The default predicate is such
+that all non-zeros of `A` are considered as being structural non-zeros.
 
 The element type, say `T`, of the values of the structural non-zeros can be imposed by
 rewriting the above examples as:
@@ -832,8 +830,8 @@ rewriting the above examples as:
     SparseOperatorCSR{T}(args...)
 
 A sparse operator in CSR storage format implementing generalized matrix-vector
-multiplication can also be directly constructed from a `L`-dimensional Julia array (with
-`L ≥ 2`) `A` by:
+multiplication can also be directly constructed from a `L`-dimensional Julia array (with `L
+≥ 2`) `A` by:
 
     SparseOperatorCSR{T,M}(A[, sel])
 
@@ -847,25 +845,25 @@ automatically determined):
 
 provided `M + N = ndims(A)` holds.
 
-A last parameter `V` can be specified for the type of the vector to store the values of
-the structural non-zeros:
+A last parameter `V` can be specified for the type of the vector to store the values of the
+structural non-zeros:
 
     SparseOperatorCSR{T,M,N,V}(args...)
 
-provided `V` implements standard linear indexing. The default is to take `V = Vector{T}`.
-As a special case, you can choose a uniform boolean vector from the `StructuredArrays`
-package to store the sparse coefficients:
+provided `V` implements standard linear indexing. The default is to take `V = Vector{T}`. As
+a special case, you can choose a uniform boolean vector from the `StructuredArrays` package
+to store the sparse coefficients:
 
     SparseOperatorCSR{T,M,N,UniformVector{Bool}}(args...)
 
 to get a compressed sparse operator in CSR format whose values are an immutable uniform
 vector of true values requiring no storage. This is useful to only store the sparse
-structure of the operator, that is the indices in CSR format of the sparse coefficients
-not their values.
+structure of the operator, that is the indices in CSR format of the sparse coefficients not
+their values.
 
-The `SparseOperatorCSR` constructor can also be used to convert a sparse operator in
-another storage format into the CSR format. In that case, parameter `T` may also be
-specified to convert the type of the sparse coefficients.
+The `SparseOperatorCSR` constructor can also be used to convert a sparse operator in another
+storage format into the CSR format. In that case, parameter `T` may also be specified to
+convert the type of the sparse coefficients.
 
 """ SparseOperatorCSR
 
@@ -922,8 +920,8 @@ for (CS, other_args) in (:SparseOperatorCSR => (:cols, :offs),
             return build($CS{T,M,N,V}, A, f)
         end
 
-        # Constructors that convert array of values. Other fields have already been
-        # checked so do not check structure again.
+        # Constructors that convert array of values. Other fields have already been checked
+        # so do not check structure again.
         $CS{T}(A::$CS{S,M,N}) where {S,T,M,N} =
             $_CS(output_length(A), input_length(A), to_values(T, nonzeros(A)),
                  $(map(s -> :($(Symbol("get_",s))(A)), other_args)...),
@@ -967,8 +965,8 @@ for (CS, other_args) in (:SparseOperatorCSR => (:cols, :offs),
     end
 end
 
-# Generic constructor of a sparse operator in various format given a regular Julia array
-# and a predicate function. Julia arrays are usually in column-major order but this is not
+# Generic constructor of a sparse operator in various format given a regular Julia array and
+# a predicate function. Julia arrays are usually in column-major order but this is not
 # always the case, to handle various storage orders when extracting selected entries, we
 # convert the input array into a equivalent "matrix", that is a 2-dimensional array.
 function build(::Type{W}, arr::AbstractArray{S,L},
@@ -998,8 +996,8 @@ function build(::Type{W}, arr::AbstractArray{S,L},
         size(arr) == (nrows, ncols) ? arr : throw_dimension_mismatch(
             "argument has size $(size(arr)), expecting ($nrows, $ncols)")
 
-    # Count the number of selected entries assuming column-major storage order which is
-    # the most common in Julia (this only has a consequence on the speed).
+    # Count the number of selected entries assuming column-major storage order which is the
+    # most common in Julia (this only has a consequence on the speed).
     nvals = 0
     @inbounds for j in 1:ncols, i in 1:nrows
         # Using `ifelse` here asserts that the predicate yields a Boolean and avoid
@@ -1044,9 +1042,9 @@ function build(::Type{W}, arr::AbstractArray{S,L},
             end
         end
     else
-        # For a column-major compressed storage, the pseudo-matrix is walked in
-        # column-major order. This is also suitable for the COO format since most Julia
-        # arrays are stored in that order.
+        # For a column-major compressed storage, the pseudo-matrix is walked in column-major
+        # order. This is also suitable for the COO format since most Julia arrays are stored
+        # in that order.
         @inbounds for j in 1:ncols
             if W <: SparseOperatorCSC
                 offs[j] = k
@@ -1071,8 +1069,8 @@ function build(::Type{W}, arr::AbstractArray{S,L},
         offs[end] = nvals
     end
 
-    # By construction, the sparse structure should be correct so just call the
-    # "unsafe" constructor.
+    # By construction, the sparse structure should be correct so just call the "unsafe"
+    # constructor.
     if W <: SparseOperatorCOO
         return _SparseOperatorCOO(nrows, ncols, vals, rows, cols, rowsiz, colsiz)
     end
@@ -1087,19 +1085,19 @@ end
 """
     unpack!(A, S; flatten=false) -> A
 
-unpacks the non-zero coefficients of the sparse operator `S` into the array `A` and
-returns `A`. Keyword `flatten` specifies whether to only consider the length of `A`
-instead of its dimensions. In any cases, `A` must have as many elements as `length(S)` and
-standard linear indexing.
+Unpack the non-zero coefficients of the sparse operator `S` into the array `A` and returns
+`A`. Keyword `flatten` specifies whether to only consider the length of `A` instead of its
+dimensions. In any cases, `A` must have as many elements as `length(S)` and standard linear
+indexing.
 
 Just call `Array(S)` to unpack the coefficients of a sparse operator `S` without providing
 the destination array.
 
 """ unpack!
 
-# Convert to standard Julia arrays which are stored in column-major order,
-# hence the stride is the equivalent number of rows.  For COO format, as
-# duplicates are allowed, values must be combined by an operator.
+# Convert to standard Julia arrays which are stored in column-major order, hence the stride
+# is the equivalent number of rows. For COO format, as duplicates are allowed, values must
+# be combined by an operator.
 
 Base.Array(A::SparseOperatorLike) = Array{eltype(A)}(A)
 Base.Array{T}(A::SparseOperatorLike) where {T} =
@@ -1200,10 +1198,10 @@ function check_new_shape(A::SparseOperator, rowsiz::Dims, colsiz::Dims)
 end
 
 # Convert from other compressed sparse formats. For compressed sparse row and column (CSR
-# and CSC) formats, the compressed sparse coordinate (COO) format is used as an
-# intermediate representation and entries are sorted in row/column major order. To avoid
-# side-effects, they must be copied first. Unless values are converted, there is no needs
-# to copy when converting to a compressed sparse coordinate (COO) format.
+# and CSC) formats, the compressed sparse coordinate (COO) format is used as an intermediate
+# representation and entries are sorted in row/column major order. To avoid side-effects,
+# they must be copied first. Unless values are converted, there is no needs to copy when
+# converting to a compressed sparse coordinate (COO) format.
 
 SparseOperatorCSR{T}(A::SparseOperatorLike) where {T} =
     coo_to_csr!(copy_with_eltype(T, nonzeros(A)),
@@ -1238,10 +1236,10 @@ as_vector(iter::SparseIndexIterator) = collect(iter)
 """
     coo_to_csr!(vals, rows, cols, rowsiz, colsiz [, op]) -> A
 
-Return a compressed sparse operator in a CSR format given the components `vals`, `rows`
-and `cols` in the COO format and the sizes `rowsiz` and `colsiz` of the row and column
-dimensions. Input arrays are modified in-place. Optional argument `op` is a binary
-operator to reduce the values of entries having the same row and column indices.
+Return a compressed sparse operator in a CSR format given the components `vals`, `rows` and
+`cols` in the COO format and the sizes `rowsiz` and `colsiz` of the row and column
+dimensions. Input arrays are modified in-place. Optional argument `op` is a binary operator
+to reduce the values of entries having the same row and column indices.
 
 Input arrays must be regular Julia vectors to ensure type stability in case of duplicates.
 
@@ -1276,10 +1274,10 @@ end
 """
     coo_to_csc!(vals, rows, cols, rowsiz, colsiz [, op]) -> A
 
-Return a compressed sparse operator in a CSC format given the components `vals`, `rows`
-and `cols` in the COO format and the sizes `rowsiz` and `colsiz` of the row and column
-dimensions. Input arrays are modified in-place. Optional argument `op` is a binary
-operator to reduce the values of entries having the same row and column indices.
+Return a compressed sparse operator in a CSC format given the components `vals`, `rows` and
+`cols` in the COO format and the sizes `rowsiz` and `colsiz` of the row and column
+dimensions. Input arrays are modified in-place. Optional argument `op` is a binary operator
+to reduce the values of entries having the same row and column indices.
 
 Input arrays must be regular Julia vectors to ensure type stability in case of duplicates.
 
@@ -1318,11 +1316,10 @@ Sort entries and reduce duplicates in input arrays `vals`, `major` and `minor`.
 
 Entries consist in the 3-tuples `(vals[k],major[k],minor[k])`. The sorting order of the
 `k`-th entry is based the value of `major[k]` and, if equal, on the value of `minor[k]`.
-After sorting, duplicate entries, that is those which have the same minor and major
-indices, are replaced by a single entry whose value is obtained by reducing the values in
-`vals` with the binary operator `op`. All operations are done in-place, the number of
-unique entries is returned but inputs arrays are not resized, only the `nvals` first
-entries are valid.
+After sorting, duplicate entries, that is those which have the same minor and major indices,
+are replaced by a single entry whose value is obtained by reducing the values in `vals` with
+the binary operator `op`. All operations are done in-place, the number of unique entries is
+returned but inputs arrays are not resized, only the `nvals` first entries are valid.
 
 """
 function sort_and_reduce!(vals::AbstractVector,
@@ -1352,9 +1349,8 @@ end
 """
     sparse_compressed_offsets(n, inds) -> offs
 
-Return a vector of `n+1` offsets for sparse compressed storage and computed from the list
-of indices `inds`. Indices in `inds` must be in non-increasing order and in the range
-`1:n`.
+Return a vector of `n+1` offsets for sparse compressed storage and computed from the list of
+indices `inds`. Indices in `inds` must be in non-increasing order and in the range `1:n`.
 
 """
 sparse_compressed_offsets(n::Int, inds::AbstractVector{Int}) =
@@ -1389,8 +1385,8 @@ function sparse_compressed_offsets!(offs::AbstractVector{Int}, inds::AbstractVec
     return offs
 end
 
-# This error is due to the non-zeros predicate not returning the same results in
-# the two selection passes.
+# This error is due to the non-zeros predicate not returning the same results in the two
+# selection passes.
 throw_bad_predicate() = throw_bad_argument("inconsistent predicate function")
 
 @inline select_non_zeros(v::Bool, i::Int, j::Int) = v
@@ -1408,8 +1404,8 @@ throw_bad_predicate() = throw_bad_argument("inconsistent predicate function")
 """
     check_structure(A) -> A
 
-Check the structure of the compressed sparse operator `A` throwing an exception if there
-are any inconsistencies and returning `A` otherwise.
+Check the structure of the compressed sparse operator `A` throwing an exception if there are
+any inconsistencies and returning `A` otherwise.
 
 """
 function check_structure(A::SparseOperator{CSR})
@@ -1456,7 +1452,7 @@ end
 """
     check_size(A)
 
-Throw and exception if the row and column sizes in compressed sparse operator `A` have any
+Throw an exception if the row and column sizes in compressed sparse operator `A` have any
 inconsistencies.
 
 """
@@ -1473,7 +1469,7 @@ check_size(len::Int, siz::Dims, name::AbstractString) =
 """
     check_vals(A)
 
-Throw and exception if the values in compressed sparse operator `A` are not stored in a
+Throw an exception if the values in compressed sparse operator `A` are not stored in a
 proper vector.
 
 """
@@ -1487,7 +1483,7 @@ end
 """
     check_rows(A)
 
-Throw and exception if the row indices in the compressed sparse operator `A` stored in a
+Throw an exception if the row indices in the compressed sparse operator `A` stored in a
 *Compressed Sparse Column* (CSC) or *Compressed Sparse Coordinate* (COO) format are
 inconsistent.
 
@@ -1503,7 +1499,7 @@ end
 """
     check_rows(rows, m)
 
-Throw and exception if the linear row indices `rows` is not a fast vector of values in the
+Throw an exception if the linear row indices `rows` is not a fast vector of values in the
 range `1:m`.
 
 """
@@ -1521,9 +1517,9 @@ end
 """
     check_cols(A)
 
-Throw and exception if the linear column indices in the compressed sparse operator `A`
-stored in a *Compressed Sparse Row* (CSR) or *Compressed Sparse Coordinate* (COO) format
-are inconsistent.
+Throw an exception if the linear column indices in the compressed sparse operator `A` stored
+in a *Compressed Sparse Row* (CSR) or *Compressed Sparse Coordinate* (COO) format are
+inconsistent.
 
 """
 function check_cols(A::SparseOperator{<:Union{COO,CSR}})
@@ -1537,8 +1533,8 @@ end
 """
     check_cols(cols, n)
 
-Throw and exception if the linear column indices `cols` is not a fast vector of values in
-the range `1:n`.
+Throw an exception if the linear column indices `cols` is not a fast vector of values in the
+range `1:n`.
 
 """
 function check_cols(cols::AbstractVector{Int}, n::Int)
@@ -1555,9 +1551,8 @@ end
 """
     check_offs(A)
 
-Throw and exception if the offsets in the compressed sparse operator `A` stored
-in a *Compressed Sparse Row* (CSR) or *Compressed Sparse Column* (CSC) format are
-inconsistent.
+Throw an exception if the offsets in the compressed sparse operator `A` stored in a
+*Compressed Sparse Row* (CSR) or *Compressed Sparse Column* (CSC) format are inconsistent.
 
 """
 function check_offs(A::SparseOperator{F}) where {F<:Union{CSC,CSR}}
@@ -1582,8 +1577,8 @@ end
 """
     _SparseOperatorCSR([m, n,] vals, cols, offs, rowsiz, colsiz)
 
-Build a compressed sparse operator in *Compressed Sparse Row* (CSR) format as an instance
-of `SparseOperatorCSR`. This private constructor assumes that arguments are correct and is
+Build a compressed sparse operator in *Compressed Sparse Row* (CSR) format as an instance of
+`SparseOperatorCSR`. This private constructor assumes that arguments are correct and is
 mostly used by converters and other constructors.
 
 """
@@ -1598,9 +1593,9 @@ end
 """
     _SparseOperatorCSC([m, n,] vals, rows, offs, rowsiz, colsiz)
 
-Build a compressed sparse operator in *Compressed Sparse Column* (CSC) format as an
-instance of `SparseOperatorCSC`. This private constructor assumes that arguments are
-correct and is mostly used by converters and other constructors.
+Build a compressed sparse operator in *Compressed Sparse Column* (CSC) format as an instance
+of `SparseOperatorCSC`. This private constructor assumes that arguments are correct and is
+mostly used by converters and other constructors.
 
 """
 function _SparseOperatorCSC(vals::AbstractVector,
@@ -1615,8 +1610,8 @@ end
     _SparseOperatorCOO([m, n,] vals, rows, cols, rowsiz, colsiz)
 
 Build a compressed sparse operator in *Compressed Sparse Coordinate* (COO) format as an
-instance of `SparseOperatorCOO`. This private constructor assumes that arguments are
-correct and is mostly used by converters and other constructors.
+instance of `SparseOperatorCOO`. This private constructor assumes that arguments are correct
+and is mostly used by converters and other constructors.
 
 """
 function _SparseOperatorCOO(vals::AbstractVector,
@@ -1630,7 +1625,7 @@ end
 """
     is_fast_array(A) -> bool
 
-yields whether `A` is a *fast array* that is an array with standard linear indexing.
+Return whether `A` is a *fast array* that is an array with standard linear indexing.
 
 """
 is_fast_array(A::AbstractArray) = is_fast_indices(eachindex(A))
@@ -1638,7 +1633,7 @@ is_fast_array(A::AbstractArray) = is_fast_indices(eachindex(A))
 """
     is_fast_indices(inds) -> bool
 
-yields whether `inds` is an iterator for *fast indices* that is linear indices starting at
+Return whether `inds` is an iterator for *fast indices* that is linear indices starting at
 `1`.
 
 """
@@ -1648,8 +1643,8 @@ is_fast_indices(inds) = false
 """
     check_argument(A, siz, id="array")
 
-checks whether array `A` has size `siz` and implements standard linear indexing. An
-exception is thrown if any of these do not hold.
+Check whether array `A` has size `siz` and implements standard linear indexing. An exception
+is thrown if any of these do not hold.
 
 """
 function check_argument(A::AbstractArray{<:Any,N},
@@ -1664,7 +1659,7 @@ function check_argument(A::AbstractArray{<:Any,N},
     nothing
 end
 
-#------------------------------------------------------------------ Apply Sparse Operators -
+#------------------------------------------------------------------ Apply sparse operators -
 
 # When calling `unsafe_vmul!`, the following assumptions must hold:
 # 1. all axes have been checked;
@@ -1720,7 +1715,7 @@ function unsafe_vmul!(α::Number,
     return y
 end
 
-#----------------------------------------------------------------------------- Utilities -
+#------------------------------------------------------------------------------- Utilities -
 
 # Convert to vector of indices.
 to_indices(inds::AbstractVector{<:Integer}) = convert_eltype(Int, inds)
@@ -1741,4 +1736,4 @@ to_values(::Type{T}, vals::AbstractVector) where {T} = convert(Vector{T}, vals)
     (first(inds) == 1 ? vals : convert(Vector{T}, vals))
 end
 
-#-----------------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------------------

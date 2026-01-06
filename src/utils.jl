@@ -23,8 +23,8 @@ end
 """
     LazyAlgebra.fast_min(x, y)
 
-Return the least of `x` and `y`. If any of `x` and `y` is a NaN, the result is the NaN.
-This latter behavior is not guaranteed if `@fastmath` is active.
+Return the least of `x` and `y`. If any of `x` and `y` is a NaN, the result is the NaN. This
+latter behavior is not guaranteed if `@fastmath` is active.
 
 """
 fast_min(x::Number, y::Number) = fast_min(promote(x, y)...)

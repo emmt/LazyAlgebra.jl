@@ -1,14 +1,14 @@
 #
 # LazyAlgebra.jl -
 #
-# A simple linear algebra system.
+# A simple linear algebra framework for Julia.
 #
-#-------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------------------
 #
-# This file is part of LazyAlgebra (https://github.com/emmt/LazyAlgebra.jl)
-# released under the MIT "Expat" license.
+# This file is part of LazyAlgebra (https://github.com/emmt/LazyAlgebra.jl) released under
+# the MIT "Expat" license.
 #
-# Copyright (c) 2017-2025 Éric Thiébaut.
+# Copyright (c) 2017-2026 Éric Thiébaut.
 #
 
 module LazyAlgebra
@@ -223,6 +223,7 @@ include("rank1.jl")
 include("pseudomatrices.jl")
 include("cropping.jl")
 include("diff.jl")
+include("gram.jl")
 include("sparse.jl")
 include("fft.jl")
 include("simplify.jl")

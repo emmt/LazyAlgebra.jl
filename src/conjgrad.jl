@@ -6,15 +6,15 @@ algorithm to iteratively solve:
     A⋅x = b    ⇐=⇒    x = argmin { f(x) = 1/2 x'⋅A⋅x - b'⋅x  + ϵ }
 
 where `A` denotes the *left hand-side matrix* of the linear equations implemented by any
-positive definite linear operator, `x` denotes the solution of the problem, `b` denotes
-the *right hand-side vector* of the linear equations, and `ϵ` is an arbitrary constant.
+positive definite linear operator, `x` denotes the solution of the problem, `b` denotes the
+*right hand-side vector* of the linear equations, and `ϵ` is an arbitrary constant.
 
 See [`conjgrad`](@ref) and [`conjgrad!`](@ref) for simple methods to apply the algorithm.
 
 To avoid any further allocations, you may first create a context by calling
 [`ConjugateGradient.Context`](@ref) and then solve the problem with
-[`ConjugateGradient.solve!`](@ref) as many times as needed, perhaps with different `A`,
-`b`, or initial solution `x₀` and/or different settings.
+[`ConjugateGradient.solve!`](@ref) as many times as needed, perhaps with different `A`, `b`,
+or initial solution `x₀` and/or different settings.
 
 """
 module ConjugateGradient
@@ -199,13 +199,13 @@ end
     ConjugateGradient.Context(x, b; kwds...) -> ctx
 
 Return a structure with all parameters and storage for temporary variables needed for
-running the linear conjugate gradient algorithm. Arguments `x` and `b` specify the
-variables of the problem and the left hand-side vector of the linear system of equations
-to solve. Arguments `x` and `b` are used to allocate temporary variables by calling
-`similar(x)` and `similar`b`. The returned context holds no references neither on `x` nor
-on `b`. Optional parameter `T <: AbstractFloat` is the floating-point precision for the
-scalars of the algorithm. By default, it is given by the numerical precision of `x` and
-`b` using at least `Float64` precision.
+running the linear conjugate gradient algorithm. Arguments `x` and `b` specify the variables
+of the problem and the left hand-side vector of the linear system of equations to solve.
+Arguments `x` and `b` are used to allocate temporary variables by calling `similar(x)` and
+`similar`b`. The returned context holds no references neither on `x` nor on `b`. Optional
+parameter `T <: AbstractFloat` is the floating-point precision for the scalars of the
+algorithm. By default, it is given by the numerical precision of `x` and `b` using at least
+`Float64` precision.
 
 Algorithm parameters are specified the keywords accepted by
 [`ConjugateGradient.configure!`](@ref) plus the following ones:
@@ -219,9 +219,9 @@ Algorithm parameters are specified the keywords accepted by
 
 * `observer` is the function to call every `observing` iterations as `observer(ctx, t, x)`
   with `ctx` the context, `t` the elapsed time (in seconds), and `x` the current solution.
-  This function may change `ctx.status` with a value other than `WORK_IN_PROGRESS` to
-  force stopping the algorithm at this iteration. Conversely, this function may set
-  `ctx.status` to `WORK_IN_PROGRESS` to force the algorithm to keep iterating.
+  This function may change `ctx.status` with a value other than `WORK_IN_PROGRESS` to force
+  stopping the algorithm at this iteration. Conversely, this function may set `ctx.status`
+  to `WORK_IN_PROGRESS` to force the algorithm to keep iterating.
 
 ---
     ConjugateGradient.Context{T}(p, q, r, z = r; kwds...) -> ctx
@@ -240,7 +240,8 @@ arguments should be allocated by:
 If `z` is not supplied and `typeof(d) == typeof(q)`, `z = r` is assumed which also amounts
 to assuming that no preconditioner will be used.
 
-All keywords but `preconditioning` are available when at least `d`, `q`, and `r` are specified.
+All keywords but `preconditioning` are available when at least `d`, `q`, and `r` are
+specified.
 
 """ Context
 
@@ -271,8 +272,8 @@ function Context{T}(x::Xv, b::Gv;
     return Context{T}(d, q, r, z; kwds...)
 end
 
-# Supply storage for `z` assuming no-preconditioner will be used. This is only
-# possible if `Xv` and `Gv` are the same "vector" types.
+# Supply storage for `z` assuming no-preconditioner will be used. This is only possible if
+# `Xv` and `Gv` are the same "vector" types.
 function Context{T}(d::Xv, q::Xv, r::Xv; kwds...) where {T<:AbstractFloat,Xv}
     return Context{T}(d, q, r, r; kwds...)
 end
@@ -340,10 +341,9 @@ initialized with default settings. Available keywords are:
   practically unlimited.
 
 * `restart` specifies the number of consecutive iterations before restarting the conjugate
-  gradient recurrence. Restarting the algorithm is to cope with the accumulation of
-  rounding errors. Initially, `restart = min(50,length(x)+1)`. Set `restart` to a value
-  less or equal zero or greater than `maxiter` if you do not want that any restarts ever
-  occur.
+  gradient recurrence. Restarting the algorithm is to cope with the accumulation of rounding
+  errors. Initially, `restart = min(50,length(x)+1)`. Set `restart` to a value less or equal
+  zero or greater than `maxiter` if you do not want that any restarts ever occur.
 
 * `ftol = (fatol,frtol)` specifies the absolute and relative tolerances for stopping the
   algorithm based on the reduction of the objective fucntion `f(x)`. Initially, `ftol =
@@ -420,14 +420,14 @@ Argument `b` is the *right hand-side (RHS) vector* of the equations. It is left 
 
 Argument `x` stores the initial solution on entry and the estimated solution on return.
 
-Optional argument `M` is a preconditioner. If `M` is unspecified or if `M` is the
-identity, `Id`, the un-preconditioned version of the algorithm is run. The preconditioner
-can be specified in various forms (as for the LHS operator `A`).
+Optional argument `M` is a preconditioner. If `M` is unspecified or if `M` is the identity,
+`Id`, the un-preconditioned version of the algorithm is run. The preconditioner can be
+specified in various forms (as for the LHS operator `A`).
 
-Optional argument `observing` specifies whether and how frequently to call the observer
-set in `ctx`. If `observing` is less or equal zero (the default), the observer is never
-called. Otherwise, the observer is called every `observing` iterations (which includes the
-0-th one) and at the last iteration (with `ctx.stopping` set to `true`).
+Optional argument `observing` specifies whether and how frequently to call the observer set
+in `ctx`. If `observing` is less or equal zero (the default), the observer is never called.
+Otherwise, the observer is called every `observing` iterations (which includes the 0-th one)
+and at the last iteration (with `ctx.stopping` set to `true`).
 
 
 ## Convergence criteria
@@ -491,8 +491,8 @@ decreasing.
 
 The returned value `status` may be one of (in increasing order of their integer value):
 
-- `ConjugateGradient.NOT_POSITIVE_DEFINITE` if the left-hand-side matrix `A` is found to
-  be not positive definite;
+- `ConjugateGradient.NOT_POSITIVE_DEFINITE` if the left-hand-side matrix `A` is found to be
+  not positive definite;
 
 - `ConjugateGradient.TOO_MANY_ITERATIONS` if the maximum number of iterations have been
   reached;
@@ -539,10 +539,10 @@ function solve!(ctx::Context{T,Xv,Gv,Xa,Ga,Fa}, A, b::Gv, x::Xv, M = Id,
     ctx.stopping = false # algorithm is about to stop?
     ctx.status = WORK_IN_PROGRESS # will be set when convergence detected
     while true
-        # If status is not WORK_IN_PROGRESS, then convergence in x or in f holds or an
-        # error has occurred, hence updating r, z, rho, etc. can be skipped to save
-        # computations unless there are no errors and the observer may be called that may
-        # require these values.
+        # If status is not WORK_IN_PROGRESS, then convergence in x or in f holds or an error
+        # has occurred, hence updating r, z, rho, etc. can be skipped to save computations
+        # unless there are no errors and the observer may be called that may require these
+        # values.
         if ctx.status == WORK_IN_PROGRESS || (ctx.status > WORK_IN_PROGRESS && observing > 𝟘)
             # Compute or update the residuals.
             if ctx.restarting
@@ -619,8 +619,8 @@ function solve!(ctx::Context{T,Xv,Gv,Xa,Ga,Fa}, A, b::Gv, x::Xv, M = Id,
                 ctx.status = CONVERGENCE_IN_X
             end
 
-            # Increment number of iterations and decide whether restarting or not the conjugate
-            # gradient recurrence.
+            # Increment number of iterations and decide whether restarting or not the
+            # conjugate gradient recurrence.
             ctx.iterations += 1
             ctx.restarting = ctx.restart > 0 && ctx.iterations % ctx.restart == 0
         else
@@ -669,8 +669,8 @@ end
 """
     ConjugateGradient.tolerance(atol::Number, rtol::Real, var) -> tol
 
-Return the tolerance given absolute and relative tolerances `atol` and `rtol` and
-a variation `var` which may be a number or an array. The result is computed as:
+Return the tolerance given absolute and relative tolerances `atol` and `rtol` and a
+variation `var` which may be a number or an array. The result is computed as:
 
     tol = max(zero(atol), atol, rtol*norm(var))
 
@@ -740,9 +740,9 @@ minimum of the quadratic function:
 
     f(x) = (1/2) x'⋅A⋅x - b'⋅x + ϵ
 
-where `ϵ` is an arbitrary constant. The variations of `f(x)` between successive
-iterations, the norm of the gradient of `f(x)` or the variations of `x` may be used to
-decide the convergence of the algorithm (see keywords `ftol`, `gtol` and `xtol` in
+where `ϵ` is an arbitrary constant. The variations of `f(x)` between successive iterations,
+the norm of the gradient of `f(x)` or the variations of `x` may be used to decide the
+convergence of the algorithm (see keywords `ftol`, `gtol` and `xtol` in
 [`LazyAlgebra.ConjugateGradient.configure!`](@ref)).
 
 ## Keywords
@@ -751,9 +751,9 @@ The keywords `kwds...` accepted by the method are those of the constructor
 [`LazyAlgebra.ConjugateGradient.Context`](@ref) except `preconditioning` which is inferred
 from the additional keyword:
 
-* `preconditioner = M` to specify a preconditioner `M` different from the default `Id`.
-  Like the LHS matrix `A`, the preconditioner can be an array or must extend `vmul!` so
-  that `vmul!(dst, M, src)` writes the result of `M⋅src` into `dst`.
+* `preconditioner = M` to specify a preconditioner `M` different from the default `Id`. Like
+  the LHS matrix `A`, the preconditioner can be an array or must extend `vmul!` so that
+  `vmul!(dst, M, src)` writes the result of `M⋅src` into `dst`.
 
 ## Examples
 
@@ -777,8 +777,8 @@ conjgrad!(A, b, vzeros!(x); kwds...)
 [`LazyAlgebra.ConjugateGradient.configure!`](@ref) for allowed keywords.
 
 [`LazyAlgebra.ConjugateGradient.solve!`](@ref) for applying the algorithm with no other
-allocations (unless `A` or the preconditioner require additional allocations) than a
-context created by [`LazyAlgebra.ConjugateGradient.Context`](@ref).
+allocations (unless `A` or the preconditioner require additional allocations) than a context
+created by [`LazyAlgebra.ConjugateGradient.Context`](@ref).
 
 """
 function conjgrad!(A, b, x;

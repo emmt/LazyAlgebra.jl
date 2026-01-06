@@ -3,7 +3,7 @@
 #
 # Implement non-specific methods for operators.
 #
-#-----------------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------------------
 
 # Conversion constructors.
 Operator(A::Operator) = A
@@ -14,8 +14,8 @@ Base.convert(::Type{Operator}, A::Operator) = A
 Base.convert(::Type{Operator}, A) = Operator(A)
 
 # Rules to automatically convert `LinearAlgebra.UniformScaling` into `λ*Id` and abstract
-# matrix into `PseudoMatrix` when combined with any `LazyAlgebra` operator or when
-# specific constructors are applied.
+# matrix into `PseudoMatrix` when combined with any `LazyAlgebra` operator or when specific
+# constructors are applied.
 let NonMatrix = LinearAlgebra.UniformScaling, Other = Union{NonMatrix,AbstractMatrix}
     for op in (:(*), :(∘), :(/), Symbol("\\"))
         # For compositions, the left-hand operand must not be an array otherwise this
@@ -50,8 +50,8 @@ end
 """
     LazyAlgebra.input_shape(A)
 
-Return the shape that `x` must have to compute `A*x` with the matrix or linear operator
-`A`. The shape is a tuple of array dimensions or index unit ranges.
+Return the shape that `x` must have to compute `A*x` with the matrix or linear operator `A`.
+The shape is a tuple of array dimensions or index unit ranges.
 
 This method has no default implementation. To provide this method for an operator `A`, the
 following two methods shall be specialized:
@@ -61,9 +61,9 @@ LazyAlgebra.InputShape(typeof(A)) = LazyAlgebra.HasInputShape{N}()
 LazyAlgebra.input_shape(A) = ...
 ```
 
-with `N` the number of dimensions of suitable input `x` to compute `A*x`. In
-`LazyAlgebra`, `LazyAlgebra.input_shape(A)` shall only be called if
-`LazyAlgebra.InputShape(typeof(A))` yields `LazyAlgebra.HasInputShape{N}()` for some `N`.
+with `N` the number of dimensions of suitable input `x` to compute `A*x`. In `LazyAlgebra`,
+`LazyAlgebra.input_shape(A)` shall only be called if `LazyAlgebra.InputShape(typeof(A))`
+yields `LazyAlgebra.HasInputShape{N}()` for some `N`.
 
 See also [`LazyAlgebra.output_shape`](@ref), [`LazyAlgebra.InputShape`](@ref),
 [`LazyAlgebra.input_ndims`](@ref), [`LazyAlgebra.input_axes`](@ref), and
@@ -122,20 +122,20 @@ input_length(A::AbstractMatrix) = size(A, 2)
 """
     LazyAlgebra.output_shape(A::Operator)
 
-Return the shape of `A*x` when it is known in advance for the matrix or linear operator
-`A`. The shape is a tuple of array dimensions or index unit ranges.
+Return the shape of `A*x` when it is known in advance for the matrix or linear operator `A`.
+The shape is a tuple of array dimensions or index unit ranges.
 
-This method has no default implementation. To implement this method for an operator `A`,
-the following two methods shall be specialized:
+This method has no default implementation. To implement this method for an operator `A`, the
+following two methods shall be specialized:
 
 ```julia
 LazyAlgebra.OutputShape(typeof(A)) = LazyAlgebra.HasOutputShape{M}()
 LazyAlgebra.output_shape(A) = ...
 ```
 
-with `M` the number of dimensions of `A*x`. In `LazyAlgebra`,
-`LazyAlgebra.output_shape(A)` shall only be called if `LazyAlgebra.OutputShape(typeof(A))`
-yields `LazyAlgebra.HasOutputShape{M}()` for some `M`.
+with `M` the number of dimensions of `A*x`. In `LazyAlgebra`, `LazyAlgebra.output_shape(A)`
+shall only be called if `LazyAlgebra.OutputShape(typeof(A))` yields
+`LazyAlgebra.HasOutputShape{M}()` for some `M`.
 
 See also [`LazyAlgebra.input_shape`](@ref), [`LazyAlgebra.OutputShape`](@ref),
 [`LazyAlgebra.output_ndims`](@ref), [`LazyAlgebra.output_axes`](@ref), and
@@ -152,8 +152,8 @@ output_shape(A::AbstractMatrix) = output_axes(A)
 """
     LazyAlgebra.output_size(A)
 
-Return the dimensions of the result of left-multiplying a *vector* (of suitable size) by
-the matrix or linear operator `A`.
+Return the dimensions of the result of left-multiplying a *vector* (of suitable size) by the
+matrix or linear operator `A`.
 
 This method is only applicable to operators whose output shape is fixed (see
 [`LazyAlgebra.output_shape`](@ref)).
@@ -223,17 +223,17 @@ possibilities:
 
    which shall yield the axes of `A*x` throwing an error if `x` has not suitable axes.
 
-3. If the shapes of the input and output of `A` are known in advance, then it is simpler
-   to provide:
+3. If the shapes of the input and output of `A` are known in advance, then it is simpler to
+   provide:
 
    ```julia
    LazyAlgebra.input_shape(A)
    LazyAlgebra.output_shape(A)
    ```
 
-   to respectively yield the shapes of the input and output of `A` as tuples of
-   dimension lengths and/or index unit ranges (the two may be mixed). For `LazyAlgebra`
-   to be aware of this, the following traits must also be implemented:
+   to respectively yield the shapes of the input and output of `A` as tuples of dimension
+   lengths and/or index unit ranges (the two may be mixed). For `LazyAlgebra` to be aware of
+   this, the following traits must also be implemented:
 
    ```julia
    LazyAlgebra.InputShape(typeof(A)) = LazyAlgebra.HasInputShape{N}()
@@ -283,9 +283,8 @@ output_axes_in_sum(y_axes::ArrayAxes, A::Operator, x_axes::ArrayAxes) =
     y = LazyAlgebra.create_output([α::Number,] A::Operator, x::AbstractArray)
 
 Create a new array `y` to store the result of `A*x` or of `α*A*x` if the multiplier `α` is
-specified. In this latter case, the returned type does not depend on the numerical
-precision of `α`, only on its units, if any, and on whether it is a real or a complex
-number.
+specified. In this latter case, the returned type does not depend on the numerical precision
+of `α`, only on its units, if any, and on whether it is a real or a complex number.
 
 The method may be specialized in the operator type. The default implementations are:
 
@@ -306,8 +305,8 @@ returned.
     This method is called by [`vmul`](@ref) to create its output before calling
     [`LazyAlgebra.unsafe_vmul!`](@ref) assuming that `x` and `y` have correct indices to
     compute `A*x` and to store the result in `y`. Hence, it is important that any
-    specialization of `LazyAlgebra.create_output` throws an exception if the axes of `x`
-    are not valid.
+    specialization of `LazyAlgebra.create_output` throws an exception if the axes of `x` are
+    not valid.
 
 See also [`LazyAlgebra.output_axes`](@ref) and [`LazyAlgebra.output_eltype`](@ref).
 
@@ -322,9 +321,9 @@ create_output(α::Number, A::Operator, x) =
     LazyAlgebra.unscaled(A)
 
 If `A = λ*B` is a *scaled operator* with `B` an operator and `λ` a number, returns the
-operator `B`; otherwise returns operator `A`. This method is also applicable to instances
-of `LinearAlgebra.UniformScaling`. Call [`LazyAlgebra.multiplier`](@ref) to get the
-multiplier `λ`.
+operator `B`; otherwise returns operator `A`. This method is also applicable to instances of
+`LinearAlgebra.UniformScaling`. Call [`LazyAlgebra.multiplier`](@ref) to get the multiplier
+`λ`.
 
 """
 unscaled(A::Operator) = A
@@ -336,8 +335,7 @@ unscaled(A::UniformScaling) = Id
 
 If `A = λ*B` is a *scaled operator* with `B` an operator and `λ` a number, returns the
 multiplier `λ`; otherwise returns `𝟙`. This method is also applicable to instances of
-`LinearAlgebra.UniformScaling`. Call [`LazyAlgebra.unscaled`](@ref) to get the operator
-`B`.
+`LinearAlgebra.UniformScaling`. Call [`LazyAlgebra.unscaled`](@ref) to get the operator `B`.
 
 """
 multiplier(A::Scaled) = A[1]
@@ -348,9 +346,9 @@ multiplier(A::UniformScaling) = getfield(A, :λ)
     LazyAlgebra.check_vmul(y, A, x) -> (v1, v2, v1 - v2)
 
 Return `v1 = vdot(y, A*x)`, `v2 = vdot(A'*y, x)` and their difference for `A` a linear
-operator, `y` a *vector* of the output space of `A` and `x` a *vector* of the input space
-of `A`. In principle, the two inner products should be equal whatever `x` and `y`;
-otherwise the implementation of the operator has a bug.
+operator, `y` a *vector* of the output space of `A` and `x` a *vector* of the input space of
+`A`. In principle, the two inner products should be equal whatever `x` and `y`; otherwise
+the implementation of the operator has a bug.
 
 Simple linear operators operating on Julia arrays can be tested on random *vectors* with:
 
@@ -398,8 +396,8 @@ check_vmul(A::Operator) =
     (α*A)*x
     vmul(α, A, x)
 
-Return the result of applying the linear operator `A` or the scaled linear operator `α*A`
-to the argument `x`.
+Return the result of applying the linear operator `A` or the scaled linear operator `α*A` to
+the argument `x`.
 
 !!! warning
     Do not extend this method for specific operator types, but rather the
@@ -414,8 +412,8 @@ function vmul end
 Base.:(*)(A::Operator, x::AbstractArray) = vmul(A, x)
 Base.:(\)(A::Operator, x::AbstractArray) = vmul(inv(A), x)
 
-# First, factorize out multipliers so that only `vmul(α,A,x)` with `A` a non-scaled
-# operator shall be implemented after this stage.
+# First, factorize out multipliers so that only `vmul(α,A,x)` with `A` a non-scaled operator
+# shall be implemented after this stage.
 vmul(A::Scaled, x::AbstractArray) = vmul(A[1], A[2], x)
 vmul(α::Number, A::Scaled, x::AbstractArray) = vmul(α*A[1], A[2], x)
 vmul(A::Operator, x::AbstractArray) = vmul(𝟙, A, x)
@@ -446,8 +444,8 @@ Overwrite `y` with `α*A⋅x + β*y` and return `y`.
 
 Multiplier `β` must be dimensionless; it can be complex if `y` also has complex element
 type, and must be real otherwise. The convention is that the prior content of `y` is not
-used at all if `iszero(β)` holds so `y` can be directly used to store the result even
-though it is not initialized.
+used at all if `iszero(β)` holds so `y` can be directly used to store the result even though
+it is not initialized.
 
 Other supported methods are:
 
@@ -632,16 +630,16 @@ end
     LazyAlgebra.unsafe_vmul!(α::Number, A::Operator, x::AbstractArray,
                              β::Number, y::AbstractArray)
 
-Overwrite `y` with `α*A⋅x + β*y`. This method (not [`vmul`](@ref) nor [`vmul!`](@ref))
-is supposed to be specialized for any supported operator type.
+Overwrite `y` with `α*A⋅x + β*y`. This method (not [`vmul`](@ref) nor [`vmul!`](@ref)) is
+supposed to be specialized for any supported operator type.
 
 This method is called by [`vmul`](@ref) and [`vmul!`](@ref) after checking that arguments
 `x` and `y` have correct axes (so that `@inbounds` may be assumed to compute the result
 stored in `y`), with multipliers `α` and `β` converted to suitable numbers, and only if
 `iszero(α)` does not hold. The convention is that the prior contents of `y` is not used at
-all if `iszero(β)` holds so that `y` can be directly used to store the result even though
-it is not initialized. `LazyAlgebra.unsafe_vmul!` shall return `nothing` (any returned
-value is ignored by [`vmul`](@ref) and [`vmul!`](@ref).
+all if `iszero(β)` holds so that `y` can be directly used to store the result even though it
+is not initialized. `LazyAlgebra.unsafe_vmul!` shall return `nothing` (any returned value is
+ignored by [`vmul`](@ref) and [`vmul!`](@ref).
 
 After checking the axes of `x` and of `y` and converting the multipliers `α` and `β`,
 [`vmul`](@ref) and [`vmul!`](@ref) do something like:
@@ -657,22 +655,21 @@ end
 ```
 
 See also [`vmul`](@ref), [`vmul!`](@ref), [`LazyAlgebra.Operator`](@ref),
-[`LazyAlgebra.unsafe_vscale!`](@ref), [`vzeros!`](@ref),
-[`LazyAlgebra.output_eltype`](@ref) [`LazyAlgebra.output_axes`](@ref), and
-[`LazyAlgebra.create_output`](@ref).
+[`LazyAlgebra.unsafe_vscale!`](@ref), [`vzeros!`](@ref), [`LazyAlgebra.output_eltype`](@ref)
+[`LazyAlgebra.output_axes`](@ref), and [`LazyAlgebra.create_output`](@ref).
 
 """
 function unsafe_vmul! end
 
 # Specialize `unsafe_vmul!` for a sum of operators knowing that a sum of more than 2
 # operators is stored according to right-associativity. Compared to specializing `vmul!`
-# instead, this saves re-checking axes, re-conversion of multipliers, and re-dispatching
-# on multipliers.
+# instead, this saves re-checking axes, re-conversion of multipliers, and re-dispatching on
+# multipliers.
 function unsafe_vmul!(α::Number, A::Sum, x::AbstractArray, β::Number, y::AbstractArray)
     # There should be no needs to dispatch on the multipliers because, inputs `α` and `β`
-    # have already been processed. Thus `unsafe_vmul!` can be directly called. In
-    # principle, the second call should be with `𝟙*unit(β)`, but, being an in-place
-    # multiplier, `β` is dimensionless and `𝟙*unit(β)` and `𝟙` are the same thing.
+    # have already been processed. Thus `unsafe_vmul!` can be directly called. In principle,
+    # the second call should be with `𝟙*unit(β)`, but, being an in-place multiplier, `β` is
+    # dimensionless and `𝟙*unit(β)` and `𝟙` are the same thing.
     unsafe_vmul!(α, A[1], x, β, y)
     unsafe_vmul!(α, A[2], x, 𝟙, y)
     return nothing
@@ -696,15 +693,15 @@ unsafe_vmul!(α::Number, (A,B)::Prod, x::AbstractArray, β::Number, y::AbstractA
     LazyAlgebra.test_API(A::Operator, x, y)
 
 Test that operator API is correctly implemented for `A`. `x` is a chosen input for `A` and
-`y` is the expected output. The shapes and element types of `x` and `y` must be correct.
-The returned value is that of a `@testset`.
+`y` is the expected output. The shapes and element types of `x` and `y` must be correct. The
+returned value is that of a `@testset`.
 
 Keywords `alphas` and `betas` are tuples of values for `α` and `β` to test
-`LazyAgebra.vmul(α, A, x)`, `LazyAgebra.vmul!(dst, α, A, x)`, and `LazyAgebra.vmul!(α, A,
-x, β, y)`.
+`LazyAgebra.vmul(α, A, x)`, `LazyAgebra.vmul!(dst, α, A, x)`, and `LazyAgebra.vmul!(α, A, x,
+β, y)`.
 
-Keywords `atol` and `rtol` are the absolute and relative tolerances for comparing `A*x`
-and `y`.
+Keywords `atol` and `rtol` are the absolute and relative tolerances for comparing `A*x` and
+`y`.
 
 The `norm` keyword defaults to `LinearAlgebra.norm` for arrays.
 

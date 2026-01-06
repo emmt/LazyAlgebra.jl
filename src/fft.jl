@@ -1,12 +1,12 @@
 # Implementation of FFT and circulant convolution operators.
 #
-#-------------------------------------------------------------------------- FFT OPERATOR -
+#---------------------------------------------------------------------------- FFT operator -
 
 """
     F = FFT(forward)
     F = FFT(forward, backward)
 
-builds a fast Fourier transform (FFT) operator based on the given `forward` and `backward`
+Build a fast Fourier transform (FFT) operator based on the given `forward` and `backward`
 FFT plans. If not specified, the `backward` plan is automatically built from the `forward`
 plan.
 
@@ -21,16 +21,15 @@ the arrays to transform and their dimensions:
     F =  FFT{T}(shape...; kwds...)
 
 where `T` is one of `Float64`, `Float32` (for a real-complex FFT), `Complex{Float64}`, or
-`Complex{Float32}` (for a complex-complex FFT) and `shape...` are the dimensions or axes
-of the arrays to transform (by the forward FFT).
+`Complex{Float32}` (for a complex-complex FFT) and `shape...` are the dimensions or axes of
+the arrays to transform (by the forward FFT).
 
 Keywords `flags` and `timelimit` may be used to specify planning options and time limit to
 create the FFT plans (see http://www.fftw.org/doc/Planner-Flags.html). The defaults are
 `flags=FFTW.MEASURE` and no time limit.
 
-The interest of creating such an operator is that it caches the resources necessary for
-fast computation of the FFT and can be therefore faster than calling `fft`, `rfft`,
-`ifft`, etc.
+The interest of creating such an operator is that it caches the resources necessary for fast
+computation of the FFT and can be therefore faster than calling `fft`, `rfft`, `ifft`, etc.
 
 An instance of `FFT` behaves as any other linear operator of `LazyAlgebra`:
 
@@ -52,18 +51,18 @@ function FFT{T}(dims::Dims{N};
     flags = check_fftw_flags(flags)
     temp = Array{T}(undef, dims)
     if T <: Complex
-        # Compute the plans with suitable FFTW flags for a complex-to-complex FFT
-        # operator. For maximum efficiency, the transforms are applied in-place and thus
-        # cannot preserve their inputs.
+        # Compute the plans with suitable FFTW flags for a complex-to-complex FFT operator.
+        # For maximum efficiency, the transforms are applied in-place and thus cannot
+        # preserve their inputs.
         forward = plan_fft!(temp; flags = (flags | FFTW.DESTROY_INPUT),
                             timelimit = timelimit)
         backward = plan_bfft!(temp; flags = (flags | FFTW.DESTROY_INPUT),
                               timelimit = timelimit)
     else
-        # Compute the plans with suitable FFTW flags for a real-to-complex FFT operator.
-        # The forward transform (r2c) shall preserve its input, while the backward
-        # transform (c2r) may destroy it (in fact there are no input-preserving algorithms
-        # for multi-dimensional c2r transforms implemented in FFTW, see
+        # Compute the plans with suitable FFTW flags for a real-to-complex FFT operator. The
+        # forward transform (r2c) shall preserve its input, while the backward transform
+        # (c2r) may destroy it (in fact there are no input-preserving algorithms for
+        # multi-dimensional c2r transforms implemented in FFTW, see
         # http://www.fftw.org/doc/Planner-Flags.html).
         forward = plan_rfft(temp; flags = (flags | FFTW.PRESERVE_INPUT),
                             timelimit = timelimit)
@@ -171,7 +170,7 @@ try_simplify((A,B)::Prod{InverseAdjoint{F},Inverse{F}}) where {F<:FFT} =
 try_simplify((A,B)::Prod{Inverse{F},InverseAdjoint{F}}) where {F<:FFT} =
     isequal(A[], B[][]) ? (1//fft_length(A))*Id : nothing
 
-#---------------------------------------------------------------------------- FFTW PLANS -
+#------------------------------------------------------------------------------ FFTW plans -
 
 fft_type(::FFTW.cFFTWPlan{<:Complex}) = "c2c"
 fft_type(::FFTW.rFFTWPlan{<:Complex}) = "c2r"
@@ -220,8 +219,8 @@ output_eltype(::Type{<:FFTW.FFTWPlan{T}}) where {T} = T
 output_eltype(::Type{<:FFTW.rFFTWPlan{T}}) where {T<:Real} = Complex{T}
 output_eltype(::Type{<:FFTW.rFFTWPlan{Complex{T}}}) where {T<:Real} = T
 
-# Unfortunately, Julia interface to FFTW only records the flags passed to the FFTW
-# library, not the actual flags. So we must be conservative.
+# Unfortunately, Julia interface to FFTW only records the flags passed to the FFTW library,
+# not the actual flags. So we must be conservative.
 does_not_destroy_input(A::FFTW.FFTWPlan) = !iszero(A.flags & FFTW.PRESERVE_INPUT)
 
 # Extend `unsafe_vmul!` for FFTW plans.
@@ -233,15 +232,14 @@ does_not_destroy_input(A::FFTW.FFTWPlan) = !iszero(A.flags & FFTW.PRESERVE_INPUT
 # with as few temporaries as possible. If `β = 0`, then there are no needs to save the
 # contents of `y` which can be used directly for the output of the transform. Extra checks
 # are required to make sure the contents `x` is not damaged unless `scratch` is true. It
-# turns out that the implementation depends on the type of transform so several versions
-# are coded below.
+# turns out that the implementation depends on the type of transform so several versions are
+# coded below.
 #
 # NOTE The machinery of FFTW plans is quite involved with many different possible types of
-#      plans, the adjoint of a plan is a specific object of type
-#      `AbstractFFTs.AdjointPlan~, an inverse-FFT plan is a scaled plan of type
-#      `AbstractFFTs.ScaledPlan`, the inverse of a plan is cached in the plan, etc. We
-#      therefore only extend LazyAlgebra Operator API for a definite subset of FFTW plans
-#      used by `FFT`.
+#      plans, the adjoint of a plan is a specific object of type `AbstractFFTs.AdjointPlan~,
+#      an inverse-FFT plan is a scaled plan of type `AbstractFFTs.ScaledPlan`, the inverse
+#      of a plan is cached in the plan, etc. We therefore only extend LazyAlgebra Operator
+#      API for a definite subset of FFTW plans used by `FFT`.
 #
 # NOTE In principle, FFTW plans can be applied to strided arrays (StridedArray) but this
 #      imposes that the arguments have the same strides. So for now, we choose to restrict
@@ -253,8 +251,8 @@ does_not_destroy_input(A::FFTW.FFTWPlan) = !iszero(A.flags & FFTW.PRESERVE_INPUT
 #     FFTW.cFFTWPlan{Complex{T}, K, inplace, N, ...}
 #
 # with `T` the floating-point type, `K` is `-1` for the forward transform and `+1` for the
-# backward transform, `inplace` indicates whether the transform is in-place or
-# out-of-place (true with the `!` suffix, false otherwise), and `N` the number of dimensions.
+# backward transform, `inplace` indicates whether the transform is in-place or out-of-place
+# (true with the `!` suffix, false otherwise), and `N` the number of dimensions.
 #
 function unsafe_vmul!(α::Number, A::FFTW.cFFTWPlan{Complex{T},K,inplace,N},
                       x::AbstractArray{<:Any,N},
@@ -331,7 +329,7 @@ function unsafe_vmul!(α::Number, A::FFTW.rFFTWPlan{<:Any,K,false,N},
     return y
 end
 
-#----------------------------------------------------------------- CIRCULANT CONVOLUTION -
+#------------------------------------------------------------------- Circulant convolution -
 
 # Basic methods for a linear operator on Julia's arrays.
 
@@ -373,9 +371,9 @@ The operator `H` can be created by:
 H = CirculantConvolution(psf; flags=FFTW.MEASURE, timelimit=Inf, shift=false)
 ```
 
-where `psf` is the point spread function (PSF). Note that the PSF is assumed to be
-centered according to the convention of the discrete Fourier transform. You may use
-`ifftshift` or the keyword `shift` if the PSF is geometrically centered:
+where `psf` is the point spread function (PSF). Note that the PSF is assumed to be centered
+according to the convention of the discrete Fourier transform. You may use `ifftshift` or
+the keyword `shift` if the PSF is geometrically centered:
 
 ```julia
 H = CirculantConvolution(ifftshift(psf))
@@ -391,16 +389,16 @@ The following keywords can be specified:
 
 * `flags` is a bitwise-or of FFTW planner flags, defaulting to `FFTW.MEASURE`. If the
   operator is to be used many times (as in iterative methods), it is recommended to use at
-  least `flags=FFTW.MEASURE` (the default) which generally yields faster transforms
-  compared to `flags=FFTW.ESTIMATE`.
+  least `flags=FFTW.MEASURE` (the default) which generally yields faster transforms compared
+  to `flags=FFTW.ESTIMATE`.
 
 * `timelimit` specifies a rough upper bound on the allowed planning time, in seconds.
 
 The operator can be used as a regular linear operator: `H(x)` or `H*x` to compute the
 convolution of `x` and `H'(x)` or `H'*x` to apply the adjoint of `H` to `x`.
 
-For a slight improvement of performances, an array `y` to store the result of the
-operation can be provided:
+For a slight improvement of performances, an array `y` to store the result of the operation
+can be provided:
 
 ```julia
 vmul!(y, H, x) -> y
@@ -425,8 +423,8 @@ function CirculantConvolution(psf::AbstractArray{<:Union{T,Complex{T}},N};
                               kwds...) where {T<:FFTW.fftwReal,N}
     flags = check_fftw_flags(flags)
 
-    # Allocate array for the scaled MTF, this array also serves as a workspace for
-    # planning operations which may destroy their input.
+    # Allocate array for the scaled MTF, this array also serves as a workspace for planning
+    # operations which may destroy their input.
     dims = size(psf)
     mtf = Array{Complex{T}}(undef, eltype(psf) <: Real ? rfftdims(dims) : dims)
 
@@ -437,16 +435,16 @@ function CirculantConvolution(psf::AbstractArray{<:Union{T,Complex{T}},N};
         # preserve its input, while the backward transform (c2r) may destroy it (in fact
         # there are no input-preserving algorithms for multi-dimensional c2r transforms).
         # However if the planning flags do not prevent it, the input of `plan_rfft` may be
-        # overwritten to find the best strategy, so we use a temporary array here. The
-        # `mtf` array is not yet instantiated, so its contents may be modified with no
-        # problem by `plan_brfft`.
+        # overwritten to find the best strategy, so we use a temporary array here. The `mtf`
+        # array is not yet instantiated, so its contents may be modified with no problem by
+        # `plan_brfft`.
         F = plan_rfft(Array{T}(undef, dims); flags = (flags | FFTW.PRESERVE_INPUT), kwds...)
         B = plan_brfft(mtf, dims[1]; flags = (flags | FFTW.DESTROY_INPUT), kwds...)
     else
         # Build an operator for arrays of complexes.
         #
-        # Compute the plans with FFTW flags suitable for out-of-place forward
-        # transform and in-place backward transform.
+        # Compute the plans with FFTW flags suitable for out-of-place forward transform and
+        # in-place backward transform.
         F = plan_fft(mtf; flags = (flags | FFTW.PRESERVE_INPUT), kwds...)
         B = plan_bfft!(mtf; flags = (flags | FFTW.DESTROY_INPUT), kwds...)
     end
@@ -505,16 +503,16 @@ function unsafe_vmul!(α::Number,
     return y
 end
 
-#----------------------------------------------------------------------------- UTILITIES -
+#------------------------------------------------------------------------------- Utilities -
 
 const FFTW_PLANNING = (FFTW.ESTIMATE | FFTW.MEASURE | FFTW.PATIENT | FFTW.EXHAUSTIVE |
     FFTW.WISDOM_ONLY)
 
 """
+    check_fftw_flags(flags)
 
-`check_fftw_flags(flags)` checks whether `flags` is an allowed bitwise-or combination of
-FFTW planner flags (see http://www.fftw.org/doc/Planner-Flags.html) and returns the
-filtered flags.
+Check whether `flags` is an allowed bitwise-or combination of FFTW planner flags (see
+http://www.fftw.org/doc/Planner-Flags.html) and returns the filtered flags.
 
 """
 function check_fftw_flags(flags::Integer)
@@ -547,13 +545,11 @@ function print_fftw_flags(io::IO, flags::Integer)
 end
 
 """
-```julia
-goodfftdim(len)
-```
+    goodfftdim(len)
 
-yields the smallest integer which is greater or equal `len` and which is a
-multiple of powers of 2, 3 and/or 5.  If argument is an array dimesion list
-(i.e. a tuple of integers), a tuple of good FFT dimensions is returned.
+Return the smallest integer which is greater or equal `len` and which is a multiple of
+powers of 2, 3 and/or 5. If argument is an array dimesion list (i.e. a tuple of integers), a
+tuple of good FFT dimensions is returned.
 
 Also see: [`goodfftdims`](@ref), [`rfftdims`](@ref), [`FFT`](@ref).
 
@@ -562,12 +558,10 @@ goodfftdim(len::Integer) = goodfftdim(Int(len))
 goodfftdim(len::Int) = nextprod([2,3,5], len)
 
 """
-```julia
-goodfftdims(dims)
-```
+    goodfftdims(dims)
 
-yields a list of dimensions suitable for computing the FFT of arrays whose
-dimensions are `dims` (a tuple or a vector of integers).
+Return a list of dimensions suitable for computing the FFT of arrays whose dimensions are
+`dims` (a tuple or a vector of integers).
 
 Also see: [`goodfftdim`](@ref), [`rfftdims`](@ref), [`FFT`](@ref).
 
@@ -577,12 +571,10 @@ goodfftdims(dims::Union{AbstractVector{<:Integer},Tuple{Vararg{Integer}}}) =
     map(goodfftdim, dims)
 
 """
-```julia
-rfftdims(dims)
-```
+    rfftdims(dims)
 
-yields the dimensions of the complex array produced by a real-complex FFT of a
-real array of size `dims`.
+Return the dimensions of the complex array produced by a real-complex FFT of a real array of
+size `dims`.
 
 Also see: [`goodfftdim`](@ref), [`FFT`](@ref).
 
@@ -604,26 +596,25 @@ k = fftfreq(dim)
 f = fftfreq(dim, step)
 ```
 
-With a single argument, the function returns a vector of `dim` values set with
-the frequency indexes:
+With a single argument, the function returns a vector of `dim` values set with the frequency
+indexes:
 
 ```
 k = [0, 1, 2, ..., n-1, -n, ..., -2, -1]   if dim = 2*n
 k = [0, 1, 2, ..., n,   -n, ..., -2, -1]   if dim = 2*n + 1
 ```
 
-depending whether `dim` is even or odd.  These rules are compatible to what is
-assumed by `fftshift` (which to see) in the sense that:
+depending whether `dim` is even or odd. These rules are compatible to what is assumed by
+`fftshift` (which to see) in the sense that:
 
 ```
 fftshift(fftfreq(dim)) = [-n, ..., -2, -1, 0, 1, 2, ...]
 ```
 
-With two arguments, `step` is the sample spacing in the direct space and the
-result is a floating point vector with `dim` elements set with the frequency
-bin centers in cycles per unit of the sample spacing (with zero at the start).
-For instance, if the sample spacing is in seconds, then the frequency unit is
-cycles/second.  This is equivalent to:
+With two arguments, `step` is the sample spacing in the direct space and the result is a
+floating point vector with `dim` elements set with the frequency bin centers in cycles per
+unit of the sample spacing (with zero at the start). For instance, if the sample spacing is
+in seconds, then the frequency unit is cycles/second. This is equivalent to:
 
 ```
 fftfreq(dim)/(dim*step)

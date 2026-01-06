@@ -1,8 +1,8 @@
 """
-    throw_bad_argument(args...)
+    LazyAlgebra.throw_bad_argument(args...)
 
-Throw an `ArgumentError` exception with a textual message given by `args...` converted
-into a string. This function is not in-lined.
+Throw an `ArgumentError` exception with a textual message given by `args...` converted into
+a string. This function is not in-lined.
 
 """
 @noinline throw_bad_argument(args...) = throw_bad_argument(string(args...))
@@ -20,8 +20,8 @@ into a string. This function is not in-lined.
 """
     LazyAlgebra.throw_assertion_error(args...)
 
-Throw an `AssertionError` exception with a textual message given by `args...` converted
-into a string. This function is not in-lined.
+Throw an `AssertionError` exception with a textual message given by `args...` converted into
+a string. This function is not in-lined.
 
 """
 @noinline throw_assertion_error(args...) = throw_assertion_error(string(args...))

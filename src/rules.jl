@@ -4,7 +4,7 @@
 # Implement arithmetic rules for building associations (sum and composition) of linear
 # operators and their variants (adjoint, inverse, etc.).
 #
-#-----------------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------------------
 
 # Accessors and base methods for Adjoint, Transpose, Conjugate, and Inverse wrappers.
 for (f, W) in (:adjoint   => :Adjoint,
@@ -84,8 +84,8 @@ Base.:(-)(A::Operator, B::Operator) = A + (-B)
 
 # Extend multiplication by `*` and left or right division by '/' or '\' when at least one
 # operand is an operator and the other is a scalar or an operator. Any simplifications of
-# the multiplication are automatically done by the `Prod` constructor. Hence, divisions
-# are re-expressed as multiplications.
+# the multiplication are automatically done by the `Prod` constructor. Hence, divisions are
+# re-expressed as multiplications.
 Base.:(∘)(A::Operator, B::Operator) = A * B
 Base.:(*)(A::Operator, B::Operator) = Prod(A, B)
 Base.:(*)(A::Operator, β::Number  ) = β * A
@@ -106,8 +106,7 @@ Base.:(\)(A::Operator, β::Number  ) = β / A
 # Equality.
 #
 # If no more specific rules exist, consider that two operators are different by default
-# unless they are the same object. This can be overridden for more specific operator
-# types.
+# unless they are the same object. This can be overridden for more specific operator types.
 Base.:(==)(A::T, B::T) where {T<:Operator} = A === B
 Base.:(==)(A::Operator, B::Operator) = false
 Base.isequal(A::Operator, B::Operator) = A == B
@@ -121,11 +120,11 @@ for eq in (:(==), :isequal)
     @eval begin
         # Equality for sums of operators.
         #
-        # For comparing two sums, due to commutativity of addition all possible
-        # permutations should be compared but would scale as O(n!) with n the number of
-        # terms or would require first sorting the terms of A and B. This is too long, so
-        # equality is only tested without permutations. This is sufficient if A and B have
-        # been "simplified" (and thus their terms sorted).
+        # For comparing two sums, due to commutativity of addition all possible permutations
+        # should be compared but would scale as O(n!) with n the number of terms or would
+        # require first sorting the terms of A and B. This is too long, so equality is only
+        # tested without permutations. This is sufficient if A and B have been "simplified"
+        # (and thus their terms sorted).
         Base.$eq(A::Sum, B::Sum) = ($eq(A[1], B[1]) && $eq(A[2], B[2]))
         #
         # Equality for scaled operators.
@@ -141,9 +140,9 @@ for eq in (:(==), :isequal)
         Base.$eq(A::Conjugate, B::Conjugate) = $eq(parent(A), parent(B))
         Base.$eq(A::Inverse,   B::Inverse) = $eq(parent(A), parent(B))
         #
-        # Comparing operators of mixed kinds is delegated to an auxiliary function to
-        # reduce the cases to handle. We consider `Scaled` to be the most specific, then
-        # `Sum`, then others.
+        # Comparing operators of mixed kinds is delegated to an auxiliary function to reduce
+        # the cases to handle. We consider `Scaled` to be the most specific, then `Sum`,
+        # then others.
         Base.$eq(A::Sum,      B::Scaled  ) = $eq(B, A)
         Base.$eq(A::Prod,     B::Scaled  ) = $eq(B, A)
         Base.$eq(A::Operator, B::Scaled  ) = $eq(B, A)
@@ -191,10 +190,9 @@ Prod((A,B)::Prod, C::Operator) = A * (B * C)
 # The following constructor insures that the right operand is always an unscaled operator.
 Scaled(α::Number, (β,B)::Scaled) = (α * β) * B
 
-#---------------------------------------------------------------------- NEUTRAL ELEMENTS -
+#------------------------------------------------------------------------ Neutral elements -
 
-# The neutral element ("zero") for the addition is zero times a mapping of the proper
-# type.
+# The neutral element ("zero") for the addition is zero times a mapping of the proper type.
 Base.zero(A::Operator) = 𝟘 * A
 
 Base.iszero(A::Scaled) = iszero(A[1])
@@ -208,7 +206,7 @@ Base.isone(::Identity) = true
 Base.isone(A::Scaled{<:Number,<:Identity}) = isone(multiplier(A))
 Base.isone(::Operator) = false
 
-#----------------------------------------------------------------------------- PRECISION -
+#------------------------------------------------------------------------------- Precision -
 
 # Precision for adjoint, and inverse. Thanks to recursion, this also works for
 # inverse-adjoint.
