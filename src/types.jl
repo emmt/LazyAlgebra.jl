@@ -364,22 +364,22 @@ end
 end
 
 @callable struct PseudoMatrix{T, # element type
-                              M, # number of row dimensions or Colon
-                              N, # total number of dimensions (rows + columns)
-                              A<:AbstractArray{T,N}} <: Operator
-    parent::A
+                              L, # number of leading (row) dimensions or `:`
+                              P<:AbstractArray{T}} <: Operator
+    parent::P
 
-    PseudoMatrix{T,Colon}(arr::A) where {T,N,A<:AbstractArray{T,N}} =
-        new{T,Colon,N,A}(arr)
-
-    function PseudoMatrix{T,M}(arr::A) where {T,M,N,A<:AbstractArray{T,N}}
-        M isa Int || throw(ArgumentError("number of row dimensions must be an `Int`"))
-        0 ≤ M ≤ N || throw(ArgumentError("out of range number of row dimensions"))
-        return new{T,M,N,A}(arr)
+    function PseudoMatrix{T,L}(A::P) where {T,L,P<:AbstractArray{T}}
+        if L isa Int
+            0 ≤ L ≤ ndims(P) || throw(ArgumentError(
+                "out of range number of leading dimensions"))
+        elseif !(L isa Colon)
+            throw(ArgumentError("number of leading dimensions must be an `Int` or `:`"))
+        end
+        return new{T,L,P}(A)
     end
 end
 
-const FlexibleMatrix{T,N,A} = PseudoMatrix{T,Colon,N,A}
+const FlexibleMatrix{T,P} = PseudoMatrix{T,:,P}
 
 @callable struct CroppingOperator{N,I<:ArrayAxes{N},J<:ArrayAxes{N}} <: Operator
     i::I # output (cropped) axes

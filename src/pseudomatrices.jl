@@ -1,9 +1,9 @@
 # Implement generalized matrix and matrix-vector product in LazyAlgebra.
 
 """
-    A = PseudoMatrix{T,M}(arr)
-    A = PseudoMatrix{T}(arr, Dims{M})
-    A = PseudoMatrix(arr, Dims{M})
+    A = PseudoMatrix{T,L}(arr)
+    A = PseudoMatrix{T}(arr, Dims{L})
+    A = PseudoMatrix(arr, Dims{L})
 
 Build a linear operator `A` whose coefficients are given by a multi-dimensional array
 `arr` and whose behavior generalizes the definition of the matrix-vector product.
@@ -14,16 +14,16 @@ pseudo-matrix `A` shares its coefficients with `arr`. The array storing the coef
 of `A` can be retrieved by `parent(A)`. If `T` is unspecified, `T = eltype(arr)` is
 assumed.
 
-Type parameter `M` is the number of consecutive leading dimensions of `arr` considered as
-the *row index* of the pseudo-matrix `A`, the remaining consecutive trailing dimensions
+Type parameter `L` is the number of consecutive *leading dimensions* of `arr` considered
+as the *row index* of the pseudo-matrix `A`, the remaining consecutive trailing dimensions
 being considered as the *column index* of the pseudo-matrix `A`. In other words, an
-expression like `y = A*x` implies that the axes of `x` match the `ndims(arr) - M` trailing
-axes of `arr` and that the axes of the result `y` are the `M` leading axes of `arr`.
+expression like `y = A*x` implies that the axes of `x` match the `ndims(arr) - L` trailing
+axes of `arr` and that the axes of the result `y` are the `L` leading axes of `arr`.
 
 If `arr` is a matrix (i.e., a 2-dimensional abstract array), then `Operator(arr)`
 is a shortcut to `PseudoMatrix(arr,Dims{1})`.
 
-Replacing `Dims{M}` by a colon `:` or type parameters `{T,M}` by `{T,Colon}` yields a
+Replacing `Dims{L}` by a colon `:` or type parameters `{T,L}` by `{T,:}` yields a
 *flexible* pseudo-matrix whose number of row dimensions is not fixed. See
 [`FlexibleMatrix`](@ref) for a more convenient constructor.
 
@@ -31,10 +31,10 @@ See also [`FlexibleMatrix`](@ref), [`Operator`](@ref), [`vmul`](@ref), and
 [`vmul!`](@ref).
 
 """
-PseudoMatrix(arr::AbstractArray{T}, ::Type{<:Dims{M}}) where {T,M} = PseudoMatrix{T,M}(arr)
-PseudoMatrix(arr::AbstractArray{T}, ::Colon) where {T} = PseudoMatrix{T,Colon}(arr)
-PseudoMatrix{T,M}(arr::AbstractArray) where {T,M} =
-    PseudoMatrix{T,M}(as(AbstractArray{T}, arr))
+PseudoMatrix(arr::AbstractArray{T}, ::Type{<:Dims{L}}) where {T,L} = PseudoMatrix{T,L}(arr)
+PseudoMatrix(arr::AbstractArray{T}, ::Colon) where {T} = PseudoMatrix{T,:}(arr)
+PseudoMatrix{T,L}(arr::AbstractArray) where {T,L} =
+    PseudoMatrix{T,L}(as(AbstractArray{T}, arr))
 
 """
     A = FlexibleMatrix{T=eltype(arr)}(arr)
@@ -69,8 +69,10 @@ Base.parent(A::PseudoMatrix) = getfield(A, :parent)
 # Testing for equality.
 for cmp in (:(==), :isequal)
     @eval begin
-        Base.$cmp(A::PseudoMatrix{<:Any,M,N}, B::PseudoMatrix{<:Any,M,N}) where {M,N} =
-            A === B || $cmp(parent(A), parent(B))
+        function Base.$cmp(A::PseudoMatrix{<:Any,L,<:AbstractArray{<:Any,N}},
+                           B::PseudoMatrix{<:Any,L,<:AbstractArray{<:Any,N}}) where {L,N}
+            return A === B || $cmp(parent(A), parent(B))
+        end
     end
 end
 
@@ -98,26 +100,26 @@ output_shape(A::FlexibleMatrix) = error(
 
 function output_axes(A::Union{G, Adjoint{G}, Transpose{G}, Conjugate{G}, Inverse{G},
                               InverseAdjoint{G}, InverseTranspose{G}, InverseConjugate{G}},
-                     x_axes::ArrayAxes{L}) where {T,L,N,G<:FlexibleMatrix{T, N}}
-    0 ≤ L ≤ N || throw_dimension_mismatch("input array has too many dimensions")
-    R = axes(parent(unveil(A)))
+                     x_axes::ArrayAxes{N}) where {T,P,G<:FlexibleMatrix{T,P},N}
+    MN = ndims(P) # total number of dimensions
+    N ≤ MN || throw_dimension_mismatch("input array has too many dimensions")
+    IJ = axes(parent(unveil(A)))
     if A isa Union{FlexibleMatrix, Conjugate, InverseAdjoint, InverseTranspose}
-        I = R[1:N-L]
-        J = R[N-L+1:N]
+        I = IJ[1:MN-N]
+        J = IJ[MN-N+1:MN]
     else
-        I = R[L+1:N]
-        J = R[1:L]
+        I = IJ[N+1:MN]
+        J = IJ[1:N]
     end
     check_input_axes(x_axes, J)
     return I
 end
 
-InputShape( ::Type{<:PseudoMatrix{T,M,N}}) where {T,M,N} = HasInputShape{N-M}()
-OutputShape(::Type{<:PseudoMatrix{T,M,N}}) where {T,M,N} = HasOutputShape{M}()
+InputShape( ::Type{PseudoMatrix{T,L,P}}) where {T,L,P} = HasInputShape{ndims(P)-L}()
+OutputShape(::Type{PseudoMatrix{T,L,P}}) where {T,L,P} = HasOutputShape{L}()
 
-input_shape( A::PseudoMatrix{T,M,N}) where {T,M,N} = axes(parent(A))[M+1:N]
-output_shape(A::PseudoMatrix{T,M,N}) where {T,M,N} = axes(parent(A))[1:M]
-
+input_shape( A::PseudoMatrix{T,L,P}) where {T,L,P} = axes(parent(A))[L+1:ndims(P)]
+output_shape(A::PseudoMatrix{T,L,P}) where {T,L,P} = axes(parent(A))[1:L]
 
 function unsafe_vmul!(α::Number, A::PseudoMatrix, x::AbstractArray,
                       β::Number, y::AbstractArray)
@@ -155,5 +157,6 @@ end
 
 # Precision of pseudo-matrices and flexible matrices.
 TypeUtils.get_precision(::Type{A}) where {A<:PseudoMatrix} = get_precision(eltype(A))
-TypeUtils.adapt_precision(::Type{T}, A::PseudoMatrix{S,M}) where {T<:TypeUtils.Precision,S,M} =
-    PseudoMatrix(adapt_precision(T, parent(A)), M === Colon ? Colon() : Dims{M})
+TypeUtils.adapt_precision(::Type{T}, A::PseudoMatrix{T,L}) where {T<:TypeUtils.Precision,L} = A
+TypeUtils.adapt_precision(::Type{T}, A::PseudoMatrix{<:Any,L}) where {T<:TypeUtils.Precision,L} =
+    PseudoMatrix(adapt_precision(T, parent(A)), L isa Colon ? Colon() : Dims{L})

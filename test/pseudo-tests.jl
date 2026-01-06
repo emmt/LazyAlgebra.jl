@@ -31,22 +31,22 @@ function runtests(; rng::AbstractRNG = MersenneTwister(314159),
 
             # Generate array of coefficients and pseudo- or flexible matrix.
             C = shift_values!(-0.2, rand(rng, T, dims))
-            N = length(dims) - M # number of column dimensions, 0 for flexible matrix
-            A = N ≥ 1 ?
-                @inferred(PseudoMatrix(C, Dims{M})) :
+            N = length(dims) - M # number of column (trailing) dimensions, 0 for flexible matrix
+            A = if N < 1
                 @inferred(FlexibleMatrix(C))
+            else
+                @inferred(PseudoMatrix(C, Dims{M}))
+            end
 
             # Check operator properties.
             @test A isa (N ≥ 1 ? PseudoMatrix : FlexibleMatrix)
             @test eltype(A) === eltype(C)
+            @test LazyAlgebra.InputEltype(A) === LazyAlgebra.InputEltypeUnknown()
+            @test LazyAlgebra.OutputEltype(A) === LazyAlgebra.OutputEltypeUnknown()
             if N < 1 # FlexibleMatrix
-                @test LazyAlgebra.InputEltype(A) === LazyAlgebra.InputEltypeUnknown()
-                @test LazyAlgebra.OutputEltype(A) === LazyAlgebra.OutputEltypeUnknown()
                 @test LazyAlgebra.InputShape(A) === LazyAlgebra.InputShapeUnknown()
                 @test LazyAlgebra.OutputShape(A) === LazyAlgebra.OutputShapeUnknown()
             else # PseudoMatrix
-                @test LazyAlgebra.InputEltype(A) === LazyAlgebra.InputEltypeUnknown()
-                @test LazyAlgebra.OutputEltype(A) === LazyAlgebra.OutputEltypeUnknown()
                 @test LazyAlgebra.InputShape(A) === LazyAlgebra.HasInputShape{N}()
                 @test LazyAlgebra.OutputShape(A) === LazyAlgebra.HasOutputShape{M}()
                 @test LazyAlgebra.input_axes(A) == axes(C)[M+1:M+N]
