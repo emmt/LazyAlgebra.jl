@@ -343,7 +343,7 @@ corresponds to the identity (but in the sense of a matrix). When `I` is combined
 
 """
 const Id = _Identity(:)
-const UniversalIdentity = Identity{Colon}
+const UniversalIdentity = typeof(Id)
 const ShapedIdentity{N} = Identity{<:Union{Dims{N},ArrayAxes{N}}}
 
 @callable struct Diag{D<:AbstractArray} <: Operator

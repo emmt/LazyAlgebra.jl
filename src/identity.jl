@@ -3,7 +3,7 @@
 """
     Identity(shape = :)
 
-yields the identity operator for arrays of given `shape`. If `shape` is a colon (the
+Return the identity operator for arrays of given `shape`. If `shape` is a colon (the
 default), any array shape is considered as compatible. The singleton `Identity(:)` is
 exported by `LazyAlgebra` as the [`Id`](@ref) alias.
 
@@ -13,13 +13,13 @@ corresponds to the identity (but for usual matrices). When `I` is combined with 
 `I/A`, `A\\I`, `Id/A` and `A\\Id` all yield `inv(A)` for any `LazyAlgebra` mapping `A`.
 
 """
-Identity() = _Identity(:)
+Identity(shape::Colon=Colon()) = _Identity(shape)
 Identity(shape::eltype(ArrayShape)...) = Identity(shape)
 Identity(shape::ArrayShape) = _Identity(as_array_shape(shape))
 
 # MIME"text/plain" is for the REPL.
 Base.show(io::IO, ::MIME"text/plain", A::Identity) = show(io, A)
-Base.show(io::IO, A::typeof(Id)) = write(io, "Id")
+Base.show(io::IO, A::UniversalIdentity) = write(io, "Id")
 function Base.show(io::IO, A::Identity)
     write(io, "Identity(")
     print_shape(io, A.shape)
@@ -27,7 +27,7 @@ function Base.show(io::IO, A::Identity)
 end
 
 # Testing for equality. Note that `isequal` amounts to calling `==` by default.
-Base.:(==)(A::Identity{Colon}, B::Identity{Colon}) = true
+Base.:(==)(A::UniversalIdentity, B::UniversalIdentity) = true
 Base.:(==)(A::Identity{<:Dims{N}}, B::Identity{<:Dims{N}}) where {N} =
     A === B || A.shape == B.shape
 Base.:(==)(A::Identity{<:ArrayAxes{N}}, B::Identity{<:ArrayAxes{N}}) where {N} =
@@ -40,20 +40,18 @@ LinearAlgebra.diag(A::UniversalIdentity) = Array{typeof(𝟙),0}(undef)
 LinearAlgebra.diag(A::ShapedIdentity) = new_array(typeof(𝟙), input_shape(A))
 
 # Implement API of operators for the identity.
+#
 output_eltype(::Type{<:Identity}, ::Type{X}) where {X<:AbstractArray} = float(eltype(X))
-output_shape(A::UniversalIdentity, shape::ArrayAxes) = shape
-
-InputShape(::Type{<:Identity}) = InputShapeUnknown()
+#
+# Only `output_axes` can be implemented for the "universal" identity.
+output_axes(A::UniversalIdentity, x_axes::ArrayAxes) = x_axes
+#
+# Output and input have the same shape for the "shaped" identity.
 InputShape(::Type{<:ShapedIdentity{N}}) where {N} = HasInputShape{N}()
-
-OutputShape(::Type{<:Identity}) = OutputShapeUnknown()
+input_shape(A::ShapedIdentity) = A.shape
+#
 OutputShape(::Type{<:ShapedIdentity{N}}) where {N} = HasOutputShape{N}()
-
-input_shape(A::Identity{<:ArrayAxes}) = A.shape
-input_shape(A::Identity{<:Tuple{}}) = () # FIXME
-
-# Output has the same shape as input for the identity.
-output_shape(A::Identity{<:ArrayAxes}) = A.shape
+output_shape(A::ShapedIdentity) = A.shape
 
 unsafe_vmul!(α::Number, A::Identity, x::AbstractArray, β::Number, y::AbstractArray) =
     unsafe_vcombine!(α, x, β, y)
