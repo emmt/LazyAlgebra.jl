@@ -186,7 +186,6 @@ using TypeUtils: @public
 
 using Printf
 using ArrayTools
-using LazyMaps
 using Neutrals
 using Neutrals: @dispatch_on_value, recode, recode!
 using Test
