@@ -100,7 +100,7 @@ function simplify_prod(λ::Number, A::AbstractVector{Operator}, whole::Bool)
         # beginning. Sums in the simplified expression, if any, are protected to not
         # simplify them again.
         for i in firstindex(A):(lastindex(A) - n + 1)
-            B = try_simplify(foldr(Prod, view(A, i:i+n-1)))
+            B = try_simplify(foldl(Prod, view(A, i:i+n-1)))
             if is_something(B)
                 return simplify_prod(λ, view(A, firstindex(A):i-1),
                                      protect(B), view(A, i+n:lastindex(A)))
@@ -110,7 +110,7 @@ function simplify_prod(λ::Number, A::AbstractVector{Operator}, whole::Bool)
     end
     # The product cannot be further simplified, rebuild a product with the protections
     # removed and return this product times the multiplier if not equal to 1.
-    B = foldr(Prod, unprotect!(A))
+    B = foldl(Prod, unprotect!(A))
     return isone(λ) ? B : λ*B
 end
 
@@ -192,9 +192,9 @@ function simplify_sum!(A::AbstractVector{Operator})
         end
         I = sortperm(map(order_in_sum, A))
         if I == 1:n
-            return foldr(Sum, A)
+            return foldl(Sum, A)
         else
-            return foldr(Sum, A[I])
+            return foldl(Sum, A[I])
         end
     end
 end

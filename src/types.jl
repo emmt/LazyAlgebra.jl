@@ -225,11 +225,10 @@ end
     C = A + B
     C = LazyAlgebra.Sum(A::Operator, B::Operator)
 
-yield a linear operator `C` representing the sum of the linear operators `A` and `B`.
+Return a linear operator `C` representing the sum of the linear operators `A` and `B`.
 
 If `C` is an instance of `LazyAlgebra.Sum`, then `C[1]` and `C[2]` respectively yield the
-left and right operands of `C`. However, due to simplifications that may occur, these are
-not necessarily `A` and `B`.
+left and right operands of `C`.
 
 """
 struct Sum{L<:Operator,R<:Operator} <: Operator
@@ -247,20 +246,10 @@ const Operand = Union{Number,Operator}
     C = A∘B
     C = LazyAlgebra.Prod(A::Operator, B::Operator)
 
-yield the result of multiplying operator `A` by operator `B`.
+Return a linear operator `C` representing the composition of operator `A` by operator `B`.
 
 If `C` is an instance of `LazyAlgebra.Prod`, then `C[1]` and `C[2]` respectively yield the
-left and right operands of `C`. However, due to simplifications that may occur, these are
-not necessarily `A` and `B`.
-
-When composing instances of `Prod` whose operands are operators, right associativity is
-applied so as to keep the operands in suitable order when applying the composite operator:
-
-```julia
-A*B*C   -> Prod(A, Prod(B, C))
-(A*B)*C -> Prod(A, Prod(B, C))
-A*(B*C) -> Prod(A, Prod(B, C))
-```
+left and right operands of `C`.
 
 """
 struct Prod{L<:Operator,R<:Operator} <: Operator
@@ -274,7 +263,7 @@ end
     B = λ*A
     B = LazyAlgebra.Scaled(λ::Number, A::Operator)
 
-yield the result of multiplying number `λ` by operator `A`.
+Return an operator representing the result of multiplying number `λ` by operator `A`.
 
 If `B` is an instance of `LazyAlgebra.Prod`, then `B[1]` (or
 [`LazyAlgebra.multiplier(B)`](@ref)) and `B[2]` ([`unscaled(B)`](@ref)) respectively yield

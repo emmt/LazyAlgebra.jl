@@ -661,17 +661,14 @@ See also [`vmul`](@ref), [`vmul!`](@ref), [`LazyAlgebra.Operator`](@ref),
 """
 function unsafe_vmul! end
 
-# Specialize `unsafe_vmul!` for a sum of operators knowing that a sum of more than 2
-# operators is stored according to right-associativity. Compared to specializing `vmul!`
-# instead, this saves re-checking axes, re-conversion of multipliers, and re-dispatching on
-# multipliers.
-function unsafe_vmul!(α::Number, A::Sum, x::AbstractArray, β::Number, y::AbstractArray)
+# Specialize `unsafe_vmul!` for a sum of operators.
+function unsafe_vmul!(α::Number, (A,B)::Sum, x::AbstractArray, β::Number, y::AbstractArray)
     # There should be no needs to dispatch on the multipliers because, inputs `α` and `β`
     # have already been processed. Thus `unsafe_vmul!` can be directly called. In principle,
     # the second call should be with `𝟙*unit(β)`, but, being an in-place multiplier, `β` is
-    # dimensionless and `𝟙*unit(β)` and `𝟙` are the same thing.
-    unsafe_vmul!(α, A[1], x, β, y)
-    unsafe_vmul!(α, A[2], x, 𝟙, y)
+    # dimensionless and thus `𝟙*unit(β)` and `𝟙` are the same thing.
+    unsafe_vmul!(α, A, x, β, y)
+    unsafe_vmul!(α, B, x, 𝟙, y)
     return nothing
 end
 
@@ -681,13 +678,19 @@ end
 end
 
 # Deal with scaled operator.
-unsafe_vmul!(α::Number, (λ,A)::Scaled, x::AbstractArray, β::Number, y::AbstractArray) =
+function unsafe_vmul!(α::Number, (λ,A)::Scaled, x::AbstractArray, β::Number, y::AbstractArray)
+    # Conversion and dispatching on the first multiplier must be re-done.
     unsafe_vmul!(Val(:alpha), α*λ, A, x, β, y)
+    return nothing
+end
 
-# Deal with products of operators. FIXME In principle, there are no needs to recheck
-# indices, convert multipliers, and dispatch on their values.
-unsafe_vmul!(α::Number, (A,B)::Prod, x::AbstractArray, β::Number, y::AbstractArray) =
+# Deal with products of operators.
+function unsafe_vmul!(α::Number, (A,B)::Prod, x::AbstractArray, β::Number, y::AbstractArray)
+    # FIXME In principle, there are no needs to recheck indices, convert multipliers, and
+    # dispatch on their values.
     unsafe_vmul!(α, A, vmul(B, x), β, y)
+    return nothing
+end
 
 """
     LazyAlgebra.test_API(A::Operator, x, y)

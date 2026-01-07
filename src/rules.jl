@@ -171,21 +171,19 @@ compare_with(f::Union{typeof(==),typeof(isequal)}, A::Operator, B::Operator) = f
 
 # Simplification rules for products and sums.
 #
-# - NOTE Do not distribute multiplication by a scalar among the terms of a sum to not
+# - We do not distribute multiplication by a scalar among the terms of a sum to not
 #   prevent the left-factorization of multipliers at construction time. This is done by
 #   `simplify`.
+#
+# - To facilitate inference, `Sum` and `Prod` are constructed as expressed in the code
+#   without attempting to favor any associativity, this may be done by calling `simplify`.
+#   Note that Julia's addition and multiplication of terms follow left-associativity (that
+#   is `a*b*c` is computed as `(a*b)*c`).
 #
 # - Number operands are moved to the leftmost part of products and factorized.
 Prod(A::Operator, (β,B)::Scaled) = β * (A * B)
 Prod((α,A)::Scaled, B::Operator) = α * (A * B)
 Prod((α,A)::Scaled, (β,B)::Scaled) = (α * β) * (A * B)
-#
-# - Right-associativity is applied to keep product and sum of operators in the expected
-#   order for applying these constructions to an argument. See `unsafe_vmul!` method for
-#   these constructions. As a result, the left-hand side of a `Sum` (resp. a `Prod`) shall
-#   never be a `Sum` (resp. a `Prod`).
-Sum((A,B)::Sum,  C::Operator) = A + (B + C)
-Prod((A,B)::Prod, C::Operator) = A * (B * C)
 
 # The following constructor insures that the right operand is always an unscaled operator.
 Scaled(α::Number, (β,B)::Scaled) = (α * β) * B
