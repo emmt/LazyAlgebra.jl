@@ -72,10 +72,12 @@ function simplify(A::Prod)
     end
 end
 
-flatten_prod!(λ::Number, A::AbstractVector{Operator}, B::Scaled) =
-    flatten_prod!(λ*B[1], A, B[2])
-flatten_prod!(λ::Number, A::AbstractVector{Operator}, B::Prod) =
-    flatten_prod!(flatten_prod!(λ, A, B[1])..., B[2])
+# This method returns the 2-tuple `(λ,A)` with `λ` a multiplier equal to the product of all
+# multipliers and `A` a vector of operands (non-product operators) of the composition.
+flatten_prod!(λ::Number, A::AbstractVector{Operator}, (β,B)::Scaled) =
+    flatten_prod!(λ*β, A, B)
+flatten_prod!(λ::Number, A::AbstractVector{Operator}, (B,C)::Prod) =
+    flatten_prod!(flatten_prod!(λ, A, B)..., C)
 flatten_prod!(λ::Number, A::AbstractVector{Operator}, B::Operator) =
     λ, push!(A, B)
 flatten_prod!(λ::Number, A::AbstractVector{Operator}, B::Sum) =
@@ -85,7 +87,7 @@ flatten_prod!(λ::Number, A::AbstractVector{Operator}, B::Sum) =
     # product itself is simplified. This also avoids infinite recursion of `flatten_prod!`.
     flatten_prod!(λ, A, protect(simplify(B)))
 
-# Simplify a flattened product of operators by trying to simplify all possible
+# Simplify a flattened composition of operators by trying to simplify all possible
 # sub-expressions of decreasing lengths.
 function simplify_prod(λ::Number, A::AbstractVector{Operator}, whole::Bool)
     n = length(A) # length of sub-expressions to consider
