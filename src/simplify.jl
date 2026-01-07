@@ -136,11 +136,15 @@ flatten_sum!(A::AbstractVector{Operator}, (λ,B)::Scaled{<:Number,<:Sum}) =
     # Distribute multiplication by a scalar over the terms of a sum.
     isone(λ) ? flatten_sum!(A, B) : flatten_sum!(flatten_sum!(A, λ*B[1]), λ*B[2])
 flatten_sum!(A::AbstractVector{Operator}, B::Operator) =
-    flatten_sum!(Val(1), A, simplify(B))
-function flatten_sum!(::Val{1}, A::AbstractVector{Operator}, B::Operator)
-    # This version is called when `B` is not a sum and has been simplified. First, attempt
-    # to combine `B` with any preceding terms of the sum; if this fails, `B` is appended to
-    # the list of terms.
+    _flatten_sum!(A, simplify(B))
+
+# This helper method is called when `B` has been simplified and is a sum.
+_flatten_sum!(A::AbstractVector{Operator}, B::Sum) = flatten_sum!(A, B)
+
+# This helper method is called when `B` has been simplified and is not a sum.
+function _flatten_sum!(A::AbstractVector{Operator}, B::Operator)
+    # First, attempt to combine `B` with any preceding terms of the sum; if this fails, `B`
+    # is appended to the list of terms.
     for i in eachindex(A)
         C = try_simplify(A[i] + B)
         if is_something(C)
