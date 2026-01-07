@@ -13,36 +13,36 @@ order_in_sum(A::Operator) = hash(A)
 order_in_sum(A::Scaled) = hash(A[2])
 
 # Structure to protect a sum from further simplifications.
-struct Marked{T<:Sum} <: Operator
+struct Protected{T<:Sum} <: Operator
     parent::T
     # Inner constructor to forbid specifying the type parameter and restrict possible
     # parent.
-    Marked(A::T) where {T<:Sum} = new{T}(A)
+    Protected(A::T) where {T<:Sum} = new{T}(A)
 end
-Base.parent(A::Marked) = A.parent
+Base.parent(A::Protected) = A.parent
 for cmp in (:(==), :isequal)
     @eval begin
-        Base.$cmp(A::Marked, B::Marked) = $cmp(parent(A), parent(B))
+        Base.$cmp(A::Protected, B::Protected) = $cmp(parent(A), parent(B))
     end
 end
 
-# Mark sum term(s) in an operator leaving other terms unchanged so that a marked scaled
-# operator remains a scaled operator and a marked composition of operators remains a
-# composition of operators.
-mark(A::Sum) = Marked(A)
-mark(A::Scaled) = A[1]*mark(A[2])
-mark(A::Prod) = mark(A[1])*mark(A[2])
-mark(A::Operator) = A
+# Protect sum term(s) in an operator leaving other terms unchanged so that a protected
+# scaled operator remains a scaled operator and a protected composition of operators remains
+# a composition of operators.
+protect(A::Sum) = Protected(A)
+protect(A::Scaled) = A[1]*protect(A[2])
+protect(A::Prod) = protect(A[1])*protect(A[2])
+protect(A::Operator) = A
 
-# Revert the effects of `mark`.
-unmark(A::Marked) = parent(A)
-unmark(A::Scaled) = A[1]*unmark(A)
-unmark(A::Prod) = unmark(A[1])*unmark(A[2])
-unmark(A::Operator) = A
+# Revert the effects of `protect`.
+unprotect(A::Protected) = parent(A)
+unprotect(A::Scaled) = A[1]*unprotect(A)
+unprotect(A::Prod) = unprotect(A[1])*unprotect(A[2])
+unprotect(A::Operator) = A
 
-function unmark!(A::AbstractVector{Operator})
+function unprotect!(A::AbstractVector{Operator})
     @inbounds for i in eachindex(A)
-        A[i] = unmark(A[i])
+        A[i] = unprotect(A[i])
     end
     return A
 end
@@ -81,9 +81,9 @@ flatten_prod!(λ::Number, A::AbstractVector{Operator}, B::Operator) =
 flatten_prod!(λ::Number, A::AbstractVector{Operator}, B::Sum) =
     # Since any sum remains a single term in a product of operator, it is convenient to
     # simplify the sum before pushing it to the list of terms. However, any sum in the
-    # simplified sum must be marked to avoid repeated attempts to simplify it when the
+    # simplified sum must be protected to avoid repeated attempts to simplify it when the
     # product itself is simplified. This also avoids infinite recursion of `flatten_prod!`.
-    flatten_prod!(λ, A, mark(simplify(B)))
+    flatten_prod!(λ, A, protect(simplify(B)))
 
 # Simplify a flattened product of operators by trying to simplify all possible
 # sub-expressions of decreasing lengths.
@@ -95,20 +95,20 @@ function simplify_prod(λ::Number, A::AbstractVector{Operator}, whole::Bool)
     while n ≥ 1
         # If any simplification of a sub-expression of length `n` is possible, substitute
         # the sub-expression by its simplified version and repeat the process from the
-        # beginning. Sums in the simplified expression, if any, are marked to not simplify
-        # them again.
+        # beginning. Sums in the simplified expression, if any, are protected to not
+        # simplify them again.
         for i in firstindex(A):(lastindex(A) - n + 1)
             B = try_simplify(foldr(Prod, view(A, i:i+n-1)))
             if is_something(B)
                 return simplify_prod(λ, view(A, firstindex(A):i-1),
-                                     mark(B), view(A, i+n:lastindex(A)))
+                                     protect(B), view(A, i+n:lastindex(A)))
             end
         end
         n -= 1
     end
-    # The product cannot be further simplified, rebuild a product with the marks removed and
-    # return this product times the multiplier if not equal to 1.
-    B = foldr(Prod, unmark!(A))
+    # The product cannot be further simplified, rebuild a product with the protections
+    # removed and return this product times the multiplier if not equal to 1.
+    B = foldr(Prod, unprotect!(A))
     return isone(λ) ? B : λ*B
 end
 
@@ -236,8 +236,8 @@ represented by `LazyAlgebra.Sum(B, C)` and `LazyAlgebra.Sum(C, B)`.
 """
 try_simplify(A::Operator) = nothing
 
-# Never simplify a marked expression.
-try_simplify(A::Marked) = nothing
+# Never simplify a protected expression.
+try_simplify(A::Protected) = nothing
 
 # When trying to simplify a sum, the work is divided in stages where `try_simplify` is
 # called to simplify the sum of 2 terms which have been separately simplified. Calling
