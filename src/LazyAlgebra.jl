@@ -148,6 +148,7 @@ using TypeUtils: @public
         each_row_index,
         fast_max,
         fast_min,
+        fieldtypes,
         first_nz_index,
         input_axes,
         input_eltype,

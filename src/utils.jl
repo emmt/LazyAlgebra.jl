@@ -43,6 +43,30 @@ end
 #-------------------------------------------------------------------------- Type inference -
 
 """
+    LazyAlgebra.fieldtypes(x)
+    LazyAlgebra.fieldtypes(typeof(x))
+
+Return a tuple of the types of the fields of `x`.
+
+This is like `Base.fieldtypes` in Julia ≥ 1.1 but faster, for Julia < 1.9, and applicable
+to instances as well as types.
+
+# Examples
+```jldoctest
+julia> LazyAlgebra.fieldtypes("x" => 1.2f0)
+(String, Float32)
+
+```
+
+"""
+fieldtypes(x::Any) = fieldtypes(typeof(x))
+if VERSION < v"1.9.0"
+    @generated fieldtypes(::Type{T}) where {T} = ((T.types)...,)
+else
+    @inline fieldtypes(::Type{T}) where {T} = Base.fieldtypes(T)
+end
+
+"""
     LazyAlgebra.sample(x::Number) -> val
     LazyAlgebra.sample(T::Type{<:Number}) -> val
 

@@ -15,6 +15,21 @@ using Test
 using LazyAlgebra: convert_multiplier
 using LazyAlgebra: fast_min, fast_max
 
+@testset "Inference     " begin
+    x, y, z = ("x" => 1.0f0, 1.0 + 2.0im, ('α', 0x01, -2.0f0))
+    @test @inferred(LazyAlgebra.fieldtypes(       x )) === (String, Float32)
+    @test @inferred(LazyAlgebra.fieldtypes(typeof(x))) === (String, Float32)
+    @test @inferred(LazyAlgebra.fieldtypes(       y )) === (Float64, Float64)
+    @test @inferred(LazyAlgebra.fieldtypes(typeof(y))) === (Float64, Float64)
+    @test @inferred(LazyAlgebra.fieldtypes(       z )) === (Char, UInt8, Float32)
+    @test @inferred(LazyAlgebra.fieldtypes(typeof(z))) === (Char, UInt8, Float32)
+    if VERSION ≥ v"1.1.0"
+        @test LazyAlgebra.fieldtypes(x) === Base.fieldtypes(typeof(x))
+        @test LazyAlgebra.fieldtypes(y) === Base.fieldtypes(typeof(y))
+        @test LazyAlgebra.fieldtypes(z) === Base.fieldtypes(typeof(z))
+    end
+end
+
 @testset "Multipliers   " begin
     #
     # Tests for `LazyAlgebra.convert_multiplier`.
