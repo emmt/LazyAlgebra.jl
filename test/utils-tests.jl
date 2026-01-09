@@ -16,6 +16,7 @@ using LazyAlgebra: convert_multiplier
 using LazyAlgebra: fast_min, fast_max
 
 @testset "Inference     " begin
+    # fieldtypes
     x, y, z = ("x" => 1.0f0, 1.0 + 2.0im, ('α', 0x01, -2.0f0))
     @test @inferred(LazyAlgebra.fieldtypes(       x )) === (String, Float32)
     @test @inferred(LazyAlgebra.fieldtypes(typeof(x))) === (String, Float32)
@@ -28,6 +29,17 @@ using LazyAlgebra: fast_min, fast_max
         @test LazyAlgebra.fieldtypes(y) === Base.fieldtypes(typeof(y))
         @test LazyAlgebra.fieldtypes(z) === Base.fieldtypes(typeof(z))
     end
+    # fieldcount
+    x, y, z = ("x" => 1.0f0, 1.0 + 2.0im, ('α', 0x01, -2.0f0))
+    @test @inferred(LazyAlgebra.fieldcount(       x )) === Base.fieldcount(typeof(x))
+    @test @inferred(LazyAlgebra.fieldcount(       x )) === 2
+    @test @inferred(LazyAlgebra.fieldcount(typeof(x))) === 2
+    @test @inferred(LazyAlgebra.fieldcount(       y )) === Base.fieldcount(typeof(y))
+    @test @inferred(LazyAlgebra.fieldcount(       y )) === 2
+    @test @inferred(LazyAlgebra.fieldcount(typeof(y))) === 2
+    @test @inferred(LazyAlgebra.fieldcount(       z )) === Base.fieldcount(typeof(z))
+    @test @inferred(LazyAlgebra.fieldcount(       z )) === 3
+    @test @inferred(LazyAlgebra.fieldcount(typeof(z))) === 3
 end
 
 @testset "Multipliers   " begin

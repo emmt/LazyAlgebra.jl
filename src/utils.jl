@@ -67,6 +67,27 @@ else
 end
 
 """
+    LazyAlgebra.fieldcount(x)
+    LazyAlgebra.fieldcount(typeof(x))
+
+Return the number of fields of `x`.
+
+This is like `Base.fieldcount` but faster for tuples and applicable to instances as well as
+types.
+
+# Examples
+```jldoctest
+julia> LazyAlgebra.fieldcount((1,"",nothing))
+3
+
+```
+
+"""
+fieldcount(x::Any) = fieldcount(typeof(x))
+fieldcount(::Type{<:NTuple{N,Any}}) where {N} = N
+fieldcount(::Type{T}) where {T} = Base.fieldcount(T)
+
+"""
     LazyAlgebra.sample(x::Number) -> val
     LazyAlgebra.sample(T::Type{<:Number}) -> val
 
