@@ -540,7 +540,7 @@ end
 end
 
 # Union of basic concrete sparse operators.
-const BasicSparseOperator = Union{SparseOperatorCSR,SparseOperatorCSC,SparseOperatorCOO}
+const BareSparseOperator = Union{SparseOperatorCSR,SparseOperatorCSC,SparseOperatorCOO}
 
 # The time needed to allocate temporary arrays is negligible compared to the time taken to
 # compute a FFT (e.g., 5µs to allocate a 256×256 array of double precision complexes

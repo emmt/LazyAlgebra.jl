@@ -224,12 +224,12 @@ Base.convert(::Type{T}, A) where {T<:SparseOperator} = T(A)::T
 Base.eltype(::Type{<:SparseOperator{F,T,M,N}}) where {F,T,M,N} = T
 
 InputShape( ::Type{<:SparseOperator{F,T,M,N}}) where {F,T,M,N} = HasInputShape{N}()
-input_shape(A::BasicSparseOperator) = getfield(A, :colsiz)
-input_length(A::BasicSparseOperator) = getfield(A, :n)
+input_shape(A::BareSparseOperator) = getfield(A, :colsiz)
+input_length(A::BareSparseOperator) = getfield(A, :n)
 
 OutputShape(::Type{<:SparseOperator{F,T,M,N}}) where {F,T,M,N} = HasOutputShape{M}()
-output_shape(A::BasicSparseOperator) = getfield(A, :rowsiz)
-output_length(A::BasicSparseOperator) = getfield(A, :m)
+output_shape(A::BareSparseOperator) = getfield(A, :rowsiz)
+output_length(A::BareSparseOperator) = getfield(A, :m)
 
 TypeUtils.get_precision(::Type{A}) where {A<:SparseOperatorLike} = get_precision(eltype(A))
 TypeUtils.adapt_precision(::Type{T}, A::SparseOperatorLike) where {T<:TypeUtils.Precision} =
@@ -322,7 +322,7 @@ instead if you want to modify the contents of the returned array with no side ef
 `A`.
 
 """
-SparseArrays.nonzeros(A::BasicSparseOperator) = getfield(A, :vals)
+SparseArrays.nonzeros(A::BareSparseOperator) = getfield(A, :vals)
 SparseArrays.nonzeros(A::Transpose{<:SparseOperator}) = nonzeros(parent(A))
 function SparseArrays.nonzeros(A::Union{Adjoint{<:SparseOperator},
                                         Conjugate{<:SparseOperator}})
