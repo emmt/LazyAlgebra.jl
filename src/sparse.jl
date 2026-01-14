@@ -855,7 +855,7 @@ convert the type of the sparse coefficients.
 
 """ SparseOperatorCSR
 
-@inline isnonzero(v::T, i::Integer, j::Integer) where {T} = (v != zero(T))
+@inline isnonzero(v::Any, i::Integer, j::Integer) = !iszero(v)
 
 # Many constructors have similar code whatever the compressed sparse storage format. We
 # therefore use meta-programming to define them.
@@ -1377,17 +1377,16 @@ end
 # selection passes.
 throw_bad_predicate() = throw_bad_argument("inconsistent predicate function")
 
-@inline select_non_zeros(v::Bool, i::Int, j::Int) = v
-@inline select_non_zeros(v::T, i::Int, j::Int) where {T} = (v != zero(T))
+@inline select_non_zeros(v::Any, i::Int, j::Int) = !iszero(v)
 
-@inline select_non_zeros_in_diagonal(v::T, i::Int, j::Int) where {T} =
-    ((i == j)|(v != zero(T)))
+@inline select_non_zeros_in_diagonal(v::Any, i::Int, j::Int) =
+    ((i == j)&(!iszero(v)))
 
-@inline select_non_zeros_in_lower_part(v::T, i::Int, j::Int) where {T} =
-    ((i ≥ j)&(v != zero(T)))
+@inline select_non_zeros_in_lower_part(v::Any, i::Int, j::Int) =
+    ((i ≥ j)&(!iszero(v)))
 
-@inline select_non_zeros_in_upper_part(v::T, i::Int, j::Int) where {T} =
-    ((i ≤ j)&(v != zero(T)))
+@inline select_non_zeros_in_upper_part(v::Any, i::Int, j::Int) =
+    ((i ≤ j)&(!iszero(v)))
 
 """
     check_structure(A) -> A
