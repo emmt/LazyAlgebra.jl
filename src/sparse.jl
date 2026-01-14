@@ -596,28 +596,16 @@ Base.length(iter::SparseIndexIterator) = nnz(parent(iter))
 Base.IteratorEltype(::Type{<:SparseIndexIterator}) = Base.HasEltype()
 Base.eltype(::Type{<:SparseIndexIterator}) = Int
 
-function Base.iterate(iter::SparseIndexIterator{<:AnySparseCSR},
-                      (i, k, l)::Tuple{Int,Int,Int} = (
+function Base.iterate(iter::SparseIndexIterator{<:Union{AnySparseCSC,AnySparseCSR}},
+                      (ij, k, l)::Tuple{Int,Int,Int} = (
                           1, 0, unsafe_last_nz_index(parent(iter), 1)))
     k += 1
     while k > l
-        i += 1
-        check_offset_index(Bool, parent(iter), i) || return nothing
-        l = unsafe_last_nz_index(parent(iter), i)
+        ij += 1
+        check_offset_index(Bool, parent(iter), ij) || return nothing
+        l = unsafe_last_nz_index(parent(iter), ij)
     end
     return i, (i, k, l)
-end
-
-function Base.iterate(iter::SparseIndexIterator{<:AnySparseCSC},
-                      (j, k, l)::Tuple{Int,Int,Int} = (
-                          1, 0, unsafe_last_nz_index(parent(iter), 1)))
-    k += 1
-    while k > l
-        j += 1
-        check_offset_index(Bool, parent(iter), j) || return nothing
-        l = unsafe_last_nz_index(parent(iter), j)
-    end
-    return j, (j, k, l)
 end
 
 # Optimized version of `collect`.
