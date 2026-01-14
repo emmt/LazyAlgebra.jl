@@ -674,52 +674,47 @@ operators are currently limited to *fast* arrays because they can be indexed lin
 no loss of performances. If `vals`, `rows` and/or `cols` are not fast arrays, they will be
 automatically converted to linearly indexed arrays.
 
-A sparse operator in COO storage format can be directly constructed from a 2-dimensional
-Julia array `A`:
+A sparse operator in COO storage format can be constructed from a Julia array or LazyAlgebra
+[`PseudoMatrix`](@ref) `A` in different ways:
 
-    SparseOperatorCOO(A, f = (v,i,j) -> !iszero(v))
+    SparseOperatorCOO(         [f,] A)
+    SparseOperatorCOO{T}(      [f,] A)
+    SparseOperatorCOO{T,M}(    [f,] A)
+    SparseOperatorCOO{T,M,N}(  [f,] A)
+    SparseOperatorCOO{T,M,N,V}([f,] A)
 
-where optional argument `f` is a predicate function which is called as `f(v,i,j)` with `v`,
-`i` and `j` the value, the row and the column linear indices for each entry of `A` and which
-yields whether a given entry of `A` is a structural non-zeros. The default predicate is such
-that all non-zeros of `A` are considered as being structural non-zeros.
+where arguments and parameters are:
 
-The element type, say `T`, of the values of the structural non-zeros can be imposed by
-rewriting the above examples as:
+* `f` is an optional predicate function which is called as `f(v,i,j)` with `v`, `i` and `j`
+  the value, the row and the column linear indices for each entry of `A` and which yields
+  whether a given entry of `A` is a structural non-zeros. If omitted, the default predicate
+  is similar to:
 
-    SparseOperatorCOO{T}(args...)
+      f(v,i,j) = !iszero(v)
 
-A sparse operator in COO storage format implementing generalized matrix-vector
-multiplication can also be directly constructed from a `L`-dimensional Julia array (with `L
-≥ 2`) `A` by:
+  to assume that all non-zeros of `A` are structural non-zeros.
 
-    SparseOperatorCOO{T,M}(A[, f])
+* Parameter `T` is the element type of the structural non-zeros; if not specified, `T =
+  eltype(A)` is assumed.
 
-with `M` the number of leading dimensions of `A` corresponding to the *rows* of the
-operator, the trailing `N = L - M` dimensions being assumed to correspond to the *columns*
-of the operator. These dimensions are the size of, respectively, the output and the input
-arrays when applying the operator. The parameter `N` may be specified (although it can be
-automatically inferred):
+* Parameters `M` and `N` are the number of leading and trailing dimensions of `A`
+  corresponding to the *rows* and the *columns* of the operator and `M = N = ndims(A)` must
+  hold. These dimensions are the size of, respectively, the output and the input arrays when
+  applying the operator. If `A` is a matrix, `M` and `N` must be both `1` and may be
+  omitted. If `A` is a pseudo-matrix, these parameters are inferred from `A` and must not be
+  specified.
 
-    SparseOperatorCOO{T,M,N}(A[, f])
+* Optional parameter `V` is to specify the type of the vector backing the storage of the
+  values of the structural non-zeros. `V` must implement standard linear indexing. The
+  default is to take `V = Vector{T}`. As a special case, you can choose a uniform boolean
+  vector from the `StructuredArrays` package to store the sparse coefficients:
 
-provided `M + N = ndims(A)` holds.
+      SparseOperatorCOO{T,M,N,UniformVector{Bool}}(args...)
 
-A last parameter `V` can be specified for the type of the vector to store the values of the
-structural non-zeros:
-
-    SparseOperatorCOO{T,M,N,V}(args...)
-
-provided `V` implements standard linear indexing. The default is to take `V = Vector{T}`. As
-a special case, you can choose a uniform boolean vector from the `StructuredArrays` package
-to store the sparse coefficients:
-
-    SparseOperatorCOO{T,M,N,UniformVector{Bool}}(args...)
-
-to get a compressed sparse operator in COO format whose values are an immutable uniform
-vector of true values requiring no storage. This is useful to only store the sparse
-structure of the operator, that is the indices in COO format of the sparse coefficients not
-their values.
+  to get a compressed sparse operator in COO format whose values are an immutable uniform
+  vector of true values requiring no storage. This is useful to only store the sparse
+  structure of the operator, that is the indices in COO format of the sparse coefficients
+  not their values.
 
 The `SparseOperatorCOO` constructor can also be used to convert a sparse operator in another
 storage format into the COO format. In that case, parameter `T` may also be specified to
@@ -743,52 +738,16 @@ columns. For efficiency reasons, sparse operators are currently limited to *fast
 because they can be indexed linearly with no loss of performances. If `vals`, `rows` and/or
 `offs` are not fast arrays, they will be automatically converted to linearly indexed arrays.
 
-A sparse operator in CSC storage format can be directly constructed from a 2-dimensional
-Julia array `A`:
+A sparse operator in CSC storage format can be constructed from a Julia array or LazyAlgebra
+[`PseudoMatrix`](@ref) `A` in different ways:
 
-    SparseOperatorCSC(A, f = (v,i,j) -> !iszero(v))
+    SparseOperatorCSC(         [f,] A)
+    SparseOperatorCSC{T}(      [f,] A)
+    SparseOperatorCSC{T,M}(    [f,] A)
+    SparseOperatorCSC{T,M,N}(  [f,] A)
+    SparseOperatorCSC{T,M,N,V}([f,] A)
 
-where optional argument `f` is a predicate function which is called as `f(v,i,j)` with `v`,
-`i` and `j` the value, the row and the column linear indices for each entry of `A` and which
-yields whether a given entry of `A` is a structural non-zeros. The default predicate is such
-that all non-zeros of `A` are considered as being structural non-zeros.
-
-The element type, say `T`, of the values of the structural non-zeros can be imposed by
-rewriting the above examples as:
-
-    SparseOperatorCSC{T}(args...)
-
-A sparse operator in CSC storage format implementing generalized matrix-vector
-multiplication can also be directly constructed from a `L`-dimensional Julia array (with `L
-≥ 2`) `A` by:
-
-    SparseOperatorCSC{T,M}(A[, f])
-
-with `M` the number of leading dimensions of `A` corresponding to the *rows* of the
-operator, the trailing `N = L - M` dimensions being assumed to correspond to the *columns*
-of the operator. These dimensions are the size of, respectively, the output and the input
-arrays when applying the operator. The parameter `N` may be specified (although it can be
-automatically inferred):
-
-    SparseOperatorCSC{T,M,N}(A[, f])
-
-provided `M + N = ndims(A)` holds.
-
-A last parameter `V` can be specified for the type of the vector to store the values of the
-structural non-zeros:
-
-    SparseOperatorCSC{T,M,N,V}(args...)
-
-provided `V` implements standard linear indexing. The default is to take `V = Vector{T}`. As
-a special case, you can choose a uniform boolean vector from the `StructuredArrays` package
-to store the sparse coefficients:
-
-    SparseOperatorCSC{T,M,N,UniformVector{Bool}}(args...)
-
-to get a compressed sparse operator in CSC format whose values are an immutable uniform
-vector of true values requiring no storage. This is useful to only store the sparse
-structure of the operator, that is the indices in CSC format of the sparse coefficients not
-their values.
+See [`SparseOperatorCOO`](@ref) for a description of above arguments and parameters.
 
 The `SparseOperatorCSC` constructor can also be used to convert a sparse operator in another
 storage format into the CSC format. In that case, parameter `T` may also be specified to
@@ -813,52 +772,16 @@ For efficiency reasons, sparse operators are currently limited to *fast* arrays 
 can be indexed linearly with no loss of performances. If `vals`, `cols` and/or `offs` are
 not fast arrays, they will be automatically converted to linearly indexed arrays.
 
-A sparse operator in CSR storage format can be directly constructed from a 2-dimensional
-Julia array `A`:
+A sparse operator in CSR storage format can be constructed from a Julia array or LazyAlgebra
+[`PseudoMatrix`](@ref) `A` in different ways:
 
-    SparseOperatorCSR(A, f = (v,i,j) -> !iszero(v))
+    SparseOperatorCSR(         [f,] A)
+    SparseOperatorCSR{T}(      [f,] A)
+    SparseOperatorCSR{T,M}(    [f,] A)
+    SparseOperatorCSR{T,M,N}(  [f,] A)
+    SparseOperatorCSR{T,M,N,V}([f,] A)
 
-where optional argument `f` is a predicate function which is called as `f(v,i,j)` with `v`,
-`i` and `j` the value, the row and the column linear indices for each entry of `A` and which
-yields whether a given entry of `A` is a structural non-zeros. The default predicate is such
-that all non-zeros of `A` are considered as being structural non-zeros.
-
-The element type, say `T`, of the values of the structural non-zeros can be imposed by
-rewriting the above examples as:
-
-    SparseOperatorCSR{T}(args...)
-
-A sparse operator in CSR storage format implementing generalized matrix-vector
-multiplication can also be directly constructed from a `L`-dimensional Julia array (with `L
-≥ 2`) `A` by:
-
-    SparseOperatorCSR{T,M}(A[, f])
-
-with `M` the number of leading dimensions of `A` corresponding to the *rows* of the
-operator, the trailing `N = L - M` dimensions being assumed to correspond to the *columns*
-of the operator. These dimensions are the size of, respectively, the output and the input
-arrays when applying the operator. The parameter `N` may be specified (although it can be
-automatically inferred):
-
-    SparseOperatorCSR{T,M,N}(A[, f])
-
-provided `M + N = ndims(A)` holds.
-
-A last parameter `V` can be specified for the type of the vector to store the values of the
-structural non-zeros:
-
-    SparseOperatorCSR{T,M,N,V}(args...)
-
-provided `V` implements standard linear indexing. The default is to take `V = Vector{T}`. As
-a special case, you can choose a uniform boolean vector from the `StructuredArrays` package
-to store the sparse coefficients:
-
-    SparseOperatorCSR{T,M,N,UniformVector{Bool}}(args...)
-
-to get a compressed sparse operator in CSR format whose values are an immutable uniform
-vector of true values requiring no storage. This is useful to only store the sparse
-structure of the operator, that is the indices in CSR format of the sparse coefficients not
-their values.
+See [`SparseOperatorCOO`](@ref) for a description of above arguments and parameters.
 
 The `SparseOperatorCSR` constructor can also be used to convert a sparse operator in another
 storage format into the CSR format. In that case, parameter `T` may also be specified to
@@ -870,96 +793,117 @@ convert the type of the sparse coefficients.
 
 # Many constructors have similar code whatever the compressed sparse storage format. We
 # therefore use meta-programming to define them.
-for (CS, other_args) in (:SparseOperatorCSR => (:cols, :offs),
-                         :SparseOperatorCSC => (:rows, :offs),
-                         :SparseOperatorCOO => (:rows, :cols),)
+for (constructor, other_args) in (:SparseOperatorCSR => (:cols, :offs),
+                                  :SparseOperatorCSC => (:rows, :offs),
+                                  :SparseOperatorCOO => (:rows, :cols),)
     # All other arguments are integer-valued vectors.
     other_decl = map(s -> :($s::AbstractVector{<:Integer}), other_args)
     f_decl = :(f::Function = isnonzero)
-    _CS = Symbol("_",CS)
+    unsafe_constructor = Symbol("_",constructor)
     @eval begin
         # Get rid of the M and N parameters, but keep/set T for conversion of values.
-        $CS{T,M,N}(A::SparseOperatorLike{<:Any,<:Any,<:Any,M,N}) where {T,M,N} =
-            $CS{T}(A)
-        $CS{T,M}(A::SparseOperatorLike{<:Any,<:Any,<:Any,M}) where {T,M} =
-            $CS{T}(A)
-        $CS(A::SparseOperatorLike{<:Any,<:Any,T}) where {T} =
-            $CS{T}(A)
+        $constructor{T,M,N}(A::SparseOperatorLike{<:Any,<:Any,<:Any,M,N}) where {T,M,N} =
+            $constructor{T}(A)
+        $constructor{T,M}(A::SparseOperatorLike{<:Any,<:Any,<:Any,M}) where {T,M} =
+            $constructor{T}(A)
+        $constructor(A::SparseOperatorLike{<:Any,<:Any,T}) where {T} =
+            $constructor{T}(A)
 
         # Do nothing cases (it makes sense that a constructor of an immutable type be able
         # to just return its argument if it is already of the correct type).
-        $CS{T}(A::$CS{T}) where {T} = A
+        $constructor{T}(A::$constructor{T}) where {T} = A
 
-        # Manage to call constructors of compressed sparse operator given a regular Julia
-        # array with correct parameters and predicate.
-        $CS(A::AbstractMatrix{T}, args...; kwds...) where {T} =
-            $CS{T,1,1}(A, args...; kwds...)
-        # FIXME remove "Any"
-        $CS{Any}(A::AbstractMatrix{T}, args...; kwds...) where {T} =
-            $CS{T,1,1}(A, args...; kwds...)
-        $CS{T}(A::AbstractMatrix, args...; kwds...) where {T} =
-            $CS{T,1,1}(A, args...; kwds...)
-        $CS{Any,M}(A::AbstractArray{T}, args...; kwds...) where {T,M} =
-            $CS{T,M}(A, args...; kwds...)
-        $CS{Any,M,N}(A::AbstractArray{T}, args...; kwds...) where {T,M,N} =
-            $CS{T,M,N}(A, args...; kwds...)
-        $CS{Any,M,N,V}(A::AbstractArray{T}, args...; kwds...) where {T,M,N,V} =
-            $CS{T,M,N,V}(A, args...; kwds...)
-        function $CS{T,M}(A::AbstractArray{S,L}, args...; kwds...) where {S,T,L,M}
-            1 ≤ M < L || error("parameters M=$M and L=$L are not such that 1 ≤ M < L")
-            $CS{T,M,L-M}(A, args...; kwds...)
+        # Provide default predicate.
+        function $constructor(A::Union{AbstractMatrix,PseudoMatrix})
+            return $constructor(isnonzero, A)
         end
-        $CS{T,M,N}(A::AbstractArray, args...; kwds...) where {T,M,N} =
-            $CS{T,M,N,Vector{T}}(A, args...; kwds...)
+        function $constructor{T}(A::Union{AbstractMatrix,PseudoMatrix}) where {T}
+            return $constructor{T}(isnonzero, A)
+        end
+        function $constructor{T,M}(A::AbstractArray) where {T,M}
+            return $constructor{T,M}(isnonzero, A)
+        end
+        function $constructor{T,M,N}(A::AbstractArray) where {T,M,N}
+            return $constructor{T,M,N}(isnonzero, A)
+        end
+        function $constructor{T,M,N,V}(A::AbstractArray) where {T,M,N,V}
+            return $constructor{T,M,N,V}(isnonzero, A)
+        end
+
+        # Provide type `T` of the structural non-zeros.
+        function $constructor(f, A::Union{AbstractMatrix{T},PseudoMatrix{T}}) where {T}
+            return $constructor{T}(f, A)
+        end
+
+        # Provide the number `M` of row dimensions.
+        function $constructor{T}(f, A::AbstractMatrix) where {T}
+            return $constructor{T,1}(f, A)
+        end
+        function $constructor{T}(f, A::PseudoMatrix{<:Any,M}) where {T,M}
+            A isa FlexibleMatrix && throw_bad_argument(
+                "flexible matrices cannot be converted to sparse operators")
+            return $constructor{T,M}(f, parent(A))
+        end
+
+        # Provide the number `N` of column dimensions.
+        function $constructor{T,M}(f, A::AbstractArray{<:Any,L}) where {T,M,L}
+            1 ≤ M < L || throw_bad_argument("1 ≤ M < ndims(A) = $L` must hold, got `M=$M`")
+            return $constructor{T,M,L-M}(f, A)
+        end
+
+        # Provide the type `V` of the array to store the structural non-zeros.
+        function $constructor{T,M,N}(f, A::AbstractArray) where {T,M,N}
+            return $constructor{T,M,N,Vector{T}}(f, A)
+        end
 
         # Call generic constructor.
-        function $CS{T,M,N,V}(A::AbstractArray{S,L},
-                              f::Function = isnonzero) where {S,T,L,M,N,
-                                                              V<:AbstractVector{T}}
-            return build($CS{T,M,N,V}, A, f)
+        function $constructor{T,M,N,V}(f, A::AbstractArray) where {T,M,N,
+                                                                   V<:AbstractVector{T}}
+            return build($constructor{T,M,N,V}, f, A)
         end
 
         # Constructors that convert array of values. Other fields have already been checked
         # so do not check structure again.
-        $CS{T}(A::$CS{S,M,N}) where {S,T,M,N} =
-            $_CS(output_length(A), input_length(A), to_values(T, nonzeros(A)),
-                 $(map(s -> :($(Symbol("get_",s))(A)), other_args)...),
-                 output_size(A), input_size(A))
+        $constructor{T}(A::$constructor{S,M,N}) where {S,T,M,N} =
+            $unsafe_constructor(output_length(A), input_length(A),
+                                to_values(T, nonzeros(A)),
+                                $(map(s -> :($(Symbol("get_",s))(A)), other_args)...),
+                                output_size(A), input_size(A))
 
         # Basic outer constructors return a fully checked structure.
-        function $CS(vals::AbstractVector, $(other_decl...),
-                     rowsiz::Tuple{Vararg{Integer}}, colsiz::Tuple{Vararg{Integer}})
+        function $constructor(vals::AbstractVector, $(other_decl...),
+                              rowsiz::Tuple{Vararg{Integer}}, colsiz::Tuple{Vararg{Integer}})
             return check_structure(
-                $_CS(to_values(vals),
-                     $(map(s -> :(to_indices($s)), other_args)...),
-                     as_array_size(rowsiz), as_array_size(colsiz)))
+                $unsafe_constructor(to_values(vals),
+                                    $(map(s -> :(to_indices($s)), other_args)...),
+                                    as_array_size(rowsiz), as_array_size(colsiz)))
         end
 
         # Constructors for any compressed format similar to the basic ones but with type
         # parameters that may imply converting arguments.
-        function $CS{T,M,N}(vals::AbstractVector, $(other_decl...),
-                              rowsiz::Tuple{Vararg{Integer}},
-                              colsiz::Tuple{Vararg{Integer}}) where {T,M,N}
+        function $constructor{T,M,N}(vals::AbstractVector, $(other_decl...),
+                                     rowsiz::Tuple{Vararg{Integer}},
+                                     colsiz::Tuple{Vararg{Integer}}) where {T,M,N}
             N isa Int || throw_assertion_error("type parameter `N` must be an `Int`")
             length(colsiz) == N || throw_dimension_mismatch(
                 "number of column dimensions is not equal to type parameter `N = $N`")
-            $CS{T,M}(vals, $(other_args...), rowsiz, colsiz)
+            $constructor{T,M}(vals, $(other_args...), rowsiz, colsiz)
         end
-        function $CS{T,M}(vals::AbstractVector, $(other_decl...),
-                            rowsiz::Tuple{Vararg{Integer}},
-                            colsiz::Tuple{Vararg{Integer}}) where {T,M}
+        function $constructor{T,M}(vals::AbstractVector, $(other_decl...),
+                                   rowsiz::Tuple{Vararg{Integer}},
+                                   colsiz::Tuple{Vararg{Integer}}) where {T,M}
             M isa Int || throw_assertion_error("type parameter `M` must be an `Int`")
             length(rowsiz) == M || throw_dimension_mismatch(
                 "number of row dimensions is not equal to type parameter `M = $M`")
-            $CS{T}(vals, $(other_args...), rowsiz, colsiz)
+            $constructor{T}(vals, $(other_args...), rowsiz, colsiz)
         end
-        function $CS{T}(vals::AbstractVector, $(other_decl...),
-                          rowsiz::Tuple{Vararg{Integer}},
-                          colsiz::Tuple{Vararg{Integer}}) where {T}
+        function $constructor{T}(vals::AbstractVector, $(other_decl...),
+                                 rowsiz::Tuple{Vararg{Integer}},
+                                 colsiz::Tuple{Vararg{Integer}}) where {T}
             M isa Int || throw_assertion_error("type parameter `M` must be an `Int`")
             length(rowsiz) == M || throw_dimension_mismatch(
                 "number of row dimensions must be equal to type parameter `M`")
-            $CS(to_values(T, vals), $(other_args...), rowsiz, colsiz)
+            $constructor(to_values(T, vals), $(other_args...), rowsiz, colsiz)
         end
     end
 end
@@ -968,8 +912,8 @@ end
 # a predicate function. Julia arrays are usually in column-major order but this is not
 # always the case, to handle various storage orders when extracting selected entries, we
 # convert the input array into a equivalent "matrix", that is a 2-dimensional array.
-function build(::Type{W}, arr::AbstractArray{S,L},
-               f::Function = isnonzero) where {S,T,L,M,N,V<:AbstractVector{T},
+function build(::Type{W}, f,
+               arr::AbstractArray{S,L}) where {S,T,L,M,N,V<:AbstractVector{T},
                                                W<:Union{SparseOperatorCOO{T,M,N,V},
                                                         SparseOperatorCSC{T,M,N,V},
                                                         SparseOperatorCSR{T,M,N,V}}}

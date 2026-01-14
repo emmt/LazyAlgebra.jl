@@ -158,6 +158,9 @@ and changes.
   With the new API, the code for the sparse operators is now around 1800 lines, compared to
   2500 previously.
 
+- To allow for `do`-block syntax, the optional predicate function is specified first when
+  building a sparse operator from a given array.
+
 - The `unveil` function has been removed. Call `parent(A)` for adjoint, or inverse operators
   and `parent(parent(A))` on inverse-adjoint operators.
 
