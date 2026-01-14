@@ -16,61 +16,108 @@ end
         A, B, C, D = SymbolicOperator.((:A, :B, :C, :D))
         @test typeof(A) <: Operator
         @test A === A
+        @test A == A
+        @test isequal(A, A)
         @test A !== B
+        @test A != B
+        @test !isequal(A, B)
 
-        @testset "Sums of $N terms" for N in (2, 3, 4)
-            S = N == 2 ? @inferred(A + B) :
+        @testset "Sums of $N terms" for N in (0, 1, 2, 3, 4)
+            if N == 0
+                @test_throws ArgumentError LazyAlgebra.Sum()
+                @test_throws ArgumentError LazyAlgebra.Sum(())
+                continue
+            end
+            if N == 1
+                @test @inferred(LazyAlgebra.Sum(A)) === A
+                @test @inferred(LazyAlgebra.Sum((A,))) === A
+                continue
+            end
+
+            X = N == 2 ? @inferred(A + B) :
                 N == 3 ? @inferred(A + B + C) :
-                N == 4 ? @inferred(A + B + C + D) : nothing
-            @test S isa Sum
-            @test @inferred(length(S)) === 2
-            @test @inferred(firstindex(S)) === 1
-            @test @inferred(lastindex(S)) === 2
-            S1, S2 = S
-            @test @inferred(Tuple(S)) === (S1, S2)
-            # NOTE `S[i]` is not inferable unless compiled with a constant `i` as in `first(S)` and
-            #      `last(S)`.
-            @test @inferred(first(S)) === S1
-            @test @inferred( last(S)) === S2
-            @test @inferred(S[1]) === S1
-            @test @inferred(S[2]) === S2
-            # Julia computes sums of terms by left-associativity.
-            if N == 2
-                @test S isa Sum{typeof(A),typeof(B)}
-                @test S[1] === A
-                @test S[2] === B
-            elseif N == 3
-                @test S isa Sum{Sum{typeof(A),typeof(B)},typeof(C)}
-                @test S[1] === A + B
-                @test S[1][1] === A
-                @test S[1][2] === B
-                @test S[2] === C
-            elseif N == 4
-                @test S isa Sum{Sum{Sum{typeof(A),typeof(B)},typeof(C)},typeof(D)}
-                @test S[1] === A + B + C
-                @test S[1][1] === A + B
-                @test S[1][1][1] === A
-                @test S[1][1][2] === B
-                @test S[1][2] === C
-                @test S[2] === D
+                N == 4 ? @inferred(A + B + C + D) : continue
+            @test X isa Sum{<:NTuple{N,Operator}}
+            @test @inferred(length(X)) === N
+            @test @inferred(firstindex(X)) === 1
+            @test @inferred(lastindex(X)) === N
+            # Test sum as an iterator.
+            @test mapreduce(===, &, X, (A, B, C, D))
+            # Conversion of sum to a tuple of terms.
+            @test @inferred(Tuple(X)) === (A, B, C, D)[1:N]
+            # Test indexation. NOTE `X[i]` is not inferable unless compiled with a constant
+            #                       index `i` as in `first(X)` and `last(X)`.
+            @test @inferred(first(X)) === X[1]
+            @test @inferred( last(X)) === X[N]
+            if N ≥ 1
+                @test @inferred(X[1]) === A
+            end
+            if N ≥ 2
+                @test @inferred(X[2]) === B
+            end
+            if N ≥ 3
+                @test @inferred(X[3]) === C
+            end
+            if N ≥ 4
+                @test @inferred(X[4]) === D
             end
         end
 
-        # Sums respect grouping. Left-associativity is the default for sum of terms.
+        @testset "Compositions of $N terms" for N in (0, 1, 2, 3, 4)
+            if N == 0
+                @test LazyAlgebra.Prod() === Id
+                @test LazyAlgebra.Prod(()) === Id
+                continue
+            end
+            if N == 1
+                @test @inferred(LazyAlgebra.Prod(A)) === A
+                @test @inferred(LazyAlgebra.Prod((A,))) === A
+                continue
+            end
+
+            X = N == 2 ? @inferred(A * B) :
+                N == 3 ? @inferred(A * B * C) :
+                N == 4 ? @inferred(A * B * C * D) : continue
+            @test X isa Prod{<:NTuple{N,Operator}}
+            @test @inferred(length(X)) === N
+            @test @inferred(firstindex(X)) === 1
+            @test @inferred(lastindex(X)) === N
+            # Test sum as an iterator.
+            @test mapreduce(===, &, X, (A, B, C, D))
+            # Conversion of sum to a tuple of terms.
+            @test @inferred(Tuple(X)) === (A, B, C, D)[1:N]
+            # Test indexation. NOTE `X[i]` is not inferable unless compiled with a constant
+            #                       index `i` as in `first(X)` and `last(X)`.
+            @test @inferred(first(X)) === X[1]
+            @test @inferred( last(X)) === X[N]
+            if N ≥ 1
+                @test @inferred(X[1]) === A
+            end
+            if N ≥ 2
+                @test @inferred(X[2]) === B
+            end
+            if N ≥ 3
+                @test @inferred(X[3]) === C
+            end
+            if N ≥ 4
+                @test @inferred(X[4]) === D
+            end
+        end
+
+        # Sums automatically simplify parentheses but do not change order of terms.
         @test @inferred((A + B) + C) === @inferred(A + B + C)
-        S = @inferred(A + (B + C))
-        @test S[1] === A
-        @test S[2] === B + C
-        @test @inferred(((A + B) + C) + D) === @inferred(A + B + C + D)
-        S = @inferred(A + (B + C + D))
-        @test S[1] === A
-        @test S[2] === @inferred(B + C + D)
-        S = @inferred(A + (B + C) + D)
-        @test S[1] === @inferred(A + (B + C))
-        @test S[2] === D
-        S = @inferred((A + B) + (C + D))
-        @test S[1] === @inferred(A + B)
-        @test S[2] === @inferred(C + D)
+        @test @inferred(A + (B + C)) === @inferred(A + B + C)
+        @test @inferred(A + (B + C) + D) === @inferred(A + B + C + D)
+        @test @inferred(A + (B + C + D)) === @inferred(A + B + C + D)
+        @test @inferred((A + B) + (C + D)) === @inferred(A + B + C + D)
+
+        # Compositions automatically simplify parentheses but do not change order of terms.
+        @test @inferred((A * B) * C) === @inferred(A * B * C)
+        @test @inferred(A * (B * C)) === @inferred(A * B * C)
+        @test @inferred(A * (B * C) * D) === @inferred(A * B * C * D)
+        @test @inferred((A * (B * C)) * D) === @inferred(A * B * C * D)
+        @test @inferred(A * (B * C * D)) === @inferred(A * B * C * D)
+        @test @inferred((A * B) * (C * D)) === @inferred(A * B * C * D)
 
         # Sums and differences.
         @test @inferred(A - B) === @inferred(A + (-𝟙)*B)
@@ -79,63 +126,34 @@ end
         @test @inferred(A - (B + C)) === @inferred(A + (-𝟙)*(B + C))
         @test @inferred(-A + B - (C + D)) === @inferred((-𝟙)*A + B + (-𝟙)*(C + D))
 
-        @testset "Compositions of $N terms" for N in (2, 3, 4)
-            S = N == 2 ? @inferred(A * B) :
-                N == 3 ? @inferred(A * B * C) :
-                N == 4 ? @inferred(A * B * C * D) : nothing
-            @test S isa Prod
-            @test @inferred(length(S)) === 2
-            @test @inferred(firstindex(S)) === 1
-            @test @inferred(lastindex(S)) === 2
-            S1, S2 = S
-            @test @inferred(Tuple(S)) === (S1, S2)
-            # NOTE `S[i]` is not inferable unless compiled with a constant `i` as in `first(S)` and
-            #      `last(S)`.
-            @test @inferred(first(S)) === S1
-            @test @inferred( last(S)) === S2
-            @test @inferred(S[1]) === S1
-            @test @inferred(S[2]) === S2
-            # Julia computes products of terms by left-associativity.
-            if N == 2
-                @test S isa Prod{typeof(A),typeof(B)}
-                @test S[1] === A
-                @test S[2] === B
-            elseif N == 3
-                @test S isa Prod{Prod{typeof(A),typeof(B)},typeof(C)}
-                @test S[1] === A * B
-                @test S[1][1] === A
-                @test S[1][2] === B
-                @test S[2] === C
-            elseif N == 4
-                @test S isa Prod{Prod{Prod{typeof(A),typeof(B)},typeof(C)},typeof(D)}
-                @test S[1] === A * B * C
-                @test S[1][1] === A * B
-                @test S[1][1][1] === A
-                @test S[1][1][2] === B
-                @test S[1][2] === C
-                @test S[2] === D
-            end
-        end
-
-        # Compositions respect grouping. Left-associativity is the default for product of terms.
-        @test @inferred((A * B) * C) === @inferred(A * B * C)
-        S = @inferred(A * (B * C))
-        @test S[1] === A
-        @test S[2] === B * C
-        @test @inferred(((A * B) * C) * D) === @inferred(A * B * C * D)
-        S = @inferred(A * (B * C * D))
-        @test S[1] === A
-        @test S[2] === @inferred(B * C * D)
-        S = @inferred(A * (B * C) * D)
-        @test S[1] === @inferred(A * (B * C))
-        @test S[2] === D
-        S = @inferred((A * B) * (C * D))
-        @test S[1] === @inferred(A * B)
-        @test S[2] === @inferred(C * D)
-
         # Composition of operators.
         @test @inferred(A ∘ B) === @inferred(A * B)
         @test @inferred(A ∘ B ∘ C) === @inferred(A * B * C)
+        @test @inferred(A ∘ (B ∘ C) ∘ D) === @inferred(A * B * C * D)
+
+        # Scaled operators.
+        λ = 1 + 2im # complex with integer parts for exact result
+        @test @inferred(λ*A) isa Scaled{typeof(λ),typeof(A)}
+        @test @inferred(λ*A)[1] === λ
+        @test @inferred(λ*A)[2] === A
+        @test @inferred(A*λ) === @inferred(λ*A)
+        @test @inferred(λ*(π*A)) isa Scaled{typeof(λ*π),typeof(A)}
+        @test @inferred(λ*(π*A)) === @inferred((λ*π)*A)
+        @test @inferred(λ*A*π) === @inferred((λ*π)*A)
+        @test @inferred((λ*A)*π) === @inferred((λ*π)*A)
+        @test @inferred(λ*(A*π)) === @inferred((λ*π)*A)
+
+        # Automatic simplification rules for products.
+        λ = 1 + 2im # complex with integer parts for exact result
+        @test @inferred(λ*A*B) isa Scaled{typeof(λ),typeof(A*B)}
+        @test @inferred(A*(λ*B)) === @inferred(λ*A*B)
+        @test @inferred(A*(λ*B)*C) === @inferred(λ*A*B*C)
+        @test @inferred((A*B)*(λ*C)) === @inferred(λ*A*B*C)
+        @test @inferred((A*B)*(λ*C)*D) === @inferred(λ*A*B*C*D)
+        @test @inferred(A*(B*C)*(λ*D)) === @inferred(λ*A*B*C*D)
+        @test @inferred((A*B)*(λ*C)*(2*D)) === @inferred((2λ)*A*B*C*D)
+        @test @inferred(A*(2*B)*(5*C)*(3*D)) === @inferred(30*A*B*C*D)
+        @test @inferred(A*(-B)*(λ*C)*(2*D)) === @inferred((-2λ)*A*B*C*D)
 
         # Division of operators. NOTE Beware that `A*B\C` is like `(A*B)\C` in Julia, not `A*(B\C)`.
         @test @inferred(A / B) === @inferred(A * inv(B))
@@ -143,14 +161,15 @@ end
         @test @inferred(A / B * C) === @inferred(A * inv(B) * C)
         @test @inferred(A / (B * C)) === @inferred(A * (inv(C) * inv(B)))
         @test @inferred(A \ B * C) === @inferred(inv(A) * B * C)
+        @test @inferred((A \ B) * C) === @inferred(inv(A) * B * C)
         @test @inferred(A * B / C * D) === @inferred(A * B * inv(C) * D)
         @test @inferred(A * B / (C * D)) === @inferred(A * B * (inv(D) * inv(C)))
         @test @inferred(A * B \ C * D) === @inferred(inv(A * B) * C * D) # cf. above note
         @test @inferred(A * B \ C * D) === @inferred((A * B) \ C * D) # cf. above note
 
         # Adjoint of an operator
+        @test A' isa Adjoint{typeof(A)}
         @test A' === @inferred(adjoint(A))
-        @test A' isa Adjoint
         @test @inferred(adjoint(A')) === A
         @test @inferred(parent(A')) === A
         @test @inferred(getindex(A')) === A
@@ -158,106 +177,148 @@ end
         @test A'' === A
 
         # Adjoint of a sum.
-        @test (A + B)' === @inferred(adjoint(A + B))
-        @test (A + B)' === @inferred(A' + B')
-        @test (A + B)' isa Sum
-        @test Tuple((A + B)') === (A', B')
-        @test (A + B + C + D)' === @inferred(adjoint(A + B + C + D))
-        @test (A + B + C + D)' === @inferred(A' + B' + C' + D')
+        @test (A + B)'         isa Sum
+        @test (A + B + C)'     isa Sum
         @test (A + B + C + D)' isa Sum
+        @test (A + B)'         === @inferred(adjoint(A + B))
+        @test (A + B + C)'     === @inferred(adjoint(A + B + C))
+        @test (A + B + C + D)' === @inferred(adjoint(A + B + C + D))
+        @test Tuple((A + B)')         === (A', B')
+        @test Tuple((A + B + C)')     === (A', B', C')
+        @test Tuple((A + B + C + D)') === (A', B', C', D')
+        @test (A + B)'         === @inferred(A' + B')
+        @test (A + B + C)'     === @inferred(A' + B' + C')
+        @test (A + B + C + D)' === @inferred(A' + B' + C' + D')
 
         # Adjoint of a composition.
-        @test (A * B)' === @inferred(adjoint(A * B))
-        @test (A * B)' === @inferred(B' * A')
-        @test (A * B)' isa Prod
-        @test Tuple((A * B)') === (B', A')
-        @test (A * B * C * D)' === @inferred(adjoint(A * B * C * D))
-        @test (A * B * C * D)' === @inferred(D' * C' * B' * A')
+        @test (A * B)'         isa Prod
+        @test (A * B * C)'     isa Prod
         @test (A * B * C * D)' isa Prod
+        @test (A * B)'         === @inferred(adjoint(A * B))
+        @test (A * B * C)'     === @inferred(adjoint(A * B * C))
+        @test (A * B * C * D)' === @inferred(adjoint(A * B * C * D))
+        @test Tuple((A * B)')         === (B', A')
+        @test Tuple((A * B * C)')     === (C', B', A')
+        @test Tuple((A * B * C * D)') === (D', C', B', A')
+        @test (A * B)'         === @inferred(B' * A')
+        @test (A * B * C)'     === @inferred(C' * B' * A')
+        @test (A * B * C * D)' === @inferred(D' * C' * B' * A')
 
         # Transpose of an operator
-        @test transpose(A) isa Transpose
+        @test @inferred(transpose(A)) isa Transpose{typeof(A)}
         @test @inferred(transpose(transpose(A))) === A
         @test @inferred(parent(transpose(A))) === A
         @test @inferred(getindex(transpose(A))) === A
         @test transpose(A)[] === A
 
         # Transpose of a sum.
-        @test @inferred(transpose(A + B)) isa Sum
-        @test @inferred(transpose(A + B)) === @inferred(transpose(A) + transpose(B))
-        @test Tuple(transpose(A + B)) === (transpose(A), transpose(B))
-        @test transpose(A + B + C + D) isa Sum
-        @test transpose(A + B + C + D) === @inferred(transpose(A) + transpose(B) + transpose(C) + transpose(D))
-        @test transpose(A + (B + C) + D) isa Sum
-        @test transpose(A + (B + C) + D) === transpose(A) + (transpose(B) + transpose(C)) + transpose(D)
+        @test @inferred(transpose(A + B))         isa Sum
+        @test @inferred(transpose(A + B + C))     isa Sum
+        @test @inferred(transpose(A + B + C + D)) isa Sum
+        @test @inferred(transpose(A + B))         === @inferred(transpose(A) + transpose(B))
+        @test @inferred(transpose(A + B + C))     === @inferred(transpose(A) + transpose(B) + transpose(C))
+        @test @inferred(transpose(A + B + C + D)) === @inferred(transpose(A) + transpose(B) + transpose(C) + transpose(D))
+        @test Tuple(transpose(A + B))         === (transpose(A), transpose(B))
+        @test Tuple(transpose(A + B + C))     === (transpose(A), transpose(B), transpose(C))
+        @test Tuple(transpose(A + B + C + D)) === (transpose(A), transpose(B), transpose(C), transpose(D))
 
         # Transpose of a composition.
-        @test @inferred(transpose(A * B)) isa Prod
-        @test @inferred(transpose(A * B)) === @inferred(transpose(B) * transpose(A))
-        @test Tuple(transpose(A * B)) === (transpose(B), transpose(A))
-        @test transpose(A * B * C * D) isa Prod
-        @test transpose(A * B * C * D) === @inferred(transpose(D) * ((transpose(C) * (transpose(B) * transpose(A)))))
-        @test transpose(A * (B * C) * D) isa Prod
-        @test transpose(A * (B * C) * D) === transpose(D) * ((transpose(C) * transpose(B)) * transpose(A))
+        @test @inferred(transpose(A * B))         isa Prod
+        @test @inferred(transpose(A * B * C))     isa Prod
+        @test @inferred(transpose(A * B * C * D)) isa Prod
+        @test @inferred(transpose(A * B))         === @inferred(transpose(B) * transpose(A))
+        @test @inferred(transpose(A * B * C))     === @inferred(transpose(C) * transpose(B) * transpose(A))
+        @test @inferred(transpose(A * B * C * D)) === @inferred(transpose(D) * transpose(C) * transpose(B) * transpose(A))
+        @test Tuple(transpose(A * B))         === (transpose(B), transpose(A))
+        @test Tuple(transpose(A * B * C))     === (transpose(C), transpose(B), transpose(A))
+        @test Tuple(transpose(A * B * C * D)) === (transpose(D), transpose(C), transpose(B), transpose(A))
+
+        # Transpose of products.
+        λ = 1 + 2im # complex with integer parts for exact result
+        @test @inferred(transpose(π*A)) isa Scaled{typeof(π),typeof(transpose(A))}
+        @test @inferred(transpose(λ*A)) isa Scaled{typeof(λ),typeof(transpose(A))}
+        @test @inferred(transpose(π*A)) === π*transpose(A)
+        @test @inferred(transpose(λ*A)) === λ*transpose(A)
 
         # Conjugate of an operator
-        @test typeof(conj(A)) <: Conjugate
+        @test @inferred(conj(A)) isa Conjugate{typeof(A)}
         @test @inferred(conj(conj(A))) === A
         @test @inferred(parent(conj(A))) === A
         @test @inferred(getindex(conj(A))) === A
         @test conj(A)[] === A
 
-        # Conjugate is distributive over a sum.
-        @test conj(A + B) === conj(A) + conj(B)
-        @test typeof(conj(A + B)) <: Sum
-        @test Tuple(conj(A + B)) === (conj(A), conj(B))
-        @test typeof(conj(A + B + C + D)) <: Sum
-        @test conj(A + B + C + D) === conj(A) + conj(B) + conj(C) + conj(D)
-        @test conj(A + B + C + D)[1] === conj(A)
-        @test conj(A + B + C + D)[2][1] === conj(B)
-        @test conj(A + B + C + D)[2][2][1] === conj(C)
-        @test conj(A + B + C + D)[2][2][2] === conj(D)
-        # Conjugate of a product.
-        @test conj(A * B) === conj(A) * conj(B)
-        @test typeof(conj(A * B)) <: Prod
-        @test Tuple(conj(A * B)) === (conj(A), conj(B))
-        @test typeof(conj(A * B * C * D)) <: Prod
-        @test conj(A * B * C * D) === conj(A) * conj(B) * conj(C) * conj(D)
-        @test conj(A * B * C * D)[1] === conj(A)
-        @test conj(A * B * C * D)[2][1] === conj(B)
-        @test conj(A * B * C * D)[2][2][1] === conj(C)
-        @test conj(A * B * C * D)[2][2][2] === conj(D)
+        # Conjugate of a sum.
+        @test @inferred(conj(A + B))         isa Sum
+        @test @inferred(conj(A + B + C))     isa Sum
+        @test @inferred(conj(A + B + C + D)) isa Sum
+        @test @inferred(conj(A + B))         === @inferred(conj(A) + conj(B))
+        @test @inferred(conj(A + B + C))     === @inferred(conj(A) + conj(B) + conj(C))
+        @test @inferred(conj(A + B + C + D)) === @inferred(conj(A) + conj(B) + conj(C) + conj(D))
+        @test Tuple(conj(A + B))         === (conj(A), conj(B))
+        @test Tuple(conj(A + B + C))     === (conj(A), conj(B), conj(C))
+        @test Tuple(conj(A + B + C + D)) === (conj(A), conj(B), conj(C), conj(D))
+
+        # Conjugate of a composition.
+        @test @inferred(conj(A * B))         isa Prod
+        @test @inferred(conj(A * B * C))     isa Prod
+        @test @inferred(conj(A * B * C * D)) isa Prod
+        @test @inferred(conj(A * B))         === @inferred(conj(A) * conj(B))
+        @test @inferred(conj(A * B * C))     === @inferred(conj(A) * conj(B) * conj(C))
+        @test @inferred(conj(A * B * C * D)) === @inferred(conj(A) * conj(B) * conj(C) * conj(D))
+        @test Tuple(conj(A * B))         === (conj(A), conj(B))
+        @test Tuple(conj(A * B * C))     === (conj(A), conj(B), conj(C))
+        @test Tuple(conj(A * B * C * D)) === (conj(A), conj(B), conj(C), conj(D))
+
+        # Conjugate of products.
+        λ = 1 + 2im # complex with integer parts for exact result
+        @test @inferred(conj(π*A)) isa Scaled{typeof(conj(π)),typeof(conj(A))}
+        @test @inferred(conj(λ*A)) isa Scaled{typeof(conj(λ)),typeof(conj(A))}
+        @test @inferred(conj(π*A)) === conj(π)*conj(A)
+        @test @inferred(conj(λ*A)) === conj(λ)*conj(A)
 
         # Inverse of a number
         @test @inferred(inverse(2)) === 1//2
         @test @inferred(inverse(3.0 - 2.0im)) ≈ (3.0 + 2.0im)/13.0
+
         # Inverse of an operator
-        @test typeof(inv(A)) <: Inverse
+        @test @inferred(inv(A)) isa Inverse{typeof(A)}
+        @test @inferred(inv(A)) === Inverse(A)
         @test @inferred(inv(inv(A))) === A
         @test @inferred(parent(inv(A))) === A
         @test @inferred(getindex(inv(A))) === A
         @test inv(A)[] === A
-        # Inverse of a sum.
-        @test typeof(inv(A + B)) <: Inverse
-        @test inv(A + B)[] === A + B
-        @test typeof(inv(A + B + C + D)) <: Inverse
-        @test inv(A + B + C + D)[] === A + B + C + D
-        # Inverse of a product.
-        @test inv(A * B) === inv(B) * inv(A)
-        @test typeof(inv(A * B)) <: Prod
-        @test Tuple(inv(A * B)) === (inv(B), inv(A))
-        @test inv(A * B * C * D) === inv(D) * inv(C) * inv(B) * inv(A)
-        @test typeof(inv(A * B * C * D)) <: Prod
-        @test inv(A * B * C * D)[1] === inv(D)
-        @test inv(A * B * C * D)[2][1] === inv(C)
-        @test inv(A * B * C * D)[2][2][1] === inv(B)
-        @test inv(A * B * C * D)[2][2][2] === inv(A)
 
-        # Inverse-adjoint and adjoint-inverse
-        @test inv(A)' === @inferred(adjoint(inv(A)))
-        @test @inferred(inv(A')) === @inferred(inv(adjoint(A)))
-        @test typeof(inv(A)') <: Inverse{<:Adjoint}
-        @test typeof(inv(A')) <: Inverse{<:Adjoint}
+        # Inverse of a sum.
+        @test @inferred(inv(A + B)) isa Inverse{<:Sum}
+        @test @inferred(inv(A + B)[]) === A + B
+        @test @inferred(parent(inv(A + B))) === A + B
+        @test @inferred(inv(A + B + C)) isa Inverse{<:Sum}
+        @test @inferred(inv(A + B + C)[]) === A + B + C
+        @test @inferred(parent(inv(A + B + C))) === A + B + C
+        @test @inferred(inv(A + B + C + D)) isa Inverse{<:Sum}
+        @test @inferred(inv(A + B + C + D)[]) === A + B + C + D
+        @test @inferred(parent(inv(A + B + C + D))) === A + B + C + D
+
+        # Inverse of a composition.
+        @test @inferred(inv(A * B)) isa Prod
+        @test @inferred(inv(A * B)) === inv(B) * inv(A)
+        @test @inferred(inv(A * B * C)) isa Prod
+        @test @inferred(inv(A * B * C)) === inv(C) * inv(B) * inv(A)
+        @test @inferred(inv(A * B * C)) isa Prod
+        @test @inferred(inv(A * B * C * D)) === inv(D) * inv(C) * inv(B) * inv(A)
+
+        # Inverse of products.
+        λ = 1 + 2im # complex with integer parts for exact result
+        @test @inferred(inv(π*A)) isa Scaled{typeof(inv(π)),typeof(inv(A))}
+        @test @inferred(inv(λ*A)) isa Scaled{typeof(inv(λ)),typeof(inv(A))}
+        @test @inferred(inv(π*A)) === inv(π)*inv(A)
+        @test @inferred(inv(λ*A)) === inv(λ)*inv(A)
+
+        # Inverse-adjoint and adjoint-inverse.
+        @test inv(A)' isa Inverse{Adjoint{typeof(A)}}
+        @test inv(A') isa Inverse{Adjoint{typeof(A)}}
+        @test @inferred(adjoint(inv(A))) === inv(A)'
+        @test @inferred(inv(adjoint(A))) === @inferred(inv(A'))
         @test @inferred(parent(inv(A'))) === A'
         @test @inferred(parent(inv(A)')) === A'
         @test @inferred(parent(parent(inv(A')))) === A
@@ -265,83 +326,96 @@ end
         @test @inferred(inv(inv(A'))) === A'
         @test @inferred(inv(inv(A)')) === A'
         @test @inferred(adjoint(inv(A'))) === inv(A)
-        @test @inferred(adjoint(inv(A)')) === inv(A)
+        @test @inferred(adjoint(inv(A'))) === inv(A)
+        @test @inferred(adjoint(inv(adjoint(A)))) === inv(A)
+        @test @inferred(inv(adjoint(inv(A)))) === adjoint(A)
 
-        # Scalar times operator.
+        # Inverse-transpose and transpose-inverse.
+        @test @inferred(transpose(inv(A))) isa Inverse{Transpose{typeof(A)}}
+        @test @inferred(inv(transpose(A))) isa Inverse{Transpose{typeof(A)}}
+        @test @inferred(transpose(inv(A))) === @inferred(inv(transpose(A)))
+        @test @inferred(parent(transpose(inv(A)))) === transpose(A)
+        @test @inferred(parent(inv(transpose(A)))) === transpose(A)
+        @test @inferred(parent(parent(transpose(inv(A))))) === A
+        @test @inferred(parent(parent(inv(transpose(A))))) === A
+        @test @inferred(inv(transpose(inv(A)))) === transpose(A)
+        @test @inferred(transpose(inv(transpose(A)))) === inv(A)
+
+        # Scaled operators.
         @testset "Scalar (λ=$λ) times $X" for λ in (0x0, true, 𝟙, -1, 1//2, pi, 2.3f0, 2.0 - 3.0im), X in (A, A + B, A*B)
             @test @inferred(λ*X) === @inferred(X*λ)
-            @test typeof(λ*X) <: Scaled{typeof(λ),typeof(X)}
+            @test @inferred(λ*X) isa Scaled{typeof(λ),typeof(X)}
             @test  first(λ*X) === λ
             @test   last(λ*X) === X
             #
             @test @inferred(X/λ) === @inferred(λ\X)
-            @test typeof(X/λ) <: Scaled{<:Number,typeof(X)}
+            @test @inferred(X/λ) isa Scaled{<:Number,typeof(X)}
             @test  first(X/λ) === inverse(λ)
             @test   last(X/λ) === X
             #
             @test @inferred(adjoint((λ*X))) === (λ*X)'
             @test @inferred(adjoint((X*λ))) === (X*λ)'
             @test @inferred(conj(λ)*X') ===  (λ*X)'
-            @test typeof((λ*X)') <: Scaled{<:Number,typeof(X')}
+            @test @inferred(adjoint(λ*X)) isa Scaled{<:Number,typeof(X')}
             @test  first((λ*X)') === conj(λ)
             @test   last((λ*X)') === X'
             #
             @test @inferred(inv(λ*X)) === @inferred(inverse(λ)*inv(X))
             @test @inferred(inv(X*λ)) === @inferred(inverse(λ)*inv(X))
-            @test typeof(inv(λ*X)) <: Scaled{<:Number,typeof(inv(X))}
+            @test @inferred(inv(λ*X)) isa Scaled{<:Number,typeof(inv(X))}
             @test  first(inv(λ*X)) === inverse(λ)
             @test   last(inv(λ*X)) === inv(X)
             #
             @test (X/λ)' === @inferred(adjoint((X/λ)))
             @test (λ\X)' === @inferred(adjoint((X/λ)))
-            @test typeof((X/λ)') <: Scaled{<:Number,typeof(X')}
+            @test @inferred(adjoint(X/λ)) isa Scaled{<:Number,typeof(X')}
             @test  first((X/λ)') === inverse(conj(λ))
             @test   last((X/λ)') === X'
             #
             @test @inferred(inv(λ\X)) === @inferred(inv(X/λ))
-            @test typeof(inv(X/λ)) <: Scaled{<:Number,typeof(inv(X))}
+            @test @inferred(inv(X/λ)) isa Scaled{<:Number,typeof(inv(X))}
             @test  first(inv(X/λ)) ≈ λ
             @test   last(inv(X/λ)) === inv(X)
             #
             @test @inferred(inv((λ\X)')) === @inferred(inv((X/λ)'))
-            @test typeof(inv((X/λ)')) <: Scaled{<:Number,typeof(inv(X'))}
+            @test @inferred(adjoint(inv((X/λ)))) isa Scaled{<:Number,typeof(inv(X'))}
             @test  first(inv((X/λ)')) ≈ conj(λ)
             @test   last(inv((X/λ)')) === inv(X')
         end
-
-        # Left-factorization of scalar in products.
-        α, β = 3//4, -2.0 + 3.0im
-        X, Y = B + C*D, A - D
-        @test @inferred(A*α) === @inferred(α*A)
-        @test typeof(α*A) <: Scaled{typeof(α),typeof(A)}
-        @test (A*B)*α === A*(B*α) === A*(α*B) === (A*α)*B === (α*A)*B === α*(A*B) === α*A*B
-        @test typeof(α*A*B) <: Scaled{typeof(α),typeof(A*B)}
-        @test (A*X)*α === A*(X*α) === A*(α*X) === (A*α)*X === (α*A)*X === α*(A*X) === α*A*X
-        @test typeof(α*A*X) <: Scaled{typeof(α),typeof(A*X)}
-        @test (A*B)/α === A*(B/α) === A*(α\B) === (A/α)*B === (α\A)*B === α\(A*B)
-        @test typeof(α\(A*B)) <: Scaled{<:Number,typeof(A*B)}
-        #
-        @test @inferred(α*X + Y*β) === @inferred(α*X + β*Y)
-        @test @inferred(X*α + β*Y) === @inferred(α*X + β*Y)
-        @test @inferred(X*α + Y*β) === @inferred(α*X + β*Y)
-        @test typeof(α*X + β*Y) <: Sum{Scaled{typeof(α),typeof(X)},Scaled{typeof(β),typeof(Y)}}
-        #
-        @test @inferred((α*X)*(β*Y)) === @inferred((α*β)*(X*Y))
-        @test @inferred((α*X)*(Y*β)) === @inferred((α*β)*(X*Y))
-        @test @inferred((X*α)*(β*Y)) === @inferred((α*β)*(X*Y))
-        @test @inferred((X*α)*(Y*β)) === @inferred((α*β)*(X*Y))
-        @test typeof((α*β)*(X*Y)) <: Scaled{<:Number,typeof(X*Y)}
-
-        # `A\β` and `β/A` intentionally not supported.
-        β = 3
-        @test_throws Exception A\β
-        @test_throws Exception β/A
-        @test A\(β*I) === β*inv(A)
-        @test (β*I)/A === β*inv(A)
-        @test A\(β*Id) === β*inv(A)
-        @test (β*Id)/A === β*inv(A)
-
-        # Scaling by neutral numbers.
+#
+#        # Left-factorization of scalar in products.
+#        α, β = 3//4, -2.0 + 3.0im
+#        X, Y = B + C*D, A - D
+#        @test @inferred(A*α) === @inferred(α*A)
+#        @test typeof(α*A) <: Scaled{typeof(α),typeof(A)}
+#        @test (A*B)*α === A*(B*α) === A*(α*B) === (A*α)*B === (α*A)*B === α*(A*B) === α*A*B
+#        @test typeof(α*A*B) <: Scaled{typeof(α),typeof(A*B)}
+#        @test (A*X)*α === A*(X*α) === A*(α*X) === (A*α)*X === (α*A)*X === α*(A*X) === α*A*X
+#        @test typeof(α*A*X) <: Scaled{typeof(α),typeof(A*X)}
+#        @test (A*B)/α === A*(B/α) === A*(α\B) === (A/α)*B === (α\A)*B === α\(A*B)
+#        @test typeof(α\(A*B)) <: Scaled{<:Number,typeof(A*B)}
+#        #
+#        @test @inferred(α*X + Y*β) === @inferred(α*X + β*Y)
+#        @test @inferred(X*α + β*Y) === @inferred(α*X + β*Y)
+#        @test @inferred(X*α + Y*β) === @inferred(α*X + β*Y)
+#        @test typeof(α*X + β*Y) <: Sum{Scaled{typeof(α),typeof(X)},Scaled{typeof(β),typeof(Y)}}
+#        #
+#        @test @inferred((α*X)*(β*Y)) === @inferred((α*β)*(X*Y))
+#        @test @inferred((α*X)*(Y*β)) === @inferred((α*β)*(X*Y))
+#        @test @inferred((X*α)*(β*Y)) === @inferred((α*β)*(X*Y))
+#        @test @inferred((X*α)*(Y*β)) === @inferred((α*β)*(X*Y))
+#        @test typeof((α*β)*(X*Y)) <: Scaled{<:Number,typeof(X*Y)}
+#
+#        # `A\β` and `β/A` intentionally not supported.
+#        β = 3
+#        @test_throws Exception A\β
+#        @test_throws Exception β/A
+#        @test A\(β*I) === β*inv(A)
+#        @test (β*I)/A === β*inv(A)
+#        @test A\(β*Id) === β*inv(A)
+#        @test (β*Id)/A === β*inv(A)
+#
+        # Scaling by neutral numbers. FIXME
         @test (𝟙*Id)*A === 𝟙*A
         @test A/(𝟙*B) === 𝟙*A*inv(B)
         @test A\(𝟙*B) === 𝟙*inv(A)*B
@@ -366,26 +440,26 @@ end
 
         # Only type-stable simplifications are applied by constructors.
         @test @inferred(A + A) != @inferred(2A)
-        @test typeof(A + A) <: Sum{typeof(A),typeof(A)}
-        @test typeof(2A) <: Scaled{Int,typeof(A)}
+        @test @inferred(A + A) isa Sum{Tuple{typeof(A),typeof(A)}}
+        @test @inferred(2A) isa Scaled{Int,typeof(A)}
         #
         @test @inferred(A - A) != @inferred(0A)
         @test @inferred(A - A) === @inferred(A + (-𝟙)*A)
-        @test typeof(A - A) <: Sum{typeof(A),<:Scaled{typeof(-𝟙),typeof(A)}}
-        @test typeof(0A) <: Scaled{Int,typeof(A)}
+        @test @inferred(A - A) isa Sum{Tuple{typeof(A),Scaled{typeof(-𝟙),typeof(A)}}}
+        @test @inferred(0A) isa Scaled{Int,typeof(A)}
         #
         @test @inferred(Id + Id) === 2Id
-        @test typeof(Id + Id) <: Scaled{Int,typeof(Id)}
+        @test @inferred(Id + Id) isa Scaled{Int,typeof(Id)}
         #
         @test @inferred(Id - Id) === @inferred(𝟘*Id)
-        @test typeof(Id - Id) <: Scaled{typeof(𝟘),typeof(Id)}
+        @test @inferred(Id - Id) isa Scaled{typeof(𝟘),typeof(Id)}
         #
         @test @inferred(Id + 3Id - 2Id) === @inferred(2Id)
-        @test typeof(2Id) <: Scaled{<:Number,typeof(Id)}
+        @test @inferred(2Id) isa Scaled{<:Number,typeof(Id)}
 
         # Neutral element for the addition.
-        @test zero(A) === 𝟘*A
-        @test zero(π*A) === zero(A)
+        @test @inferred(zero(A)) === @inferred(𝟘*A)
+        @test @inferred(zero(π*A)) === @inferred(zero(A))
         @test !iszero(A)
         @test !iszero(A - A) # because automatic simplifications must be type-stable
         @test iszero(Id - Id) # this simplification is type-stable

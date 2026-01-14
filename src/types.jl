@@ -222,42 +222,43 @@ const AnyVariant{T} = Union{T, Adjoint{T}, Transpose{T}, Inverse{T},
 end
 
 """
-    C = A + B
-    C = LazyAlgebra.Sum(A::Operator, B::Operator)
+    C = A + B + ...
+    C = LazyAlgebra.Sum(A::Operator, B::Operator, ...)
 
-Return a linear operator `C` representing the sum of the linear operators `A` and `B`.
+Return a linear operator `C` representing the sum of linear operators `A`, `B`, etc.
 
-If `C` is an instance of `LazyAlgebra.Sum`, then `C[1]` and `C[2]` respectively yield the
-left and right operands of `C`.
+If `C` is an instance of `LazyAlgebra.Sum`, then `C[i]` yields the `i`-th term of the sum
+represented by `C`.
 
 """
-struct Sum{L<:Operator,R<:Operator} <: Operator
-    operands::Tuple{L,R}
-    Sum(left::L, right::R) where {L<:Operator,R<:Operator} = new{L,R}((left, right))
+struct Sum{T<:Tuple{Vararg{Operator}}} <: Operator
+    terms::T
 end
 
 @callable Sum
 
-# Type of operands in a product.
-const Operand = Union{Number,Operator}
+# Type of a simple sum of 2 operators.
+const TwoSum{A<:Operator,B<:Operator} = Sum{Tuple{A,B}}
 
 """
-    C = A*B
-    C = A∘B
-    C = LazyAlgebra.Prod(A::Operator, B::Operator)
+    C = A*B*...
+    C = A∘B∘...
+    C = LazyAlgebra.Prod(A::Operator, B::Operator, ...)
 
-Return a linear operator `C` representing the composition of operator `A` by operator `B`.
+Return a linear operator `C` representing the composition of operators `A`, `B`, etc.
 
-If `C` is an instance of `LazyAlgebra.Prod`, then `C[1]` and `C[2]` respectively yield the
-left and right operands of `C`.
+If `C` is an instance of `LazyAlgebra.Prod`, then `C[i]` yields the `i`-th term of the
+composition represented by `C`.
 
 """
-struct Prod{L<:Operator,R<:Operator} <: Operator
-    operands::Tuple{L,R}
-    Prod(left::L, right::R) where {L<:Operator,R<:Operator} = new{L,R}((left, right))
+struct Prod{T<:Tuple{Vararg{Operator}}} <: Operator
+    terms::T
 end
 
 @callable Prod
+
+# Type of a simple composition of 2 operators.
+const TwoProd{A<:Operator,B<:Operator} = Prod{Tuple{A,B}}
 
 """
     B = λ*A
@@ -272,7 +273,7 @@ these are not necessarily `λ` and `A`.
 
 """
 struct Scaled{L<:Number,R<:Operator} <: Operator
-    operands::Tuple{L,R}
+    terms::Tuple{L,R}
     Scaled(left::L, right::R) where {L<:Number,R<:Operator} = new{L,R}((left, right))
 end
 

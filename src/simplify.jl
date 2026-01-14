@@ -30,14 +30,14 @@ end
 # scaled operator remains a scaled operator and a protected composition of operators remains
 # a composition of operators.
 protect(A::Sum) = Protected(A)
-protect(A::Scaled) = A[1]*protect(A[2])
-protect(A::Prod) = protect(A[1])*protect(A[2])
+protect((α,A)::Scaled) = α*protect(A)
+protect(A::Prod) = Prod(map(protect, terms(A)))
 protect(A::Operator) = A
 
 # Revert the effects of `protect`.
 unprotect(A::Protected) = parent(A)
-unprotect(A::Scaled) = A[1]*unprotect(A)
-unprotect(A::Prod) = unprotect(A[1])*unprotect(A[2])
+unprotect((α,A)::Scaled) = α*unprotect(A)
+unprotect(A::Prod) = Prod(map(unprotect, terms(A)))
 unprotect(A::Operator) = A
 
 function unprotect!(A::AbstractVector{Operator})
@@ -76,8 +76,11 @@ end
 # multipliers and `A` a vector of operands (non-product operators) of the composition.
 flatten_prod!(λ::Number, A::AbstractVector{Operator}, (β,B)::Scaled) =
     flatten_prod!(λ*β, A, B)
-flatten_prod!(λ::Number, A::AbstractVector{Operator}, (B,C)::Prod) =
-    flatten_prod!(flatten_prod!(λ, A, B)..., C)
+flatten_prod!(λ::Number, A::AbstractVector{Operator}, B::Prod) =
+    # NOTE This corresponds to A₁*A₂*...*(B₁*B₂*...) which should be avoided by construction
+    #      rules. However, it is always possible to by-pass these rules, so we just expand
+    #      the term B.
+    flatten_prod!(flatten_prod!(λ, A, first(B))..., tail(B))
 flatten_prod!(λ::Number, A::AbstractVector{Operator}, B::Operator) =
     λ, push!(A, B)
 flatten_prod!(λ::Number, A::AbstractVector{Operator}, B::Sum) =
@@ -133,11 +136,16 @@ end
 simplify(A::Sum) = simplify_sum!(flatten_sum!(Operator[], A))
 
 flatten_sum!(A::AbstractVector{Operator}, B::Sum) =
-    flatten_sum!(flatten_sum!(A, B[1]), B[2])
+    # NOTE This corresponds to A₁+A₂+...*(B₁+B₂+...) which should be avoided by construction
+    #      rules. However, it is always possible to by-pass these rules, so we just expand
+    #      the term B.
+    flatten_sum!(flatten_sum!(A, first(B)), tail(B))
 flatten_sum!(A::AbstractVector{Operator}, (λ,B)::Scaled{<:Number,<:Sum}) =
     # Distribute multiplication by a scalar over the terms of a sum.
-    isone(λ) ? flatten_sum!(A, B) : flatten_sum!(flatten_sum!(A, λ*B[1]), λ*B[2])
+    isone(λ) ? flatten_sum!(A, B) : flatten_sum!(flatten_sum!(A, λ*first(B)), λ*tail(B))
 flatten_sum!(A::AbstractVector{Operator}, B::Operator) =
+    # Simplify term `B` and call helper method to push simplified `B` in `A` while avoiding
+    # infinite recursion.
     _flatten_sum!(A, simplify(B))
 
 # This helper method is called when `B` has been simplified and is a sum.
@@ -276,9 +284,9 @@ end
 
 # When simplifying a product of an operator and its inverse, return shaped identity if
 # possible.
-try_simplify(A::Prod{<:Inverse,<:Inverse}) = nothing
-try_simplify(A::Prod{<:Operator,<:Inverse}) = isequal(A[1], A[2][]) ? Id : nothing
-try_simplify(A::Prod{<:Inverse,<:Operator}) = isequal(A[1][], A[2]) ? Id : nothing
+try_simplify(A::TwoProd{<:Inverse,<:Inverse}) = nothing
+try_simplify((A,B)::TwoProd{<:Operator,<:Inverse}) = isequal(A, parent(B)) ? Id : nothing
+try_simplify((A,B)::TwoProd{<:Inverse,<:Operator}) = isequal(parent(A), B) ? Id : nothing
 
 # For the adjoint (resp. transpose or inverse) of an operator, first attempt to simplify the
 # parent operator and, if this succeeds, return the simplification of the adjoint (resp.
@@ -301,7 +309,7 @@ end
 # Simplification rules for diagonal operators. In products, the identity has been
 # automatically suppressed at construction time, so only sums of diagonal operators and
 # (scaled) identity have to be considered.
-function try_simplify((A,B)::Prod{<:DiagonalOperator,<:DiagonalOperator})
+function try_simplify((A,B)::TwoProd{<:DiagonalOperator,<:DiagonalOperator})
     input_axes(A) == input_axes(B) || return nothing
     if false
         a = diag(A)
@@ -320,20 +328,24 @@ function try_simplify((λ,A)::Scaled{<:Number,<:DiagonalOperator})
     return Diag(map(f, diag(A)))
 end
 
-function try_simplify((A,B)::Sum{<:DiagonalOperator,<:DiagonalOperator})
-    input_axes(A) == input_axes(B) || return nothing
-    if false
-        a = diag(A)
-        b = diag(B)
-        c = similar(a, sum_type(eltype(a), eltype(b)))
-        @. c = a + b
-        return Diag(c)
-    else
-        return Diag(map(+, diag(A), diag(B)))
+# check whether all operators have the same shape
+have_same_input_axes(A::Tuple{}) = true
+have_same_input_axes(A::Tuple{Operator}) = true
+function have_same_input_axes(A::Tuple{Operator,Operator,Vararg{Operator}})
+    shape = input_axes(A[1])
+    for i in 2:length(A)
+        input_axes(A[i]) == shape || return nothing
     end
+    return true
 end
 
-function try_simplify((A,B)::Sum{<:MaybeScaled{<:DiagonalOperator},<:MaybeScaled{<:Identity}})
+try_simplify(A::Sum{Tuple{Vararg{DiagonalOperator}}}) =
+    have_same_input_axes(A) ? Diag(map(+, map(diag, A)...)) : nothing
+
+try_simplify(A::Prod{Tuple{Vararg{DiagonalOperator}}}) =
+    have_same_input_axes(A) ? Diag(map(*, map(diag, A)...)) : nothing
+
+function try_simplify((A,B)::TwoSum{<:MaybeScaled{<:DiagonalOperator},<:MaybeScaled{<:Identity}})
     if B isa Union{ShapedIdentity,Scaled{<:Number,<:ShapedIdentity}}
         input_axes(A) == input_axes(B) || return nothing
     end
@@ -344,8 +356,9 @@ function try_simplify((A,B)::Sum{<:MaybeScaled{<:DiagonalOperator},<:MaybeScaled
     return Diag(c)
 end
 
-function try_simplify((A,B)::Sum{<:MaybeScaled{<:Identity},<:MaybeScaled{<:DiagonalOperator}})
-    try_simplify(B + A)
+function try_simplify((A,B)::TwoSum{<:MaybeScaled{<:Identity},<:MaybeScaled{<:DiagonalOperator}})
+    # Reverse order of terms.
+    return try_simplify(B + A)
 end
 
 function try_simplify(A::DiagonalOperator)
@@ -354,61 +367,63 @@ function try_simplify(A::DiagonalOperator)
     return Diag(copy(diag(A)))
 end
 
-try_simplify((A,B)::Prod{Identity,Identity}) =
+try_simplify((A,B)::TwoProd{Identity,Identity}) =
     A isa UniversalIdentity ? B :
     B isa UniversalIdentity ? A :
     input_axes(A) != output_axes(B) ? nothing :
     B isa Identity{<:Dims} ? B : A
 
-# Complex rules for:
-#
-#     μ*inv(B)*C*B + λ*Id -> inv(B)*(μ*C + λ*Id)*B
-#     μ*B*C*inv(B) + λ*Id -> B*(μ*C + λ*Id)*inv(B)
-
-function try_simplify(A::Sum{<:MaybeScaled{<:Prod{<:Inverse{<:T},<:Prod{<:Operator,<:T}}},
-                             <:MaybeScaled{<:Identity}}) where {T<:Operator}
-    # `A = μ*inv(B)*C*D + λ*Id` with `B` and `D` having the same type.
-    Q = unscaled(A[1])
-    μ = multiplier(A[1])
-    B  = inv(Q[1])
-    C  = Q[2][1]
-    D  = Q[2][2]
-    λI = A[2]
-    if !isequal(B, D)
-        nothing
-    elseif isone(μ)
-        inv(B)*simplify(C + λI)*B
-    else
-        inv(B)*simplify(μ*C + λI)*B
-    end
-end
-
-function try_simplify(A::Sum{<:MaybeScaled{<:Identity},
-                             <:MaybeScaled{<:Prod{<:Inverse{<:T},<:Prod{<:Operator,<:T}}}}) where {T<:Operator}
-    # Permute the terms
-    return try_simplify(A[2] + A[1])
-end
-
-function try_simplify(A::Sum{<:MaybeScaled{<:Prod{<:T,<:Prod{<:Operator,<:Inverse{<:T}}}},
-                             <:MaybeScaled{<:Identity}}) where {T<:Operator}
-    # `A = μ*B*C*inv(D) + λ*Id` with `B` and `D` having the same type
-    Q = unscaled(A[1])
-    μ = multiplier(A[1])
-    B  = Q[1]
-    C  = Q[2][1]
-    D  = inv(Q[2][2])
-    λI = A[2]
-    if !isequal(B, D)
-        nothing
-    elseif isone(μ)
-        B*simplify(C + λI)*inv(B)
-    else
-        B*simplify(μ*C + λI)*inv(B)
-    end
-end
-
-function try_simplify(A::Sum{<:MaybeScaled{<:Identity},
-                             <:MaybeScaled{<:Prod{<:T,<:Prod{<:Operator,<:Inverse{<:T}}}}}) where {T<:Operator}
-    # Permute the terms
-    return try_simplify(A[2] + A[1])
-end
+# FIXME const ProdStartingWith{A<:Operator} = Prod{Tuple{A,Vararg{Operator}}}
+# FIXME
+# FIXME # Complex rules for:
+# FIXME #
+# FIXME #     μ*inv(B)*C*B + λ*Id -> inv(B)*(μ*C + λ*Id)*B
+# FIXME #     μ*B*C*inv(B) + λ*Id -> B*(μ*C + λ*Id)*inv(B)
+# FIXME
+# FIXME function try_simplify(A::TwoSum{<:MaybeScaled{<:TwoProd{<:Inverse{<:T},<:TwoProd{<:Operator,<:T}}},
+# FIXME                                 <:MaybeScaled{<:Identity}}) where {T<:Operator}
+# FIXME     # `A = μ*inv(B)*C*D + λ*Id` with `B` and `D` having the same type.
+# FIXME     Q = unscaled(A[1])
+# FIXME     μ = multiplier(A[1])
+# FIXME     B  = inv(Q[1])
+# FIXME     C  = Q[2][1]
+# FIXME     D  = Q[2][2]
+# FIXME     λI = A[2]
+# FIXME     if !isequal(B, D)
+# FIXME         nothing
+# FIXME     elseif isone(μ)
+# FIXME         inv(B)*simplify(C + λI)*B
+# FIXME     else
+# FIXME         inv(B)*simplify(μ*C + λI)*B
+# FIXME     end
+# FIXME end
+# FIXME
+# FIXME function try_simplify(A::Sum{<:MaybeScaled{<:Identity},
+# FIXME                              <:MaybeScaled{<:TwoProd{<:Inverse{<:T},<:TwoProd{<:Operator,<:T}}}}) where {T<:Operator}
+# FIXME     # Permute the terms
+# FIXME     return try_simplify(A[2] + A[1])
+# FIXME end
+# FIXME
+# FIXME function try_simplify(A::Sum{<:MaybeScaled{<:TwoProd{<:T,<:TwoProd{<:Operator,<:Inverse{<:T}}}},
+# FIXME                              <:MaybeScaled{<:Identity}}) where {T<:Operator}
+# FIXME     # `A = μ*B*C*inv(D) + λ*Id` with `B` and `D` having the same type
+# FIXME     Q = unscaled(A[1])
+# FIXME     μ = multiplier(A[1])
+# FIXME     B  = Q[1]
+# FIXME     C  = Q[2][1]
+# FIXME     D  = inv(Q[2][2])
+# FIXME     λI = A[2]
+# FIXME     if !isequal(B, D)
+# FIXME         nothing
+# FIXME     elseif isone(μ)
+# FIXME         B*simplify(C + λI)*inv(B)
+# FIXME     else
+# FIXME         B*simplify(μ*C + λI)*inv(B)
+# FIXME     end
+# FIXME end
+# FIXME
+# FIXME function try_simplify(A::Sum{<:MaybeScaled{<:Identity},
+# FIXME                              <:MaybeScaled{<:TwoProd{<:T,<:TwoProd{<:Operator,<:Inverse{<:T}}}}}) where {T<:Operator}
+# FIXME     # Permute the terms
+# FIXME     return try_simplify(A[2] + A[1])
+# FIXME end

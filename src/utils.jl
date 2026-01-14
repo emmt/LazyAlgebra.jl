@@ -40,6 +40,40 @@ if isdefined(Base.Core.Intrinsics, :min_float)
     end
 end
 
+#------------------------------------------------------------------ Inferable `reversemap` -
+
+"""
+    LazyAlgebra.reversemap(f, x)
+
+Return a tuple of `f` applied to each element of `x` in reverse order.
+
+"""
+reversemap(f, t::Tuple{})              = ()
+reversemap(f, t::Tuple{Any})           = (f(t[1]),)
+reversemap(f, t::Tuple{Any, Any})      = (f(t[2]), f(t[1]))
+reversemap(f, t::Tuple{Any, Any, Any}) = (f(t[3]), f(t[2]), f(t[1]))
+@inline reversemap(f, t::Tuple)        = (reversemap(f,tail(t))..., f(t[1]))
+# Stop inlining after some number of arguments to avoid code blowup, this is the same as
+# for `Base.map` so we use the same limit.
+if isdefined(Base, :Any32)
+    const TooMany{N} = Base.Any32{N}
+elseif isdefined(Base, :Any16)
+    const TooMany{N} = Base.Any16{N}
+else
+    # Same as Any16 in Julia 1.0
+    const TooMany{N} = Tuple{Any,Any,Any,Any,Any,Any,Any,Any,
+                             Any,Any,Any,Any,Any,Any,Any,Any,Vararg{Any,N}}
+end
+
+function reversemap(f, t::TooMany)
+    n = length(t)
+    A = Vector{Any}(undef, n)
+    for i in n:-1:1
+        A[i] = f(t[i])
+    end
+    return (A...,)
+end
+
 #-------------------------------------------------------------------------- Type inference -
 
 """

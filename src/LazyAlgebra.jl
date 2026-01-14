@@ -170,6 +170,7 @@ using TypeUtils: @public
         output_ndims,
         output_shape,
         output_size,
+        reversemap,
         row_index,
         row_indices,
         test_API,
@@ -200,7 +201,7 @@ using AbstractFFTs, FFTW
 import SparseArrays
 using SparseArrays: SparseMatrixCSC, nonzeros, nnz, sparse
 
-using Base: OneTo, Fix1, Fix2, @propagate_inbounds
+using Base: OneTo, Fix1, Fix2, @propagate_inbounds, tail, front
 
 # Import/using from LinearAlgebra, BLAS and SparseArrays.
 using LinearAlgebra

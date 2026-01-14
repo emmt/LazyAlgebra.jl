@@ -65,7 +65,7 @@ function output_eltype(::Type{<:Union{D,Adjoint{D}}},
 end
 
 # Output axes for D'*D with D a finite difference operator.
-output_axes(A::Prod{Adjoint{D},D}, axes_x::ArrayAxes) where {D<:Diff} = axes_x
+output_axes(A::TwoProd{Adjoint{D},D}, axes_x::ArrayAxes) where {D<:Diff} = axes_x
 
 # Output element type for other variant of the finite difference operator.
 function output_axes(A::Union{Diff{L,D},Adjoint{<:Diff{L,D}}},
@@ -99,7 +99,7 @@ end
 # Apply the operation along all dimensions of interest but one dimension at a time and
 # knowing that α is not zero.
 @generated function unsafe_vmul!(α::Number,
-                                 A::Union{𝒟,Adjoint{𝒟},Prod{Adjoint{𝒟},𝒟}},
+                                 A::Union{𝒟,Adjoint{𝒟},TwoProd{Adjoint{𝒟},𝒟}},
                                  x::AbstractArray{Tx,Nx},
                                  β::Number,
                                  y::AbstractArray{Ty,Ny}) where {L,D,𝒟<:Diff{L,D},Tx,Nx,Ty,Ny}
@@ -175,7 +175,7 @@ module _Diff
 
 using TypeUtils
 using Base: @propagate_inbounds
-using ..LazyAlgebra: Adjoint, Diff, Prod
+using ..LazyAlgebra: Adjoint, Diff, Prod, TwoProd
 
 """
     limits(r) -> (first(r), last(r))
@@ -324,7 +324,7 @@ end
 #               0   0   0  -1   1 ]
 #
 function unsafe_vmul!(α::Number,
-                      A::Prod{Adjoint{𝒟},𝒟}, # Gram
+                      A::TwoProd{Adjoint{𝒟},𝒟}, # Gram
                       x::AbstractArray,
                       β::Number,
                       y::AbstractArray,
@@ -635,7 +635,7 @@ end
 # Apply Gram composition of 2nd order finite differences.
 #
 function unsafe_vmul!(α::Number,
-                      A::Prod{Adjoint{𝒟},𝒟}, # Gram,
+                      A::TwoProd{Adjoint{𝒟},𝒟}, # Gram,
                       x::AbstractArray,
                       β::Number,
                       y::AbstractArray,

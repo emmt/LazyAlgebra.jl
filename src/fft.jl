@@ -152,22 +152,21 @@ function Base.show(io::IO, A::FFT)
     nothing
 end
 
-
 # Impose the following simplifying rules:
 #     inv(F) = n\F'
 #     ==> F⋅F' = F'⋅F = n⋅Id
 #     ==> inv(F⋅F') = inv(F'⋅F) = inv(F)⋅inv(F') = inv(F')⋅inv(F) = n\Id
 
-try_simplify((A,B)::Prod{Adjoint{F},F}) where {F<:FFT} =
+try_simplify((A,B)::TwoProd{Adjoint{F},F}) where {F<:FFT} =
     isequal(A[], B) ? fft_length(A)*Id : nothing
 
-try_simplify((A,B)::Prod{F,Adjoint{F}}) where {F<:FFT} =
+try_simplify((A,B)::TwoProd{F,Adjoint{F}}) where {F<:FFT} =
     isequal(A, B[]) ? fft_length(A)*Id : nothing
 
-try_simplify((A,B)::Prod{InverseAdjoint{F},Inverse{F}}) where {F<:FFT} =
+try_simplify((A,B)::TwoProd{InverseAdjoint{F},Inverse{F}}) where {F<:FFT} =
     isequal(A[][], B[]) ? (1//fft_length(A))*Id : nothing
 
-try_simplify((A,B)::Prod{Inverse{F},InverseAdjoint{F}}) where {F<:FFT} =
+try_simplify((A,B)::TwoProd{Inverse{F},InverseAdjoint{F}}) where {F<:FFT} =
     isequal(A[], B[][]) ? (1//fft_length(A))*Id : nothing
 
 #------------------------------------------------------------------------------ FFTW plans -

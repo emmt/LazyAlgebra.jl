@@ -11,7 +11,7 @@ Operator(A::LinearAlgebra.UniformScaling) = multiplier(A) * Id
 Operator(A::AbstractMatrix) = PseudoMatrix(A, Dims{1})
 
 Base.convert(::Type{Operator}, A::Operator) = A
-Base.convert(::Type{Operator}, A) = Operator(A)
+Base.convert(::Type{Operator}, A) = Operator(A)::Operator
 
 # Rules to automatically convert `LinearAlgebra.UniformScaling` into `λ*Id` and abstract
 # matrix into `PseudoMatrix` when combined with any `LazyAlgebra` operator or when specific
@@ -31,14 +31,12 @@ let NonMatrix = LinearAlgebra.UniformScaling, Other = Union{NonMatrix,AbstractMa
             Base.$op(A::Operator, B::$Other) = $op(A, Operator(B))
         end
     end
-    @eval begin
-        Sum(A::$Other,   B::$Other  ) = Sum(Operator(A), Operator(B))
-        Sum(A::$Other,   B::Operator) = Sum(Operator(A), B)
-        Sum(A::Operator, B::$Other  ) = Sum(A, Operator(B))
-
-        Prod(A::$Other,  B::$Other ) = Prod(Operator(A), Operator(B))
-        Prod(A::$Other,  B::Operand) = Prod(Operator(A), B)
-        Prod(A::Operand, B::$Other ) = Prod(A, Operator(B))
+    for (constructor, op) in (:Sum => :(+), :Prod => :(*))
+        @eval begin
+            $constructor(A::$Other,   B::$Other  ) = $op(Operator(A), Operator(B))
+            $constructor(A::$Other,   B::Operator) = $op(Operator(A), B)
+            $constructor(A::Operator, B::$Other  ) = $op(A, Operator(B))
+        end
     end
     for constructor in (:Adjoint, :Transpose, :Inverse)
         @eval $constructor(A::$Other) = $constructor(Operator(A))
@@ -261,20 +259,23 @@ end
 output_axes(A::InverseAdjoint, x_axes::ArrayAxes) = output_axes(parent(parent(A)), x_axes)
 output_axes(A::InverseTranspose, x_axes::ArrayAxes) = output_axes(parent(parent(A)), x_axes)
 
-# Output axes for products assuming right-associativity.
+# Output axes for products.
 output_axes((α,A)::Scaled, x_axes::ArrayAxes) = output_axes(A, x_axes)
-output_axes((A,B)::Prod, x_axes::ArrayAxes) = output_axes(A, output_axes(B, x_axes))
+output_axes(A::Prod, x_axes::ArrayAxes) = output_axes(first(A), output_axes(tail(A), x_axes))
 
 # Output axes for sums assuming right-associativity.
-output_axes((A,B)::Sum, x_axes::ArrayAxes) =
-    output_axes_in_sum(output_axes(A, x_axes), B, x_axes)
+output_axes(A::Sum, x_axes::ArrayAxes) =
+    output_axes_in_sum(output_axes(first(A), x_axes), tail(A), x_axes)
 
-output_axes_in_sum(y_axes::ArrayAxes, (A,B)::Sum, x_axes::ArrayAxes) =
-    output_axes(A, x_axes) == y_axes ? output_axes_in_sum(y_axes, B, x_axes) :
-    throw_incompatible_output_axes_in_sum()
+function output_axes_in_sum(y_axes::ArrayAxes, A::Sum, x_axes::ArrayAxes)
+    output_axes(first(A), x_axes) == y_axes || throw_incompatible_output_axes_in_sum()
+    return output_axes_in_sum(y_axes, tail(A), x_axes)
+end
 
-output_axes_in_sum(y_axes::ArrayAxes, A::Operator, x_axes::ArrayAxes) =
-    output_axes(A, x_axes) == y_axes ? y_axes : throw_incompatible_output_axes_in_sum()
+function output_axes_in_sum(y_axes::ArrayAxes, A::Operator, x_axes::ArrayAxes)
+    output_axes(A, x_axes) == y_axes || throw_incompatible_output_axes_in_sum()
+    return y_axes
+end
 
 @noinline throw_incompatible_output_axes_in_sum() =
     throw(DimensionMismatch("incompatible output axes in sum"))
@@ -414,12 +415,12 @@ Base.:(\)(A::Operator, x::AbstractArray) = vmul(inv(A), x)
 
 # First, factorize out multipliers so that only `vmul(α,A,x)` with `A` a non-scaled operator
 # shall be implemented after this stage.
-vmul(A::Scaled, x::AbstractArray) = vmul(A[1], A[2], x)
-vmul(α::Number, A::Scaled, x::AbstractArray) = vmul(α*A[1], A[2], x)
+vmul((α,A)::Scaled, x::AbstractArray) = vmul(α, A, x)
+vmul(α::Number, (λ,A)::Scaled, x::AbstractArray) = vmul(α*λ, A, x)
 vmul(A::Operator, x::AbstractArray) = vmul(𝟙, A, x)
 
 # Second, deal with products of operators.
-vmul(α::Number, A::Prod, x::AbstractArray) = vmul(α, A[1], vmul(A[2], x))
+vmul(α::Number, A::Prod, x::AbstractArray) = vmul(α, first(A), vmul(tail(A), x))
 
 # Finally, consider `vmul(α,A,x)` for non-scaled, non-product operator `A`.
 function vmul(α::Number, A::Operator, x::AbstractArray)
@@ -485,7 +486,7 @@ vmul!(α::Number, A::Scaled, x::AbstractArray, β::Number, y::AbstractArray) =
 
 # Deal with products of operators.
 vmul!(α::Number, A::Prod, x::AbstractArray, β::Number, y::AbstractArray) =
-    vmul!(α, A[1], vmul(A[2], x), β, y)
+    vmul!(α, first(A), vmul(tail(A), x), β, y)
 
 # Now, implement `vmul!(α,A,x,β,y)` with `A` a non-scaled and non-product operator.
 function vmul!(α::Number, A::Operator, x::AbstractArray, β::Number, y::AbstractArray)
@@ -662,13 +663,13 @@ See also [`vmul`](@ref), [`vmul!`](@ref), [`LazyAlgebra.Operator`](@ref),
 function unsafe_vmul! end
 
 # Specialize `unsafe_vmul!` for a sum of operators.
-function unsafe_vmul!(α::Number, (A,B)::Sum, x::AbstractArray, β::Number, y::AbstractArray)
+function unsafe_vmul!(α::Number, A::Sum, x::AbstractArray, β::Number, y::AbstractArray)
     # There should be no needs to dispatch on the multipliers because, inputs `α` and `β`
     # have already been processed. Thus `unsafe_vmul!` can be directly called. In principle,
     # the second call should be with `𝟙*unit(β)`, but, being an in-place multiplier, `β` is
     # dimensionless and thus `𝟙*unit(β)` and `𝟙` are the same thing.
-    unsafe_vmul!(α, A, x, β, y)
-    unsafe_vmul!(α, B, x, 𝟙, y)
+    unsafe_vmul!(α, first(A), x, β, y)
+    unsafe_vmul!(α, tail(A), x, 𝟙, y)
     return nothing
 end
 
@@ -685,10 +686,10 @@ function unsafe_vmul!(α::Number, (λ,A)::Scaled, x::AbstractArray, β::Number, 
 end
 
 # Deal with products of operators.
-function unsafe_vmul!(α::Number, (A,B)::Prod, x::AbstractArray, β::Number, y::AbstractArray)
+function unsafe_vmul!(α::Number, A::Prod, x::AbstractArray, β::Number, y::AbstractArray)
     # FIXME In principle, there are no needs to recheck indices, convert multipliers, and
     # dispatch on their values.
-    unsafe_vmul!(α, A, vmul(B, x), β, y)
+    unsafe_vmul!(α, first(A), vmul(tail(A), x), β, y)
     return nothing
 end
 

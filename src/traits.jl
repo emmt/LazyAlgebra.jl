@@ -406,21 +406,40 @@ output_eltype(α::Number, x::AbstractArray) = output_eltype(typeof(α), typeof(x
 output_eltype(::Type{α}, ::Type{x}) where {α<:Number, x<:AbstractArray} =
     prod_type(convert_floating_point_type(eltype(x), α), eltype(x))
 
+# Output element type for scaled operators.
+output_eltype(::Type{Scaled{α,A}}, ::Type{x}) where {α,A,x<:AbstractArray} =
+    output_eltype(α, A, x)
+
+# Output element type for sums.
+@generated function output_eltype(::Type{A}, ::Type{x}) where {A<:Sum,x<:AbstractArray}
+    # We know that N ≥ 2. NOTE The loop may be implemented as a reduction?
+    types = terms(A)
+    r = output_eltype(types[1], x)
+    for i in 2:N
+        r = sum_type(output_eltype(types[i], x), r)
+    end
+    return r
+end
+
+# Output element type for compositions.
+@generated function output_eltype(::Type{A}, ::Type{x}) where {A<:Prod,x<:AbstractArray}
+    # We know that N ≥ 2. NOTE The loop may be implemented as a reduction?
+    types = terms(A)
+    r = output_eltype(types[N], x)
+    for i in 1:N-1
+        r = output_eltype(types[i], AbstractArray{r})
+    end
+    return r
+end
+
 # Fallback method, assumes that one of `output_eltype(A)` or `eltype(A)` is applicable.
 output_eltype(::Type{A}, ::Type{x}) where {A<:Operator, x<:AbstractArray} =
-    OutputEltype(A) === HasOutputEltype() ? float(output_eltype(A)) :
-    float(sum_prod_type(eltype(A), eltype(x)))
+    float(_output_eltype(OutputEltype(A), A, x))
 
-# Output element type for sums and products assuming right-associativity.
-output_eltype(::Type{Sum{L,R}}, ::Type{x}) where {L,R,x<:AbstractArray} =
-    sum_type(output_eltype(L, x), output_eltype(R, x))
-
-output_eltype(::Type{Prod{L,R}}, ::Type{x}) where {L,R,x<:AbstractArray} =
-    output_eltype(L, AbstractArray{output_eltype(R, x)})
-
-# Output element type for scaled operators.
-output_eltype(::Type{Prod{L,R}}, ::Type{x}) where {L<:Number,R,x<:AbstractArray} =
-    output_eltype(L, R, x)
+_output_eltype(::HasOutputEltype, ::Type{A}, ::Type{x}) where {A<:Operator, x<:AbstractArray} =
+    output_eltype(A)
+_output_eltype(::OutputEltype, ::Type{A}, ::Type{x}) where {A<:Operator, x<:AbstractArray} =
+    sum_prod_type(eltype(A), eltype(x))
 
 # Output element type for a*x when A is a regular matrix.
 output_eltype(A::AbstractMatrix, x::AbstractVector) =
@@ -443,8 +462,8 @@ Base.eltype(::Type{<:Adjoint{A}}) where {A} = eltype(A)
 Base.eltype(::Type{<:Transpose{A}}) where {A} = eltype(A)
 Base.eltype(::Type{<:Conjugate{A}}) where {A} = eltype(A)
 Base.eltype(::Type{<:Inverse{A}}) where {A} = float(eltype(A))
-Base.eltype(::Type{<:Prod{A,B}}) where {A,B} = prod_type(eltype(A), eltype(B))
-Base.eltype(::Type{<:Sum{A,B}}) where {A,B} = sum_type(eltype(A), eltype(B))
+Base.eltype(::Type{A}) where {A<:Sum} = mapreduce(eltype, sum_type, terms(A))
+Base.eltype(::Type{A}) where {A<:Prod} = mapreduce(eltype, prod_type, terms(A))
 @noinline Base.eltype(::Type{T}) where {T<:Operator} =
     error("`eltype` trait not implemented for operators of type `$T`")
 

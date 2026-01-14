@@ -19,7 +19,7 @@ Identity(shape::ArrayShape) = _Identity(as_array_shape(shape))
 
 # MIME"text/plain" is for the REPL.
 Base.show(io::IO, ::MIME"text/plain", A::Identity) = show(io, A)
-Base.show(io::IO, A::UniversalIdentity) = write(io, "Id")
+Base.show(io::IO, A::typeof(Id)) = write(io, "Id")
 function Base.show(io::IO, A::Identity)
     write(io, "Identity(")
     print_shape(io, A.shape)
@@ -27,7 +27,7 @@ function Base.show(io::IO, A::Identity)
 end
 
 # Testing for equality. Note that `isequal` amounts to calling `==` by default.
-Base.:(==)(A::UniversalIdentity, B::UniversalIdentity) = true
+Base.:(==)(A::typeof(Id), B::typeof(Id)) = true
 Base.:(==)(A::Identity{<:Dims{N}}, B::Identity{<:Dims{N}}) where {N} =
     A === B || A.shape == B.shape
 Base.:(==)(A::Identity{<:ArrayAxes{N}}, B::Identity{<:ArrayAxes{N}}) where {N} =
@@ -36,7 +36,7 @@ Base.:(==)(A::Identity{<:NTuple{N}}, B::Identity{<:NTuple{N}}) where {N} =
     input_shape(A) == input_shape(B)
 
 # Get diagonal of identity.
-LinearAlgebra.diag(A::UniversalIdentity) = Array{typeof(𝟙),0}(undef)
+LinearAlgebra.diag(A::typeof(Id)) = Array{typeof(𝟙),0}(undef)
 LinearAlgebra.diag(A::ShapedIdentity) = new_array(typeof(𝟙), input_shape(A))
 
 # Implement API of operators for the identity.
@@ -44,7 +44,7 @@ LinearAlgebra.diag(A::ShapedIdentity) = new_array(typeof(𝟙), input_shape(A))
 output_eltype(::Type{<:Identity}, ::Type{X}) where {X<:AbstractArray} = float(eltype(X))
 #
 # Only `output_axes` can be implemented for the "universal" identity.
-output_axes(A::UniversalIdentity, x_axes::ArrayAxes) = x_axes
+output_axes(A::typeof(Id), x_axes::ArrayAxes) = x_axes
 #
 # Output and input have the same shape for the "shaped" identity.
 InputShape(::Type{<:ShapedIdentity{N}}) where {N} = HasInputShape{N}()
@@ -65,14 +65,14 @@ Inverse(A::Identity) = A
 # checked against that of the other arguments).
 #
 Prod(A::typeof(Id), B::typeof(Id)) = Id
-for T in (:Operator, :(Prod{<:Operator}), :Scaled)
+for Other in (:Scaled, :Operator)
     @eval begin
-        Prod(A::$T, B::typeof(Id)) = A
-        Prod(A::typeof(Id), B::$T) = B
+        Prod(A::$Other, B::typeof(Id)) = A
+        Prod(A::typeof(Id), B::$Other) = B
     end
 end
 #
-Sum(A::typeof(Id),                  B::typeof(Id)                 ) = 2 * Id
-Sum(A::Scaled{<:Number,typeof(Id)}, B::typeof(Id)                 ) = (A[1] + 𝟙) * Id
-Sum(A::typeof(Id),                  B::Scaled{<:Number,typeof(Id)}) = (𝟙 + B[1]) * Id
-Sum(A::Scaled{<:Number,typeof(Id)}, B::Scaled{<:Number,typeof(Id)}) = (A[1] + B[1]) * Id
+Sum(A::typeof(Id), B::typeof(Id)) = 2 * Id
+Sum((α,A)::Scaled{<:Number,typeof(Id)}, B::typeof(Id)) = (α + 𝟙) * Id
+Sum(A::typeof(Id), (β,B)::Scaled{<:Number,typeof(Id)}) = (𝟙 + β) * Id
+Sum((α,A)::Scaled{<:Number,typeof(Id)}, (β,B)::Scaled{<:Number,typeof(Id)}) = (α + β) * Id
