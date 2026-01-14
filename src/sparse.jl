@@ -536,7 +536,9 @@ Base.length(A::SparseOperatorLike) = nnz(A)
 
 Base.eachindex(style::IndexStyle, A::SparseOperatorLike) = eachindex(style, nonzeros(A))
 
-Base.checkbounds(::Type{Bool}, A::SparseOperatorLike, k::Int) = checkbounds(nonzeros(A), k)
+Base.checkbounds(A::SparseOperatorLike, k::Int) = checkbounds(nonzeros(A), k)
+Base.checkbounds(::Type{Bool}, A::SparseOperatorLike, k::Int) =
+    checkbounds(Bool, nonzeros(A), k)
 
 Base.IndexStyle(A::SparseOperatorLike) = IndexStyle(typeof(A))
 
