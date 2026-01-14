@@ -1669,7 +1669,7 @@ function unsafe_vmul!(α::Number,
         end
         y[i] = α*s + β*y[i]
     end
-    return y
+    return nothing
 end
 
 function unsafe_vmul!(α::Number,
@@ -1687,7 +1687,7 @@ function unsafe_vmul!(α::Number,
             end
         end
     end
-    return y
+    return nothing
 end
 
 function unsafe_vmul!(α::Number,
@@ -1701,7 +1701,7 @@ function unsafe_vmul!(α::Number,
         j = col_index(A, k)
         y[i] += α*A[k]*x[j]
     end
-    return y
+    return nothing
 end
 
 #------------------------------------------------------------------------------- Utilities -
