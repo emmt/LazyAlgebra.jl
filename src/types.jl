@@ -429,10 +429,10 @@ abstract type SparseOperator{F<:SparseFormat,T,M,N} <: Operator end
     LazyAlgebra.SparseOperatorLike{F,F′,T,M,N}
 
 Union of types of linear operators that keep the same structure as a sparse operator. This
-includes bare sparse factors (of type `SparseFactor`), their adjoint, transpose, or
-conjugate, but not their inverse. Parameters are the direct format `F`, the transposed
-format `F′`, the element type `T`, and the respective numbers `M` and `N` of dimensions of
-the equivalent rows and columns of the operator.
+includes bare sparse factors (of type in union [`BareSparseOperator`](@doc)), their adjoint,
+transpose, or conjugate, but not their inverse. Parameters are the direct format `F`, the
+transposed format `F′`, the element type `T`, and the respective numbers `M` and `N` of
+dimensions of the equivalent rows and columns of the operator.
 
 The structural non-zeros of an object `A` of this type can be accessed with the methods of
 the sparse operators API, like `A[k]` to get or set the `k`-th structural non-zero.

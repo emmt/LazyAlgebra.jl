@@ -54,7 +54,7 @@ linear operator or of its adjoint (see [`CompressedSparseColumn`](@ref) and
 [`CompressedSparseRow`](@ref)).
 
 Accessing the structural non-zeros and their respective row and column linear indices of a
-sparse operator in COO format is typically done by:
+sparse operator `A` in COO format is typically done by:
 
 ```julia
 using LazyAlgebra: each_nz_index, row_index, col_index
@@ -87,7 +87,7 @@ row indices. This storage format is very suitable for fast application of the op
 notably its adjoint or its transpose.
 
 Accessing the structural non-zeros and their respective row and column linear indices of a
-sparse operator in CSC format is typically done by:
+sparse operator `A` in CSC format is typically done by:
 
 ```julia
 using LazyAlgebra: each_nz_index, each_col_index, row_index
@@ -120,7 +120,7 @@ indicating, for each row, the range of indices in the vectors of values and of c
 indices. This storage format is very suitable for fast application of the operator.
 
 Accessing the structural non-zeros and their respective row and column linear indices of a
-sparse operator in CSR format is typically done by:
+sparse operator `A` in CSR format is typically done by:
 
 ```julia
 using LazyAlgebra: each_nz_index, each_row_index, col_index
@@ -180,6 +180,15 @@ for (i, j, Aᵢⱼ) in zip(row_indices(A), col_indices(A), nonzeros(A))
 end
 ```
 
+or equivalently:
+
+```julia
+using SparseArrays
+for (i, j, Aᵢⱼ) in zip(findnz(A)...)
+    ...
+end
+```
+
 Except for COO storage format, it is however more efficient to access the structural
 non-zeros according to their storage order which depends on the compressed format. See
 [`CompressedSparseCoordinate`](@ref), [`CompressedSparseColumn`](@ref), and
@@ -214,12 +223,11 @@ for (sym, fmt) in (:COO => :CompressedSparseCoordinate,
     end
 end
 
-# Use constructors to perform conversion (the first method is to resolve ambiguities).
+# Use constructors to perform conversion.
 Base.convert(::Type{T}, A::T) where {T<:SparseOperator} = A
 Base.convert(::Type{T}, A) where {T<:SparseOperator} = T(A)::T
 
-#-------------------------------------------------------------------------------------------
-# Accessors and basic methods.
+#------------------------------------------------------------- Accessors and basic methods -
 
 Base.eltype(::Type{<:SparseOperator{F,T,M,N}}) where {F,T,M,N} = T
 
@@ -230,10 +238,6 @@ input_length(A::BareSparseOperator) = getfield(A, :n)
 OutputShape(::Type{<:SparseOperator{F,T,M,N}}) where {F,T,M,N} = HasOutputShape{M}()
 output_shape(A::BareSparseOperator) = getfield(A, :rowsiz)
 output_length(A::BareSparseOperator) = getfield(A, :m)
-
-TypeUtils.get_precision(::Type{A}) where {A<:SparseOperatorLike} = get_precision(eltype(A))
-TypeUtils.adapt_precision(::Type{T}, A::SparseOperatorLike) where {T<:TypeUtils.Precision} =
-    convert_eltype(adapt_precision(T, eltype(A)), A)
 
 for f in (:(==), :isequal)
     @eval begin
@@ -258,15 +262,21 @@ for f in (:(==), :isequal)
     end
 end
 
+TypeUtils.get_precision(::Type{A}) where {A<:SparseOperatorLike} = get_precision(eltype(A))
+TypeUtils.adapt_precision(::Type{T}, A::SparseOperatorLike) where {T<:TypeUtils.Precision} =
+    convert_eltype(adapt_precision(T, eltype(A)), A)
+
 for (type, (get_1st_field, get_2nd_field)) in (:SparseOperatorCSR => (:col_indices, :offsets),
                                                :SparseOperatorCSC => (:row_indices, :offsets),
                                                :SparseOperatorCOO => (:row_indices, :col_indices))
-    _type = Symbol("_",type)
+    unsafe_constructor = Symbol("_",type)
     @eval begin
         TypeUtils.convert_eltype(::Type{T}, A::$type{T}) where {T} = A
         TypeUtils.convert_eltype(::Type{T}, A::$type{S}) where {T,S} =
-            $_type(output_length(A), input_length(A), convert_eltype(T, nonzeros(A)),
-                   $get_1st_field(A), $get_2nd_field(A), output_size(A), input_size(A))
+            $unsafe_constructor(output_length(A), input_length(A),
+                                convert_eltype(T, nonzeros(A)),
+                                $get_1st_field(A), $get_2nd_field(A),
+                                output_size(A), input_size(A))
     end
 end
 
@@ -298,10 +308,6 @@ Base.deepcopy(A::SparseOperatorCOO) = _SparseOperatorCOO(
     output_length(A), input_length(A), copy(nonzeros(A)), copy(row_indices(A)), copy(col_indices(A)),
     output_size(A), input_size(A))
 
-# `findnz(A) -> I,J,V` yields the row and column indices and the values of the stored values
-# in `A`.
-SparseArrays.findnz(A::SparseOperator) = (row_indices(A), col_indices(A), nonzeros(A))
-
 # Extend some methods in SparseArrays. The "structural" non-zeros are the entries stored by
 # the sparse structure which may or not be equal to zero, un-stored entries are always
 # considered as being strictly equal to zero.
@@ -311,6 +317,10 @@ function SparseArrays.nnz(A::Union{Adjoint{<:SparseOperator},
                                    Conjugate{<:SparseOperator}})
     return nnz(parent(A))
 end
+#
+# `findnz(A) -> I,J,V` yields the row and column indices and the values of the stored values
+# in `A`.
+SparseArrays.findnz(A::SparseOperator) = (row_indices(A), col_indices(A), nonzeros(A))
 
 """
     nonzeros(A::SparseOperatorLike)
@@ -476,15 +486,13 @@ end
 @inline check_offset_index(A::Union{AnySparseCSC,SparseMatrixCSC}, j::Int) =
     check_offset_index(Bool, A, j) ? nothing : out_of_range_column_index(A, j)
 
-@noinline out_of_range_row_index(A, i::Integer) =
-    throw(ErrorException(string("out of range row index ", i,
-                                " for compressed sparse operator with ",
-                                output_length(A), " rows")))
+@noinline out_of_range_row_index(A, i::Integer) = throw(ErrorException(string(
+    "out of range row index ", i, " for compressed sparse operator with ",
+    output_length(A), " rows")))
 
-@noinline out_of_range_column_index(A, j::Integer) =
-    throw(ErrorException(string("out of range column index ", j,
-                                " for compressed sparse operator with ",
-                                input_length(A), " columns")))
+@noinline out_of_range_column_index(A, j::Integer) = throw(ErrorException(string(
+    "out of range column index ", j, " for compressed sparse operator with ",
+    input_length(A), " columns")))
 
 """
     LazyAlgebra.each_row_index(A)
@@ -528,12 +536,13 @@ Return the linear column index of the `k`-th entry of the sparse operator `A` st
 @propagate_inbounds col_index(A::Union{AnySparseCOO,AnySparseCSR}, k::Int) =
     col_indices(A)[k]
 
-#--------------------------------------------------------------------- Abstract Vector API -
+#--------------------------------------------------------------------- Abstract vector API -
 
 # Implement API for sparse operators to behave as abstract vectors of their nonzeros.
 
 Base.length(A::SparseOperatorLike) = nnz(A)
 
+# TODO nonzeros(A) -> nonzeros(parent(A))
 Base.eachindex(style::IndexStyle, A::SparseOperatorLike) = eachindex(style, nonzeros(A))
 
 Base.checkbounds(A::SparseOperatorLike, k::Int) = checkbounds(nonzeros(A), k)
@@ -584,7 +593,7 @@ Base.IteratorEltype(::Type{<:SparseOperatorLike}) = Base.HasEltype()
     checkbounds(Bool, A, k) ? (@inbounds(A[k]), k + 1) : nothing
 end
 
-#------------------------------------------------------------ Row/column indices iterators -
+#-------------------------------------------------------------- Row/column index iterators -
 
 # Iterator over the row/column indices of a sparse operator with CSR or CSC storage.
 struct SparseIndexIterator{S<:Union{AnySparseCSR,AnySparseCSC}}
@@ -690,7 +699,7 @@ with `M` the number of leading dimensions of `A` corresponding to the *rows* of 
 operator, the trailing `N = L - M` dimensions being assumed to correspond to the *columns*
 of the operator. These dimensions are the size of, respectively, the output and the input
 arrays when applying the operator. The parameter `N` may be specified (although it can be
-automatically determined):
+automatically inferred):
 
     SparseOperatorCOO{T,M,N}(A[, f])
 
@@ -753,15 +762,15 @@ A sparse operator in CSC storage format implementing generalized matrix-vector
 multiplication can also be directly constructed from a `L`-dimensional Julia array (with `L
 ≥ 2`) `A` by:
 
-    SparseOperatorCSC{T,M}(A[, sel])
+    SparseOperatorCSC{T,M}(A[, f])
 
 with `M` the number of leading dimensions of `A` corresponding to the *rows* of the
 operator, the trailing `N = L - M` dimensions being assumed to correspond to the *columns*
 of the operator. These dimensions are the size of, respectively, the output and the input
 arrays when applying the operator. The parameter `N` may be specified (although it can be
-automatically determined):
+automatically inferred):
 
-    SparseOperatorCSC{T,M,N}(A[, sel])
+    SparseOperatorCSC{T,M,N}(A[, f])
 
 provided `M + N = ndims(A)` holds.
 
@@ -823,15 +832,15 @@ A sparse operator in CSR storage format implementing generalized matrix-vector
 multiplication can also be directly constructed from a `L`-dimensional Julia array (with `L
 ≥ 2`) `A` by:
 
-    SparseOperatorCSR{T,M}(A[, sel])
+    SparseOperatorCSR{T,M}(A[, f])
 
 with `M` the number of leading dimensions of `A` corresponding to the *rows* of the
 operator, the trailing `N = L - M` dimensions being assumed to correspond to the *columns*
 of the operator. These dimensions are the size of, respectively, the output and the input
 arrays when applying the operator. The parameter `N` may be specified (although it can be
-automatically determined):
+automatically inferred):
 
-    SparseOperatorCSR{T,M,N}(A[, sel])
+    SparseOperatorCSR{T,M,N}(A[, f])
 
 provided `M + N = ndims(A)` holds.
 
@@ -966,9 +975,9 @@ function build(::Type{W}, arr::AbstractArray{S,L},
                                                         SparseOperatorCSR{T,M,N,V}}}
     # Get equivalent matrix dimensions.
     M isa Int || throw_bad_argument(
-        "number of row dimensions `M` must be an `Int`, got an `$(typeof(M))`")
+        "number of row dimensions `M` must be an `Int`, got an instance of `$(typeof(M))`")
     N isa Int || throw_bad_argument(
-        "number of column dimensions `N` must be an `Int`, got an `$(typeof(N))`")
+        "number of column dimensions `N` must be an `Int`, got an instance of `$(typeof(N))`")
     M ≥ 1 || throw_bad_argument(
         "number of row dimensions must be ≥ 1, got `M = $M`")
     N ≥ 1 || throw_bad_argument(
@@ -1330,7 +1339,9 @@ function sort_and_reduce!(vals::AbstractVector,
         if (major[k] == major[j]) & (minor[k] == minor[j])
             vals[j] = op(vals[j], vals[k]) # reduce value of duplicate entry
         elseif (j += 1) < k
-            vals[j], major[j], minor[j] = vals[k], major[k], minor[k]
+            vals[ j] = vals[ k]
+            major[j] = major[k]
+            minor[j] = minor[k]
         end
     end
     return j - first(r) + 1
@@ -1364,7 +1375,8 @@ function sparse_compressed_offsets!(offs::AbstractVector{Int}, inds::AbstractVec
                 offs[i] = off
             end
         else
-            throw_assertion_error(1 ≤ j ≤ n ? "indices must be in non-increasing order" :
+            throw_assertion_error(1 ≤ j ≤ n ?
+                "indices must be in non-increasing order" :
                 "out of bound indices")
         end
     end
