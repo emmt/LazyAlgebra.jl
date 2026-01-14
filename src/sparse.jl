@@ -326,7 +326,7 @@ SparseArrays.nonzeros(A::BasicSparseOperator) = getfield(A, :vals)
 SparseArrays.nonzeros(A::Transpose{<:SparseOperator}) = nonzeros(parent(A))
 function SparseArrays.nonzeros(A::Union{Adjoint{<:SparseOperator},
                                         Conjugate{<:SparseOperator}})
-    return lazymap(eltype(A), conj, nonzeros(parent(A)))
+    return lazymap(eltype(A), conj, nonzeros(parent(A)), conj)
 end
 
 """
