@@ -1297,7 +1297,7 @@ end
     sparse_compressed_offsets(n, inds) -> offs
 
 Return a vector of `n+1` offsets for sparse compressed storage and computed from the list of
-indices `inds`. Indices in `inds` must be in non-increasing order and in the range `1:n`.
+indices `inds`. Indices in `inds` must be in non-decreasing order and in the range `1:n`.
 
 """
 sparse_compressed_offsets(n::Int, inds::AbstractVector{Int}) =
@@ -1306,7 +1306,9 @@ sparse_compressed_offsets(n::Int, inds::AbstractVector{Int}) =
 function sparse_compressed_offsets!(offs::AbstractVector{Int}, inds::AbstractVector{Int})
     firstindex(offs) == 1 || throw_assertion_error(
         "vector of offsets must have 1-based indices")
-    n = length(offs) - 1
+    np1 = length(offs) # length of `offs` is `n + 1`
+    np1 > 0 || throw_assertion_error(
+        "vector of offsets must have at least 1 element")
     k1 = firstindex(inds)
     k2 = lastindex(inds)
     i = 0
@@ -1314,21 +1316,22 @@ function sparse_compressed_offsets!(offs::AbstractVector{Int}, inds::AbstractVec
         j = inds[k]
         if 1 ≤ i == j
             nothing
-        elseif i < j ≤ n
+        elseif i < j < np1
             off = k - k1
             while i < j
                 i += 1
                 offs[i] = off
             end
         else
-            throw_assertion_error(1 ≤ j ≤ n ?
-                "indices must be in non-increasing order" :
+            throw_assertion_error(1 ≤ j < np1 ?
+                "indices must be in non-decreasing order" :
                 "out of bound indices")
         end
     end
-    @inbounds while i ≤ n
+    off = length(inds)
+    @inbounds while i < np1
         i += 1
-        offs[i] = length(inds)
+        offs[i] = off
     end
     return offs
 end
