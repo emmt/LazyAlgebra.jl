@@ -1046,7 +1046,7 @@ Base.Array(A::SparseOperatorLike) = Array{eltype(A)}(A)
 Base.Array{T}(A::SparseOperatorLike) where {T} =
     Array{T, output_ndims(A) + input_ndims(A)}(A)
 function Base.Array{T,N}(A::SparseOperatorLike) where {T,N}
-    L == output_ndims(A) + input_ndims(A) || throw_incompatible_number_of_dimensions()
+    N == output_ndims(A) + input_ndims(A) || throw_incompatible_number_of_dimensions()
     return unpack!(Array{T}(undef, (output_size(A)..., input_size(A)...,)), A)
 end
 
