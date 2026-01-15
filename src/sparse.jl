@@ -864,15 +864,17 @@ for (constructor, other_args) in (:SparseOperatorCSR => (:cols, :offs),
 
         # Constructors that convert array of values. Other fields have already been checked
         # so do not check structure again.
-        $constructor{T}(A::$constructor{S,M,N}) where {S,T,M,N} =
-            $unsafe_constructor(output_length(A), input_length(A),
-                                to_values(T, nonzeros(A)),
-                                $(map(s -> :($(Symbol("get_",s))(A)), other_args)...),
-                                output_size(A), input_size(A))
+        function  $constructor{T}(A::$constructor{S,M,N}) where {S,T,M,N}
+            return $unsafe_constructor(output_length(A), input_length(A),
+                                       to_values(T, nonzeros(A)),
+                                       $(map(s -> :($(Symbol("get_",s))(A)), other_args)...),
+                                       output_size(A), input_size(A))
+        end
 
         # Basic outer constructors return a fully checked structure.
         function $constructor(vals::AbstractVector, $(other_decl...),
-                              rowsiz::Tuple{Vararg{Integer}}, colsiz::Tuple{Vararg{Integer}})
+                              rowsiz::Tuple{Vararg{Integer}},
+                              colsiz::Tuple{Vararg{Integer}})
             return check_structure(
                 $unsafe_constructor(to_values(vals),
                                     $(map(s -> :(to_indices($s)), other_args)...),

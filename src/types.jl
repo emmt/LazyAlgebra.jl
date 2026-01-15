@@ -459,7 +459,7 @@ const AnySparseCOO{T,M,N} = SparseOperatorLike{COO,COO,T,M,N}
                                    V<:AbstractVector{T},
                                    J<:AbstractVector{Int},
                                    K<:AbstractVector{Int}
-                                   } <: SparseOperator{CompressedSparseRow,T,M,N}
+                                   } <: SparseOperator{CSR,T,M,N}
     m::Int          # equivalent number of rows of the operator
     n::Int          # number of columns of the operator
     vals::V         # values of entries
@@ -487,7 +487,7 @@ end
                                    V<:AbstractVector{T},
                                    I<:AbstractVector{Int},
                                    K<:AbstractVector{Int}
-                                   } <: SparseOperator{CompressedSparseColumn,T,M,N}
+                                   } <: SparseOperator{CSC,T,M,N}
     m::Int          # equivalent number of rows of the operator
     n::Int          # number of columns of the operator
     vals::V         # values of entries
@@ -515,7 +515,7 @@ end
                                    V<:AbstractVector{T},
                                    I<:AbstractVector{Int},
                                    J<:AbstractVector{Int}
-                                   } <: SparseOperator{CompressedSparseCoordinate,T,M,N}
+                                   } <: SparseOperator{COO,T,M,N}
     m::Int          # equivalent number of rows of the operator
     n::Int          # number of columns of the operator
     vals::V         # values of entries
