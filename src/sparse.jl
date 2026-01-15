@@ -32,8 +32,8 @@ SparseFormat(::Type{T}) where {T<:SparseFormat} = T()
 SparseFormat(::Type{T}) where {T<:Any} = throw_bad_argument(
     "type `$T` has no known sparse storage format")
 
-SparseFormat(::Type{Unswapped{<:SparseOperator{F}}}) where {F} = F()
-SparseFormat(::Type{Swapped{  <:SparseOperator{F}}}) where {F} = transpose(F())
+SparseFormat(::Type{<:Unswapped{<:SparseOperator{F}}}) where {F} = F()
+SparseFormat(::Type{<:Swapped{  <:SparseOperator{F}}}) where {F} = transpose(F())
 
 Base.transpose(trait::CompressedSparseRow) = CompressedSparseColumn()
 Base.transpose(trait::CompressedSparseColumn) = CompressedSparseRow()

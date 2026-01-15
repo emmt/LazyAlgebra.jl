@@ -444,9 +444,9 @@ the sparse operators API, like `A[k]` to get or set the `k`-th structural non-ze
 
 """
 const SparseOperatorLike{F,F′,T,M,N} = Union{SparseOperator{F,T,M,N},
-                                             Conjugate{SparseOperator{F,T,M,N}},
-                                             Adjoint{  SparseOperator{F′,T,N,M}},
-                                             Transpose{SparseOperator{F′,T,N,M}}}
+                                             Conjugate{<:SparseOperator{F,T,M,N}},
+                                             Adjoint{  <:SparseOperator{F′,T,N,M}},
+                                             Transpose{<:SparseOperator{F′,T,N,M}}}
 
 # Unions of compressed sparse operators that can be considered as being in a given storage
 # format. Whatever the format, `T` is the element type, `M` is the number of row
