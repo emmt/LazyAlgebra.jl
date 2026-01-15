@@ -1208,7 +1208,7 @@ function coo_to_csr!(vals::Vector{T},
         vals = vals[1:nvals]::Vector{T}
         cols = cols[1:nvals]::Vector{Int}
     end
-    offs = sparse_compressed_offsets(nrows, view(rows, 1:nvals))
+    offs = sparse_compressed_offsets(nrows, view(rows, 𝟙:nvals))
 
     # Since everything will have been checked, we can call the unsafe constructor.
     return _SparseOperatorCSR(nrows, ncols, vals, cols, offs, rowsiz, colsiz)
@@ -1246,7 +1246,7 @@ function coo_to_csc!(vals::Vector{T},
         vals = vals[1:nvals]::Vector{T}
         rows = rows[1:nvals]::Vector{Int}
     end
-    offs = sparse_compressed_offsets(ncols, view(cols, 1:nvals))
+    offs = sparse_compressed_offsets(ncols, view(cols, 𝟙:nvals))
 
     # Since everything will have been checked, we can call the unsafe constructor.
     return _SparseOperatorCSC(nrows, ncols, vals, rows, offs, rowsiz, colsiz)
