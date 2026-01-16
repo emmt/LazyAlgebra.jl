@@ -196,13 +196,8 @@ non-zeros according to their storage order which depends on the compressed forma
 
 """
 SparseOperator(A::SparseOperator) = A
-SparseOperator{F}(A::SparseOperator{F}) where {F} = A
-SparseOperator{F,T}(A::SparseOperator{F,T}) where {F,T} = A
-SparseOperator{F,T,M}(A::SparseOperator{F,T,M}) where {F,T,M} = A
-SparseOperator{F,T,M,N}(A::SparseOperator{F,T,M,N}) where {F,T,M,N} = A
 
-# The above methods is to avoid doing anything if possible. Otherwise, call concrete
-# constructors according to the specified format.
+# If at least the sparse format is specified, call the corresponding concrete constructor.
 for (sym, fmt) in (:COO => :CompressedSparseCoordinate,
                    :CSC => :CompressedSparseColumn,
                    :CSR => :CompressedSparseRow,)
