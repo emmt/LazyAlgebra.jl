@@ -623,6 +623,19 @@ function Base.collect(iter::SparseIndexIterator)
     return vect
 end
 
+for f in (:(==), :isequal)
+    @eval begin
+        function Base.$f(A::SparseIndexIterator, B::SparseIndexIterator)
+            A === B && return true
+            length(A) == length(B) || return false
+            @inbounds for (a, b) in zip(A, B)
+                $f(a, b) || return false
+            end
+            return true
+        end
+    end
+end
+
 #---------------------------------------------------- API for SparseArrays.SparseMatrixCSC -
 
 output_length(A::SparseMatrixCSC) = getfield(A, :m)
