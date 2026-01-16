@@ -616,7 +616,7 @@ function Base.iterate(iter::SparseIndexIterator{<:Union{AnySparseCSC,AnySparseCS
         check_offset_index(Bool, parent(iter), ij) || return nothing
         l = unsafe_last_nz_index(parent(iter), ij)
     end
-    return i, (i, k, l)
+    return ij, (ij, k, l)
 end
 
 # Optimized version of `collect`.
