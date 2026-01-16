@@ -39,6 +39,14 @@ Base.transpose(trait::CompressedSparseRow) = CompressedSparseColumn()
 Base.transpose(trait::CompressedSparseColumn) = CompressedSparseRow()
 Base.transpose(trait::CompressedSparseCoordinate) = CompressedSparseCoordinate()
 
+Base.summary(x::SparseFormat) = summary(typeof(x))
+Base.summary(::Type{COO}) = "Compressed Sparse Coordinate (COO) format"
+Base.summary(::Type{CSC}) = "Compressed Sparse Column (CSC) format"
+Base.summary(::Type{CSR}) = "Compressed Sparse Row (CSR) format"
+Base.summary(::Type{F}) where {F<:SparseFormat} = string(F)
+Base.summary(io::IO, x::SparseFormat) = summary(io, typeof(x))
+Base.summary(io::IO, ::Type{F}) where {F<:SparseFormat} = print(io, summary(F))
+
 """
     COO()
     CompressedSparseCoordinate()
