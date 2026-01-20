@@ -5,11 +5,21 @@
 #
 module TestingLazyAlgebraSparseOperators
 
+using Neutrals
+using Random
 using SparseArrays
 using StructuredArrays
+using Test
+using TypeUtils
+using Unitful
+
+using Base:
+    IteratorEltype, HasEltype, EltypeUnknown
+
 using LazyAlgebra
-using LazyAlgebra: identical
 using LazyAlgebra:
+    # Wrappers
+    Adjoint, Conjugate, Transpose, Inverse,
     # input element type and shape
     InputEltype, HasInputEltype, InputEltypeUnknown, input_eltype,
     InputShape, HasInputShape, InputShapeUnknown,
@@ -19,455 +29,649 @@ using LazyAlgebra:
     OutputShape, HasOutputShape, OutputShapeUnknown,
     output_shape, output_axes, output_size, output_length, output_ndims,
     # other methods
-    check_structure, sparse_compressed_offsets
-using Test
-using Random
+    check_structure, sparse_compressed_offsets,
+    row_indices, col_indices, offsets,
+    each_nz_index, each_row_index, each_col_index,
+    row_index, col_index
 
 is_csc(::Any) = false
-is_csc(::CompressedSparseOperator{:CSC}) = true
-is_csc(::Adjoint{<:CompressedSparseOperator{:CSR}}) = true
+is_csc(::SparseOperator{CSC}) = true
+is_csc(::Adjoint{<:SparseOperator{CSR}}) = true
 
 is_csr(::Any) = false
-is_csr(::CompressedSparseOperator{:CSR}) = true
-is_csr(::Adjoint{<:CompressedSparseOperator{:CSC}}) = true
+is_csr(::SparseOperator{CSR}) = true
+is_csr(::Adjoint{<:SparseOperator{CSC}}) = true
 
 is_coo(::Any) = false
-is_coo(::CompressedSparseOperator{:COO}) = true
-is_coo(::Adjoint{<:CompressedSparseOperator{:COO}}) = true
+is_coo(::SparseOperator{COO}) = true
+is_coo(::Adjoint{<:SparseOperator{COO}}) = true
 
-# Generate a possibly sparse array of random values.  Value are small signed
-# integers so that all computations should be exact (except with non-integer
-# multipliers).
+# Generate a possibly sparse array of random values. Value are small signed integers so that
+# all computations should be exact (except with non-integer multipliers).
 genarr(T::Type, dims::Integer...; kwds...) = genarr(T, dims; kwds...)
-function genarr(T::Type, dims::Tuple{Vararg{Integer}};
+function genarr(::Type{T}, dims::Tuple{Vararg{Integer}};
                 sparsity::Real = 0,
-                range::AbstractUnitRange{<:Integer} = -17:17)
+                range::AbstractUnitRange{<:Integer} = -17:17) where {T}
     @assert 0 ≤ sparsity ≤ 1
     A = Array{T}(undef, dims)
+    sparse = (sparsity > 𝟘)
     for i in eachindex(A)
-        if sparsity > 0 && rand() ≤ sparsity
-            A[i] = zero(T)
+        if sparse && rand() ≤ sparsity
+            A[i] = 𝟘
         elseif T <: Complex
-            A[i] = T(rand(range), rand(range))
+            A[i] = complex(rand(range), rand(range))
         else
-            A[i] = T(rand(range))
+            A[i] = rand(range)
         end
     end
     return A
 end
 
-# Unpack a sparse operator into a regular array using simplest iterator.  There
-# may be duplicates.
+# Unpack a sparse operator into a regular array using simplest iterator. There may be
+# duplicates.
 function unpack_with_iterator!(dest::Array{T},
-                               A::SparseOperator{E},
-                               op = (E === Bool ? (|) : (+))) where {T,E}
+                               A::SparseOperator{F,E},
+                               op = (E === Bool ? (|) : (+))) where {T,F,E}
     C = fill!(reshape(dest, (output_length(A), input_length(A))), zero(T))
-    for (Aij, i, j) in A
+    for (Aij, i, j) in zip(findnz(A)...,)
         C[i,j] = op(C[i,j], Aij)
     end
     return dest
 end
 
-@testset "Low level sparse utilities" begin
-    @test sparse_compressed_offsets(2, Int[]) == [0,0,0]
-    @test sparse_compressed_offsets(5, [2,2,3,5]) == [0,0,2,3,3,4]
-    @test sparse_compressed_offsets(5, [1,3,3]) == [0,1,1,3,3,3]
-    # Check for non-increasing order.
-    @test_throws AssertionError sparse_compressed_offsets(5, [1,3,2])
-    # Check for out-of-bounds.
-    @test_throws AssertionError sparse_compressed_offsets(5, [0,3,3])
-    @test_throws AssertionError sparse_compressed_offsets(5, [1,3,7])
+brief(::Type{COO}) = "COO"
+brief(::Type{CSC}) = "CSC"
+brief(::Type{CSR}) = "CSR"
+
+sparse_constructor(::Type{COO}) = SparseOperatorCOO
+sparse_constructor(::Type{CSC}) = SparseOperatorCSC
+sparse_constructor(::Type{CSR}) = SparseOperatorCSR
+
+other_type(::Type{Float32}) = Float64
+other_type(::Type{<:Real}) = Float32
+other_type(::Type{Complex{T}}) where {T} = Complex{other_type(T)}
+
+function check(f, A, B, I = eachindex(A, B))
+    flag = true
+    for i in I
+        flag &= f(A[i], B[i])
+    end
+    return flag
 end
 
-@testset "Compressed sparse formats " begin
-    # Parameters.
-    siz = (5, 6) # these tests only for A a 2-D array
-    T = Float64;
-    Tp = Float32; # for conversion
+tweak_value(::Type{T}, i::Integer) where {T<:Real} = convert(T, ifelse(isodd(i), 2*i, 2*i + 1))
+tweak_value(::Type{Complex{T}}, i::Integer) where {T<:Real} =
+    conj(Complex{T}(complex(2*i, 2*i + 1)))
+tweak_value(::Type{T}) where {T} = Base.Fix1(tweak_value, T)
 
-    # Make a banded matrix with random entries.
-    A = genarr(T, siz) .* StructuredArray((i,j) -> -1 ≤ i - j ≤ 2, siz)
-    spm = sparse(A);
-    csr = convert(SparseOperatorCSR, A); # same as SparseOperatorCSR(A)
-    csc = SparseOperatorCSC(A);
-    coo = SparseOperatorCOO(A);
-    x = genarr(T, siz[2]);
-    y = genarr(T, siz[1]);
+# TODO predicate, other constructors/convertors, vmul!
+function runtests(::Type{F}, A::AbstractArray{T},
+                  x::AbstractArray{<:Any,N},
+                  y::AbstractArray{<:Any,M};
+                  alphas=(-1,0,1,2), betas=(-1,0,1,-2)) where {F<:SparseFormat,T,M,N}
+    rowsiz = size(y)
+    colsiz = size(x)
+    size(A) == (rowsiz..., colsiz...) || error("incompatible array sizes")
+    nrows = prod(rowsiz)
+    ncols = prod(colsiz)
+    n = count(!iszero, A)
+    Tp = other_type(T)
+    constructor = sparse_constructor(F)
+    @testset "Sparse operators in $(brief(F)) format with `T=$T`, `M=$M`, and `N=$N`" begin
+        # Type hierarchy.
+        @test constructor <: SparseOperator
+        @test constructor <: SparseOperator{F}
+        @test constructor{T} <: SparseOperator{F,T}
+        @test constructor{T,M} <: SparseOperator{F,T,M}
+        @test constructor{T,M,N} <: SparseOperator{F,T,M,N}
 
-    # Make a COO version with randomly permuted entries.
-    kp = randperm(nnz(coo));
-    coo_perm = SparseOperatorCOO(nonzeros(coo)[kp],
-                                 row_indices(coo)[kp],
-                                 col_indices(coo)[kp],
-                                 output_size(coo),
-                                 input_size(coo));
-
-    # Make a COO version with randomly permuted entries and some duplicates.
-    # Use fractions 1/3 and 3/4 for duplicating so that there is no loss of
-    # precision.
-    l = 7
-    k = zeros(Int, length(kp) + l)
-    w = ones(T, length(k))
-    k[1:length(kp)] = kp
-    for i in 1:l
-        j1 = length(kp) - i + 1
-        j2 = length(kp) + i
-        w[j1] *= 1/4
-        w[j2] *= 3/4
-        k[j2] = k[j1]
-    end
-    coo_dups = SparseOperatorCOO(nonzeros(coo)[k] .* w,
-                                 row_indices(coo)[k],
-                                 col_indices(coo)[k],
-                                 output_size(coo),
-                                 input_size(coo))
-
-    # Check structures.
-    @test check_structure(csr) === csr
-    @test check_structure(csc) === csc
-    @test check_structure(coo) === coo
-
-    # Basic array-like methods
-    @test eltype(csr) === eltype(A)
-    @test eltype(csc) === eltype(A)
-    @test eltype(coo) === eltype(A)
-
-    @test length(csr) === length(A)
-    @test length(csc) === length(A)
-    @test length(coo) === length(A)
-
-    @test ndims(csr) === ndims(A)
-    @test ndims(csc) === ndims(A)
-    @test ndims(coo) === ndims(A)
-
-    @test size(csr) === size(A)
-    @test size(csc) === size(A)
-    @test size(coo) === size(A)
-
-    @test output_length(csr) === size(A,1)
-    @test output_length(csc) === size(A,1)
-    @test output_length(coo) === size(A,1)
-    @test output_length(spm) === size(A,1)
-
-    @test input_length(csr) === size(A,2)
-    @test input_length(csc) === size(A,2)
-    @test input_length(coo) === size(A,2)
-    @test input_length(spm) === size(A,2)
-
-    # Number of structural non-zeros.
-    nvals = count(x -> x != zero(x), A);
-    @test nnz(csr) === nvals
-    @test nnz(csc) === nvals
-    @test nnz(coo) === nvals
-    @test nnz(spm) === nvals
-    @test length(nonzeros(csr)) === nvals
-    @test length(nonzeros(csc)) === nvals
-    @test length(nonzeros(coo)) === nvals
-    @test length(nonzeros(spm)) === nvals
-
-    # `nonzeros` and `nonzeros` should yield the same object.
-    @test nonzeros(csr) === nonzeros(csr)
-    @test nonzeros(csc) === nonzeros(csc)
-    @test nonzeros(coo) === nonzeros(coo)
-    @test nonzeros(spm) === nonzeros(spm)
-
-    # Julia arrays are column-major so values and row indices should be the
-    # same in compressed sparse column (CSC) and compressed sparse coordinate
-    # (COO) formats.
-    @test nonzeros(coo) == nonzeros(csc)
-    @test row_indices(coo) == row_indices(csc)
-    @test col_indices(coo) == col_indices(csc)
-    @test nonzeros(coo) == nonzeros(spm)
-    @test row_indices(coo) == row_indices(spm)
-    @test col_indices(coo) == col_indices(spm)
-
-    # Check converting back to standard array.
-    @test Array(csr) == A
-    @test Array(csc) == A
-    @test Array(coo) == A
-    @test Array(spm) == A
-    @test Array(coo_perm) == A
-    @test Array(coo_dups) == A
-
-    # Check matrix-vector multiplication (more serious tests in another
-    # section).
-    Ax = A*x
-    Aty = A'*y
-    @test csr*x == Ax
-    @test csc*x == Ax
-    @test coo*x == Ax
-    @test csr'*y == Aty
-    @test csc'*y == Aty
-    @test coo'*y == Aty
-
-    # Check iterators.
-    B = Array{T}(undef, size(A))
-    @test unpack_with_iterator!(B, csr) == A
-    @test unpack_with_iterator!(B, csc) == A
-    @test unpack_with_iterator!(B, coo) == A
-
-    # Check conversions to COO, CSC and CSR formats.
-    for F in (:COO, :CSC, :CSR)
-        for src in (A, csc, csr, coo, coo_perm, coo_dups)
-            for (t, cnv) in ((T, CompressedSparseOperator{F}(src)),
-                             (T, CompressedSparseOperator{F,T}(src)),
-                             (Tp, CompressedSparseOperator{F,Tp}(src)),)
-                @test check_structure(cnv) === cnv
-                @test eltype(cnv) === t
-                if F === :COO
-                    @test (cnv === coo) == (t === T && src === coo)
-                    @test identical(cnv, coo) == (t === T && src === coo)
-                    if is_csc(src) || is_csr(src)
-                        if is_csc(src)
-                            @test row_indices(cnv) === row_indices(src)
-                        else
-                            @test row_indices(cnv) == row_indices(src)
-                        end
-                        if is_csr(src)
-                            @test col_indices(cnv) === col_indices(src)
-                        else
-                            @test col_indices(cnv) == col_indices(src)
-                        end
-                        if t === T
-                            @test nonzeros(cnv) === nonzeros(src)
-                        else
-                            @test nonzeros(cnv) == nonzeros(src)
-                        end
-                    end
-                elseif F === :CSC
-                    @test (cnv === csc) == (t === T && src === csc)
-                    @test identical(cnv, csc) == (t === T && src === csc)
-                    if is_csc(src)
-                        @test row_indices(cnv) === row_indices(csc)
-                    else
-                        @test row_indices(cnv) == row_indices(csc)
-                    end
-                    @test each_col_index(cnv) === each_col_index(csc)
-                    @test col_indices(cnv) == col_indices(csc)
-                    if is_csc(src) && t === T
-                        @test nonzeros(cnv) === nonzeros(csc)
-                    else
-                        @test nonzeros(cnv) == nonzeros(csc)
-                    end
-                elseif F === :CSR
-                    @test (cnv === csr) == (t === T && src === csr)
-                    @test identical(cnv, csr) == (t === T && src === csr)
-                    @test each_row_index(cnv) === each_row_index(csr)
-                    @test row_indices(cnv) == row_indices(csr)
-                    if is_csr(src)
-                        @test col_indices(cnv) === col_indices(csr)
-                    else
-                        @test col_indices(cnv) == col_indices(csr)
-                    end
-                    if is_csr(src) && t === T
-                        @test nonzeros(cnv) === nonzeros(csr)
-                    else
-                        @test nonzeros(cnv) == nonzeros(csr)
-                    end
-                end
-            end
+        # Constructors from the given array `A`.
+        #
+        # There are many different ways to build the same sparse operator from a given
+        # array. We check that they all yield the same result.
+        #
+        # Unless `A` is a matrix, at least `M` must be specified. This can be done by
+        # wrapping `A` in a pseudo-matrix.
+        #
+        # Check concrete constructor.
+        B = @inferred(constructor(PseudoMatrix(A, Dims{M})))
+        @test B isa constructor{T,M,N}
+        _B = @inferred(constructor{T}(PseudoMatrix(A, Dims{M})))
+        @test typeof(_B) === typeof(B)
+        @test _B == B
+        @test isequal(_B, B)
+        if (M,N) == (1,1)
+            _B = @inferred(constructor(A))
+            @test typeof(_B) === typeof(B)
+            @test _B == B
+            @test isequal(_B, B)
+            _B = @inferred(constructor{T}(A))
+            @test typeof(_B) === typeof(B)
+            @test _B == B
+            @test isequal(_B, B)
         end
-    end
-
-end # testset
-
-@testset "Sparse operations         " begin
-    rows = (2,3,4)
-    cols = (5,6)
-    M = length(rows)
-    N = length(cols)
-    for T in (Float32, Float64, Complex{Float64})
-        R = real(T);
-        ε = eps(R);
-        A = genarr(T, rows..., cols...; sparsity=0.7); # 70% of zeros
-        x = genarr(T, cols);
-        xsav = vcopy(x);
-        y = genarr(T, rows);
-        ysav = vcopy(y);
-        Scsc = SparseOperatorCSC{T,M,N}(A);
-        Scsr = SparseOperatorCSR{T,M,N}(A);
-        Scoo = SparseOperatorCOO{T,M,N}(A);
-
-        # Check basic methods.
-        for S in (Scsc, Scsr, Scoo)
-            @test eltype(S) === T
-            @test ndims(S) == length(rows) + length(cols)
-            @test is_endomorphism(S) == (rows == cols)
-            @test (LazyAlgebra.MorphismType(S) ===
-                   LazyAlgebra.Endomorphism()) == (rows == cols)
-            @test output_size(S) == rows
-            @test input_size(S) == cols
-            @test output_length(S) == prod(rows)
-            @test input_length(S) == prod(cols)
-            @test output_size(S) == rows
-            @test input_size(S) == cols
-            @test SparseOperator(S) === S
-            @test SparseOperator{T}(S) === S
-            @test SparseOperator{T,M}(S) === S
-            @test SparseOperator{T,M,N}(S) === S
-            @test LazyAlgebra.identical(SparseOperator(S), S)
-            @test LazyAlgebra.identical(SparseOperator{T}(S), S)
-            @test LazyAlgebra.identical(SparseOperator{T,M}(S), S)
-            @test LazyAlgebra.identical(SparseOperator{T,M,N}(S), S)
-
-            # Check `vmul!` and `vcreate` with integer valued multipliers so
-            # that exact results are expected.
-            Sx  = S*x;  @test x == xsav;
-            Sty = S'*y; @test y == ysav;
-            @test vdot(y, Sx) == vdot(Sty, x);
-            for α in (0, 1, -1, 3),
-                β in (0, 1, -1, 7),
-                scratch in (false, true)
-                # Test operator.
-                @test vmul!(α, Direct, S, x, scratch, β, vcopy(y)) ==
-                    R(α)*Sx + R(β)*y
-                if scratch
-                    vcopy!(x, xsav)
-                else
-                    @test x == xsav
-                end
-                # Test  adjoint.
-                @test vmul!(α, Adjoint, S, y, scratch, β, vcopy(x)) ==
-                    R(α)*Sty + R(β)*x
-                if scratch
-                    vcopy!(y, ysav)
-                else
-                    @test y == ysav
-                end
-            end
-
-            # Compare to results with a general matrix.
-            G = PseudoMatrix(A);
-            Gx  = G*x;  @test x == xsav;
-            Gty = G'*y; @test y == ysav;
-            @test Sx  == Gx
-            @test Sty == Gty
-
-            # Compare to results with a 2D matrix and 1D vectors.
-            Aflat = reshape(A, prod(rows), prod(cols));
-            xflat = reshape(x, prod(cols));
-            yflat = reshape(y, prod(rows));
-            @test Sx  == reshape(Aflat*xflat,  rows)
-            @test Sty == reshape(Aflat'*yflat, cols)
-
-            # Extract coefficients as an array or as a matrix.
-            A1 = Array(S);
-            @test eltype(A1) === eltype(S)
-            @test ndims(A1) == ndims(S)
-            @test size(A1) == (rows..., cols...,)
-            @test A1 == A
-            # FIXME: A2 = Matrix(S)
-            # FIXME: @test eltype(A2) === eltype(S)
-            # FIXME: @test ndims(A2) == 2
-            # FIXME: @test size(A2) == (prod(rows), prod(cols))
-            # FIXME: @test A2 == reshape(A, size(A2))
-            # FIXME: B = (A .!= 0) # make an array of booleans
-            # FIXME: @test Array(SparseOperator(B, length(rows))) == B
-
-            # Convert to another floating-point type.
-            T1 = (T <: Complex ?
-                  (real(T) === Float32 ? Complex{Float64} : Complex{Float32}) :
-                  (T === Float32 ? Float64 : Float32))
-            S1 = SparseOperator{T1}(S)
-            @test eltype(S1) === T1
-            @test ndims(S1) == ndims(S)
-            if is_csc(S) || is_coo(S)
-                @test row_indices(S1) === row_indices(S)
-            else
-                @test row_indices(S1) == row_indices(S)
-            end
-            if is_csr(S) || is_coo(S)
-                @test col_indices(S1) === col_indices(S)
-            else
-                @test col_indices(S1) == col_indices(S)
-            end
-            @test coefficients(S1) == coefficients(S)
-            @test LazyAlgebra.identical(S1, S) == false
-
-            # Check reshaping.
-            S2d = reshape(S, prod(output_size(S)), prod(input_size(S)))
-            @test eltype(S2d) === eltype(S)
-            @test ndims(S2d) == 2
-            if is_csc(S) || is_coo(S)
-                @test row_indices(S2d) === row_indices(S)
-            else
-                @test row_indices(S2d) == row_indices(S)
-            end
-            if is_csr(S) || is_coo(S)
-                @test col_indices(S2d) === col_indices(S)
-            else
-                @test col_indices(S2d) == col_indices(S)
-            end
-            @test coefficients(S2d) === coefficients(S)
-            @test LazyAlgebra.identical(S2d, S) == false
-
-            # FIXME: # Convert to a sparse matrix.
-            # FIXME: S2 = sparse(S)
-            # FIXME: @test eltype(S2) === eltype(S)
-            # FIXME: S3 = SparseOperator(S2)
-            # FIXME: @test eltype(S3) === eltype(S)
-            # FIXME: x2 = genarr(T, input_size(S3))
-            # FIXME: y2 = genarr(T, output_size(S3))
-            # FIXME: @test S2*x2 == S3*x2
-            # FIXME: @test S2'*y2 == S3'*y2
-            # FIXME:
-            # FIXME: # Check multiplication by a scalar.
-            # FIXME: @test 1*S === S
-            # FIXME: S0 = 0*S
-            # FIXME: @test isa(S0, SparseOperator)
-            # FIXME: @test length(row_indices(S0)) == 0
-            # FIXME: @test length(col_indices(S0)) == 0
-            # FIXME: @test length(coefficients(S0)) == 0
-            # FIXME: @test eltype(S0) == eltype(S)
-            # FIXME: @test input_size(S0) == input_size(S)
-            # FIXME: @test output_size(S0) == output_size(S)
-            # FIXME: α = R(π)
-            # FIXME: αS = α*S
-            # FIXME: @test isa(αS, SparseOperator)
-            # FIXME: @test row_indices(αS) === row_indices(S)
-            # FIXME: @test col_indices(αS) === col_indices(S)
-            # FIXME: @test coefficients(αS) == α*coefficients(S)
-            # FIXME: @test eltype(αS) == eltype(S)
-            # FIXME: @test input_size(αS) == input_size(S)
-            # FIXME: @test output_size(αS) == output_size(S)
-            # FIXME:
-            # FIXME: # Check left and right multiplication by a non-uniform rescaling
-            # FIXME: # operator.
-            # FIXME: w1 = genarr(T, output_size(S))
-            # FIXME: W1 = NonuniformScaling(w1)
-            # FIXME: W1_S = W1*S
-            # FIXME: c1 = (w1 .* A)[A .!= zero(T)]
-            # FIXME: @test isa(W1_S, SparseOperator)
-            # FIXME: @test eltype(W1_S) === T
-            # FIXME: @test output_size(W1_S) == output_size(S)
-            # FIXME: @test input_size(W1_S) == input_size(S)
-            # FIXME: @test row_indices(W1_S) === row_indices(S)
-            # FIXME: @test col_indices(W1_S) === col_indices(S)
-            # FIXME: @test coefficients(W1_S) == c1
-            # FIXME: w2 = genarr(T, input_size(S))
-            # FIXME: W2 = NonuniformScaling(w2)
-            # FIXME: S_W2 = S*W2
-            # FIXME: c2 = (A .* reshape(w2, (ones(Int, length(output_size(S)))...,
-            # FIXME:                         input_size(S)...,)))[A .!= zero(T)]
-            # FIXME: @test isa(S_W2, SparseOperator)
-            # FIXME: @test eltype(S_W2) === T
-            # FIXME: @test output_size(S_W2) == output_size(S)
-            # FIXME: @test input_size(S_W2) == input_size(S)
-            # FIXME: @test col_indices(S_W2) === col_indices(S)
-            # FIXME: @test row_indices(S_W2) === row_indices(S)
-            # FIXME: @test coefficients(S_W2) == c2
-            # FIXME:
-            # FIXME: # Use another constructor with integer conversion.
-            # FIXME: R = SparseOperator(Int32.(row_indices(S)),
-            # FIXME:                    Int64.(col_indices(S)),
-            # FIXME:                    coefficients(S),
-            # FIXME:                    Int32.(output_size(S)),
-            # FIXME:                    Int64.(input_size(S)))
-            # FIXME: @test Sx  == R*x
-            # FIXME: @test Sty == R'*y
+        _B = @inferred(constructor{T,M}(A))
+        @test typeof(_B) === typeof(B)
+        @test _B == B
+        @test isequal(_B, B)
+        _B = @inferred(constructor{T,M,N}(A))
+        @test typeof(_B) === typeof(B)
+        @test _B == B
+        @test isequal(_B, B)
+        #
+        # Same tests but with abstract constructor.
+        _B = @inferred(SparseOperator{F}(PseudoMatrix(A, Dims{M})))
+        @test typeof(_B) === typeof(B)
+        @test _B == B
+        @test isequal(_B, B)
+        _B = @inferred(SparseOperator{F,T}(PseudoMatrix(A, Dims{M})))
+        @test typeof(_B) === typeof(B)
+        @test _B == B
+        @test isequal(_B, B)
+        if (M,N) == (1,1)
+            _B = @inferred(SparseOperator{F}(A))
+            @test typeof(_B) === typeof(B)
+            @test _B == B
+            @test isequal(_B, B)
+            _B = @inferred(SparseOperator{F,T}(A))
+            @test typeof(_B) === typeof(B)
+            @test _B == B
+            @test isequal(_B, B)
         end
+        _B = @inferred(SparseOperator{F,T,M}(A))
+        @test typeof(_B) === typeof(B)
+        @test _B == B
+        @test isequal(_B, B)
+        _B = @inferred(SparseOperator{F,T,M,N}(A))
+        @test typeof(_B) === typeof(B)
+        @test _B == B
+        @test isequal(_B, B)
+        #
+        # `convert` calls constructor.
+        _B = @inferred(convert(constructor, PseudoMatrix(A, Dims{M})))
+        @test typeof(_B) === typeof(B)
+        @test _B == B
+        @test isequal(_B, B)
+        _B = @inferred(convert(constructor{T}, PseudoMatrix(A, Dims{M})))
+        @test typeof(_B) === typeof(B)
+        @test _B == B
+        @test isequal(_B, B)
+        if (M,N) == (1,1)
+            _B = @inferred(convert(constructor, A))
+            @test typeof(_B) === typeof(B)
+            @test _B == B
+            @test isequal(_B, B)
+            _B = @inferred(convert(constructor{T}, A))
+            @test typeof(_B) === typeof(B)
+            @test _B == B
+            @test isequal(_B, B)
+        end
+        _B = @inferred(convert(constructor{T,M}, A))
+        @test typeof(_B) === typeof(B)
+        @test _B == B
+        @test isequal(_B, B)
+        _B = @inferred(convert(constructor{T,M,N}, A))
+        @test typeof(_B) === typeof(B)
+        @test _B == B
+        @test isequal(_B, B)
+        #
+        # Same tests but with abstract constructor.
+        _B = @inferred(convert(SparseOperator{F}, PseudoMatrix(A, Dims{M})))
+        @test typeof(_B) === typeof(B)
+        @test _B == B
+        @test isequal(_B, B)
+        _B = @inferred(convert(SparseOperator{F,T}, PseudoMatrix(A, Dims{M})))
+        @test typeof(_B) === typeof(B)
+        @test _B == B
+        @test isequal(_B, B)
+        if (M,N) == (1,1)
+            _B = @inferred(convert(SparseOperator{F}, A))
+            @test typeof(_B) === typeof(B)
+            @test _B == B
+            @test isequal(_B, B)
+            _B = @inferred(convert(SparseOperator{F,T}, A))
+            @test typeof(_B) === typeof(B)
+            @test _B == B
+            @test isequal(_B, B)
+        end
+        _B = @inferred(convert(SparseOperator{F,T,M}, A))
+        @test typeof(_B) === typeof(B)
+        @test _B == B
+        @test isequal(_B, B)
+        _B = @inferred(convert(SparseOperator{F,T,M,N}, A))
+        @test typeof(_B) === typeof(B)
+        @test _B == B
+        @test isequal(_B, B)
+
+        # Conversion constructors that just return their argument unchanged.
+        @test @inferred(constructor(B)) === B
+        @test @inferred(constructor{T}(B)) === B
+        @test @inferred(constructor{T,M}(B)) === B
+        @test @inferred(constructor{T,M,N}(B)) === B
+        @test @inferred(SparseOperator(B)) === B
+        @test @inferred(SparseOperator{F}(B)) === B
+        @test @inferred(SparseOperator{F,T}(B)) === B
+        @test @inferred(SparseOperator{F,T,M}(B)) === B
+        @test @inferred(SparseOperator{F,T,M,N}(B)) === B
+
+        # Conversions that do nothing.
+        @test @inferred(convert(constructor, B)) === B
+        @test @inferred(convert(constructor{T}, B)) === B
+        @test @inferred(convert(constructor{T,M}, B)) === B
+        @test @inferred(convert(constructor{T,M,N}, B)) === B
+        @test @inferred(convert(SparseOperator{F}, B)) === B
+        @test @inferred(convert(SparseOperator{F,T}, B)) === B
+        @test @inferred(convert(SparseOperator{F,T,M}, B)) === B
+        @test @inferred(convert(SparseOperator{F,T,M,N}, B)) === B
+
+        # Conversion of element-type by the constructors.
+        Bp = @inferred(constructor{Tp}(PseudoMatrix(A, Dims{M})))
+        @test Bp isa constructor{Tp,M,N}
+
+        # Convert back to regular array.
+        C = @inferred(Array(B))
+        @test C isa Array{T,M+N}
+        @test C == A
+
+        # Check structures.
+        @test @inferred(check_structure(B)) === B
+
+        # Basic methods.
+        @test B == B
+        @test isequal(B, B)
+        @test @inferred(nnz(B)) == n
+        @test @inferred(nnz(adjoint(B))) == n
+        @test @inferred(nnz(transpose(B))) == n
+        @test @inferred(nnz(conj(B))) == n
+        @test @inferred(nonzeros(B)) isa AbstractVector{T}
+        @test length(@inferred(nonzeros(B))) == n
+        I, J, V = @inferred(findnz(B))
+        @test I === @inferred(row_indices(B))
+        @test J === @inferred(col_indices(B))
+        @test V === @inferred(nonzeros(B))
+        # TODO nonzeros for adjoint, conjugate, and transpose
+
+        # Element type trait.
+        @test @inferred(IteratorEltype(B)) == HasEltype()
+        @test @inferred(eltype(typeof(B))) === T
+        @test @inferred(IteratorEltype(adjoint(B))) == HasEltype()
+        @test @inferred(eltype(adjoint(B))) === T
+        @test @inferred(eltype(typeof(adjoint(B)))) === T
+        @test @inferred(IteratorEltype(conj(B))) == HasEltype()
+        @test @inferred(eltype(conj(B))) === T
+        @test @inferred(eltype(eltype(conj(B)))) === T
+        @test @inferred(IteratorEltype(transpose(B))) == HasEltype()
+        @test @inferred(eltype(transpose(B))) === T
+        @test @inferred(eltype(typeof(transpose(B)))) === T
+
+        # Abstract vector API.
+        @test @inferred(length(B)) == n
+        @test @inferred(eltype(B)) === T
+        vect = @inferred(collect(B))
+        @test vect isa Vector{T}
+        @test vect == @inferred(nonzeros(B))
+        @test vect !== @inferred(nonzeros(B))
+        #
+        C = @inferred(adjoint(B))
+        @test C isa Adjoint{typeof(B)}
+        @test @inferred(SparseFormat(C)) === @inferred(transpose(SparseFormat(B)))
+        @test @inferred(SparseFormat(typeof(C))) === @inferred(transpose(SparseFormat(B)))
+        @test @inferred(eltype(C)) === T
+        @test @inferred(length(C)) == n
+        @test @inferred(eachindex(C)) === @inferred(eachindex(B))
+        @test @inferred(nonzeros(C)) == conj.(nonzeros(B))
+        #
+        C = @inferred(conj(B))
+        @test C isa Conjugate{typeof(B)}
+        @test @inferred(SparseFormat(C)) === @inferred(SparseFormat(B))
+        @test @inferred(SparseFormat(typeof(C))) === @inferred(SparseFormat(B))
+        @test @inferred(eltype(C)) === T
+        @test @inferred(length(C)) == n
+        @test @inferred(eachindex(C)) === @inferred(eachindex(B))
+        @test @inferred(nonzeros(C)) == conj.(nonzeros(B))
+        #
+        C = @inferred(transpose(B))
+        @test C isa Transpose{typeof(B)}
+        @test @inferred(SparseFormat(C)) === @inferred(transpose(SparseFormat(B)))
+        @test @inferred(SparseFormat(typeof(C))) === @inferred(transpose(SparseFormat(B)))
+        @test @inferred(eltype(C)) === T
+        @test @inferred(length(C)) == n
+        @test @inferred(eachindex(C)) === @inferred(eachindex(B))
+        @test @inferred(nonzeros(C)) === nonzeros(B)
+
+        # getindex and setindex!
+        I = @inferred(collect(eachindex(B)))
+        C = @inferred(copy(B)) # copy to not disturb B
+        vals = @inferred(nonzeros(B))
+        @test check(isequal, C, vals, I)
+        @test check(isequal, transpose(C), vals, I)
+        conj_vals = conj.(vals)
+        @test check(isequal, adjoint(C), conj_vals, I)
+        @test check(isequal, conj(C), conj_vals, I)
+        #
+        vals = @inferred(copy(nonzeros(B))) # copy to not disturb B
+        map!(tweak_value(T), vals, I) # change all values
+        conj_vals = conj.(vals)
+        #
+        fill!(nonzeros(C), zero(T))
+        for i in I; C[i] = tweak_value(T, i); end
+        @test check(isequal, C, vals, I)
+        #
+        fill!(nonzeros(C), zero(T))
+        for i in I; transpose(C)[i] = tweak_value(T, i); end
+        @test check(isequal, C, vals, I)
+        #
+        fill!(nonzeros(C), zero(T))
+        for i in I; conj(C)[i] = tweak_value(T, i); end
+        @test check(isequal, C, conj_vals, I)
+        #
+        fill!(nonzeros(C), zero(T))
+        for i in I; adjoint(C)[i] = tweak_value(T, i); end
+        @test check(isequal, C, conj_vals, I)
+
+        # Format trait.
+        @test @inferred(SparseFormat(B)) === F()
+        @test @inferred(SparseFormat(typeof(B))) === F()
+        @test @inferred(SparseFormat(Adjoint{typeof(B)})) === @inferred(transpose(F()))
+        @test @inferred(SparseFormat(Transpose{typeof(B)})) === @inferred(transpose(F()))
+        @test @inferred(SparseFormat(Conjugate{typeof(B)})) === F()
+
+        # Input/output shapes.
+        @test @inferred(OutputShape(B)) === HasOutputShape{M}()
+        @test @inferred(OutputShape(typeof(B))) === HasOutputShape{M}()
+        @test as_array_axes(@inferred(output_shape(B))) === as_array_axes(rowsiz)
+        @test @inferred(output_length(B)) === prod(rowsiz)
+        @test @inferred(InputShape(B)) === HasInputShape{N}()
+        @test @inferred(InputShape(typeof(B))) === HasInputShape{N}()
+        @test as_array_axes(@inferred(input_shape(B))) === as_array_axes(colsiz)
+        @test @inferred(input_length(B)) === prod(colsiz)
+
+        # Input/output element types.
+        @test @inferred(OutputEltype(B)) === OutputEltypeUnknown()
+        @test @inferred(OutputEltype(typeof(B))) === OutputEltypeUnknown()
+        @test @inferred(InputEltype(B)) === InputEltypeUnknown()
+        @test @inferred(InputEltype(typeof(B))) === InputEltypeUnknown()
+
+        # Convert element type.
+        @test @inferred(convert_eltype(T, B)) === B
+        Bp = @inferred(convert_eltype(Tp, B))
+        @test Bp isa constructor{Tp,M,N}
+        @test @inferred(nonzeros(Bp)) isa AbstractVector{Tp}
+        @test @inferred(nonzeros(Bp)) == convert_eltype(Tp, nonzeros(B))
+
+        # Precision.
+        @test @inferred(get_precision(B)) === get_precision(T)
+        @test @inferred(get_precision(typeof(B))) === get_precision(T)
+        Bp = @inferred(adapt_precision(get_precision(Tp), B))
+        @test Bp isa constructor{Tp,M,N}
+        @test @inferred(nonzeros(Bp)) isa AbstractVector{Tp}
+        @test @inferred(nonzeros(Bp)) == adapt_precision(get_precision(Tp), nonzeros(B))
+
+        # Copy.
+        _B = @inferred(copy(B))
+        @test _B isa constructor{T,M,N}
+        @test _B == B
+        @test isequal(_B, B)
+        @test @inferred(nonzeros(_B)) isa AbstractVector{T}
+        @test @inferred(nonzeros(_B)) == @inferred(nonzeros(B))
+        @test @inferred(nonzeros(_B)) !== @inferred(nonzeros(B))
+        if F !== COO
+            @test @inferred(offsets(_B)) === @inferred(offsets(B))
+        end
+        if F === CSR
+            @test @inferred(row_indices(_B)) == @inferred(row_indices(B))
+        else
+            @test @inferred(row_indices(_B)) === @inferred(row_indices(B))
+        end
+        if F === CSC
+            @test @inferred(col_indices(_B)) == @inferred(col_indices(B))
+        else
+            @test @inferred(col_indices(_B)) === @inferred(col_indices(B))
+        end
+
+        # Deep copy.
+        _B = @inferred(deepcopy(B))
+        @test _B isa constructor{T,M,N}
+        @test _B == B
+        @test isequal(_B, B)
+        @test @inferred(nonzeros(_B)) isa AbstractVector{T}
+        @test @inferred(nonzeros(_B)) == @inferred(nonzeros(B))
+        @test @inferred(nonzeros(_B)) !== @inferred(nonzeros(B))
+        if F !== COO
+            @test @inferred(offsets(_B)) == @inferred(offsets(B))
+            @test @inferred(offsets(_B)) !== @inferred(offsets(B))
+        end
+        @test @inferred(row_indices(_B)) == @inferred(row_indices(B))
+        @test @inferred(row_indices(_B)) !== @inferred(row_indices(B))
+        @test @inferred(col_indices(_B)) == @inferred(col_indices(B))
+        @test @inferred(col_indices(_B)) !== @inferred(col_indices(B))
+
+        # Conversion to an other format.
+        if F !== COO
+            C = @inferred(convert(SparseOperator{COO}, B))
+            @test C isa SparseOperator{COO,T,M,N}
+            @test @inferred(SparseOperator{COO}(B)) == C
+        end
+        if F !== CSC
+            C = @inferred(convert(SparseOperator{CSC}, B))
+            @test C isa SparseOperator{CSC,T,M,N}
+            @test @inferred(SparseOperator{CSC}(B)) == C
+        end
+        if F !== CSR
+            C = @inferred(convert(SparseOperator{CSR}, B))
+            @test C isa SparseOperator{CSR,T,M,N}
+            @test @inferred(SparseOperator{CSR}(B)) == C
+        end
+
+        # Apply operator.
+        if (M,N) == (1,1)
+            A_x = A*x
+            Ac_x = conj.(A)*x
+            Ap_y = A'*y
+            At_y = transpose(A)*y
+        else
+            _A = reshape(A, (nrows, ncols))
+            _x = view(x, :)
+            _y = view(y, :)
+            A_x = reshape(_A*_x, rowsiz)
+            Ac_x = reshape(conj.(_A)*_x, rowsiz)
+            Ap_y = reshape(_A'*_y, colsiz)
+            At_y = reshape(transpose(_A)*_y, colsiz)
+        end
+        @test @inferred(B*x) == A_x
+        @test @inferred(conj(B)*x) == Ac_x
+        @test @inferred(B'*y) == Ap_y
+        @test @inferred(transpose(B)*y) == At_y
+        x_cpy = copy(x)
+        y_cpy = copy(y)
+        @testset "vmul!, α=$α, β=$β" for α in alphas, β in betas
+            Tz = typeof(unit(α)*zero(eltype(A))*zero(eltype(x)) + unit(β)*zero(eltype(y)))
+            _α = adapt_precision(get_precision(zero(eltype(A))*zero(eltype(x))), α)
+            _β = adapt_precision(get_precision(eltype(y)), β)
+            z = similar(y, Tz)
+            @test @inferred(vmul!(z, α, B, x, β, y)) === z
+            @test x == x_cpy
+            @test y == y_cpy
+            @test z == _α*A_x + _β*y
+            @test @inferred(vmul!(z, α, conj(B), x, β, y)) === z
+            @test x == x_cpy
+            @test y == y_cpy
+            @test z == _α*Ac_x + _β*y
+            z = similar(x, Tz)
+            @test @inferred(vmul!(z, α, B', y, β, x)) === z
+            @test x == x_cpy
+            @test y == y_cpy
+            @test z == _α*Ap_y + _β*x
+            @test @inferred(vmul!(z, α, transpose(B), y, β, x)) === z
+            @test x == x_cpy
+            @test y == y_cpy
+            @test z == _α*At_y + _β*x
+        end
+
+        # Additional tests for COO.
+        if F === COO
+            # Make a COO version with randomly permuted entries.
+            Ip = randperm(nnz(B))
+            Bp = @inferred(SparseOperatorCOO(nonzeros(B)[Ip],
+                                             row_indices(B)[Ip],
+                                             col_indices(B)[Ip],
+                                             output_size(B),
+                                             input_size(B)))
+            @test Bp isa SparseOperatorCOO{T,M,N}
+
+            # Apply operator.
+            @test @inferred(Bp*x) == A_x
+            @test @inferred(conj(Bp)*x) == Ac_x
+            @test @inferred(Bp'*y) == Ap_y
+            @test @inferred(transpose(Bp)*y) == At_y
+
+            # Convert back to regular array.
+            Ap = @inferred(Array(Bp))
+            @test Ap isa Array{T,M+N}
+            @test Ap == A
+
+            # Convert to CSR.
+            Cp = @inferred(SparseOperatorCSR(Bp))
+            @test Cp isa SparseOperatorCSR{T,M,N}
+            @test Cp == @inferred(SparseOperatorCSR(PseudoMatrix(A, Dims{M})))
+
+            # Convert to CSC.
+            Cp = @inferred(SparseOperatorCSC(Bp))
+            @test Cp isa SparseOperatorCSC{T,M,N}
+            @test Cp == @inferred(SparseOperatorCSC(PseudoMatrix(A, Dims{M})))
+
+            # Make a COO version with randomly permuted entries and some duplicates. Use
+            # fractions 1/3 and 3/4 for duplicating so that there is no loss of precision.
+            l = 7
+            I = zeros(Int, length(Ip) + l)
+            w = ones(float(real(T)), length(I))
+            I[1:length(Ip)] = Ip
+            for i in 1:l
+                j1 = length(Ip) - i + 1
+                j2 = length(Ip) + i
+                w[j1] *= 1/4
+                w[j2] *= 3/4
+                I[j2] = I[j1]
+            end
+            Bp = @inferred(SparseOperatorCOO(nonzeros(B)[I] .* w,
+                                             row_indices(B)[I],
+                                             col_indices(B)[I],
+                                             output_size(B),
+                                             input_size(B)))
+            @test Bp isa SparseOperatorCOO{T,M,N}
+
+            # Apply operator.
+            @test @inferred(Bp*x) == A_x
+            @test @inferred(conj(Bp)*x) == Ac_x
+            @test @inferred(Bp'*y) == Ap_y
+            @test @inferred(transpose(Bp)*y) == At_y
+
+            # Convert back to regular array.
+            Ap = @inferred(Array(Bp))
+            @test Ap isa Array{T,M+N}
+            @test Ap == A
+
+            # Convert to CSR.
+            Cp = @inferred(SparseOperatorCSR(Bp))
+            @test Cp isa SparseOperatorCSR{T,M,N}
+            @test Cp == @inferred(SparseOperatorCSR(PseudoMatrix(A, Dims{M})))
+
+            # Convert to CSC.
+            Cp = @inferred(SparseOperatorCSC(Bp))
+            @test Cp isa SparseOperatorCSC{T,M,N}
+            @test Cp == @inferred(SparseOperatorCSC(PseudoMatrix(A, Dims{M})))
+       end
     end
 end
-nothing
+
+function runtests()
+    @testset "Sparse operators" begin
+        @testset "Low level sparse utilities" begin
+            @test sparse_compressed_offsets(2, Int[]) == [0,0,0]
+            @test sparse_compressed_offsets(5, [2,2,3,5]) == [0,0,2,3,3,4]
+            @test sparse_compressed_offsets(5, [1,3,3]) == [0,1,1,3,3,3]
+            # Check for non-decreasing order.
+            @test_throws AssertionError sparse_compressed_offsets(5, [1,3,2])
+            # Check for out-of-bounds.
+            @test_throws AssertionError sparse_compressed_offsets(5, [0,3,3])
+            @test_throws AssertionError sparse_compressed_offsets(5, [1,3,7])
+        end
+        @testset "Compressed sparse formats" begin
+            @test COO === CompressedSparseCoordinate
+            @test CSC === CompressedSparseColumn
+            @test CSR === CompressedSparseRow
+            @test_throws ArgumentError SparseFormat(:COO)
+            @testset "... $F" for (F, Ft) in (COO => COO, CSR => CSC, CSC => CSR)
+                @test @inferred(SparseFormat(F)) === F()
+                @test @inferred(SparseFormat(F())) === F()
+                @test @inferred(transpose(F())) === Ft()
+                io = IOBuffer()
+                str = @inferred(summary(F))
+                @test str isa String
+                @test startswith(str, "Compressed Sparse ")
+                @test endswith(str, " format")
+                @test @inferred(summary(F())) == str
+                @test @inferred(summary(io, F)) === nothing
+                @test String(take!(io)) == str
+                @test @inferred(summary(io, F())) === nothing
+                @test String(take!(io)) == str
+            end
+        end
+
+        # Trial array with 60 (= 2*2*3*5) entries and predefined mask with many successive
+        # zeros to have some rows or columns of zeros.
+        T = Complex{Float32}
+        mask = Bool[1, 0, 1, 1, 0, 0, 0, 1, 0, 0, 1, 1, 1, 0, 0,
+                    1, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1,
+                    0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 1, 1, 0, 0, 0]
+        vals = zeros(T, size(mask))
+
+        # 12×5
+        rowsiz = (12,)
+        colsiz = (5,)
+        vals[mask] = genarr(T, count(mask))
+        A = reshape(vals, (rowsiz..., colsiz...))
+        x = genarr(T, colsiz)
+        y = genarr(T, rowsiz)
+        runtests(CSR, A, x, y)
+        runtests(CSC, A, x, y)
+        runtests(COO, A, x, y)
+
+        # 5×(2,3,2)
+        rowsiz = (5,)
+        colsiz = (2,3,2,)
+        vals[mask] = genarr(T, count(mask))
+        A = reshape(vals, (rowsiz..., colsiz...))
+        x = genarr(T, colsiz)
+        y = genarr(T, rowsiz)
+        runtests(CSR, A, x, y)
+        runtests(CSC, A, x, y)
+        runtests(COO, A, x, y)
+
+        # (2,3)×(5,2)
+        rowsiz = (2,3,)
+        colsiz = (5,2,)
+        vals[mask] = genarr(T, count(mask))
+        A = reshape(vals, (rowsiz..., colsiz...))
+        x = genarr(T, colsiz)
+        y = genarr(T, rowsiz)
+        runtests(CSR, A, x, y)
+        runtests(CSC, A, x, y)
+        runtests(COO, A, x, y)
+
+        # (5,2)×6
+        rowsiz = (5,2,)
+        colsiz = (6,)
+        vals[mask] = genarr(T, count(mask))
+        A = reshape(vals, (rowsiz..., colsiz...))
+        x = genarr(T, colsiz)
+        y = genarr(T, rowsiz)
+        runtests(CSR, A, x, y)
+        runtests(CSC, A, x, y)
+        runtests(COO, A, x, y)
+
+    end
+end # function
 
 end # module

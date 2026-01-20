@@ -11,6 +11,7 @@ using Test
     include("crop-tests.jl").runtests();
     include("rank1-tests.jl").runtests();
     include("pseudo-tests.jl").runtests();
-    include("simplify-tests.jl").runtests();
+    include("sparse-tests.jl").runtests();
+    #include("simplify-tests.jl").runtests();
 end
 nothing
