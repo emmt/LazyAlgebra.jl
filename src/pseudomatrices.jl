@@ -121,7 +121,26 @@ output_shape(A::PseudoMatrix{T,L,P}) where {T,L,P} = axes(parent(A))[1:L]
 
 function unsafe_vmul!(α::Number, A::PseudoMatrix, x::AbstractArray,
                       β::Number, y::AbstractArray)
-    C = parent(A) # array storing the coefficients
+    return unsafe_vmul!(α, identity, parent(A), Val(false), x, β, y)
+end
+
+function unsafe_vmul!(α::Number, A::Conjugate{<:PseudoMatrix}, x::AbstractArray,
+                      β::Number, y::AbstractArray)
+    return unsafe_vmul!(α, conj, parent(A), Val(false), x, β, y)
+end
+
+function unsafe_vmul!(α::Number, A::Transpose{<:PseudoMatrix}, x::AbstractArray,
+                      β::Number, y::AbstractArray)
+    return unsafe_vmul!(α, identity, parent(parent(A)), Val(true), x, β, y)
+end
+
+function unsafe_vmul!(α::Number, A::Adjoint{<:PseudoMatrix}, x::AbstractArray,
+                      β::Number, y::AbstractArray)
+    return unsafe_vmul!(α, conj, parent(parent(A)), Val(true), x, β, y)
+end
+
+function unsafe_vmul!(α::Number, f::Function, A::AbstractArray, ::Val{false}, x::AbstractArray,
+                      β::Number, y::AbstractArray)
     I = CartesianIndices(axes(y))
     J = CartesianIndices(axes(x))
     isone(β) || unsafe_vscale!(y, β)
@@ -129,24 +148,22 @@ function unsafe_vmul!(α::Number, A::PseudoMatrix, x::AbstractArray,
         αxⱼ = α*x[j]
         if !iszero(αxⱼ)
             @inbounds @fastmath @simd for i in I
-                y[i] += C[i,j]*αxⱼ
+                y[i] += f(A[i,j])*αxⱼ
             end
         end
     end
     return y
 end
 
-function unsafe_vmul!(α::Number, A::Adjoint{<:PseudoMatrix}, x::AbstractArray,
+function unsafe_vmul!(α::Number, f::Function, A::AbstractArray, ::Val{true}, x::AbstractArray,
                       β::Number, y::AbstractArray)
-    C = parent(parent(A)) # array storing the coefficients
     I = CartesianIndices(axes(x))
     J = CartesianIndices(axes(y))
-    t = zero(eltype(C))*zero(eltype(x))
-    T = typeof(t + t) # type of accumulator
+    T = typeof(0*f(zero(eltype(A)))*zero(eltype(x))) # type of accumulator
     @inbounds for j in J
         s = zero(T)
         @inbounds @fastmath @simd for i in I
-            s += conj(C[i,j])*x[i]
+            s += f(A[i,j])*x[i]
         end
         y[j] = α*s + β*y[j]
     end
