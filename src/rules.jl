@@ -160,8 +160,9 @@ Base.:(-)(A::Operator, B::Operator) = A + (-B)
 Base.:(∘)(A::Operator, B::Operator) = A * B
 
 # Multiplication of an operator by a scalar yields a scaled operator.
-Base.:(*)(A::Operator, β::Number  ) = β * A
-Base.:(*)(α::Number,   B::Operator) = Scaled(α, B)
+Base.:(*)(A::Operator,   β::Number  ) = β * A
+Base.:(*)(α::Number,     B::Operator) = Scaled(α, B)
+Base.:(*)(α::Neutral{1}, B::Operator) = B
 
 # Factorize multiplier to the left of a composition.
 Base.:(*)((α,A)::Scaled, B::Operator) = α * (A * B)
